@@ -1,8 +1,8 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/    PostgreSQL 16: esquema, datos de arranque, migraciones, consultas de control · 37 pruebas
-japp-api/   API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 35 endpoints · 124 pruebas de dominio + 44 de integración
+japp-db/    PostgreSQL 16: esquema, datos de arranque, migraciones, consultas de control · 39 pruebas
+japp-api/   API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 40 endpoints · 142 pruebas de dominio + 56 de integración
 japp-tpv/   el TPV (PWA). La API lo sirve en http://localhost:8080/
 ```
 
@@ -22,6 +22,8 @@ docker compose up --build -d
 - **Ajustes › Developer › Conexión API**: pestaña *Conexión y validación* (registro y diferencias) y pestaña *Probar peticiones (Swagger)*.
 - **Swagger suelto**: http://localhost:8080/api/v2/docs/ (entra con el PIN en la barra de arriba).
 - Desde otro equipo de la red: http://<IP del Mac>:8080/
+
+Todas las respuestas de la API tienen el formato `{ title, type, status, data, errors, traceId, author, mode }`.
 
 Tras cambiar código: `docker compose up --build -d` otra vez (la base se conserva).
 
