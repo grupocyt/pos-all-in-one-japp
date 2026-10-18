@@ -1,0 +1,21 @@
+{
+  "name": "japp-api",
+  "private": true,
+  "description": "Back de Japp TPV: API de tienda v2 (NestJS + Fastify + Drizzle + PostgreSQL) y reglas de negocio compartidas.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "contracts": "npm run generate -w @japp/contracts",
+    "db:pull": "npm run db:pull -w @japp/db",
+    "dev": "npm run dev -w store-api",
+    "start": "npm start -w store-api",
+    "db:init": "node ../japp-db/scripts/init.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

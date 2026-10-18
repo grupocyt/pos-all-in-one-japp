@@ -1,0 +1,1958 @@
+{
+ "_id": "3f6c2a1e-8b4d-4e2a-9c71-5d0e8f3a2b19",
+ "storeId": 20,
+ "status": "open",
+ "version": 24,
+ "tableData": {
+  "tableId": "c7e2f9a4-1b3d-4c6e-8f5a-9d2b1e4c7a60",
+  "name": "12",
+  "zone": "terraza",
+  "guests": 2,
+  "openedBy": {
+   "user": "Pablo",
+   "device": "TPV Terraza",
+   "at": "2026-09-23T15:20:00+02:00"
+  },
+  "lastEntry": {
+   "user": "Pablo",
+   "device": "TPV Terraza",
+   "at": "2026-09-23T15:20:00+02:00"
+  },
+  "lastExit": {
+   "user": "Lucía",
+   "device": "PDA 2",
+   "at": "2026-09-23T15:18:00+02:00"
+  },
+  "note": "Alergia a frutos secos. Silla de bebé."
+ },
+ "events": [
+  {
+   "type": "tableOpened",
+   "at": "2026-09-23T14:05:00+02:00",
+   "description": "Se abre la mesa 1 con 2 comensales",
+   "user": "Pablo",
+   "device": "TPV Terraza",
+   "role": "waiter"
+  },
+  {
+   "type": "userEntered",
+   "at": "2026-09-23T14:08:00+02:00",
+   "description": "Marta entra a la mesa",
+   "user": "Marta",
+   "device": "PDA 2",
+   "role": "waiter"
+  },
+  {
+   "type": "userExited",
+   "at": "2026-09-23T14:12:00+02:00",
+   "description": "Marta sale de la mesa",
+   "user": "Marta",
+   "device": "PDA 2",
+   "role": "waiter"
+  },
+  {
+   "type": "tableTransferred",
+   "at": "2026-09-23T14:40:00+02:00",
+   "description": "Se transfiere de la mesa 1 a la mesa 12",
+   "user": "Pablo",
+   "device": "TPV Terraza",
+   "role": "waiter"
+  },
+  {
+   "type": "noteAdded",
+   "at": "2026-09-23T14:42:00+02:00",
+   "description": "Se añade la nota: Alergia a frutos secos. Silla de bebé.",
+   "user": "Pablo",
+   "device": "TPV Terraza",
+   "role": "waiter"
+  },
+  {
+   "type": "guestsChanged",
+   "at": "2026-09-23T14:45:00+02:00",
+   "description": "Comensales: de 3 a 2",
+   "user": "Pablo",
+   "device": "TPV Terraza",
+   "role": "waiter"
+  },
+  {
+   "type": "accountsSplit",
+   "at": "2026-09-23T15:00:00+02:00",
+   "description": "La mesa se separa en 4 cuentas",
+   "user": "Lucía",
+   "device": "PDA 2",
+   "role": "waiter"
+  },
+  {
+   "type": "userEntered",
+   "at": "2026-09-23T15:10:00+02:00",
+   "description": "Lucía entra a la mesa",
+   "user": "Lucía",
+   "device": "PDA 2",
+   "role": "waiter"
+  },
+  {
+   "type": "userExited",
+   "at": "2026-09-23T15:18:00+02:00",
+   "description": "Lucía sale de la mesa",
+   "user": "Lucía",
+   "device": "PDA 2",
+   "role": "waiter"
+  },
+  {
+   "type": "userEntered",
+   "at": "2026-09-23T15:20:00+02:00",
+   "description": "Pablo entra a la mesa",
+   "user": "Pablo",
+   "device": "TPV Terraza",
+   "role": "waiter"
+  }
+ ],
+ "accounts": [
+  {
+   "id": "7d1e4b8a-2c6f-4a9d-b3e5-8f2c1a6d9e34",
+   "name": "Cuenta 1",
+   "status": "paid",
+   "openedBy": {
+    "user": "Pablo",
+    "role": "waiter",
+    "device": "TPV Terraza",
+    "at": "2026-09-23T14:05:00+02:00"
+   },
+   "closedBy": {
+    "user": "Pablo",
+    "role": "waiter",
+    "device": "TPV Terraza",
+    "at": "2026-09-23T15:40:05+02:00"
+   },
+   "lastEntry": {
+    "user": "Pablo",
+    "role": "waiter",
+    "device": "TPV Terraza",
+    "at": "2026-09-23T15:39:00+02:00"
+   },
+   "note": "Cliente habitual. Pide la factura por email.",
+   "lines": [
+    {
+     "id": "9a3c6e1f-4b8d-4f2a-a7c5-1e9b3d6f8a21",
+     "productId": 3004,
+     "name": "Croquetas de jamón (8 ud)",
+     "comment": "Para compartir, traer platos extra",
+     "quantity": 1,
+     "unitPrice": 10,
+     "iva": 1,
+     "netoProce": 9,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:11:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:11:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:10:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "9a3c6e1f-4b8d-4f2a-a7c5-1e9b3d6f8a21",
+       "productId": 3004,
+       "name": "Muy hecha",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "da71f808-a3ac-422b-bbd4-771cf03b1fad",
+       "productId": 9101,
+       "name": "Extra de alioli",
+       "quantity": 1,
+       "unitPrice": 1.5,
+       "iva": 0.14,
+       "netoProce": 1.36
+      },
+      {
+       "id": "76240b2f-829d-4f43-8370-a9cd9d8f48d6",
+       "productId": 9102,
+       "name": "Salsa brava aparte",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      }
+     ]
+    },
+    {
+     "id": "9a3c6e1f-4b8d-4f2a-a7c5-1e9b3d6f8a21",
+     "productId": 3005,
+     "name": "Croquetas de jamón (5 ud)",
+     "comment": null,
+     "quantity": 1,
+     "unitPrice": 10,
+     "iva": 1,
+     "netoProce": 9,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:11:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:11:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:10:00+02:00"
+     },
+     "modifiers": []
+    },
+    {
+     "id": "10277621-02e3-4c41-8fb9-92b6f770bc24",
+     "productId": 2010,
+     "name": "Entrecot de ternera",
+     "comment": "Cortar en dos para compartir",
+     "quantity": 1,
+     "unitPrice": 22,
+     "iva": 2,
+     "netoProce": 20,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:26:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:26:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:25:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "b6906a41-2c1f-4212-8d99-ec092bd07440",
+       "productId": 9201,
+       "name": "Poco hecho",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "fa92871d-1567-4980-9572-f952b4de38cf",
+       "productId": 9202,
+       "name": "Salsa Roquefort",
+       "quantity": 1,
+       "unitPrice": 2.5,
+       "iva": 0.23,
+       "netoProce": 2.27
+      },
+      {
+       "id": "bc0673fa-a7fa-4cc5-97fb-554c31fff3be",
+       "productId": 9203,
+       "name": "Guarnición: patatas fritas",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "0923d760-9a56-4681-8a36-91288ce39788",
+       "productId": 9204,
+       "name": "Cambiar a ensalada",
+       "quantity": 1,
+       "unitPrice": 1,
+       "iva": 0.09,
+       "netoProce": 0.91
+      }
+     ]
+    },
+    {
+     "id": "fbc46c7c-7ead-44cd-b892-693730ee7e84",
+     "productId": 2020,
+     "name": "Tortilla de patatas",
+     "comment": "Que salga junto con las croquetas",
+     "quantity": 1,
+     "unitPrice": 8.5,
+     "iva": 0.77,
+     "netoProce": 7.73,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:26:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:26:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:25:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "5d014b9c-a243-4528-8f8c-ef26e7e641fb",
+       "productId": 9301,
+       "name": "Con cebolla",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "788b348c-0ab1-4717-b235-2f592128977b",
+       "productId": 9302,
+       "name": "Poco cuajada",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      }
+     ]
+    },
+    {
+     "id": "facbbdca-4848-491b-bd97-ccc6bd10dc85",
+     "productId": 1010,
+     "name": "Caña",
+     "comment": null,
+     "quantity": 2,
+     "unitPrice": 2.5,
+     "iva": 0.23,
+     "netoProce": 2.27,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "BEBIDA",
+       "printer": "Impresora Barra",
+       "printed": true,
+       "interface": "tcp://127.0.0.71",
+       "at": "2026-09-23T14:09:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "origin": "tpv",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T14:08:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "c8ac6a57-937c-4fad-bb78-0295dbd3188e",
+       "productId": 9401,
+       "name": "Con limón",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      }
+     ]
+    },
+    {
+     "id": "dc5e20ff-f1fc-4d5a-87a0-d0b71ec66eca",
+     "productId": 1020,
+     "name": "Agua mineral 50 cl",
+     "comment": "Del tiempo, sin hielo",
+     "quantity": 1,
+     "unitPrice": 2,
+     "iva": 0.18,
+     "netoProce": 1.82,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "BEBIDA",
+       "printer": "Impresora Barra",
+       "printed": true,
+       "interface": "tcp://127.0.0.71",
+       "at": "2026-09-23T14:09:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "origin": "tpv",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T14:08:00+02:00"
+     },
+     "modifiers": []
+    },
+    {
+     "id": "1c616c7f-42e0-49fb-98a2-ad7fb0fc98c8",
+     "productId": 3010,
+     "name": "Tarta de queso",
+     "comment": "Con una vela: es un cumpleaños",
+     "quantity": 1,
+     "unitPrice": 6,
+     "iva": 0.55,
+     "netoProce": 5.45,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T15:06:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Lucía",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T15:05:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "b47f5760-d6ea-4116-aeca-018655cfcb83",
+       "productId": 9501,
+       "name": "Con helado de vainilla",
+       "quantity": 1,
+       "unitPrice": 1.8,
+       "iva": 0.16,
+       "netoProce": 1.64
+      },
+      {
+       "id": "d1f2b8ed-cdea-4c23-b041-6360d7bcf23f",
+       "productId": 9502,
+       "name": "Sin frutos rojos",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      }
+     ]
+    },
+    {
+     "id": "e40141e3-a805-49f7-a4a8-7f5a7410471a",
+     "productId": 1030,
+     "name": "Café con leche",
+     "comment": "Uno muy caliente",
+     "quantity": 2,
+     "unitPrice": 1.8,
+     "iva": 0.16,
+     "netoProce": 1.64,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "BEBIDA",
+       "printer": "Impresora Barra",
+       "printed": true,
+       "interface": "tcp://127.0.0.71",
+       "at": "2026-09-23T15:16:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Lucía",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T15:15:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "ab225913-6de1-4b27-b3c6-c743e26822fb",
+       "productId": 9601,
+       "name": "Leche de avena",
+       "quantity": 1,
+       "unitPrice": 0.4,
+       "iva": 0.04,
+       "netoProce": 0.36
+      },
+      {
+       "id": "2cb4bfa2-696b-4393-b5dd-4402452637e2",
+       "productId": 9602,
+       "name": "Descafeinado",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      }
+     ]
+    }
+   ],
+   "deletedLines": [
+    {
+     "id": "9a3c6e1f-4b8d-4f2a-a7c5-1e9b3d6f8a21",
+     "productId": 3005,
+     "name": "Croquetas de jamón (5 ud)",
+     "comment": null,
+     "quantity": 1,
+     "unitPrice": 10,
+     "iva": 1,
+     "netoProce": 9,
+     "printed": true,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:11:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:11:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:10:00+02:00"
+     },
+     "modifiers": []
+    },
+    {
+     "id": "efa3dbcb-1495-47d9-affe-a3827758925a",
+     "productId": 2060,
+     "name": "Hamburguesa de buey",
+     "comment": "El pan sin tostar",
+     "quantity": 1,
+     "unitPrice": 14,
+     "iva": 1.27,
+     "netoProce": 12.73,
+     "printed": true,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:26:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:26:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:25:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "8435f50e-c714-4c6c-9d08-b44040ac10b8",
+       "productId": 9910,
+       "name": "Sin cebolla",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "1e6b431e-80ce-4d04-82bf-6faffa3ff94d",
+       "productId": 9911,
+       "name": "Extra de bacon",
+       "quantity": 1,
+       "unitPrice": 1.5,
+       "iva": 0.14,
+       "netoProce": 1.36
+      },
+      {
+       "id": "e3f202cd-fefe-42b4-bffb-9b58687808f7",
+       "productId": 9912,
+       "name": "Punto: al punto",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      }
+     ]
+    }
+   ],
+   "discounts": null,
+   "payments": [
+    {
+     "id": "b7e2c9a1-4f3d-4a8e-9c61-2d5f8e1b7a03",
+     "method": "card",
+     "amount": 40,
+     "tip": 0,
+     "cashGiven": null,
+     "change": null,
+     "cashDetail": null,
+     "status": "declined",
+     "collectedBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:39:10+02:00"
+     },
+     "bankData": {
+      "provider": "redsys",
+      "merchantId": "999008881",
+      "terminalId": "001",
+      "transactionId": "2609231539A1",
+      "authorizationCode": null,
+      "responseCode": "0190",
+      "responseMessage": "Denegada sin especificar motivo",
+      "cardBrand": "VISA",
+      "maskedPan": "************4821",
+      "entryMode": "contactless",
+      "amount": 40,
+      "currency": "EUR",
+      "processedAt": "2026-09-23T15:39:14+02:00"
+     }
+    },
+    {
+     "id": "c1f5b9e3-4a7d-4d2c-8b6e-1a3f7c5e9d28",
+     "method": "card",
+     "amount": 50,
+     "tip": 2,
+     "cashGiven": null,
+     "change": null,
+     "cashDetail": null,
+     "status": "confirmed",
+     "collectedBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:39:50+02:00"
+     },
+     "bankData": {
+      "provider": "redsys",
+      "merchantId": "999008881",
+      "terminalId": "001",
+      "transactionId": "2609231539B7",
+      "authorizationCode": "AUT-55821",
+      "responseCode": "0000",
+      "responseMessage": "Operación autorizada",
+      "cardBrand": "MASTERCARD",
+      "maskedPan": "************7730",
+      "entryMode": "chip",
+      "amount": 52,
+      "currency": "EUR",
+      "processedAt": "2026-09-23T15:39:56+02:00"
+     }
+    },
+    {
+     "id": "f3a9c1e7-2d6b-4b8f-9e4a-7c1d5b3f8a26",
+     "method": "bizum",
+     "amount": 14.7,
+     "tip": 0,
+     "cashGiven": null,
+     "change": null,
+     "cashDetail": null,
+     "status": "confirmed",
+     "collectedBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:40:20+02:00"
+     },
+     "bankData": {
+      "provider": "bizum",
+      "merchantId": "999008881",
+      "terminalId": "001",
+      "transactionId": "BZ-7781203",
+      "authorizationCode": "BZ-7781203",
+      "responseCode": "0000",
+      "responseMessage": "Operación autorizada",
+      "maskedPhone": "+34 6** *** 412",
+      "amount": 14.7,
+      "currency": "EUR",
+      "processedAt": "2026-09-23T15:40:31+02:00"
+     }
+    },
+    {
+     "id": "e8d4a2f6-7b1c-4e9a-a3d5-6c2b9f1e4a87",
+     "method": "cash",
+     "amount": 10,
+     "tip": 0,
+     "cashGiven": 100,
+     "change": 90,
+     "cashDetail": {
+      "received": [
+       {
+        "value": 100,
+        "type": "bill",
+        "quantity": 1
+       }
+      ],
+      "returned": [
+       {
+        "value": 50,
+        "type": "bill",
+        "quantity": 1
+       },
+       {
+        "value": 20,
+        "type": "bill",
+        "quantity": 2
+       }
+      ]
+     },
+     "status": "confirmed",
+     "collectedBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:40:45+02:00"
+     },
+     "bankData": null
+    }
+   ],
+   "totals": {},
+   "customerData": {
+    "customerId": "c5a8e1f3-2b7d-4c9a-8e6f-1d3b5a7c9e20",
+    "type": "company",
+    "taxId": "B87654321",
+    "name": "Consultora Norte SL",
+    "email": "facturas@consultoranorte.es",
+    "phone": "+34 912 345 678",
+    "address": {
+     "street": "Paseo de la Castellana 100, 3º B",
+     "postalCode": "28046",
+     "city": "Madrid",
+     "province": "Madrid",
+     "country": "ES"
+    }
+   },
+   "invoice": {
+    "type": "F1",
+    "series": "F2026",
+    "sequence": 318,
+    "invoiceNumber": "F2026-000318",
+    "issuedAt": "2026-09-23T15:40:05+02:00",
+    "total": 74.7,
+    "verifactuQr": "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B12345678&numserie=F2026-000318&fecha=23-09-2026&importe=74.70"
+   },
+   "events": [
+    {
+     "type": "accountOpened",
+     "at": "2026-09-23T14:05:00+02:00",
+     "description": "Se abre la Cuenta 1",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:08:00+02:00",
+     "description": "Se añade Caña x2 (con limón) y Agua mineral 50 cl x1",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:10:00+02:00",
+     "description": "Se añade Croquetas de jamón (8 ud) x1 — 10,00 €",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "modifierAdded",
+     "at": "2026-09-23T14:10:00+02:00",
+     "description": "Se añade el modificador «Muy hecha» a Croquetas de jamón (8 ud)",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:10:00+02:00",
+     "description": "Se añade Croquetas de jamón (5 ud) x1 — 10,00 €",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "modifierAdded",
+     "at": "2026-09-23T14:10:00+02:00",
+     "description": "Se añaden «Extra de alioli» (+1,50 €) y «Salsa brava aparte» a Croquetas de jamón (8 ud)",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "linePrinted",
+     "at": "2026-09-23T14:11:00+02:00",
+     "description": "Comanda impresa en cocina: 2 productos",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:25:00+02:00",
+     "description": "Se añade Entrecot de ternera x1 con 4 modificadores (+3,50 €)",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:25:00+02:00",
+     "description": "Se añade Tortilla de patatas x1 (con cebolla, poco cuajada)",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:25:00+02:00",
+     "description": "Se añade Hamburguesa de buey x1 con 3 modificadores (+1,50 €)",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "linePrinted",
+     "at": "2026-09-23T14:26:00+02:00",
+     "description": "Comanda impresa en cocina: Entrecot, Tortilla",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineDeleted",
+     "at": "2026-09-23T14:30:00+02:00",
+     "description": "Se elimina Croquetas de jamón (5 ud) x1 — Motivo: error de marcaje — Autoriza: Pablo",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineDeleted",
+     "at": "2026-09-23T14:35:00+02:00",
+     "description": "Se elimina Hamburguesa de buey x1 con sus modificadores — Motivo: cambio de plato — Autoriza: Pablo",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:05:00+02:00",
+     "description": "Se añade Tarta de queso x1 con helado de vainilla (+1,80 €)",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:15:00+02:00",
+     "description": "Se añade Café con leche x2 (leche de avena +0,40 €, descafeinado)",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "preBillPrinted",
+     "at": "2026-09-23T15:30:00+02:00",
+     "description": "Se imprime la precuenta: 74,70 €",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "customerAdded",
+     "at": "2026-09-23T15:38:30+02:00",
+     "description": "Se asignan datos del cliente: Consultora Norte SL (B87654321)",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "paymentDeclined",
+     "at": "2026-09-23T15:39:14+02:00",
+     "description": "Tarjeta VISA ****4821 denegada: 40,00 € (código 0190)",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "paymentAdded",
+     "at": "2026-09-23T15:39:56+02:00",
+     "description": "Pago con tarjeta MASTERCARD ****7730: 50,00 € + 2,00 € de propina",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "accountClosed",
+     "at": "2026-09-23T15:40:05+02:00",
+     "description": "Se cierra la Cuenta 1: pagada",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "invoiceIssued",
+     "at": "2026-09-23T15:40:05+02:00",
+     "description": "Se emite la factura F2026-000318 (74,70 €) con QR VERI*FACTU",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "paymentAdded",
+     "at": "2026-09-23T15:40:31+02:00",
+     "description": "Pago con Bizum: 14,70 €",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "paymentAdded",
+     "at": "2026-09-23T15:40:45+02:00",
+     "description": "Pago en efectivo: 10,00 € — entrega 100,00 €, cambio 90,00 €",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    }
+   ]
+  },
+  {
+   "id": "42d1e2f6-8b1a-4545-a3da-ae0085884df5",
+   "name": "Cuenta 2",
+   "status": "open",
+   "openedBy": {
+    "user": "Lucía",
+    "role": "waiter",
+    "device": "PDA 2",
+    "at": "2026-09-23T15:00:00+02:00"
+   },
+   "closedBy": null,
+   "lastEntry": {
+    "user": "Lucía",
+    "role": "waiter",
+    "device": "PDA 2",
+    "at": "2026-09-23T15:33:00+02:00"
+   },
+   "note": "Sin gluten para la persona de la silla 3. Postres al final.",
+   "lines": [
+    {
+     "id": "99033fdf-813b-4131-85c7-6101ab5e0b41",
+     "productId": 1040,
+     "name": "Copa de Rioja Crianza",
+     "comment": null,
+     "quantity": 2,
+     "unitPrice": 3.8,
+     "iva": 0.35,
+     "netoProce": 3.45,
+     "printed": true,
+     "status": "printed",
+     "printers": [
+      {
+       "area": "BEBIDA",
+       "printer": "Impresora Barra",
+       "printed": true,
+       "interface": "tcp://127.0.0.71",
+       "at": "2026-09-23T15:03:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Lucía",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T15:02:00+02:00"
+     },
+     "modifiers": []
+    },
+    {
+     "id": "6d1cecda-013b-4e08-91fc-10dbefec0a8a",
+     "productId": 2030,
+     "name": "Pulpo a la gallega",
+     "comment": "Sin aceite por encima, aparte",
+     "quantity": 1,
+     "unitPrice": 18.5,
+     "iva": 1.68,
+     "netoProce": 16.82,
+     "printed": true,
+     "status": "printed",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T15:06:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T15:06:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Lucía",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T15:05:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "732322eb-0f4d-46fe-89bf-754b3726f110",
+       "productId": 9701,
+       "name": "Sin pimentón",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "0b38feac-e9fc-44ca-9239-51713931f662",
+       "productId": 9702,
+       "name": "Ración extra de cachelos",
+       "quantity": 1,
+       "unitPrice": 2,
+       "iva": 0.18,
+       "netoProce": 1.82
+      }
+     ]
+    },
+    {
+     "id": "390f88b4-2e8b-40c9-b33d-44b03aca3eb5",
+     "productId": 3020,
+     "name": "Crema catalana",
+     "comment": "Servir con el café",
+     "quantity": 1,
+     "unitPrice": 5.5,
+     "iva": 0.5,
+     "netoProce": 5,
+     "printed": false,
+     "status": "pendingPrint",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": false,
+       "interface": "tcp://127.0.0.70",
+       "at": null
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": false,
+       "interface": "tcp://127.0.0.72",
+       "at": null
+      }
+     ],
+     "createdBy": {
+      "user": "Lucía",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T15:32:00+02:00"
+     },
+     "modifiers": []
+    },
+    {
+     "id": "66680d29-003a-4416-aea7-18dfa5a1f372",
+     "productId": 1030,
+     "name": "Café solo",
+     "comment": null,
+     "quantity": 1,
+     "unitPrice": 1.4,
+     "iva": 0.13,
+     "netoProce": 1.27,
+     "printed": false,
+     "status": "pendingPrint",
+     "printers": [
+      {
+       "area": "BEBIDA",
+       "printer": "Impresora Barra",
+       "printed": false,
+       "interface": "tcp://127.0.0.71",
+       "at": null
+      }
+     ],
+     "createdBy": {
+      "user": "Lucía",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T15:33:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "ed173910-5c5f-4040-8592-c256fc5c34aa",
+       "productId": 9603,
+       "name": "Con hielo",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      }
+     ]
+    }
+   ],
+   "deletedLines": [
+    {
+     "id": "bd7b8c27-042a-4072-8132-6203c7778476",
+     "productId": 1060,
+     "name": "Refresco de cola",
+     "comment": null,
+     "quantity": 1,
+     "unitPrice": 2.8,
+     "iva": 0.25,
+     "netoProce": 2.55,
+     "printed": false,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "BEBIDA",
+       "printer": "Impresora Barra",
+       "printed": false,
+       "interface": "tcp://127.0.0.71",
+       "at": null
+      }
+     ],
+     "createdBy": {
+      "user": "Lucía",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T15:02:00+02:00"
+     },
+     "modifiers": []
+    },
+    {
+     "id": "1df27908-efb3-4c68-b0bc-de8ea3ef6c41",
+     "productId": 2070,
+     "name": "Pimientos de padrón",
+     "comment": "Que piquen poco",
+     "quantity": 1,
+     "unitPrice": 7,
+     "iva": 0.64,
+     "netoProce": 6.36,
+     "printed": true,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T15:06:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T15:06:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Lucía",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T15:05:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "2b699f6e-7d40-4f47-865f-18715f4feb2a",
+       "productId": 9920,
+       "name": "Sin sal gruesa",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "426e498b-5e37-4c2c-a95d-92fcee02db3c",
+       "productId": 9921,
+       "name": "Ración grande",
+       "quantity": 1,
+       "unitPrice": 2.5,
+       "iva": 0.23,
+       "netoProce": 2.27
+      }
+     ]
+    }
+   ],
+   "discounts": null,
+   "payments": null,
+   "totals": {},
+   "customerData": null,
+   "invoice": null,
+   "events": [
+    {
+     "type": "accountOpened",
+     "at": "2026-09-23T15:00:00+02:00",
+     "description": "Se abre la Cuenta 2 (separación de cuenta)",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:02:00+02:00",
+     "description": "Se añade Copa de Rioja Crianza x2",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:02:00+02:00",
+     "description": "Se añade Refresco de cola x1",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineDeleted",
+     "at": "2026-09-23T15:03:00+02:00",
+     "description": "Se elimina Refresco de cola x1 antes de imprimir — Motivo: error de marcaje",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:05:00+02:00",
+     "description": "Se añade Pulpo a la gallega x1 con 2 modificadores (+2,00 €)",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:05:00+02:00",
+     "description": "Se añade Pimientos de padrón x1 con 2 modificadores (+2,50 €)",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "linePrinted",
+     "at": "2026-09-23T15:06:00+02:00",
+     "description": "Comanda impresa: Copa de Rioja x2, Pulpo a la gallega",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineDeleted",
+     "at": "2026-09-23T15:10:00+02:00",
+     "description": "Se elimina Pimientos de padrón x1 con sus modificadores — Motivo: producto agotado — Autoriza: Pablo",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:32:00+02:00",
+     "description": "Se añade Crema catalana x1 (pendiente de imprimir)",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:33:00+02:00",
+     "description": "Se añade Café solo x1 con hielo (pendiente de imprimir)",
+     "user": "Lucía",
+     "device": "PDA 2",
+     "role": "waiter"
+    }
+   ]
+  },
+  {
+   "id": "f446a3c6-96ab-4da9-95f7-ea7ee62e5e76",
+   "name": "Cuenta 3",
+   "status": "billing",
+   "openedBy": {
+    "user": "Pablo",
+    "role": "waiter",
+    "device": "TPV Terraza",
+    "at": "2026-09-23T14:50:00+02:00"
+   },
+   "closedBy": null,
+   "lastEntry": {
+    "user": "Pablo",
+    "role": "waiter",
+    "device": "TPV Terraza",
+    "at": "2026-09-23T15:38:00+02:00"
+   },
+   "note": "Paga con dos tarjetas. Esperar a que confirme el importe.",
+   "lines": [
+    {
+     "id": "c764d78a-9356-49af-902f-bbdcac2cd8cf",
+     "productId": 2040,
+     "name": "Paella de marisco (2 pers.)",
+     "comment": "Alergia a frutos secos en la mesa: sin contaminación cruzada",
+     "quantity": 1,
+     "unitPrice": 32,
+     "iva": 2.91,
+     "netoProce": 29.09,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:53:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:53:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "origin": "tpv",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T14:52:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "5afb7294-8b60-4af1-8122-1673c877b8a3",
+       "productId": 9801,
+       "name": "Sin mejillones",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "26f94744-c91a-40ed-9c3e-420266990684",
+       "productId": 9802,
+       "name": "Alioli aparte",
+       "quantity": 1,
+       "unitPrice": 0.8,
+       "iva": 0.07,
+       "netoProce": 0.73
+      }
+     ]
+    },
+    {
+     "id": "b6ecf375-0f72-4a87-9e07-4402f08f5ece",
+     "productId": 1050,
+     "name": "Sangría (jarra 1 l)",
+     "comment": "Poco hielo",
+     "quantity": 1,
+     "unitPrice": 14,
+     "iva": 1.27,
+     "netoProce": 12.73,
+     "printed": true,
+     "status": "preBill",
+     "printers": [
+      {
+       "area": "BEBIDA",
+       "printer": "Impresora Barra",
+       "printed": true,
+       "interface": "tcp://127.0.0.71",
+       "at": "2026-09-23T14:53:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "origin": "tpv",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T14:52:00+02:00"
+     },
+     "modifiers": []
+    }
+   ],
+   "deletedLines": [
+    {
+     "id": "b02184d0-a92c-4e9c-90ed-aa600b53d783",
+     "productId": 3030,
+     "name": "Helado de turrón",
+     "comment": "Ojo: lleva frutos secos",
+     "quantity": 1,
+     "unitPrice": 4.5,
+     "iva": 0.41,
+     "netoProce": 4.09,
+     "printed": true,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T15:21:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "origin": "tpv",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:20:00+02:00"
+     },
+     "modifiers": []
+    },
+    {
+     "id": "23887d90-5816-4caa-b9df-e9b708a4681e",
+     "productId": 2080,
+     "name": "Calamares a la romana",
+     "comment": null,
+     "quantity": 1,
+     "unitPrice": 11.5,
+     "iva": 1.05,
+     "netoProce": 10.45,
+     "printed": true,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:53:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:53:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "origin": "tpv",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T14:52:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "5c5331d8-62e0-4b22-be7a-4bbd850e40ca",
+       "productId": 9930,
+       "name": "Con limón extra",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "86ed87d1-7389-4740-b5c8-53775d8632f1",
+       "productId": 9931,
+       "name": "Salsa tártara",
+       "quantity": 1,
+       "unitPrice": 1.2,
+       "iva": 0.11,
+       "netoProce": 1.09
+      }
+     ]
+    }
+   ],
+   "discounts": [
+    {
+     "id": "d8c3f6a1-2e5b-4b9d-a7e4-5c1f8b3d6a92",
+     "source": "coupon",
+     "couponId": "3a9d1f5c-7b4e-4e8a-b2c6-8d5f1a9e3c47",
+     "couponCode": "OTONO10",
+     "type": "percentage",
+     "value": 10,
+     "baseAmount": 46.8,
+     "amount": 4.68,
+     "reason": "Cupón de temporada",
+     "status": "applied",
+     "appliedBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:34:00+02:00"
+     },
+     "authorizedBy": null,
+     "removedBy": null
+    },
+    {
+     "id": "5e1b7d3a-8c4f-4a2e-b6d9-3f7a1c8e5b24",
+     "source": "manual",
+     "couponId": null,
+     "couponCode": null,
+     "type": "fixed",
+     "value": 3,
+     "baseAmount": 46.8,
+     "amount": 3,
+     "reason": "Retraso en cocina",
+     "status": "applied",
+     "appliedBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:34:30+02:00"
+     },
+     "authorizedBy": {
+      "user": "Marcos",
+      "role": "manager",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:34:30+02:00"
+     },
+     "removedBy": null
+    },
+    {
+     "id": "9a2f6c8e-1d4b-4e7a-a5c3-8b1e6d2f9a57",
+     "source": "promotion",
+     "couponId": null,
+     "couponCode": null,
+     "type": "percentage",
+     "value": 15,
+     "baseAmount": 46.8,
+     "amount": 7.02,
+     "reason": "Happy hour (no aplica: fuera de horario)",
+     "status": "removed",
+     "appliedBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:33:00+02:00"
+     },
+     "authorizedBy": null,
+     "removedBy": {
+      "user": "Marcos",
+      "role": "manager",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:33:40+02:00"
+     }
+    }
+   ],
+   "payments": [
+    {
+     "id": "a4c8e2f1-9b3d-4f6a-8e1c-5d7b2a9f3c40",
+     "method": "card",
+     "amount": 20,
+     "tip": 0,
+     "cashGiven": null,
+     "change": null,
+     "cashDetail": null,
+     "status": "confirmed",
+     "collectedBy": {
+      "user": "Pablo",
+      "role": "waiter",
+      "device": "TPV Terraza",
+      "at": "2026-09-23T15:39:30+02:00"
+     },
+     "bankData": {
+      "provider": "redsys",
+      "merchantId": "999008881",
+      "terminalId": "001",
+      "transactionId": "2609231539C2",
+      "authorizationCode": "AUT-60417",
+      "responseCode": "0000",
+      "responseMessage": "Operación autorizada",
+      "cardBrand": "VISA",
+      "maskedPan": "************1195",
+      "entryMode": "contactless",
+      "amount": 20,
+      "currency": "EUR",
+      "processedAt": "2026-09-23T15:39:36+02:00"
+     }
+    }
+   ],
+   "totals": {},
+   "customerData": {
+    "customerId": null,
+    "type": "person",
+    "taxId": "12345678Z",
+    "name": "Laura Gómez Ruiz",
+    "email": "laura.gomez@example.com",
+    "phone": "+34 600 123 456",
+    "address": {
+     "street": "Calle Mayor 12, 2º A",
+     "postalCode": "28013",
+     "city": "Madrid",
+     "province": "Madrid",
+     "country": "ES"
+    }
+   },
+   "invoice": null,
+   "events": [
+    {
+     "type": "accountOpened",
+     "at": "2026-09-23T14:50:00+02:00",
+     "description": "Se abre la Cuenta 3",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:52:00+02:00",
+     "description": "Se añade Paella de marisco x1 y Sangría (jarra 1 l) x1",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:52:00+02:00",
+     "description": "Se añade Calamares a la romana x1 con 2 modificadores (+1,20 €)",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "linePrinted",
+     "at": "2026-09-23T14:53:00+02:00",
+     "description": "Comanda impresa: Paella de marisco, Sangría",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "lineDeleted",
+     "at": "2026-09-23T15:00:00+02:00",
+     "description": "Se elimina Calamares a la romana x1 con sus modificadores — Motivo: el cliente cambió de opinión",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T15:20:00+02:00",
+     "description": "Se añade Helado de turrón x1",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "discountApplied",
+     "at": "2026-09-23T15:33:00+02:00",
+     "description": "Se aplica promoción Happy hour 15 %: −7,02 €",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "discountRemoved",
+     "at": "2026-09-23T15:33:40+02:00",
+     "description": "Se retira promoción Happy hour 15 % — Motivo: fuera de horario",
+     "user": "Marcos",
+     "device": "TPV Terraza",
+     "role": "manager"
+    },
+    {
+     "type": "discountApplied",
+     "at": "2026-09-23T15:34:00+02:00",
+     "description": "Se aplica cupón OTONO10 (10 %): −4,68 €",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "discountApplied",
+     "at": "2026-09-23T15:34:30+02:00",
+     "description": "Se aplica descuento manual de 3,00 € — Motivo: retraso en cocina — Autoriza: Marcos",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "preBillPrinted",
+     "at": "2026-09-23T15:35:00+02:00",
+     "description": "Se imprime la precuenta: 51,30 €",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "customerAdded",
+     "at": "2026-09-23T15:36:00+02:00",
+     "description": "Se asignan datos del cliente: Laura Gómez Ruiz (12345678Z)",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "lineDeleted",
+     "at": "2026-09-23T15:37:00+02:00",
+     "description": "Se elimina Helado de turrón x1 tras la precuenta — Motivo: el cliente no lo pidió — Autoriza: encargado",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "preBillPrinted",
+     "at": "2026-09-23T15:38:00+02:00",
+     "description": "Se reimprime la precuenta: 46,80 € − 7,68 € de descuentos = 39,12 €",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    },
+    {
+     "type": "paymentAdded",
+     "at": "2026-09-23T15:39:36+02:00",
+     "description": "Pago parcial con tarjeta VISA ****1195: 20,00 € — pendiente 19,12 €",
+     "user": "Pablo",
+     "device": "TPV Terraza",
+     "role": "waiter"
+    }
+   ]
+  },
+  {
+   "id": "36af6888-0f9a-4858-959b-579a8a612e86",
+   "name": "Cuenta 4",
+   "status": "cancelled",
+   "openedBy": {
+    "user": "Marta",
+    "role": "waiter",
+    "device": "PDA 2",
+    "at": "2026-09-23T14:15:00+02:00"
+   },
+   "closedBy": {
+    "user": "Marta",
+    "role": "waiter",
+    "device": "PDA 2",
+    "at": "2026-09-23T14:22:00+02:00"
+   },
+   "lastEntry": {
+    "user": "Marta",
+    "role": "waiter",
+    "device": "PDA 2",
+    "at": "2026-09-23T14:21:00+02:00"
+   },
+   "note": "Cuenta abierta por error; se anula a petición del encargado.",
+   "lines": [],
+   "deletedLines": [
+    {
+     "id": "c4e55a45-0a41-4a41-b0cc-bd2a410243a5",
+     "productId": 1010,
+     "name": "Caña",
+     "comment": null,
+     "quantity": 3,
+     "unitPrice": 2.5,
+     "iva": 0.23,
+     "netoProce": 2.27,
+     "printed": true,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "BEBIDA",
+       "printer": "Impresora Barra",
+       "printed": true,
+       "interface": "tcp://127.0.0.71",
+       "at": "2026-09-23T14:17:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:16:00+02:00"
+     },
+     "modifiers": []
+    },
+    {
+     "id": "0795cbfb-0500-416d-936a-59279979a473",
+     "productId": 2050,
+     "name": "Patatas bravas",
+     "comment": "Salsa aparte",
+     "quantity": 1,
+     "unitPrice": 6.5,
+     "iva": 0.59,
+     "netoProce": 5.91,
+     "printed": true,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:17:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:17:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:16:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "363133be-86ef-4c8d-b747-c1366ea8c655",
+       "productId": 9901,
+       "name": "Picante extra",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      }
+     ]
+    },
+    {
+     "id": "c177c7bd-5d79-40b0-b2e6-accbd658d061",
+     "productId": 2090,
+     "name": "Ensalada mixta",
+     "comment": null,
+     "quantity": 1,
+     "unitPrice": 8,
+     "iva": 0.73,
+     "netoProce": 7.27,
+     "printed": true,
+     "status": "deleted",
+     "printers": [
+      {
+       "area": "COCINA",
+       "printer": "Impresora Cocina",
+       "printed": true,
+       "interface": "tcp://127.0.0.70",
+       "at": "2026-09-23T14:17:00+02:00"
+      },
+      {
+       "area": "PASE",
+       "printer": "Impresora Pase",
+       "printed": true,
+       "interface": "tcp://127.0.0.72",
+       "at": "2026-09-23T14:17:00+02:00"
+      }
+     ],
+     "createdBy": {
+      "user": "Marta",
+      "role": "waiter",
+      "origin": "pda",
+      "device": "PDA 2",
+      "at": "2026-09-23T14:16:00+02:00"
+     },
+     "modifiers": [
+      {
+       "id": "28447695-8357-440b-9565-8b3182a107c6",
+       "productId": 9940,
+       "name": "Sin atún",
+       "quantity": 1,
+       "unitPrice": 0,
+       "iva": 0,
+       "netoProce": 0
+      },
+      {
+       "id": "35a43e43-4ec6-4c82-8cc7-111ffa696bf2",
+       "productId": 9941,
+       "name": "Con aguacate",
+       "quantity": 1,
+       "unitPrice": 1.8,
+       "iva": 0.16,
+       "netoProce": 1.64
+      }
+     ]
+    }
+   ],
+   "discounts": null,
+   "payments": null,
+   "totals": {},
+   "customerData": null,
+   "invoice": null,
+   "events": [
+    {
+     "type": "accountOpened",
+     "at": "2026-09-23T14:15:00+02:00",
+     "description": "Se abre la Cuenta 4",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineAdded",
+     "at": "2026-09-23T14:16:00+02:00",
+     "description": "Se añade Caña x3, Patatas bravas x1 y Ensalada mixta x1 (sin atún, con aguacate +1,80 €)",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "lineDeleted",
+     "at": "2026-09-23T14:21:00+02:00",
+     "description": "Se eliminan todos los productos — Motivo: cuenta abierta por error",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    },
+    {
+     "type": "accountClosed",
+     "at": "2026-09-23T14:22:00+02:00",
+     "description": "Se anula la Cuenta 4",
+     "user": "Marta",
+     "device": "PDA 2",
+     "role": "waiter"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "japp-db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Base de datos de Japp TPV (PostgreSQL 16): esquema, datos de arranque, consultas de verificación y pruebas.",
+  "type": "module",
+  "scripts": {
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:reset": "node scripts/apply.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test": "vitest run",
+    "verify": "node scripts/verify.mjs",
+    "db:init": "node scripts/init.mjs"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "2.4.6",
+    "@types/node": "22.9.0",
+    "@types/pg": "8.11.10",
+    "bcryptjs": "2.4.3",
+    "typescript": "5.6.3",
+    "vitest": "2.1.8"
+  },
+  "dependencies": {
+    "pg": "8.13.1"
+  }
+}

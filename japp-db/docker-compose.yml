@@ -1,0 +1,17 @@
+# PostgreSQL local para desarrollo y pruebas (misma versión mayor que el servidor de tienda).
+services:
+  db:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: japp
+      POSTGRES_PASSWORD: japp_local
+      POSTGRES_DB: japp
+      TZ: UTC
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U japp"]
+      interval: 2s
+      retries: 30
+volumes:
+  pgdata:

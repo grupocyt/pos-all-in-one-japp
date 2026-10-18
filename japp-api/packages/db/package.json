@@ -1,0 +1,21 @@
+{
+  "name": "@japp/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Esquema Drizzle generado desde japp-db (drizzle-kit pull) + pool y transacciones.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "db:pull": "drizzle-kit pull && node scripts/postpull.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.4",
+    "pg": "8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.11.10",
+    "drizzle-kit": "0.31.11",
+    "typescript": "5.6.3"
+  }
+}

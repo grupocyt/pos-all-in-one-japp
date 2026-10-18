@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba de impresoras · Japp</title>
+<style>
+:root{--bg:#f3f5f7;--card:#fff;--ink:#1d2a30;--muted:#66737b;--line:#e1e6ea;--teal:#15616d;--orange:#ee7c19;--ok:#2e9d5b;--bad:#c63d2f;--paper:#fffdf8}
+@media (prefers-color-scheme:dark){:root{--bg:#12181b;--card:#1b2327;--ink:#e8eef0;--muted:#97a4ab;--line:#2c373c;--paper:#f6f3ea}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--teal);color:#fff;padding:14px 20px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+header b{font-size:18px}header span{opacity:.85;font-size:13px}
+main{max-width:1180px;margin:0 auto;padding:18px 16px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:18px}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+label{display:block;font-size:13px;font-weight:700;margin:0 0 4px}
+input,select{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--teal);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 110px;gap:10px;margin-bottom:12px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.seg button{font:inherit;font-size:13.5px;font-weight:700;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+.chk{display:flex;gap:16px;flex-wrap:wrap;margin:4px 0 14px;font-size:13.5px}.chk label{display:flex;gap:6px;align-items:center;font-weight:600;margin:0}.chk input{width:auto}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btn{font:inherit;font-weight:800;border:0;border-radius:999px;padding:12px 20px;cursor:pointer}
+.btn.pri{background:var(--orange);color:#fff;flex:1;min-width:180px;font-size:16px}
+.btn.sec{background:transparent;border:2px solid var(--teal);color:var(--teal)}
+.btn:disabled{opacity:.5;cursor:wait}
+.status{margin-top:12px;padding:10px 12px;border-radius:10px;font-weight:700;font-size:14px;display:none}
+.status.ok{display:block;background:#e7f6ec;color:#1e6b3e}.status.bad{display:block;background:#fdeaea;color:#9b2a1f}.status.info{display:block;background:#e9f1f8;color:#1d4f7a}
+.recent{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px}.recent button{font:inherit;font-size:12px;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:3px 10px;cursor:pointer}
+.paper{background:var(--paper);color:#111;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.12);padding:18px 14px 28px;overflow-x:auto;margin:0 auto;width:fit-content;max-width:100%}
+.paper pre{margin:0;font:12.5px/1.35 ui-monospace,"SF Mono",Menlo,Consolas,monospace;white-space:pre}
+.log{margin:14px 0 0;padding:0;list-style:none;font-size:13px;max-height:220px;overflow:auto}
+.log li{padding:6px 0;border-top:1px solid var(--line);display:flex;gap:8px}.log li b{min-width:16px}.log .t{color:var(--muted);min-width:64px}
+.help{font-size:13px;color:var(--muted);margin:14px 0 0}.help code{background:var(--bg);padding:1px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<header><b>Japp · Prueba de impresoras</b><span>ESC/POS por IP (puerto 9100) · mismo formato que la API de tienda · proyecto aparte</span></header>
+<main>
+  <section class="card">
+    <h2>Impresora</h2>
+    <div class="row">
+      <div><label for="ip">IP de la impresora</label><input id="ip" inputmode="decimal" placeholder="192.168.1.50" autocomplete="off"></div>
+      <div><label for="port">Puerto</label><input id="port" inputmode="numeric" value="9100"></div>
+    </div>
+    <div class="recent" id="recent"></div>
+
+    <h2>Qué imprimir</h2>
+    <div class="seg" id="kinds">
+      <button type="button" data-k="test" aria-pressed="true">Prueba de caracteres</button>
+      <button type="button" data-k="kitchen" aria-pressed="false">Comanda</button>
+      <button type="button" data-k="menu" aria-pressed="false">Comanda menú (pases)</button>
+      <button type="button" data-k="prebill" aria-pressed="false">Precuenta</button>
+      <button type="button" data-k="invoice" aria-pressed="false">Factura simplificada</button>
+    </div>
+    <div class="row3">
+      <div><label for="table">Mesa</label><input id="table" value="12"></div>
+      <div><label for="waiter">Camarero</label><input id="waiter" value="Prueba"></div>
+      <div><label for="channel">Canal (comanda)</label><input id="channel" value="COCINA"></div>
+    </div>
+    <div class="row3">
+      <div><label for="guests">Comensales</label><input id="guests" inputmode="numeric" value="2"></div>
+      <div><label for="copies">Copias</label><select id="copies"><option>1</option><option>2</option><option>3</option></select></div>
+      <div></div>
+    </div>
+    <div class="chk">
+      <label><input type="checkbox" id="logo"> Logo guardado en la impresora</label>
+      <label><input type="checkbox" id="drawer"> Abrir cajón</label>
+    </div>
+    <div class="btns">
+      <button type="button" class="btn sec" id="ping">Probar conexión</button>
+      <button type="button" class="btn pri" id="print">Imprimir</button>
+    </div>
+    <div class="status" id="status" role="status"></div>
+    <ul class="log" id="log"></ul>
+    <p class="help">Si falla: la impresora tiene que estar en la <b>misma red</b> que este equipo y aceptar ESC/POS en el puerto <b>9100</b> (RAW). Si salen símbolos raros, pon la tabla de caracteres <b>PC858</b> en la impresora. Desde el terminal: <code>nc -vz IP 9100</code>.</p>
+  </section>
+
+  <section class="card">
+    <h2>Vista previa (80 mm · 48 columnas)</h2>
+    <div class="paper"><pre id="preview">…</pre></div>
+  </section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+let kind="test";
+const store={ get(k,d){ try{ return JSON.parse(localStorage.getItem(k))??d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
+const form=()=>({kind, ip:$("#ip").value.trim(), port:+$("#port").value||9100, table:$("#table").value, waiter:$("#waiter").value, channel:$("#channel").value, guests:+$("#guests").value||1, copies:+$("#copies").value, logo:$("#logo").checked, drawer:$("#drawer").checked});
+const status=(cls,msg)=>{ const s=$("#status"); s.className="status "+cls; s.textContent=msg; };
+const log=(ok,msg)=>{ const li=document.createElement("li"); li.innerHTML=`<b style="color:${ok?"var(--ok)":"var(--bad)"}">${ok?"✓":"✗"}</b><span class="t">${new Date().toLocaleTimeString("es-ES")}</span><span></span>`; li.lastChild.textContent=msg; $("#log").prepend(li); };
+async function api(path,body){ const r=await fetch(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}); return r.json(); }
+async function preview(){ const r=await api("/api/preview",form()); $("#preview").textContent=r.text; }
+function recent(){ const list=store.get("japp.printIps",[]); $("#recent").innerHTML=list.map(ip=>`<button type="button" data-ip="${ip}">${ip}</button>`).join("");
+  document.querySelectorAll("[data-ip]").forEach(b=>b.onclick=()=>{ $("#ip").value=b.dataset.ip; store.set("japp.lastIp",b.dataset.ip); }); }
+function remember(ip){ const list=[ip,...store.get("japp.printIps",[]).filter(x=>x!==ip)].slice(0,6); store.set("japp.printIps",list); store.set("japp.lastIp",ip); recent(); }
+
+document.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ kind=b.dataset.k; document.querySelectorAll("[data-k]").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); preview(); });
+["#table","#waiter","#channel","#guests"].forEach(s=>$(s).addEventListener("input",preview));
+$("#ping").onclick=async()=>{ const f=form(); if(!f.ip) return status("bad","Escribe la IP de la impresora."); status("info",`Probando ${f.ip}:${f.port}…`);
+  const r=await api("/api/ping",f); if(r.ok){ status("ok",`Conecta con ${f.ip}:${f.port} (${r.ms} ms).`); remember(f.ip); log(true,`Conexión ${f.ip}:${f.port} · ${r.ms} ms`); } else { status("bad",`No conecta con ${f.ip}:${f.port}: ${r.msg}`); log(false,`Conexión ${f.ip}:${f.port} · ${r.msg}`); } };
+$("#print").onclick=async()=>{ const f=form(); if(!f.ip) return status("bad","Escribe la IP de la impresora."); const b=$("#print"); b.disabled=true; status("info","Enviando…");
+  try{ const r=await api("/api/print",f); const name=document.querySelector(`[data-k="${kind}"]`).textContent;
+    if(r.ok){ status("ok",`Enviado a ${f.ip}:${f.port}: ${name} (${r.bytes} bytes).`); remember(f.ip); log(true,`${name} → ${f.ip} · ${r.bytes} bytes`); }
+    else { status("bad",`No se pudo imprimir: ${r.msg}`); log(false,`${name} → ${f.ip} · ${r.msg}`); } } finally { b.disabled=false; } };
+$("#ip").value=store.get("japp.lastIp",""); recent(); preview();
+</script>
+</body>
+</html>

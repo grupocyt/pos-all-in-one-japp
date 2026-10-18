@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sincronización con el Manager</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Diseño de la sincronización de ventas tienda → Japp Manager (agente apps/sync-agent) */
+:root{--bg:#f5f7f7;--surface:#fff;--ink:#17262b;--muted:#5b6b70;--line:#dde4e5;--accent:#15616d;--orange:#ee7c19;--ok:#2f8a3e;--ko:#c8312b;--warn:#a86400;--okbg:#ecf7ee;--kobg:#fdeeec;--warnbg:#fff4e0;--code:#f1f4f4;
+--display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;--sans:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f1719;--surface:#162226;--ink:#e3ecee;--muted:#93a4a8;--line:#273639;--accent:#5fb3c0;--orange:#f0954a;--ok:#6cc27a;--ko:#ec6f68;--warn:#e0a54a;--okbg:#173322;--kobg:#3a1f1e;--warnbg:#3a2c14;--code:#1c2b30;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1719;--surface:#162226;--ink:#e3ecee;--muted:#93a4a8;--line:#273639;--accent:#5fb3c0;--orange:#f0954a;--ok:#6cc27a;--ko:#ec6f68;--warn:#e0a54a;--okbg:#173322;--kobg:#3a1f1e;--warnbg:#3a2c14;--code:#1c2b30;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14.5px;line-height:1.55;padding-inline:16px;padding-block:24px 56px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);margin:0}h1{font-size:clamp(28px,5vw,40px)}h2{font-size:22px;margin-bottom:10px}h3{font-size:16px;margin:14px 0 6px}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lead{color:var(--muted);margin:6px 0 0;max-width:75ch}
+.badge{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:3px 10px;background:var(--warnbg);color:var(--warn);margin-top:10px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+@media (max-width:700px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stats div{background:var(--surface);padding:12px 16px}.stats b{display:block;font-family:var(--display);font-size:24px}.stats span{font-size:13px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card p{margin:0 0 8px;max-width:80ch}.card ul,.card ol{margin:4px 0 8px;padding-left:22px}.card li{margin:3px 0}
+code{font-family:var(--mono);font-size:12.5px;background:var(--code);padding:1px 5px;border-radius:5px}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.45;background:var(--code);border-radius:10px;padding:12px 14px;overflow:auto;margin:6px 0 10px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+th{text-align:left;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px;border-bottom:2px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}td:first-child{font-weight:600}
+.flow{width:100%;height:auto;display:block}
+.flow .bx{fill:var(--surface);stroke:var(--line);stroke-width:1.5}.flow .bx.hl{stroke:var(--accent);stroke-width:2}.flow .bx.mg{stroke:var(--orange);stroke-width:2}
+.flow text{fill:var(--ink);font-family:var(--sans);font-size:13px}.flow .sm{fill:var(--muted);font-size:11.5px}.flow .tt{font-weight:700;font-size:14px}
+.flow .ar{stroke:var(--muted);stroke-width:1.6;fill:none;marker-end:url(#ah)}.flow .ar.net{stroke:var(--orange);stroke-dasharray:6 4}
+.flow .zone{fill:none;stroke:var(--line);stroke-dasharray:4 4}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}@media (max-width:800px){.cols{grid-template-columns:1fr}}
+.layer{border:1px solid var(--line);border-radius:12px;padding:12px 14px}.layer b{display:block;font-family:var(--display);font-size:16px;margin-bottom:4px}.layer .n{color:var(--accent);font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+.ok{color:var(--ok);font-weight:700}.ko{color:var(--ko);font-weight:700}.wn{color:var(--warn);font-weight:700}
+.note{background:var(--warnbg);border-radius:10px;padding:10px 12px;font-size:13.5px}
+footer{color:var(--muted);font-size:13px;text-align:center}
+</style></head><body><div class="wrap">
+
+<header><div class="eyebrow">Japp TPV · Developer · diseño del agente <code>apps/sync-agent</code></div>
+<h1>Sincronización de ventas con el Manager</h1>
+<p class="lead">Cómo llega la venta de cada tienda al Manager central casi en tiempo real sin depender de internet para vender: la tienda trabaja en su red local, apunta todo en una cola dentro de la misma transacción y un agente la envía cada minuto (y al momento cuando se cobra una factura). Reenviar nunca duplica nada.</p>
+<span class="badge">Diseñado · pendiente de construir</span></header>
+
+<div class="stats">
+  <div><b>60 s</b><span>pulso de venta en vivo y vaciado de la cola</span></div>
+  <div><b>≈ 2 s</b><span>una factura cobrada llega al Manager con internet</span></div>
+  <div><b>0</b><span>duplicados: idempotencia en 3 capas</span></div>
+  <div><b>∞ offline</b><span>la tienda sigue vendiendo; la cola espera</span></div>
+</div>
+
+<section class="card"><h2>1 · Arquitectura</h2>
+<p>El agente es un proceso aparte en el servidor de la tienda (otro contenedor del mismo <code>docker compose</code>). <b>Siempre llama la tienda al Manager</b>; el Manager nunca entra en la tienda, así no hay que abrir puertos en el router del local.</p>
+<div class="tw"><svg class="flow" viewBox="0 0 1000 300" role="img" aria-label="TPV y PDA escriben en la API de tienda; la API guarda venta y cola en PostgreSQL en la misma transacción; el agente lee la cola y la envía por HTTPS al Manager">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
+<rect class="zone" x="8" y="10" width="640" height="280" rx="14"/><text x="22" y="32" class="sm">RED LOCAL DE LA TIENDA (funciona sin internet)</text>
+<rect class="zone" x="700" y="10" width="292" height="280" rx="14"/><text x="714" y="32" class="sm">CENTRAL</text>
+<rect class="bx" x="24" y="56" width="128" height="62" rx="10"/><text x="40" y="82" class="tt">TPV · PDA</text><text x="40" y="102" class="sm">cobran, piden…</text>
+<rect class="bx hl" x="200" y="56" width="200" height="62" rx="10"/><text x="216" y="82" class="tt">store-api</text><text x="216" y="102" class="sm">una transacción por comando</text>
+<rect class="bx" x="200" y="176" width="168" height="92" rx="10"/><text x="216" y="202" class="tt">PostgreSQL</text><text x="216" y="222" class="sm">invoice, orders…</text><text x="216" y="240" class="sm">+ sync_outbox</text><text x="216" y="258" class="sm">(mismo COMMIT)</text>
+<rect class="bx hl" x="440" y="176" width="190" height="92" rx="10"/><text x="456" y="202" class="tt">sync-agent</text><text x="456" y="222" class="sm">cada 60 s + LISTEN</text><text x="456" y="240" class="sm">lotes ordenados por id</text><text x="456" y="258" class="sm">reintentos con espera</text>
+<rect class="bx mg" x="730" y="120" width="240" height="80" rx="10"/><text x="746" y="148" class="tt">Japp Manager</text><text x="746" y="168" class="sm">/api/manager/v1/stores/{storeId}/…</text><text x="746" y="186" class="sm">guarda sin duplicar</text>
+<rect class="bx" x="730" y="226" width="240" height="50" rx="10"/><text x="746" y="256" class="tt">Backoffice · ventas en vivo</text>
+<path class="ar" d="M152,87H196"/><path class="ar" d="M284,118V172"/><text x="292" y="150" class="sm">COMMIT</text>
+<path class="ar" d="M368,222H436"/><text x="372" y="214" class="sm">NOTIFY</text>
+<path class="ar net" d="M630,206C680,206 690,170 726,165"/><text x="640" y="150" class="sm">HTTPS</text><text x="640" y="166" class="sm">storeKey</text>
+<path class="ar" d="M850,200V222"/>
+</svg></div>
+</section>
+
+<section class="card"><h2>2 · Qué se envía y cuándo</h2>
+<div class="tw"><table><thead><tr><th>Mensaje</th><th>Cuándo</th><th>Vía</th><th>Clave única en el Manager</th></tr></thead><tbody>
+<tr><td><code>invoice</code></td><td>Al emitir la factura (F2, F1, R1). Sale <b>al momento</b>: el COMMIT hace <code>NOTIFY sync_outbox</code> y el agente vacía la cola sin esperar al minuto.</td><td>cola</td><td><code>storeId + serie + número</code> (y hash VeriFactu)</td></tr>
+<tr><td><code>verifactu_record</code></td><td>Con la factura, en el mismo lote.</td><td>cola</td><td><code>storeId + id</code>; encadenado por <code>previous_hash</code></td></tr>
+<tr><td><code>order.closed</code></td><td>Al cerrar la mesa: la orden completa (JSON <code>snapshot</code>) con líneas, eliminaciones, invitaciones y pases.</td><td>cola</td><td><code>storeId + orderId + version</code></td></tr>
+<tr><td><code>line.deleted</code></td><td>Cada anulación, con motivo, quién y quién autorizó.</td><td>cola</td><td><code>storeId + lineId</code></td></tr>
+<tr><td><code>cash.movement</code></td><td>Retiradas, arqueos y fondo.</td><td>cola</td><td><code>storeId + id</code></td></tr>
+<tr><td><code>period.closed</code></td><td>Cierre del periodo: totales, por hora, por camarero, formas de pago y descuadre (lo que pinta el Gestor de cierres).</td><td>cola</td><td><code>storeId + periodId</code></td></tr>
+<tr><td><code>config.change</code></td><td>Cambios hechos en Ajustes en la tienda.</td><td>cola</td><td><code>storeId + id</code></td></tr>
+<tr><td><code>sales.live</code></td><td><b>Cada minuto</b>, haya o no cambios: foto de la venta del periodo abierto (cobrado + lo que hay en mesas abiertas).</td><td>pulso</td><td><code>storeId + periodId</code>: el último gana</td></tr>
+</tbody></table></div>
+<p class="note">La <b>cola</b> (<code>sync_outbox</code>) es para hechos que no se pueden perder: se escriben en la misma transacción que el cambio, se envían en orden y se confirman uno a uno. El <b>pulso</b> es una foto: si se pierde uno no pasa nada porque el siguiente la sustituye. Por eso el pulso no pasa por la cola.</p>
+</section>
+
+<section class="card"><h2>3 · El ciclo del agente (cada minuto)</h2>
+<ol>
+<li><b>Un solo agente a la vez</b>: <code>SELECT pg_try_advisory_lock(hashtext('sync-agent'))</code>. Si otro proceso lo tiene, este ciclo no hace nada.</li>
+<li><b>Pulso</b>: calcula <code>sales.live</code> con una consulta de solo lectura y lo envía (<code>PUT …/live</code>). Si no hay red, se descarta: el siguiente minuto manda uno nuevo.</li>
+<li><b>Lote</b>: lee lo pendiente en orden:
+<pre>SELECT id, event_id, entity, entity_id, operation, payload, created_at
+  FROM sync_outbox
+ WHERE store_id = $1 AND sent_at IS NULL AND parked_at IS NULL
+ ORDER BY id
+ LIMIT 500
+   FOR UPDATE SKIP LOCKED;</pre></li>
+<li><b>Envío</b>: <code>POST /stores/{storeId}/outbox</code> con cabecera <code>Idempotency-Key: outbox-{storeId}-{primerId}-{últimoId}</code>.</li>
+<li><b>Confirmación</b>: lo que el Manager acepta (o ya tenía) se marca <code>sent_at = now()</code>; lo rechazado suma <code>attempts</code> y guarda <code>last_error</code>.</li>
+<li><b>¿Queda cola?</b> Si el lote venía lleno (había atraso por estar sin internet), repite enseguida hasta vaciarla; si no, espera al siguiente minuto o a un <code>NOTIFY</code>.</li>
+<li><b>Latido</b> cada 5 s (ya en el contrato): versión, impresoras, <code>outboxPending</code> y antigüedad del pendiente más viejo, para que el Manager avise si una tienda se queda atrás.</li>
+</ol>
+<h3>Al cobrar una factura</h3>
+<p>store-api termina la transacción de cobro con <code>NOTIFY sync_outbox, '&lt;id&gt;'</code> (solo se entrega si el COMMIT se hace). El agente tiene un <code>LISTEN sync_outbox</code> abierto, espera 2 s para juntar lo que llegue a la vez (factura + registro VeriFactu + cierre de mesa) y envía el lote. Con internet, la factura está en el Manager en unos 2 segundos; sin internet, sale en el primer ciclo con red.</p>
+</section>
+
+<section class="card"><h2>4 · Cómo se evita la duplicidad</h2>
+<p>El agente puede enviar dos veces lo mismo (se corta la red después de que el Manager guardó pero antes de que llegue la respuesta). Eso es normal y está previsto en tres capas:</p>
+<div class="cols">
+<div class="layer"><span class="n">Capa 1 · tienda</span><b>Venta y cola, mismo COMMIT</b>No hay factura sin mensaje ni mensaje sin factura. Cada mensaje lleva un <code>event_id</code> (UUID) que no cambia aunque se reenvíe mil veces.</div>
+<div class="layer"><span class="n">Capa 2 · transporte</span><b>Idempotency-Key por lote</b>Si se repite un lote con la misma clave, el Manager devuelve la respuesta guardada de la primera vez sin volver a procesar.</div>
+<div class="layer"><span class="n">Capa 3 · Manager</span><b>Claves únicas de negocio</b>Guarda con <code>INSERT … ON CONFLICT DO NOTHING</code> sobre <code>(store_id, event_id)</code> y, para facturas, sobre <code>(store_id, serie, número)</code>.</div>
+</div>
+<h3>Qué responde el Manager con cada mensaje</h3>
+<div class="tw"><table><thead><tr><th>Caso</th><th>Respuesta</th><th>Qué hace el agente</th></tr></thead><tbody>
+<tr><td>Nuevo</td><td><span class="ok">accepted</span></td><td>marca enviado</td></tr>
+<tr><td>Ya lo tenía con el mismo contenido (hash del payload igual)</td><td><span class="ok">duplicate</span></td><td>marca enviado: no es un error</td></tr>
+<tr><td>Ya tenía esa factura con <b>otro</b> contenido</td><td><span class="ko">conflict</span></td><td>no reintenta: lo aparca y avisa. Una factura nunca cambia; esto indica un fallo grave (número repetido o base restaurada)</td></tr>
+<tr><td>Falta la factura anterior de la serie (hueco en la cadena VeriFactu)</td><td><span class="wn">gap</span></td><td>reenvía desde el id que indica el Manager</td></tr>
+<tr><td>Datos inválidos</td><td><span class="ko">rejected</span></td><td>suma intento; tras 10 lo aparca (<code>parked_at</code>) y sigue con los demás</td></tr>
+</tbody></table></div>
+<h3>Clave de una factura</h3>
+<pre>CT03 · F2 · 2026 · 000123   →  UNIQUE (store_id, series, sequence)
+hash VeriFactu               →  el Manager comprueba previous_hash = hash de la anterior</pre>
+</section>
+
+<section class="card"><h2>5 · Contrato</h2>
+<h3>POST /api/manager/v1/stores/{storeId}/outbox</h3>
+<pre>Authorization: Bearer &lt;storeKey&gt;
+Idempotency-Key: outbox-CT03-1021-1023
+
+{
+  "agent": { "version": "v130", "sentAt": "2026-10-15T09:31:02.114Z" },
+  "events": [
+    { "seq": 1021, "eventId": "5f0c…", "entity": "invoice", "entityId": "a1b2…", "op": "upsert",
+      "occurredAt": "2026-10-15T09:30:58.902Z",
+      "payload": { "series": "F2", "sequence": 123, "number": "F2-2026-000123", "total": 42.80,
+                   "taxes": [{ "rate": 10, "base": 38.91, "quota": 3.89 }],
+                   "pays": [{ "method": "card", "amount": 42.80 }], "table": "12", "waiter": "Marta",
+                   "verifactu": { "hash": "9F3A…", "previousHash": "77C1…" } } },
+    { "seq": 1022, "eventId": "8d41…", "entity": "verifactu_record", "entityId": "…", "op": "upsert", "payload": { … } },
+    { "seq": 1023, "eventId": "c9e7…", "entity": "order.closed", "entityId": "…", "op": "upsert", "payload": { … } }
+  ]
+}</pre>
+<pre>200 OK  (sobre común de la API)
+{ "title": "Lote recibido", "type": "ok", "status": 200,
+  "data": { "results": [
+      { "seq": 1021, "status": "accepted" },
+      { "seq": 1022, "status": "accepted" },
+      { "seq": 1023, "status": "duplicate" } ],
+    "resendFrom": null },
+  "errors": [], "traceId": "…", "author": "Api Japp Grupo Cañas y Tapas", "mode": "developer" }</pre>
+<h3>PUT /api/manager/v1/stores/{storeId}/live (pulso de cada minuto)</h3>
+<pre>{ "at": "2026-10-15T09:31:00Z", "periodId": "…", "openedAt": "2026-10-15T08:12:00Z",
+  "invoiced": { "total": 1840.35, "tickets": 61, "guests": 118 },
+  "open":     { "tables": 9, "amount": 312.70 },
+  "byHour":   { "11": 120.40, "12": 640.10, "13": 1079.85 },
+  "byWaiter": [{ "name": "Marta", "total": 702.30, "tickets": 22 }],
+  "voids":    { "count": 3, "amount": 14.50 },
+  "pays":     { "cash": 520.10, "card": 1320.25 },
+  "outboxPending": 0 }</pre>
+</section>
+
+<section class="card"><h2>6 · Sin internet</h2>
+<ul>
+<li>La tienda <b>sigue vendiendo y facturando</b>: nada de la venta depende del Manager. La cola crece en PostgreSQL (una jornada son unos cientos de filas; un mes sin red cabe de sobra).</li>
+<li>El agente reintenta con espera creciente: 5 s, 10 s, 20 s… hasta 60 s. Nunca deja de intentarlo.</li>
+<li>Al volver la red envía <b>en orden</b>, lotes de 500 seguidos hasta ponerse al día, y vuelve al ritmo de un minuto.</li>
+<li>Las fechas van en UTC con <code>occurredAt</code> de la tienda; el latido trae <code>serverTime</code> del Manager para detectar si el reloj del servidor de la tienda se ha desviado.</li>
+<li>El Manager marca la tienda como <b>«con retraso»</b> si el pendiente más antiguo pasa de 5 minutos, y la muestra fuera de línea si falta el latido 5 minutos.</li>
+</ul>
+</section>
+
+<section class="card"><h2>7 · Errores HTTP y reintentos</h2>
+<div class="tw"><table><thead><tr><th>Respuesta</th><th>Significa</th><th>Agente</th></tr></thead><tbody>
+<tr><td>200</td><td>Lote procesado (ver resultado por mensaje)</td><td>marca, sigue</td></tr>
+<tr><td>401 / 403</td><td><code>storeKey</code> mal o revocada</td><td>para el envío, lo indica en el latido y en Developer; no insiste</td></tr>
+<tr><td>409 <code>IDEMPOTENCY_MISMATCH</code></td><td>misma clave de lote con otro contenido</td><td>rehace el lote con clave nueva (los mensajes siguen siendo idempotentes por <code>eventId</code>)</td></tr>
+<tr><td>413</td><td>lote demasiado grande</td><td>parte el lote a la mitad</td></tr>
+<tr><td>429 / 5xx / timeout / sin red</td><td>temporal</td><td>espera creciente y reintenta el mismo lote con la misma clave</td></tr>
+</tbody></table></div>
+</section>
+
+<section class="card"><h2>8 · Configuración (variables de entorno)</h2>
+<div class="tw"><table><thead><tr><th>Variable</th><th>Por defecto</th><th>Para qué</th></tr></thead><tbody>
+<tr><td><code>MANAGER_URL</code></td><td>—</td><td>URL base del Manager</td></tr>
+<tr><td><code>STORE_KEY</code></td><td>—</td><td>credencial de la tienda. <b>Solo en <code>.env</code></b>, nunca en el código ni en git</td></tr>
+<tr><td><code>SYNC_INTERVAL_SECONDS</code></td><td>60</td><td>pulso y vaciado de la cola</td></tr>
+<tr><td><code>SYNC_BATCH</code></td><td>500</td><td>mensajes por lote</td></tr>
+<tr><td><code>SYNC_INSTANT</code></td><td>true</td><td>enviar al momento al cobrar (LISTEN/NOTIFY)</td></tr>
+<tr><td><code>SYNC_INSTANT_DEBOUNCE_MS</code></td><td>2000</td><td>espera para juntar factura + VeriFactu + cierre</td></tr>
+<tr><td><code>SYNC_MAX_ATTEMPTS</code></td><td>10</td><td>intentos antes de aparcar un mensaje rechazado</td></tr>
+</tbody></table></div>
+</section>
+
+<section class="card"><h2>9 · Qué falta para construirlo</h2>
+<ol>
+<li><b>japp-db · migración 0005</b>: <code>sync_outbox.event_id UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE</code>, <code>parked_at TIMESTAMPTZ(3)</code> y un índice parcial <code>WHERE sent_at IS NULL</code>.</li>
+<li><b>store-api</b>: escribir en la cola <code>period.closed</code>, <code>line.deleted</code> y <code>cash.movement</code> (facturas y cierres de orden ya se encolan) y hacer <code>NOTIFY</code> tras el cobro.</li>
+<li><b>apps/sync-agent</b>: el ciclo de arriba, con el sobre común en las respuestas.</li>
+<li><b>Manager de pruebas</b> (falso, en el mismo repo) para probar sin el Manager real.</li>
+<li><b>Pruebas</b>:
+<ul><li>cortar la red en mitad de un lote y comprobar 0 duplicados;</li>
+<li>1 000 facturas con 3 agentes a la vez: solo uno envía y llegan todas en orden;</li>
+<li>una factura cobrada aparece en el Manager en menos de 5 s;</li>
+<li>un día sin red y luego se pone al día;</li>
+<li>misma factura con otro contenido: <code>conflict</code> y aviso.</li></ul></li>
+<li><b>Developer › Sincronización</b> en el TPV con datos reales: pendientes, último envío, último error y botón «Enviar ahora».</li>
+</ol>
+</section>
+
+<footer>Japp TPV · Grupo Cañas y Tapas · diseño de sincronización tienda → Manager</footer>
+</div></body></html>

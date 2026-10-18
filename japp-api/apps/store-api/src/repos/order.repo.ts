@@ -1,0 +1,268 @@
+import { Injectable } from "@nestjs/common";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { schema as s, type Tx } from "@japp/db";
+import {
+  accountTotals, discountAmount, fail, lineAmount,
+  type Account, type Actor, type DeletedLine, type Discount, type Invoice, type Line, type LineCourse, type Modifier, type Order, type Payment,
+} from "@japp/domain";
+
+/** Cabecera de la orden (lo que no es de ninguna cuenta). */
+export interface OrderHeader {
+  id: string; storeId: string; periodId: string | null; status: "open" | "billing" | "closed" | "cancelled"; version: number;
+  tableId: string | null; tableName: string; zone: string | null; priceList: "general" | "terrace"; guests: number; note: string | null;
+  openedBy: Actor; lastEntry: Actor | null;
+}
+export interface OrderEvent { type: string; description: string; accountId?: string | null; actor: Actor; }
+export interface Loaded { header: OrderHeader; order: Order; meta: Map<string, { openedBy: Actor; closedBy: Actor | null; note: string | null }>; }
+
+const actor = (p: { u?: string | null; r?: string | null; d?: string | null; a?: string | null; id?: string | null; o?: string | null }): Actor =>
+  ({ userId: p.id ?? undefined, user: p.u ?? "", role: p.r ?? "waiter", device: p.d ?? undefined, origin: (p.o as Actor["origin"]) ?? undefined, at: p.a ? new Date(p.a).toISOString() : "" });
+const actorCols = (prefix: string, a: Actor | null | undefined, withOrigin = false) => {
+  const o: Record<string, unknown> = {
+    [`${prefix}UserId`]: a?.userId ?? null, [`${prefix}UserName`]: a?.user ?? null, [`${prefix}Role`]: a?.role ?? null,
+    [`${prefix}Device`]: a?.device ?? null, [`${prefix}At`]: a?.at ?? null,
+  };
+  if (withOrigin) o[`${prefix}Origin`] = a?.origin ?? null;
+  return o;
+};
+const num = (x: string | number | null | undefined) => (x == null ? 0 : Number(x));
+const methodKind = (code: string): Payment["kind"] => (code === "cash" ? "cash" : code === "card" ? "card" : "other");
+
+/**
+ * Lee y guarda una orden completa (orden + cuentas + líneas + modificadores + descuentos + cobros + factura).
+ * Traduce filas ↔ tipos del dominio. Toda escritura va dentro de la transacción del caso de uso.
+ */
+@Injectable()
+export class OrderRepo {
+  async load(tx: Tx, storeId: string, orderId: string, opts: { lock?: boolean } = {}): Promise<Loaded> {
+    const base = tx.select().from(s.orders).where(and(eq(s.orders.id, orderId), eq(s.orders.storeId, storeId)));
+    const [o] = opts.lock ? await base.for("update") : await base;
+    if (!o) fail("NOT_FOUND", "La orden no existe", { orderId });
+    const accs = await tx.select().from(s.account).where(eq(s.account.orderId, orderId)).orderBy(asc(s.account.openedByAt), asc(s.account.createdAt));
+    const lines = await tx.select().from(s.orderLine).where(eq(s.orderLine.orderId, orderId)).orderBy(asc(s.orderLine.sortOrder), asc(s.orderLine.createdByAt), asc(s.orderLine.createdAt));
+    const lineIds = lines.map(l => l.id), accIds = accs.map(a => a.id);
+    const mods = lineIds.length ? await tx.select().from(s.orderLineModifier).where(inArray(s.orderLineModifier.lineId, lineIds)) : [];
+    const discs = accIds.length ? await tx.select().from(s.accountDiscount).where(inArray(s.accountDiscount.accountId, accIds)) : [];
+    const pays = accIds.length ? await tx.select().from(s.payment).where(inArray(s.payment.accountId, accIds)).orderBy(asc(s.payment.collectedByAt)) : [];
+    const invs = accIds.length ? await tx.select().from(s.invoice).where(inArray(s.invoice.accountId, accIds)) : [];
+    const custIds = [...new Set(accs.map(a => a.customerId).filter((x): x is string => !!x))];
+    const custs = custIds.length ? await tx.select().from(s.customerRef).where(inArray(s.customerRef.id, custIds)) : [];
+    const taxes = invs.length ? await tx.select().from(s.invoiceTax).where(inArray(s.invoiceTax.invoiceId, invs.map(i => i.id))) : [];
+
+    const toLine = (l: typeof lines[number]): Line => ({
+      id: l.id, productId: l.plu, name: l.name, quantity: num(l.quantity), unitPrice: num(l.unitPrice), taxRate: num(l.taxRate), comment: l.comment ?? "",
+      modifiers: mods.filter(m => m.lineId === l.id).map(m => ({ name: m.name, unitPrice: num(m.unitPrice), quantity: num(m.quantity),
+        ...(m.plu != null ? { plu: m.plu } : {}), ...(m.course != null ? { course: m.course, questionId: m.questionId } : {}) })),
+      ...(Array.isArray(l.courses) && l.courses.length ? { courses: l.courses as LineCourse[] } : {}),
+      status: (l.status === "deleted" ? "printed" : l.status) as Line["status"],
+      createdBy: actor({ id: l.createdByUserId, u: l.createdByUserName, r: l.createdByRole, d: l.createdByDevice, a: l.createdByAt, o: l.createdByOrigin }),
+    });
+    const meta: Loaded["meta"] = new Map();
+    const accounts: Account[] = accs.filter(a => a.status !== "cancelled").map(a => {
+      meta.set(a.id, {
+        openedBy: actor({ id: a.openedByUserId, u: a.openedByUserName, r: a.openedByRole, d: a.openedByDevice, a: a.openedByAt }),
+        closedBy: a.closedByUserName ? actor({ id: a.closedByUserId, u: a.closedByUserName, r: a.closedByRole, d: a.closedByDevice, a: a.closedByAt }) : null,
+        note: a.note,
+      });
+      const inv = invs.find(i => i.accountId === a.id);
+      const invoice: Invoice | null = inv ? {
+        type: inv.type as Invoice["type"], series: inv.series, sequence: inv.sequence, invoiceNumber: inv.invoiceNumber, issuedAt: new Date(inv.issuedAt).toISOString(),
+        total: num(inv.total), taxes: taxes.filter(t => t.invoiceId === inv.id).map(t => ({ rate: num(t.rate), base: num(t.base), tax: num(t.tax) })).sort((x, y) => x.rate - y.rate),
+        customer: inv.customerTaxId ? { name: inv.customerName ?? "", taxId: inv.customerTaxId, email: inv.customerEmail ?? undefined } : null, verifactuQr: inv.verifactuQr ?? "",
+      } : null;
+      return {
+        id: a.id, name: a.name, status: a.status === "invoiced" ? "invoiced" : "open",
+        lines: lines.filter(l => l.accountId === a.id && !l.deleted).map(toLine),
+        deletedLines: lines.filter(l => l.accountId === a.id && l.deleted && l.printed).map(l => ({
+          ...toLine(l), reason: l.deleteReason ?? "", removedAt: l.deletedByAt ? new Date(l.deletedByAt).toISOString() : "",
+          removedBy: actor({ id: l.deletedByUserId, u: l.deletedByUserName, r: l.deletedByRole, d: l.deletedByDevice, a: l.deletedByAt }),
+          authorizedBy: l.deleteAuthorizedByUserName ? actor({ id: l.deleteAuthorizedByUserId, u: l.deleteAuthorizedByUserName, r: l.deleteAuthorizedByRole, d: l.deleteAuthorizedByDevice, a: l.deleteAuthorizedByAt }) : null,
+        } satisfies DeletedLine)),
+        discounts: discs.filter(d => d.accountId === a.id).map(d => ({ id: d.id, type: d.type as Discount["type"], value: num(d.value), reason: d.reason ?? "", status: d.status as Discount["status"] })),
+        payments: pays.filter(p => p.accountId === a.id).map(p => ({
+          id: p.id, method: p.method, kind: methodKind(p.method), amount: num(p.amount), tip: num(p.tip), cashGiven: p.cashGiven == null ? null : num(p.cashGiven),
+          change: p.changeGiven == null ? null : num(p.changeGiven), status: p.status as Payment["status"],
+          collectedBy: actor({ id: p.collectedByUserId, u: p.collectedByUserName, r: p.collectedByRole, d: p.collectedByDevice, a: p.collectedByAt }),
+        })),
+        customerData: (() => {
+          const c = custs.find(x => x.id === a.customerId);
+          return c ? { id: c.id, type: (c.type as "person" | "company") ?? undefined, name: c.name, taxId: c.taxId, email: c.email ?? undefined, street: c.street ?? undefined,
+            postalCode: c.postalCode ?? undefined, city: c.city ?? undefined, province: c.province ?? undefined, country: c.country ?? undefined } : invoice?.customer ?? null;
+        })(), invoice,
+      };
+    });
+    const header: OrderHeader = {
+      id: o!.id, storeId: o!.storeId, periodId: o!.periodId, status: o!.status as OrderHeader["status"], version: o!.version, tableId: o!.tableId, tableName: o!.tableName,
+      zone: o!.zone, priceList: o!.priceList as OrderHeader["priceList"], guests: o!.guests, note: o!.note,
+      openedBy: actor({ id: o!.openedByUserId, u: o!.openedByUserName, r: o!.openedByRole, d: o!.openedByDevice, a: o!.openedByAt }),
+      lastEntry: o!.lastEntryUserName ? actor({ id: o!.lastEntryUserId, u: o!.lastEntryUserName, r: o!.lastEntryRole, d: o!.lastEntryDevice, a: o!.lastEntryAt }) : null,
+    };
+    return { header, order: { id: o!.id, tableId: o!.tableId ?? "", guests: o!.guests, version: o!.version, accounts }, meta };
+  }
+
+  async insertHeader(tx: Tx, h: OrderHeader) {
+    await tx.insert(s.orders).values({
+      id: h.id, storeId: h.storeId, periodId: h.periodId, status: h.status, version: h.version, tableId: h.tableId, tableName: h.tableName, zone: h.zone,
+      priceList: h.priceList, guests: h.guests, note: h.note, ...actorCols("openedBy", h.openedBy), ...actorCols("lastEntry", h.openedBy),
+    } as typeof s.orders.$inferInsert);
+  }
+
+  /**
+   * Guarda la diferencia entre `before` y `after`:
+   * - cuentas nuevas, totales recalculados con el dominio (nunca los que manda el equipo);
+   * - líneas nuevas (con modificadores), cambiadas, borradas con motivo, o retiradas sin rastro (pendientes de enviar);
+   * - descuentos y cobros nuevos;
+   * - versión +1, snapshot JSONB y eventos.
+   * Devuelve la nueva versión.
+   */
+  /** Respuestas de una línea, con su pregunta y su pase si los tienen (menú por pases). */
+  private async insertMods(tx: Tx, storeId: string, lineId: string, mods: Modifier[], _products?: unknown) {
+    if (!mods.length) return;
+    const plus = [...new Set(mods.map(m => m.plu).filter((x): x is number => x != null))];
+    const prods = plus.length ? await tx.select({ id: s.product.id, plu: s.product.plu }).from(s.product).where(and(eq(s.product.storeId, storeId), inArray(s.product.plu, plus))) : [];
+    for (const m of mods) await tx.insert(s.orderLineModifier).values({
+      id: crypto.randomUUID(), storeId, lineId, name: m.name, quantity: String(m.quantity ?? 1), unitPrice: String(m.unitPrice),
+      plu: m.plu ?? null, productId: prods.find(p => p.plu === m.plu)?.id ?? null, questionId: m.questionId ?? null, course: m.course ?? null,
+    } as typeof s.orderLineModifier.$inferInsert);
+  }
+
+  async save(tx: Tx, storeId: string, before: Order, after: Order, header: OrderHeader, ctx: { actor: Actor; events?: OrderEvent[]; movedReason?: string }): Promise<number> {
+    const prevAcc = new Map(before.accounts.map(a => [a.id, a]));
+    const prevLines = new Map(before.accounts.flatMap(a => a.lines.map(l => [l.id, { l, acc: a.id }] as const)));
+    const prevDeleted = new Set(before.accounts.flatMap(a => a.deletedLines.map(l => l.id)));
+    const nowLines = new Map(after.accounts.flatMap(a => a.lines.map(l => [l.id, { l, acc: a.id }] as const)));
+    const nowDeleted = new Map(after.accounts.flatMap(a => a.deletedLines.map(l => [l.id, l] as const)));
+    const newPlus = [...nowLines.values()].filter(x => !prevLines.has(x.l.id));
+    // borrados parciales: la parte borrada es una fila nueva que nace ya eliminada
+    const newDeleted = after.accounts.flatMap(a => a.deletedLines.filter(l => !prevDeleted.has(l.id) && !prevLines.has(l.id)).map(l => ({ l, acc: a.id })));
+    const plus = [...new Set([...newPlus, ...newDeleted].map(x => x.l.productId))];
+    const products = plus.length
+      ? await tx.select({ id: s.product.id, plu: s.product.plu }).from(s.product).where(and(eq(s.product.storeId, storeId), inArray(s.product.plu, plus)))
+      : [];
+
+    for (const a of after.accounts) {
+      const T = accountTotals(a);
+      const tips = a.payments.filter(p => p.status === "confirmed").reduce((x, p) => x + p.tip, 0);
+      const totals = { subtotal: String(T.sub), discountTotal: String(T.disc), total: String(T.total), paid: String(T.paid), pending: String(T.pending), tips: tips.toFixed(2) };
+      if (!prevAcc.has(a.id)) {
+        await tx.insert(s.account).values({ id: a.id, storeId, orderId: after.id, name: a.name, status: a.status, ...actorCols("openedBy", ctx.actor), ...totals } as typeof s.account.$inferInsert);
+      } else {
+        const closed = a.status === "invoiced" && prevAcc.get(a.id)!.status !== "invoiced";
+        await tx.update(s.account).set({ name: a.name, status: a.status, customerId: a.customerData?.id ?? null, ...totals, ...(closed ? actorCols("closedBy", ctx.actor) : {}), ...actorCols("lastEntry", ctx.actor), updatedAt: sql`now()` } as any)
+          .where(eq(s.account.id, a.id));
+      }
+    }
+    // cuentas que desaparecen (quedaron vacías al separar): se anulan, no se borran
+    for (const a of before.accounts) if (!after.accounts.some(x => x.id === a.id)) {
+      await tx.update(s.account).set({ status: "cancelled", ...actorCols("closedBy", ctx.actor), updatedAt: sql`now()` } as any).where(eq(s.account.id, a.id));
+    }
+
+    // posición de cada línea en su cuenta (sort_order): fija el orden en pantalla y en la comanda
+    const posOf = new Map<string, number>();
+    for (const a of after.accounts) a.lines.forEach((l, i) => posOf.set(l.id, i));
+    for (const { l, acc } of newPlus) {
+      const pid = products.find(p => p.plu === l.productId)?.id ?? null;
+      await tx.insert(s.orderLine).values({
+        id: l.id, storeId, orderId: after.id, accountId: acc, productId: pid, plu: l.productId, name: l.name, comment: l.comment || null,
+        quantity: String(l.quantity), unitPrice: String(l.unitPrice), taxRate: String(l.taxRate), status: l.status, printed: l.status !== "pendingPrint",
+        netAmount: String(lineAmount(l)), sortOrder: posOf.get(l.id) ?? 0, courses: l.courses?.length ? l.courses : null, ...actorCols("createdBy", l.createdBy, true),
+      } as typeof s.orderLine.$inferInsert);
+      await this.insertMods(tx, storeId, l.id, l.modifiers, products);
+    }
+    for (const { l, acc } of newDeleted) {
+      await tx.insert(s.orderLine).values({
+        id: l.id, storeId, orderId: after.id, accountId: acc, productId: products.find(p => p.plu === l.productId)?.id ?? null, plu: l.productId, name: l.name, comment: l.comment || null,
+        quantity: String(l.quantity), unitPrice: String(l.unitPrice), taxRate: String(l.taxRate), status: "deleted", printed: true, netAmount: String(lineAmount(l)),
+        ...actorCols("createdBy", l.createdBy, true), deleted: true, deleteReason: l.reason, ...actorCols("deletedBy", l.removedBy), ...actorCols("deleteAuthorizedBy", l.authorizedBy),
+      } as typeof s.orderLine.$inferInsert);
+      for (const m of l.modifiers) await tx.insert(s.orderLineModifier).values({ id: crypto.randomUUID(), storeId, lineId: l.id, name: m.name, quantity: String(m.quantity ?? 1), unitPrice: String(m.unitPrice) });
+    }
+    // si cambió el orden de una cuenta, se reescriben las posiciones de todas sus líneas
+    for (const a of after.accounts) {
+      const pa = before.accounts.find(x => x.id === a.id);
+      const ids = a.lines.map(l => l.id).filter(id => prevLines.has(id)), was = (pa?.lines ?? []).map(l => l.id).filter(id => ids.includes(id));
+      if (ids.join() !== was.join()) for (const [i, l] of a.lines.entries()) if (prevLines.has(l.id)) await tx.update(s.orderLine).set({ sortOrder: i, updatedAt: sql`now()` } as any).where(eq(s.orderLine.id, l.id));
+    }
+    for (const { l, acc } of nowLines.values()) {
+      const p = prevLines.get(l.id);
+      if (!p) continue;
+      const coursesChanged = JSON.stringify(p.l.courses ?? null) !== JSON.stringify(l.courses ?? null);
+      const modsChanged = JSON.stringify(p.l.modifiers) !== JSON.stringify(l.modifiers);
+      if (p.l.quantity !== l.quantity || p.l.status !== l.status || p.l.comment !== l.comment || p.acc !== acc || coursesChanged || modsChanged) {
+        await tx.update(s.orderLine).set({ quantity: String(l.quantity), status: l.status, printed: l.status !== "pendingPrint", comment: l.comment || null, accountId: acc, netAmount: String(lineAmount(l)), courses: l.courses?.length ? l.courses : null, updatedAt: sql`now()` } as any)
+          .where(eq(s.orderLine.id, l.id));
+      }
+      // respuestas elegidas más tarde (pases del menú): se reescriben las de la línea (nunca son de una venta cerrada)
+      if (modsChanged) {
+        await tx.delete(s.orderLineModifier).where(eq(s.orderLineModifier.lineId, l.id));
+        await this.insertMods(tx, storeId, l.id, l.modifiers, products);
+      }
+    }
+    for (const [id, { l }] of prevLines) {
+      if (nowLines.has(id)) continue;
+      const d = nowDeleted.get(id);
+      if (d && !prevDeleted.has(id)) {
+        await tx.update(s.orderLine).set({
+          deleted: true, status: "deleted", deleteReason: d.reason, ...actorCols("deletedBy", d.removedBy), ...actorCols("deleteAuthorizedBy", d.authorizedBy), updatedAt: sql`now()`,
+        } as any).where(eq(s.orderLine.id, id));
+      } else if (l.status === "pendingPrint") {
+        // nunca salió a cocina: se retira sin pedir motivo (queda marcada, no se borra)
+        await tx.update(s.orderLine).set({ deleted: true, status: "deleted", printed: false, ...actorCols("deletedBy", ctx.actor), updatedAt: sql`now()` } as any).where(eq(s.orderLine.id, id));
+      } else {
+        // enviada y pasada entera a otra cuenta: su copia vive en la otra cuenta
+        await tx.update(s.orderLine).set({ deleted: true, status: "deleted", deleteReason: ctx.movedReason ?? "Pasada a otra cuenta", ...actorCols("deletedBy", ctx.actor), updatedAt: sql`now()` } as any).where(eq(s.orderLine.id, id));
+      }
+    }
+
+    const prevDiscMap = new Map(before.accounts.flatMap(a => a.discounts.map(d => [d.id, d] as const)));
+    const prevDisc = new Set(prevDiscMap.keys());
+    const prevPay = new Set(before.accounts.flatMap(a => a.payments.map(p => p.id)));
+    for (const a of after.accounts) {
+      const sub = accountTotals(a).sub;
+      for (const d of a.discounts) if (prevDisc.has(d.id) && prevDiscMap.get(d.id)!.status !== d.status && d.status === "removed") {
+        await tx.update(s.accountDiscount).set({ status: "removed", ...actorCols("removedBy", ctx.actor) } as any).where(eq(s.accountDiscount.id, d.id));
+      }
+      for (const d of a.discounts) if (!prevDisc.has(d.id)) {
+        const amount = discountAmount(d, sub);
+        await tx.insert(s.accountDiscount).values({ id: d.id, storeId, accountId: a.id, source: "manual", type: d.type, value: String(d.value), baseAmount: String(sub), amount: amount.toFixed(2), reason: d.reason, status: d.status, ...actorCols("appliedBy", ctx.actor) } as any);
+      }
+      for (const p of a.payments) if (!prevPay.has(p.id)) {
+        await tx.insert(s.payment).values({
+          id: p.id, storeId, accountId: a.id, method: p.method, amount: String(p.amount), tip: String(p.tip), cashGiven: p.cashGiven == null ? null : String(p.cashGiven),
+          changeGiven: p.change == null ? null : String(p.change), status: p.status, ...actorCols("collectedBy", p.collectedBy),
+        } as any);
+      }
+    }
+
+    const version = header.version + 1;
+    const allClosed = after.accounts.length > 0 && after.accounts.every(a => a.status === "invoiced");
+    const status = allClosed ? "closed" : header.status;
+    for (const e of ctx.events ?? []) {
+      await tx.insert(s.orderEvent).values({ id: crypto.randomUUID(), storeId, orderId: after.id, accountId: e.accountId ?? null, type: e.type, description: e.description, at: e.actor.at, userId: e.actor.userId ?? null, userName: e.actor.user, role: e.actor.role, device: e.actor.device ?? null, origin: e.actor.origin ?? null } as any);
+    }
+    const h = { ...header, version, status, guests: after.guests } as OrderHeader;
+    const snap = await this.transaction(tx, h, after);
+    await tx.update(s.orders).set({
+      version, status, guests: after.guests, note: header.note, snapshot: snap, ...actorCols("lastEntry", ctx.actor), ...(allClosed || status === "cancelled" ? { closedAt: ctx.actor.at } : {}), updatedAt: sql`now()`,
+    } as any).where(eq(s.orders.id, after.id));
+    await tx.insert(s.syncOutbox).values({ storeId, entity: "order", entityId: after.id, operation: "upsert", payload: snap } as any);
+    return version;
+  }
+
+  /** JSON «Transaction» de la API (la misma forma que vista-orden), con totales calculados por el dominio. */
+  async transaction(tx: Tx, h: OrderHeader, order: Order) {
+    const events = await tx.select().from(s.orderEvent).where(eq(s.orderEvent.orderId, order.id)).orderBy(asc(s.orderEvent.at));
+    const who = (a: Actor | null) => (a ? { user: a.user, role: a.role, device: a.device ?? "", at: a.at } : null);
+    return {
+      _id: order.id, storeId: h.storeId, status: h.status, version: h.version,
+      tableData: { tableId: h.tableId ?? "", name: h.tableName, zone: h.zone ?? "", priceList: h.priceList, guests: order.guests, openedBy: who(h.openedBy), lastEntry: who(h.lastEntry ?? h.openedBy), lastExit: null, note: h.note },
+      events: events.map(e => ({ type: e.type, at: new Date(e.at).toISOString(), description: e.description, user: e.userName ?? "", device: e.device ?? "", role: e.role ?? "" })),
+      accounts: order.accounts.map(a => ({
+        id: a.id, name: a.name, status: a.status, closedBy: null, note: null,
+        lines: a.lines.map(l => ({ ...l, comment: l.comment, printed: l.status !== "pendingPrint", amount: lineAmount(l) })),
+        deletedLines: a.deletedLines,
+        discounts: a.discounts, payments: a.payments, totals: accountTotals(a), customerData: a.customerData, invoice: a.invoice,
+      })),
+    };
+  }
+}

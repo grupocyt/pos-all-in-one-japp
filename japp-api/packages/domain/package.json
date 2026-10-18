@@ -1,0 +1,21 @@
+{
+  "name": "@japp/domain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reglas de negocio de Japp TPV (sin base de datos ni red): precios, totales, IVA, pagos, productos, permisos, facturas, mesas y caja.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "decimal.js": "10.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.9.0",
+    "typescript": "5.6.3",
+    "vitest": "2.1.8"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "japp-print-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prueba de impresoras ESC/POS por IP (comanda, precuenta, factura) con el formato de Japp. Sin dependencias.",
+  "type": "module",
+  "scripts": { "start": "node server.mjs" },
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@japp/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tipos y validador del contrato docs/openapi.yaml.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "generate": "openapi-typescript ../../docs/openapi.yaml -o src/schema.d.ts && node scripts/to-json.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ajv": "8.17.1",
+    "ajv-formats": "3.0.1"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.4.4",
+    "typescript": "5.6.3",
+    "yaml": "2.6.1"
+  }
+}
