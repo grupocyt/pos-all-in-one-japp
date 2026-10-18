@@ -367,6 +367,7 @@ export const orderLine = pgTable("order_line", {
 	deleteAuthorizedByAt: timestamp("delete_authorized_by_at", { precision: 3, withTimezone: true, mode: 'string' }),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedStage: varchar("deleted_stage", { length: 20 }),
 }, (table) => [
 	index("ix_order_line_account_id_deleted").using("btree", table.accountId.asc().nullsLast().op("bool_ops"), table.deleted.asc().nullsLast().op("bool_ops")),
 	index("ix_order_line_created_by_user_id").using("btree", table.createdByUserId.asc().nullsLast().op("uuid_ops")),
@@ -557,6 +558,7 @@ export const area = pgTable("area", {
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
+	ticketChannelId: uuid("ticket_channel_id"),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],
@@ -741,6 +743,7 @@ export const userProfile = pgTable("user_profile", {
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
+	allowedStations: varchar("allowed_stations", { length: 10 }).default('any').notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],
@@ -812,6 +815,9 @@ export const printChannel = pgTable("print_channel", {
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
+	kind: varchar({ length: 20 }).default("kitchen").notNull(),
+	printerId: uuid("printer_id"),
+	copyOfId: uuid("copy_of_id"),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],
@@ -869,6 +875,7 @@ export const station = pgTable("station", {
 	ip: varchar({ length: 45 }),
 	emissionPoint: varchar("emission_point", { length: 10 }),
 	opensDrawer: boolean("opens_drawer").default(false).notNull(),
+	isMain: boolean("is_main").default(false).notNull(),
 	active: boolean().default(true).notNull(),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -934,7 +941,7 @@ export const payment = pgTable("payment", {
 		}),
 	check("payment_status_check", sql`(status)::text = ANY (ARRAY[('pending'::character varying)::text, ('confirmed'::character varying)::text, ('declined'::character varying)::text, ('refunded'::character varying)::text, ('cancelled'::character varying)::text])`),
 	check("payment_collected_by_role_check", sql`(collected_by_role)::text = ANY (ARRAY[('waiter'::character varying)::text, ('cashier'::character varying)::text, ('manager'::character varying)::text, ('customer'::character varying)::text, ('system'::character varying)::text])`),
-	check("payment_method_check", sql`(method)::text = ANY (ARRAY[('cash'::character varying)::text, ('card'::character varying)::text, ('bizum'::character varying)::text, ('voucher'::character varying)::text, ('invitation'::character varying)::text, ('platform'::character varying)::text])`),
+	check("ck_payment_method_code", sql`(method)::text ~ '^[a-z0-9_-]{1,30}$'::text`),
 ]);
 
 export const storeParameters = pgTable("store_parameters", {
@@ -1374,6 +1381,12 @@ export const orders = pgTable("orders", {
 	lastExitAt: timestamp("last_exit_at", { precision: 3, withTimezone: true, mode: 'string' }),
 	closedAt: timestamp("closed_at", { precision: 3, withTimezone: true, mode: 'string' }),
 	snapshot: jsonb(),
+	holderUserId: uuid("holder_user_id"),
+	holderUserName: varchar("holder_user_name", { length: 80 }),
+	holderStationId: uuid("holder_station_id"),
+	holderStationName: varchar("holder_station_name", { length: 60 }),
+	holderUntil: timestamp("holder_until", { precision: 3, withTimezone: true, mode: 'string' }),
+	chargingUntil: timestamp("charging_until", { precision: 3, withTimezone: true, mode: 'string' }),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
@@ -1765,4 +1778,38 @@ export const catalogRelease = pgTable("catalog_release", {
 }, (table) => [
 	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "catalog_release_store_id_fkey" }),
 	unique("uq_catalog_release_store_id_release_version").on(table.storeId, table.releaseVersion),
+]);
+
+// Migración 0009 (añadido a mano, mismo estilo que drizzle-kit pull)
+export const appSession = pgTable("app_session", {
+	id: uuid().primaryKey().notNull(),
+	storeId: uuid("store_id").notNull(),
+	userId: uuid("user_id").notNull(),
+	stationId: uuid("station_id"),
+	stationName: varchar("station_name", { length: 40 }).notNull(),
+	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	expiresAt: timestamp("expires_at", { precision: 3, withTimezone: true, mode: 'string' }).notNull(),
+	endedAt: timestamp("ended_at", { precision: 3, withTimezone: true, mode: 'string' }),
+	endedReason: varchar("ended_reason", { length: 20 }),
+	replacedById: uuid("replaced_by_id"),
+}, (table) => [
+	index("ix_app_session_user_id").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
+	index("ix_app_session_station_id").using("btree", table.stationId.asc().nullsLast().op("uuid_ops")),
+	index("ix_app_session_replaced_by_id").using("btree", table.replacedById.asc().nullsLast().op("uuid_ops")),
+	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "app_session_store_id_fkey" }),
+	foreignKey({ columns: [table.userId], foreignColumns: [appUser.id], name: "app_session_user_id_fkey" }),
+	foreignKey({ columns: [table.stationId], foreignColumns: [station.id], name: "app_session_station_id_fkey" }),
+	check("ck_app_session_ended_reason", sql`(ended_reason)::text = ANY (ARRAY[('replaced'::character varying)::text, ('logout'::character varying)::text])`),
+]);
+
+export const pinAttempt = pgTable("pin_attempt", {
+	storeId: uuid("store_id").notNull(),
+	key: varchar({ length: 80 }).notNull(),
+	failures: smallint().default(0).notNull(),
+	lockedUntil: timestamp("locked_until", { precision: 3, withTimezone: true, mode: 'string' }),
+	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	primaryKey({ columns: [table.storeId, table.key], name: "pin_attempt_pkey" }),
+	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "pin_attempt_store_id_fkey" }),
+	check("ck_pin_attempt_failures", sql`failures >= 0`),
 ]);

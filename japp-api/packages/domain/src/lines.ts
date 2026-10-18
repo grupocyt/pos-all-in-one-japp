@@ -2,7 +2,7 @@ import { clone, type Ctx } from "./context.js";
 import { fail } from "./errors.js";
 import { checkWithManager, type Profile, type UserLike } from "./permissions.js";
 import { priceFor } from "./pricing.js";
-import { accountTotals } from "./totals.js";
+import { accountTotals, assertTotalCoversPaid } from "./totals.js";
 import { sendWithCourses, type KitchenItem } from "./courses.js";
 import type { Account, Area, DeletedLine, Line, LineCourse, Modifier, Order, Product } from "./types.js";
 
@@ -64,6 +64,7 @@ export function changeQuantity(acc: Account, lineId: string, delta: number): Acc
   if (l.status !== "pendingPrint") fail("VALIDATION", "Solo se cambia la cantidad de lo que no se ha enviado", { lineId, status: l.status });
   l.quantity += delta;
   if (l.quantity <= 0) out.lines.splice(out.lines.indexOf(l), 1);
+  if (delta < 0) assertTotalCoversPaid(out);
   return out;
 }
 
@@ -80,6 +81,7 @@ export interface DeleteLineInput {
 /**
  * Eliminar línea:
  * - «Por enviar» → se quita sin más (no deja rastro en deletedLines);
+ * - con cobros: la cuenta no puede quedar por debajo de lo cobrado (TOTAL_BELOW_PAID);
  * - enviada o en precuenta → motivo obligatorio + permiso (pedido.elimEnviado / pedido.elimPrecuenta), si no lo tiene, clave de encargado.
  *   Pasa a deletedLines con motivo, quién la quitó y quién autorizó. Nunca se borra de verdad.
  */
@@ -90,7 +92,7 @@ export function deleteLine(acc: Account, input: DeleteLineInput, ctx: Ctx): Acco
   const q = input.quantity ?? l.quantity;
   if (!Number.isInteger(q) || q <= 0 || q > l.quantity) fail("VALIDATION", "Cantidad a eliminar no válida", { field: "quantity", max: l.quantity });
   const partial = q < l.quantity;
-  if (!perm) { if (partial) l.quantity -= q; else out.lines.splice(out.lines.indexOf(l), 1); return out; }
+  if (!perm) { if (partial) l.quantity -= q; else out.lines.splice(out.lines.indexOf(l), 1); assertTotalCoversPaid(out); return out; }
   if (!input.reason?.trim()) fail("VALIDATION", "Falta el motivo", { field: "reason" });
   const chk = checkWithManager(input.actor, perm, input.profiles, input.authorizer);
   if (!chk.ok) fail(chk.code, "Falta permiso para eliminar", { permission: chk.permission });
@@ -100,6 +102,7 @@ export function deleteLine(acc: Account, input: DeleteLineInput, ctx: Ctx): Acco
     authorizedBy: chk.ok && chk.authorizedBy ? (input.authorizerActor ?? null) : null, removedAt: ctx.now.toISOString(),
   };
   out.deletedLines.push(del);
+  assertTotalCoversPaid(out);
   return out;
 }
 
@@ -169,6 +172,7 @@ export function moveUnits(order: Order, fromId: string, target: string | "new", 
     l.quantity -= n;
     if (l.quantity <= 0) src.lines.splice(src.lines.indexOf(l), 1);
   }
+  assertTotalCoversPaid(src);
   const live = out.accounts.filter(a => a.status === "open");
   if (!src.lines.length && !src.deletedLines.length && live.length > 1) out.accounts.splice(out.accounts.indexOf(src), 1);
   return { order: out, destId: dest.id };

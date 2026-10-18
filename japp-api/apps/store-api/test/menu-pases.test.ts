@@ -87,4 +87,25 @@ describe("menú del día por pases", () => {
     const bad = await t.call("POST", `/orders/${o._id}/lines/${menu.id}/absorb`, { token: tok, body: { course: 1, sourceLineId: menu.id } });
     expect(bad.status).toBe(422);
   });
+  it("reimprimir un pase que no salió conserva sus notas («2.º EN ESPERA: …», «… POR ELEGIR»)", async () => {
+    const o = await open();
+    const lid = (await t.call("POST", `/orders/${o._id}/lines`, { token: tok, body: { plu: MENU, modifiers: [{ plu: AGUA }] } })).body.accounts[0].lines[0].id;
+    await t.call("POST", `/orders/${o._id}/send`, { token: tok, body: {} });
+    await t.call("PUT", `/orders/${o._id}/lines/${lid}/answers`, { token: tok, body: { course: 1, modifiers: [{ plu: CREMA }] } });
+    await t.call("PUT", `/orders/${o._id}/lines/${lid}/answers`, { token: tok, body: { course: 2, modifiers: [{ plu: MERLUZA }] } });
+    const real = t.printer.print.bind(t.printer);
+    let first = "";
+    try {
+      t.printer.print = async job => { if (job.kind === "kitchen") { first += (first ? "\n" : "") + (await real(job), t.printer.jobs.at(-1)!.text); return { ok: false, error: "apagada" }; } return real(job); };
+      expect((await t.call("POST", `/orders/${o._id}/send`, { token: tok, body: {} })).error.code).toBe("PRINTER_OFFLINE");
+    } finally { t.printer.print = real; }
+    expect(first).toContain(">> MARCHA 1.º");
+    expect(first).toContain("(2.º EN ESPERA: M MERLUZA A LA ROMANA)");
+    const n = t.printer.jobs.length;
+    const r = await t.call("POST", `/orders/${o._id}/send`, { token: tok, body: {} });
+    expect(r.status).toBe(200);
+    const again = kitchen(n);
+    expect(again).toContain(">> MARCHA 1.º");
+    expect(again).toContain("(2.º EN ESPERA: M MERLUZA A LA ROMANA)");
+  });
 });

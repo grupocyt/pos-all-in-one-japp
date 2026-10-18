@@ -7,6 +7,7 @@ import { CLOCK, CONFIG, DATABASE, PRINTER, type Clock } from "./common/tokens-di
 import { ErrorsFilter } from "./common/errors.filter.js";
 import { AuthGuard } from "./common/auth.js";
 import { Authorization } from "./common/authorization.js";
+import { ActiveSessions } from "./common/active-sessions.js";
 import { IdempotencyInterceptor } from "./common/idempotency.js";
 import { EnvelopeInterceptor } from "./common/envelope.js";
 import { randomUUID } from "node:crypto";
@@ -21,6 +22,9 @@ import { OrdersService } from "./modules/orders.service.js";
 import { ReportsController } from "./modules/reports.controller.js";
 import { ClosingsService } from "./modules/closings.service.js";
 import { ConfigController } from "./modules/config/config.controller.js";
+import { PrintersController } from "./modules/printers.controller.js";
+import { TransactionsController } from "./modules/transactions.controller.js";
+import { TransactionsService } from "./modules/transactions.service.js";
 import { ConfigService } from "./modules/config/config.service.js";
 import { EscPosNetPrinter, LogPrinter, type PrinterPort } from "./ports/printer.js";
 import type { Config } from "./config.js";
@@ -33,10 +37,10 @@ class AppModule {
   static with(d: Required<Omit<AppDeps, "logger">>): DynamicModule {
     return {
       module: AppModule,
-      controllers: [SystemController, SessionsController, PeriodsController, TablesController, OrdersController, ReportsController, ConfigController],
+      controllers: [SystemController, SessionsController, PeriodsController, TablesController, OrdersController, ReportsController, ConfigController, PrintersController, TransactionsController],
       providers: [
         { provide: CONFIG, useValue: d.config }, { provide: DATABASE, useValue: d.database }, { provide: PRINTER, useValue: d.printer }, { provide: CLOCK, useValue: d.clock },
-        StoreRepo, OrderRepo, Authorization, OrdersService, ClosingsService, ConfigService,
+        StoreRepo, OrderRepo, Authorization, ActiveSessions, OrdersService, ClosingsService, ConfigService, TransactionsService,
         { provide: APP_FILTER, useClass: ErrorsFilter }, { provide: APP_GUARD, useClass: AuthGuard }, { provide: APP_INTERCEPTOR, useClass: EnvelopeInterceptor }, { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
       ],
     };

@@ -178,3 +178,19 @@ describe("ordenar lo «Por enviar»", () => {
     for (const ids of [[], [p!.id, p!.id], [sent!.id], [p!.id, sent!.id]]) expect(code(() => reorderPending(a, ids))).toBe("VALIDATION");
   });
 });
+
+describe("línea ya cobrada (TOTAL_BELOW_PAID)", () => {
+  const paid = (amount: number, lines: ReturnType<typeof line>[]) => account({ lines, payments: [{ id: "p", method: "cash", kind: "cash", amount, tip: 0, cashGiven: amount, change: 0, status: "confirmed", collectedBy: { user: "x", role: "waiter", at: "" } }] });
+  const err = (fn: () => unknown) => { try { fn(); } catch (e: any) { return [e.code, e.message]; } return null; };
+  it("eliminar o bajar cantidad por debajo de lo cobrado → 409", () => {
+    const a = paid(15, [line({ id: "a", unitPrice: 10, status: "printed" }), line({ id: "b", unitPrice: 10 })]);
+    expect(err(() => deleteLine(a, { lineId: "b", actor: LUCIA, profiles: PROFILES }, ctx()))).toEqual(["TOTAL_BELOW_PAID", "Ya se ha cobrado 15,00 €: no se puede dejar la cuenta por debajo"]);
+    expect(err(() => deleteLine(a, { lineId: "a", reason: "Error", actor: LUCIA, profiles: PROFILES }, ctx()))?.[0]).toBe("TOTAL_BELOW_PAID");
+    expect(err(() => changeQuantity(a, "b", -1))?.[0]).toBe("TOTAL_BELOW_PAID");
+  });
+  it("si sigue cubierto se puede; añadir tras un cobro parcial también", () => {
+    const a = paid(10, [line({ id: "a", unitPrice: 10, status: "printed" }), line({ id: "b", unitPrice: 10, quantity: 2 })]);
+    expect(deleteLine(a, { lineId: "b", quantity: 2, actor: LUCIA, profiles: PROFILES }, ctx()).lines).toHaveLength(1);
+    expect(addProduct(a, { product: CANA, area: SALA, force: true }, ctx()).lines).toHaveLength(3);
+  });
+});

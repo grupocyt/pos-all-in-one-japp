@@ -37,7 +37,7 @@ export class SystemController {
       const kind = b.kind === "mobile" ? "pda" : "station";
       st = all.find(x => x.kind === kind && !x.deviceUuid);
       if (!st) fail("NOT_FOUND", "No queda ninguna estación libre de ese tipo: créala en Ajustes › Estaciones", { kind });
-      await db.update(s.station).set({ deviceUuid: b.deviceUuid } as any).where(eq(s.station.id, st!.id));
+      await db.update(s.station).set({ deviceUuid: b.deviceUuid } as any).where(and(eq(s.station.storeId, store.id), eq(s.station.id, st!.id)));
     }
     return { stationId: st!.id, name: st!.name, kind: st!.kind };
   }

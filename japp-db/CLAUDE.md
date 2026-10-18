@@ -10,13 +10,13 @@ Motor: **PostgreSQL 16** (servidor de tienda Ubuntu, 4 núcleos, 8 GB). MySQL y 
 sql/01_esquema_postgres.sql          50 tablas, 127 FK, CHECK, índices, trigger updated_at, COMMENT ON (línea base)
 sql/02_datos_arranque_postgres.sql   Sucursal Pruebas (CT 03): carta 487 productos, perfiles, 47 permisos, 4 usuarios, estaciones, impresoras…
 sql/verificacion/*.sql               6 consultas de control; cada una devuelve 0 filas si todo está bien
-migrations/NNNN_*.sql                cambios posteriores a la línea base (0001: idempotency_key · 0002: app_user.lock_seconds, bloqueo por usuario · 0003: order_line.sort_order, orden de las líneas · 0004: pases del menú · 0005: Ajustes con versión por registro y config_version, historial con antes/después, Gestor de cierres (period_summary, sales_target), sincronización (sync_outbox.event_id/parked_at, sync_state) y carta programada (catalog_release))
+migrations/NNNN_*.sql                cambios posteriores a la línea base (0001: idempotency_key · 0002: app_user.lock_seconds, bloqueo por usuario · 0003: order_line.sort_order, orden de las líneas · 0004: pases del menú · 0005: Ajustes con versión por registro y config_version, historial con antes/después, Gestor de cierres (period_summary, sales_target), sincronización (sync_outbox.event_id/parked_at, sync_state) y carta programada (catalog_release) · 0006: canales de impresión por tipo (comanda/ticket), impresora por defecto, copias y canal de tickets por área · 0007: order_line.deleted_stage, en qué momento se eliminó cada línea · 0008: caja principal (station.is_main, user_profile.allowed_stations), una persona por mesa (orders.holder_*, charging_until, permiso mesas.entrarOcupada) e integridad de ventas (sin CASCADE, payment.method libre, una orden abierta por mesa, una factura por cuenta, VeriFactu sin ramas, series con FK, rangos) · 0009: sesiones en la base (app_session, una vigente por usuario) y bloqueo de PIN por equipo (pin_attempt))
 scripts/init.mjs                     npm run db:init → si la base está vacía aplica la línea base (+ datos con SEED=1) y luego migraciones. Seguro de repetir
 scripts/migrate.mjs                  npm run db:migrate → solo migraciones pendientes (registro en schema_migrations con checksum)
 scripts/db.mjs                       crear base temporal + aplicar sql/ (lo usan las pruebas y db:reset)
 scripts/apply.mjs                    npm run db:reset → recrea DATABASE_URL (solo desarrollo; se niega con nombres de bases reales)
 scripts/verify.mjs                   npm run verify → pasa sql/verificacion contra DATABASE_URL
-test/                                44 pruebas vitest contra PostgreSQL real (estructura, arranque, reglas, numeración concurrente, verificación)
+test/                                55 pruebas vitest contra PostgreSQL real (estructura, arranque, reglas, numeración concurrente, verificación)
 docs/base-de-datos-japp.html         diagrama y diccionario de las 50 tablas (abrir en el navegador)
 docs/pruebas-bd.html                 informe de pruebas PG vs MySQL vs SQLite (volumen 45 000 tickets, concurrencia, tamaños)
 ```
@@ -57,6 +57,10 @@ Antes de dar algo por terminado: `npm test` en verde.
 
 | Regla | Cómo |
 |---|---|
+| Una sesión vigente por usuario | `app_session` (id = jti del token) + índice único parcial `(store_id, user_id) WHERE ended_at IS NULL`; al entrar de nuevo la anterior queda `ended_reason = 'replaced'` con `replaced_by_id` (FK diferida). La API rechaza un token que no sea el vigente (401 SESSION_REPLACED) |
+| Bloqueo de PIN | `pin_attempt` por `(store_id, key)`: `device:<UUID>` del equipo o `station:<id>`, y `user:<id>` en la clave de encargado; `locked_until` tras `pin_attempts` fallos |
+| Una sola caja principal por tienda | `station.is_main` + índice único parcial por tienda; el perfil con `allowed_stations = 'main'` (Cajero) solo entra en ella |
+| Una persona por mesa | `orders.holder_user_id/holder_station_id/holder_until` (30 s, se renueva) y `charging_until`; la API decide con `canEnterTable` |
 | Un solo periodo de ventas abierto por tienda | `sales_period.open_flag SMALLINT CHECK (=1)` + `UNIQUE (store_id, open_flag)`; al cerrar se pone `NULL` |
 | Numeración de facturas sin huecos ni repetidos (VeriFactu) | `invoice_series.last_sequence` se lee con `SELECT … FOR UPDATE` dentro de la **misma transacción** que inserta `invoice`, y además hay `UNIQUE (store_id, series, sequence)`. Sin el bloqueo, 8 equipos × 25 facturas repiten números (prueba `numeracion.test.ts`) |
 | Encadenado VeriFactu | `verifactu_record.previous_record_id` + `previous_hash` = `hash` del anterior de la tienda |
@@ -64,6 +68,7 @@ Antes de dar algo por terminado: `npm test` en verde.
 | Envío al Manager | `sync_outbox` se escribe en la misma transacción que el cambio (patrón outbox); el agente lo vacía. `event_id` (único) es la identidad del mensaje: el Manager guarda por `(store_id, event_id)` y reenviar no duplica. Lo rechazado demasiadas veces queda `parked_at` |
 | Concurrencia en Ajustes | cada tabla de configuración lleva `version`; `store.config_version` sube con cada cambio (ETag de `GET /config`) y queda en `config_change_log` con `before`/`after` |
 | Gestor de cierres | `period_summary` se escribe al cerrar el periodo (misma transacción); un resumen por periodo, `business_date` en hora de Madrid. `sales_target`: % sobre el año anterior por año (week 0) o por semana |
+| Impresión | Comanda: cada producto sale por sus canales `kind='kitchen'` y por las copias de esos canales (`copy_of_id`); impresora = la de la estación para ese canal o, si no, `print_channel.printer_id`. Precuenta y factura: canal `kind='ticket'` del área de la mesa (`area.ticket_channel_id`), con la misma regla de impresora |
 | Carta programada | `catalog_release`: una por `release_version`, con `effective_at`; misma versión con otro `checksum` se rechaza |
 | Fotografía de la orden | `orders.snapshot JSONB` = la transacción completa como la ve el TPV (vista-orden). Las tablas normalizadas mandan; el snapshot es para leer rápido y auditar |
 

@@ -1,14 +1,14 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, inArray } from "drizzle-orm";
 import { schema as s, type Database, type Tx, type Db } from "@japp/db";
-import { fail, type Profile, type UserLike } from "@japp/domain";
+import { fail, resolveStation, type AllowedStations, type Profile, type UserLike } from "@japp/domain";
 import { CONFIG, DATABASE } from "../common/tokens-di.js";
 import type { Config } from "../config.js";
 
 type Q = Db | Tx;
 export interface StoreInfo { id: string; code: string; name: string; address: string | null; city: string | null; phone: string | null; ticketHeader: string | null; ticketFooter: string | null; serviceType: "table" | "fastfood"; nif: string; issuerName: string; serieT: string; serieF: string; duplicateMinutes: number; cashFloat: number; cashDiffThreshold: number; pinAttempts: number; pinLockSeconds: number; lockTpv: number; lockPda: number; }
-export interface UserCtx { id: string; name: string; initials: string; profileId: string; profileCode: string; level: number; color: string | null; pinHash: string; active: boolean; lockSeconds: number | null; overrides: Record<string, boolean | null>; }
-export interface StationCtx { id: string; name: string; kind: string; }
+export interface UserCtx { id: string; name: string; initials: string; profileId: string; profileCode: string; level: number; color: string | null; pinHash: string; active: boolean; lockSeconds: number | null; overrides: Record<string, boolean | null>; allowedStations: AllowedStations; }
+export interface StationCtx { id: string; name: string; kind: string; isMain: boolean; deviceUuid: string | null; }
 
 /** Rol que se guarda en las columnas ACTOR (= who() del prototipo). */
 export const roleOf = (u: Pick<UserCtx, "level" | "profileCode">) => (u.level >= 100 ? "manager" : u.profileCode === "CAJERO" ? "cashier" : "waiter");
@@ -45,7 +45,7 @@ export class StoreRepo {
       .innerJoin(s.userProfile, eq(s.userProfile.id, s.appUser.profileId))
       .where(and(eq(s.appUser.storeId, storeId), eq(s.appUser.active, true)));
     return rows.map(({ u, p }) => ({
-      id: u.id, name: u.name, initials: u.initials ?? u.name.slice(0, 2).toUpperCase(), profileId: p.id, profileCode: p.code, level: p.level, color: p.color, pinHash: u.pinHash, active: u.active, lockSeconds: u.lockSeconds ?? null,
+      id: u.id, name: u.name, initials: u.initials ?? u.name.slice(0, 2).toUpperCase(), profileId: p.id, profileCode: p.code, level: p.level, color: p.color, pinHash: u.pinHash, active: u.active, lockSeconds: u.lockSeconds ?? null, allowedStations: p.allowedStations === "main" ? "main" : "any",
       overrides: { "cobro.cobrar": u.canCharge, "pedido.elimEnviado": u.canDeletePrinted, "pedido.elimPrecuenta": u.canDeletePrebill },
     }));
   }
@@ -61,11 +61,24 @@ export class StoreRepo {
     return ps.map(p => ({ id: p.id, level: p.level, perms: Object.fromEntries(pp.filter(x => x.profileId === p.id).map(x => [x.permissionCode, true])) }));
   }
 
-  async station(storeId: string, idOrDevice: string | undefined, q: Q = this.database.db): Promise<StationCtx> {
+  async stations(storeId: string, q: Q = this.database.db): Promise<StationCtx[]> {
     const all = await q.select().from(s.station).where(and(eq(s.station.storeId, storeId), eq(s.station.active, true)));
-    const st = (idOrDevice && all.find(x => x.id === idOrDevice || x.deviceUuid === idOrDevice || x.name === idOrDevice)) || all.find(x => x.kind === "station") || all[0];
+    return all.map(x => ({ id: x.id, name: x.name, kind: x.kind, isMain: x.isMain, deviceUuid: x.deviceUuid ?? null }));
+  }
+
+  /** Estación del equipo según X-Station-Id (regla en @japp/domain → resolveStation: con UUID de equipo, solo por ese UUID). */
+  async station(storeId: string, header: string | undefined, q: Q = this.database.db): Promise<StationCtx> {
+    const st = resolveStation(await this.stations(storeId, q), header);
     if (!st) fail("NOT_FOUND", "La tienda no tiene estaciones dadas de alta");
-    return { id: st!.id, name: st!.name, kind: st!.kind };
+    return st!;
+  }
+
+  /** Estación de una sesión (la del token, por id); si se desactivó, la primera caja. */
+  async stationById(storeId: string, id: string, q: Q = this.database.db): Promise<StationCtx> {
+    const all = await this.stations(storeId, q);
+    const st = all.find(x => x.id === id) ?? all.find(x => x.kind === "station") ?? all[0];
+    if (!st) fail("NOT_FOUND", "La tienda no tiene estaciones dadas de alta");
+    return st!;
   }
 }
 

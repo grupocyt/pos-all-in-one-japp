@@ -45,3 +45,7 @@ Para regenerar `lib/tickets.mjs` si cambian los tickets en `japp-api` (las dos c
 cd ../japp-api
 npx esbuild ../japp-print-test/lib/entry.ts --bundle --format=esm --platform=node --target=node20 --outfile=../japp-print-test/lib/tickets.mjs
 ```
+
+## Desde el TPV
+
+Ya está integrado en el TPV: **Ajustes › Equipos › Prueba de impresoras**. Si el TPV está conectado a la API de tienda imprime desde la API (`/api/v2/printers/…`) y no hace falta este servidor. Sin API, el TPV llama a este servidor (por defecto `http://localhost:3333`, se cambia en la propia pantalla); por eso responde con CORS abierto.

@@ -121,4 +121,87 @@ describe("migraciones", () => {
       FROM user_profile p LEFT JOIN profile_permission pp ON pp.profile_id=p.id GROUP BY p.code`);
     for (const x of r) { expect(n(x.cierres)).toBe(n(x.hist)); expect(n(x.sync)).toBe(n(x.api)); }
   });
+  it("0006: canales por tipo, impresora por defecto, copias y canal de tickets por área", () => rollback(c, async () => {
+    const ch = await all(c, "SELECT name, kind, printer_id FROM print_channel ORDER BY name");
+    expect(ch.find((x: any) => x.name === "TICKET")).toMatchObject({ kind: "ticket" });
+    expect(ch.find((x: any) => x.name === "TICKET").printer_id).toBeTruthy();
+    expect(ch.filter((x: any) => x.kind === "kitchen").every((x: any) => x.printer_id)).toBe(true);
+    const areas = await all(c, "SELECT a.name, c.kind FROM area a JOIN print_channel c ON c.id = a.ticket_channel_id");
+    expect(areas.length).toBeGreaterThan(0);
+    expect(areas.every((x: any) => x.kind === "ticket")).toBe(true);
+    const k = await one(c, "SELECT id, store_id FROM print_channel WHERE kind='kitchen' LIMIT 1");
+    await c.query("SAVEPOINT s");
+    await expect(c.query("UPDATE print_channel SET kind='comanda' WHERE id=$1", [k.id])).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
+    await c.query("SAVEPOINT s2");
+    await expect(c.query("UPDATE print_channel SET copy_of_id=id WHERE id=$1", [k.id])).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK TO SAVEPOINT s2");
+    const copy = uuid();
+    await c.query("INSERT INTO print_channel (id, store_id, name, kind, copy_of_id) VALUES ($1,$2,'COPIA PRUEBA','kitchen',$3)", [copy, k.store_id, k.id]);
+    expect((await one(c, "SELECT copy_of_id FROM print_channel WHERE id=$1", [copy])).copy_of_id).toBe(k.id);
+  }));
+  it("0007: etapa de la eliminación (sin enviar, impresa o en precuenta)", () => rollback(c, async () => {
+    const col = await one(c, "SELECT data_type FROM information_schema.columns WHERE table_name='order_line' AND column_name='deleted_stage'");
+    expect(col.data_type).toBe("character varying");
+    const ck = await one(c, "SELECT pg_get_constraintdef(oid) d FROM pg_constraint WHERE conname='ck_order_line_deleted_stage'");
+    expect(ck.d).toMatch(/pendingPrint.*printed.*preBill/);
+  }));
+  it("0008: una sola caja principal y el Cajero solo entra en ella", () => rollback(c, async () => {
+    const main = await all(c, "SELECT name FROM station WHERE is_main");
+    expect(main.map(r => r.name)).toEqual(["CAJA1"]);
+    expect((await one(c, "SELECT allowed_stations FROM user_profile WHERE code='CAJERO'")).allowed_stations).toBe("main");
+    expect((await one(c, "SELECT allowed_stations FROM user_profile WHERE code='MESERO'")).allowed_stations).toBe("any");
+    await expect(c.query("UPDATE station SET is_main = true WHERE name='PDA1'")).rejects.toMatchObject({ code: "23505" });
+  }));
+  it("0008: mesas.entrarOcupada solo en los perfiles de administrador", async () => {
+    const r = await all(c, "SELECT p.code FROM profile_permission pp JOIN user_profile p ON p.id=pp.profile_id WHERE pp.permission_code='mesas.entrarOcupada' ORDER BY 1");
+    expect(r.map(x => x.code)).toEqual(["ADMIN", "ADMIN_LOCAL"]);
+  });
+  it("0008: las ventas no se borran en cascada", async () => {
+    const r = await one(c, `SELECT count(*) FROM pg_constraint WHERE contype='f' AND confdeltype='c'
+      AND conrelid::regclass::text IN ('account','order_event','order_line','order_line_modifier','order_line_printer','account_discount','payment','payment_cash_detail','payment_bank_data','invoice_tax')`);
+    expect(n(r.count)).toBe(0);
+  });
+  it("0008: forma de pago con código libre (glovo) y CHECK de formato", () => rollback(c, async () => {
+    const ck = await one(c, "SELECT pg_get_constraintdef(oid) d FROM pg_constraint WHERE conname='ck_payment_method_code'");
+    expect(ck.d).toMatch(/a-z0-9_-/);
+    expect(await one(c, "SELECT 1 FROM pg_constraint WHERE conname='payment_method_check'")).toBeUndefined();
+  }));
+  it("0008: una orden abierta por mesa, una factura por cuenta y cadena VeriFactu sin ramas", async () => {
+    const ix = (await all(c, "SELECT indexname FROM pg_indexes WHERE indexname IN ('uq_orders_open_table','uq_invoice_account_issued','uq_verifactu_previous','uq_verifactu_genesis') ORDER BY 1")).map(r => r.indexname);
+    expect(ix).toEqual(["uq_invoice_account_issued", "uq_orders_open_table", "uq_verifactu_genesis", "uq_verifactu_previous"]);
+  });
+  it("0008: la serie de Facturación tiene que existir en invoice_series", () => rollback(c, async () => {
+    await expect(c.query("UPDATE billing_settings SET series_simplified='NOEXISTE'")).rejects.toMatchObject({ code: "23503" });
+  }));
+  it("0008: periodo cerrado con marca de abierto → rechazado", () => rollback(c, async () => {
+    const st = (await one(c, "SELECT id FROM store")).id;
+    await expect(c.query(`INSERT INTO sales_period (id, store_id, status, open_flag, opened_by_user_name, opened_by_at) VALUES ($1,$2,'closed',1,'x',now())`, [uuid(), st])).rejects.toMatchObject({ code: "23514" });
+  }));
+  it("0009: una sesión vigente por usuario; al sustituirla queda con motivo y quién la sustituyó", () => rollback(c, async () => {
+    const u = await one(c, "SELECT id, store_id FROM app_user WHERE name='Mesero'");
+    const st = await one(c, "SELECT id, name FROM station WHERE name='CAJA1'");
+    const ins = `INSERT INTO app_session (id, store_id, user_id, station_id, station_name, expires_at) VALUES ($1,$2,$3,$4,$5, now() + interval '12 hours')`;
+    const a = uuid(), b = uuid();
+    await c.query(ins, [a, u.store_id, u.id, st.id, st.name]);
+    await c.query("SAVEPOINT s");
+    await expect(c.query(ins, [b, u.store_id, u.id, st.id, st.name])).rejects.toMatchObject({ code: "23505" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
+    // sustituir: primero se cierra la vigente apuntando a la nueva (FK diferida) y luego se inserta la nueva
+    await c.query("UPDATE app_session SET ended_at = now(), ended_reason = 'replaced', replaced_by_id = $2 WHERE id = $1", [a, b]);
+    await c.query(ins, [b, u.store_id, u.id, st.id, st.name]);
+    expect((await all(c, "SELECT id FROM app_session WHERE user_id=$1 AND ended_at IS NULL", [u.id])).map(r => r.id)).toEqual([b]);
+    await c.query("SAVEPOINT s2");
+    await expect(c.query("UPDATE app_session SET ended_at = now() WHERE id = $1", [b])).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK TO SAVEPOINT s2");
+  }));
+  it("0009: fallos de PIN por equipo, sin negativos y con updated_at", () => rollback(c, async () => {
+    const st = (await one(c, "SELECT id FROM store")).id;
+    await c.query("INSERT INTO pin_attempt (store_id, key, failures) VALUES ($1, 'device:abc', 1)", [st]);
+    await c.query("INSERT INTO pin_attempt (store_id, key, failures) VALUES ($1, 'device:abc', 1) ON CONFLICT (store_id, key) DO UPDATE SET failures = pin_attempt.failures + 1", [st]);
+    expect(n((await one(c, "SELECT failures FROM pin_attempt WHERE key='device:abc'")).failures)).toBe(2);
+    await c.query("SAVEPOINT s");
+    await expect(c.query("UPDATE pin_attempt SET failures = -1 WHERE key='device:abc'")).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
+  }));
 });

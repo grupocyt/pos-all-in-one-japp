@@ -26,7 +26,7 @@ export type DiscountType = "percentage" | "fixed";
 export interface Discount { id: string; type: DiscountType; value: number; reason: string; status: "applied" | "removed"; }
 
 export interface Payment {
-  id: string; method: string; kind: "cash" | "card" | "other"; amount: Money; tip: Money;
+  id: string; method: string; /** payment_method.id */ methodId?: string | null; kind: "cash" | "card" | "other"; amount: Money; tip: Money;
   cashGiven: Money | null; change: Money | null; status: PaymentStatus; collectedBy: Actor;
 }
 

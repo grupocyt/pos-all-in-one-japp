@@ -2,8 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { schema as s, type Tx } from "@japp/db";
 import {
-  accountTotals, discountAmount, fail, lineAmount,
-  type Account, type Actor, type DeletedLine, type Discount, type Invoice, type Line, type LineCourse, type Modifier, type Order, type Payment,
+  accountTotals, discountAmount, fail, lineAmount, paymentKind, r2, sum,
+  type PresenceState, type Account, type Actor, type DeletedLine, type Discount, type Invoice, type Line, type LineCourse, type Modifier, type Order, type Payment,
 } from "@japp/domain";
 
 /** Cabecera de la orden (lo que no es de ninguna cuenta). */
@@ -11,6 +11,8 @@ export interface OrderHeader {
   id: string; storeId: string; periodId: string | null; status: "open" | "billing" | "closed" | "cancelled"; version: number;
   tableId: string | null; tableName: string; zone: string | null; priceList: "general" | "terrace"; guests: number; note: string | null;
   openedBy: Actor; lastEntry: Actor | null;
+  /** Una persona por mesa: quién la tiene y si hay un cobro abierto */
+  presence: PresenceState;
 }
 export interface OrderEvent { type: string; description: string; accountId?: string | null; actor: Actor; }
 export interface Loaded { header: OrderHeader; order: Order; meta: Map<string, { openedBy: Actor; closedBy: Actor | null; note: string | null }>; }
@@ -26,7 +28,7 @@ const actorCols = (prefix: string, a: Actor | null | undefined, withOrigin = fal
   return o;
 };
 const num = (x: string | number | null | undefined) => (x == null ? 0 : Number(x));
-const methodKind = (code: string): Payment["kind"] => (code === "cash" ? "cash" : code === "card" ? "card" : "other");
+const iso = (x: string | null | undefined) => (x ? new Date(x).toISOString() : null);
 
 /**
  * Lee y guarda una orden completa (orden + cuentas + líneas + modificadores + descuentos + cobros + factura).
@@ -43,7 +45,9 @@ export class OrderRepo {
     const lineIds = lines.map(l => l.id), accIds = accs.map(a => a.id);
     const mods = lineIds.length ? await tx.select().from(s.orderLineModifier).where(inArray(s.orderLineModifier.lineId, lineIds)) : [];
     const discs = accIds.length ? await tx.select().from(s.accountDiscount).where(inArray(s.accountDiscount.accountId, accIds)) : [];
-    const pays = accIds.length ? await tx.select().from(s.payment).where(inArray(s.payment.accountId, accIds)).orderBy(asc(s.payment.collectedByAt)) : [];
+    const pays = accIds.length ? await tx.select().from(s.payment).where(and(eq(s.payment.storeId, storeId), inArray(s.payment.accountId, accIds))).orderBy(asc(s.payment.collectedByAt)) : [];
+    const pmIds = [...new Set(pays.map(p => p.paymentMethodId).filter((x): x is string => !!x))];
+    const pms = pmIds.length ? await tx.select({ id: s.paymentMethod.id, kind: s.paymentMethod.kind }).from(s.paymentMethod).where(and(eq(s.paymentMethod.storeId, storeId), inArray(s.paymentMethod.id, pmIds))) : [];
     const invs = accIds.length ? await tx.select().from(s.invoice).where(inArray(s.invoice.accountId, accIds)) : [];
     const custIds = [...new Set(accs.map(a => a.customerId).filter((x): x is string => !!x))];
     const custs = custIds.length ? await tx.select().from(s.customerRef).where(inArray(s.customerRef.id, custIds)) : [];
@@ -80,7 +84,7 @@ export class OrderRepo {
         } satisfies DeletedLine)),
         discounts: discs.filter(d => d.accountId === a.id).map(d => ({ id: d.id, type: d.type as Discount["type"], value: num(d.value), reason: d.reason ?? "", status: d.status as Discount["status"] })),
         payments: pays.filter(p => p.accountId === a.id).map(p => ({
-          id: p.id, method: p.method, kind: methodKind(p.method), amount: num(p.amount), tip: num(p.tip), cashGiven: p.cashGiven == null ? null : num(p.cashGiven),
+          id: p.id, method: p.method, methodId: p.paymentMethodId ?? null, kind: paymentKind(pms.find(m => m.id === p.paymentMethodId)?.kind, p.method), amount: num(p.amount), tip: num(p.tip), cashGiven: p.cashGiven == null ? null : num(p.cashGiven),
           change: p.changeGiven == null ? null : num(p.changeGiven), status: p.status as Payment["status"],
           collectedBy: actor({ id: p.collectedByUserId, u: p.collectedByUserName, r: p.collectedByRole, d: p.collectedByDevice, a: p.collectedByAt }),
         })),
@@ -96,8 +100,25 @@ export class OrderRepo {
       zone: o!.zone, priceList: o!.priceList as OrderHeader["priceList"], guests: o!.guests, note: o!.note,
       openedBy: actor({ id: o!.openedByUserId, u: o!.openedByUserName, r: o!.openedByRole, d: o!.openedByDevice, a: o!.openedByAt }),
       lastEntry: o!.lastEntryUserName ? actor({ id: o!.lastEntryUserId, u: o!.lastEntryUserName, r: o!.lastEntryRole, d: o!.lastEntryDevice, a: o!.lastEntryAt }) : null,
+      presence: OrderRepo.presenceOf(o!),
     };
     return { header, order: { id: o!.id, tableId: o!.tableId ?? "", guests: o!.guests, version: o!.version, accounts }, meta };
+  }
+
+  /** Columnas holder_* y charging_until → estado de presencia del dominio. */
+  static presenceOf(o: Pick<typeof s.orders.$inferSelect, "holderUserId" | "holderUserName" | "holderStationId" | "holderStationName" | "holderUntil" | "chargingUntil">): PresenceState {
+    return {
+      holder: o.holderUserId && o.holderUntil ? { userId: o.holderUserId, userName: o.holderUserName ?? "", stationId: o.holderStationId ?? "", stationName: o.holderStationName ?? "", until: iso(o.holderUntil)! } : null,
+      chargingUntil: iso(o.chargingUntil),
+    };
+  }
+
+  /** Guarda quién tiene la mesa (no cambia la versión de la orden: no es un cambio de la venta). */
+  async savePresence(tx: Tx, storeId: string, orderId: string, p: PresenceState) {
+    await tx.update(s.orders).set({
+      holderUserId: p.holder?.userId ?? null, holderUserName: p.holder?.userName ?? null, holderStationId: p.holder?.stationId || null, holderStationName: p.holder?.stationName ?? null,
+      holderUntil: p.holder?.until ?? null, chargingUntil: p.chargingUntil,
+    } as any).where(and(eq(s.orders.id, orderId), eq(s.orders.storeId, storeId)));
   }
 
   async insertHeader(tx: Tx, h: OrderHeader) {
@@ -142,8 +163,8 @@ export class OrderRepo {
 
     for (const a of after.accounts) {
       const T = accountTotals(a);
-      const tips = a.payments.filter(p => p.status === "confirmed").reduce((x, p) => x + p.tip, 0);
-      const totals = { subtotal: String(T.sub), discountTotal: String(T.disc), total: String(T.total), paid: String(T.paid), pending: String(T.pending), tips: tips.toFixed(2) };
+      const tips = r2(sum(a.payments.filter(p => p.status === "confirmed").map(p => p.tip)));
+      const totals = { subtotal: T.sub.toFixed(2), discountTotal: T.disc.toFixed(2), total: T.total.toFixed(2), paid: T.paid.toFixed(2), pending: T.pending.toFixed(2), tips: tips.toFixed(2) };
       if (!prevAcc.has(a.id)) {
         await tx.insert(s.account).values({ id: a.id, storeId, orderId: after.id, name: a.name, status: a.status, ...actorCols("openedBy", ctx.actor), ...totals } as typeof s.account.$inferInsert);
       } else {
@@ -173,7 +194,7 @@ export class OrderRepo {
       await tx.insert(s.orderLine).values({
         id: l.id, storeId, orderId: after.id, accountId: acc, productId: products.find(p => p.plu === l.productId)?.id ?? null, plu: l.productId, name: l.name, comment: l.comment || null,
         quantity: String(l.quantity), unitPrice: String(l.unitPrice), taxRate: String(l.taxRate), status: "deleted", printed: true, netAmount: String(lineAmount(l)),
-        ...actorCols("createdBy", l.createdBy, true), deleted: true, deleteReason: l.reason, ...actorCols("deletedBy", l.removedBy), ...actorCols("deleteAuthorizedBy", l.authorizedBy),
+        ...actorCols("createdBy", l.createdBy, true), deleted: true, deletedStage: l.status === "preBill" ? "preBill" : "printed", deleteReason: l.reason, ...actorCols("deletedBy", l.removedBy), ...actorCols("deleteAuthorizedBy", l.authorizedBy),
       } as typeof s.orderLine.$inferInsert);
       for (const m of l.modifiers) await tx.insert(s.orderLineModifier).values({ id: crypto.randomUUID(), storeId, lineId: l.id, name: m.name, quantity: String(m.quantity ?? 1), unitPrice: String(m.unitPrice) });
     }
@@ -203,14 +224,14 @@ export class OrderRepo {
       const d = nowDeleted.get(id);
       if (d && !prevDeleted.has(id)) {
         await tx.update(s.orderLine).set({
-          deleted: true, status: "deleted", deleteReason: d.reason, ...actorCols("deletedBy", d.removedBy), ...actorCols("deleteAuthorizedBy", d.authorizedBy), updatedAt: sql`now()`,
+          deleted: true, status: "deleted", deletedStage: l.status === "preBill" ? "preBill" : l.status === "pendingPrint" ? "pendingPrint" : "printed", deleteReason: d.reason, ...actorCols("deletedBy", d.removedBy), ...actorCols("deleteAuthorizedBy", d.authorizedBy), updatedAt: sql`now()`,
         } as any).where(eq(s.orderLine.id, id));
       } else if (l.status === "pendingPrint") {
         // nunca salió a cocina: se retira sin pedir motivo (queda marcada, no se borra)
-        await tx.update(s.orderLine).set({ deleted: true, status: "deleted", printed: false, ...actorCols("deletedBy", ctx.actor), updatedAt: sql`now()` } as any).where(eq(s.orderLine.id, id));
+        await tx.update(s.orderLine).set({ deleted: true, status: "deleted", printed: false, deletedStage: "pendingPrint", ...actorCols("deletedBy", ctx.actor), updatedAt: sql`now()` } as any).where(eq(s.orderLine.id, id));
       } else {
         // enviada y pasada entera a otra cuenta: su copia vive en la otra cuenta
-        await tx.update(s.orderLine).set({ deleted: true, status: "deleted", deleteReason: ctx.movedReason ?? "Pasada a otra cuenta", ...actorCols("deletedBy", ctx.actor), updatedAt: sql`now()` } as any).where(eq(s.orderLine.id, id));
+        await tx.update(s.orderLine).set({ deleted: true, status: "deleted", deletedStage: l.status === "preBill" ? "preBill" : "printed", deleteReason: ctx.movedReason ?? "Pasada a otra cuenta", ...actorCols("deletedBy", ctx.actor), updatedAt: sql`now()` } as any).where(eq(s.orderLine.id, id));
       }
     }
 
@@ -228,7 +249,7 @@ export class OrderRepo {
       }
       for (const p of a.payments) if (!prevPay.has(p.id)) {
         await tx.insert(s.payment).values({
-          id: p.id, storeId, accountId: a.id, method: p.method, amount: String(p.amount), tip: String(p.tip), cashGiven: p.cashGiven == null ? null : String(p.cashGiven),
+          id: p.id, storeId, accountId: a.id, method: p.method, paymentMethodId: p.methodId ?? null, amount: String(p.amount), tip: String(p.tip), cashGiven: p.cashGiven == null ? null : String(p.cashGiven),
           changeGiven: p.change == null ? null : String(p.change), status: p.status, ...actorCols("collectedBy", p.collectedBy),
         } as any);
       }

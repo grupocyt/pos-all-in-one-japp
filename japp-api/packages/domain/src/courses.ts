@@ -1,5 +1,6 @@
 import { clone, type Ctx } from "./context.js";
 import { fail } from "./errors.js";
+import { assertTotalCoversPaid } from "./totals.js";
 import type { Account, DeletedLine, Line, LineCourse, Modifier } from "./types.js";
 
 /**
@@ -14,6 +15,8 @@ export const courseLabel = (c: number) => (c === 0 ? "Bebida" : c === 1 ? "1.º"
 export const MENU_ABSORB_REASON = "Incluida en menú";
 
 export interface KitchenItem {
+  /** línea de la que sale la pieza (para saber a qué impresora salió cada línea) */
+  lineId?: string;
   /** PLU que decide por qué impresora sale (la respuesta del pase, o el producto) */
   plu: number; quantity: number; name: string; comment: string; modifiers: Modifier[];
   /** «BEBIDA», «MARCHA 1.º», «AVISO MENÚ» */
@@ -31,8 +34,8 @@ export function assertNoPendingCourses(acc: Pick<Account, "lines">) {
 const modsOfCourse = (l: Line, c: number) => l.modifiers.filter(m => m.course === c);
 const foodBefore = (cs: LineCourse[], c: number) => cs.filter(x => x.course >= 1 && x.course < c);
 
-/** Notas de lo que queda pendiente de una línea con pases (después de este envío). */
-function notesOf(l: Line): string[] {
+/** Notas de lo que queda pendiente de una línea con pases (después de este envío): «2.º POR ELEGIR», «2.º EN ESPERA: MERLUZA». */
+export function notesOf(l: Line): string[] {
   return (l.courses ?? []).filter(c => c.state === "pending" || c.state === "held").sort((a, b) => a.course - b.course)
     .map(c => c.state === "pending" ? `${courseLabel(c.course).toUpperCase()} POR ELEGIR` : `${courseLabel(c.course).toUpperCase()} EN ESPERA: ${modsOfCourse(l, c.course).map(m => m.name.toUpperCase()).join(", ")}`);
 }
@@ -55,7 +58,7 @@ export function sendWithCourses(acc: Account, opts: { now?: Date; force?: { line
   for (const l of out.lines) {
     const wasPending = l.status === "pendingPrint";
     if (!l.courses?.length) {
-      if (wasPending) { l.status = "printed"; sent.push(l); items.push({ plu: l.productId, quantity: l.quantity, name: l.name, comment: l.comment, modifiers: l.modifiers }); }
+      if (wasPending) { l.status = "printed"; sent.push(l); items.push({ lineId: l.id, plu: l.productId, quantity: l.quantity, name: l.name, comment: l.comment, modifiers: l.modifiers }); }
       continue;
     }
     const before = l.courses.map(c => ({ ...c }));
@@ -74,7 +77,7 @@ export function sendWithCourses(acc: Account, opts: { now?: Date; force?: { line
     for (const c of fired) {
       const mods = modsOfCourse(l, c.course), food = c.course >= 1;
       items.push({
-        plu: mods.find(m => m.plu)?.plu ?? l.productId, quantity: l.quantity, name: l.name, comment: food ? l.comment : "",
+        lineId: l.id, plu: mods.find(m => m.plu)?.plu ?? l.productId, quantity: l.quantity, name: l.name, comment: food ? l.comment : "",
         modifiers: [...(food && wasPending && !usedBase ? base : []), ...mods], tag: c.course === 0 ? "BEBIDA" : `MARCHA ${courseLabel(c.course).toUpperCase()}`,
         notes: food ? notes : [],
       });
@@ -82,9 +85,22 @@ export function sendWithCourses(acc: Account, opts: { now?: Date; force?: { line
     }
     const hasFood = l.courses.some(c => c.course >= 1);
     if (hasFood && !fired.some(c => c.course >= 1) && (wasPending || newlyHeld))
-      items.push({ plu: l.productId, quantity: l.quantity, name: l.name, comment: l.comment, modifiers: base, tag: "AVISO MENÚ", notes });
+      items.push({ lineId: l.id, plu: l.productId, quantity: l.quantity, name: l.name, comment: l.comment, modifiers: base, tag: "AVISO MENÚ", notes });
   }
   return { account: out, sent, items };
+}
+
+/**
+ * Pieza de comanda rehecha desde la línea (reimprimir lo que no salió por una impresora): tag «BEBIDA», «MARCHA 1.º», «AVISO MENÚ» o nada.
+ * Lleva las mismas notas que la primera vez, sacadas del estado de los pases de la línea.
+ */
+export function kitchenItemOf(l: Line, tag?: string): KitchenItem {
+  const base = { lineId: l.id, plu: l.productId, quantity: l.quantity, name: l.name, comment: l.comment };
+  if (!tag) return { ...base, modifiers: l.modifiers };
+  const course = [0, 1, 2, 3, 4, 5].find(c => tag === (c === 0 ? "BEBIDA" : `MARCHA ${courseLabel(c).toUpperCase()}`));
+  if (course == null) return { ...base, modifiers: l.modifiers.filter(m => m.course == null), tag, notes: notesOf(l) };
+  const mods = l.modifiers.filter(m => m.course === course);
+  return { ...base, plu: mods.find(m => m.plu)?.plu ?? l.productId, comment: course ? l.comment : "", modifiers: mods, tag, notes: course >= 1 ? notesOf(l) : [] };
 }
 
 /** Elegir (o cambiar) las respuestas de un pase que aún no ha salido. La validación de mínimos/máximos la hace checkAnswers. */
@@ -125,5 +141,6 @@ export function absorbIntoMenu(acc: Account, input: { menuLineId: string; course
   if (src!.quantity <= 0) out.lines = out.lines.filter(x => x.id !== src!.id);
   menu!.modifiers = [...menu!.modifiers.filter(m => m.course !== input.course), { ...input.answer, quantity: 1, course: input.course, questionId: c!.questionId }];
   c!.state = sentSrc ? "fired" : "ready"; c!.firedAt = sentSrc ? ctx.now.toISOString() : null;
+  assertTotalCoversPaid(out);
   return out;
 }

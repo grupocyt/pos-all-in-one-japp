@@ -62,6 +62,7 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
   perfiles: { table: "user_profile", nameField: "name", order: "level DESC, name", search: ["name", "code"], fields: {
     code: F("code", "s", str(30).regex(/^[A-Z0-9_]+$/, "Mayúsculas, números y _"), "Código", { required: true }), name: F("name", "s", str(60), "Nombre", { required: true }),
     level: F("level", "i", z.number().int(), "Nivel", { required: true }), color: F("color", "s", optStr(30), "Color"),
+    allowedStations: F("allowed_stations", "s", z.enum(["any", "main"]), "Equipos (cualquiera / solo caja principal)", { default: "any" }),
   }, extra: { permissions: { z: z.array(z.string().max(40)).max(200), label: "Permisos" } } },
   areas: { table: "area", nameField: "name", order: "sort_order, name", search: ["name"], fields: {
     name: F("name", "s", str(60), "Nombre", { required: true }), sortOrder: F("sort_order", "i", z.number().int().min(0).max(999), "Orden", { default: 0 }),
@@ -69,6 +70,7 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
     tableNumberFrom: F("table_number_from", "i", z.number().int(), "Numeración desde", { default: 1 }),
     planWidth: F("plan_width", "i", z.number().int().min(0).max(10000).nullish(), "Ancho del plano"), planHeight: F("plan_height", "i", z.number().int().min(0).max(10000).nullish(), "Alto del plano"),
     planImageUrl: F("plan_image_url", "s", optStr(300), "Imagen del plano"),
+    ticketChannelId: F("ticket_channel_id", "u", z.string().uuid().nullish(), "Canal de tickets"),
   } },
   mesas: { table: "dining_table", nameField: "number", order: "area_id, (CASE WHEN number ~ '^[0-9]+$' THEN number::int END), number", search: ["number"], fields: {
     number: F("number", "s", str(10), "Mesa", { required: true }), areaId: F("area_id", "u", z.string().uuid(), "Área", { required: true }),
@@ -100,8 +102,11 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
     maxAnswers: F("max_answers", "i", z.number().int().min(0).max(50), "Máximo", { default: 1 }), course: F("course", "i", z.number().int().nullish(), "Pase"),
   }, extra: { answers: { z: z.array(z.object({ productId: z.string().uuid().optional(), plu: z.number().int().optional(), label: optStr(80), extraPrice: z.number().min(0).max(1000).default(0), bgColor: color, fgColor: color })
     .refine(a => a.productId || a.plu, "productId o plu")).max(100), label: "Respuestas" } } },
-  canales: { table: "print_channel", nameField: "name", order: "name", search: ["name"], fields: {
+  canales: { table: "print_channel", nameField: "name", order: "kind, name", search: ["name"], fields: {
     name: F("name", "s", str(40), "Nombre", { required: true }),
+    kind: F("kind", "s", z.enum(["kitchen", "ticket"]), "Tipo (comanda / ticket)", { default: "kitchen" }),
+    printerId: F("printer_id", "u", z.string().uuid().nullish(), "Impresora"),
+    copyOfId: F("copy_of_id", "u", z.string().uuid().nullish(), "Copia de"),
   } },
   impresoras: { table: "printer", nameField: "name", order: "name", search: ["name", "connection"], fields: {
     name: F("name", "s", str(40), "Nombre", { required: true }), connection: F("connection", "s", str(120), "Conexión (IP o tcp://IP:puerto)", { required: true }),
@@ -111,6 +116,7 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
     name: F("name", "s", str(40), "Nombre", { required: true }), kind: F("kind", "s", z.enum(["station", "pda"]), "Tipo", { default: "station" }),
     deviceUuid: F("device_uuid", "s", z.string().max(36).nullish(), "UUID del equipo"), ip: F("ip", "s", z.string().max(45).nullish(), "IP"),
     emissionPoint: F("emission_point", "s", optStr(10), "Punto de emisión"), opensDrawer: F("opens_drawer", "b", z.boolean(), "Abre cajón", { default: false }),
+    isMain: F("is_main", "b", z.boolean(), "Caja principal", { default: false }),
   }, extra: {
     channels: { z: z.record(z.string().max(40), z.string().max(40).nullable()), label: "Canal → impresora" },
     paymentMethods: { z: z.array(z.string().max(40)).max(20), label: "Formas de pago" },

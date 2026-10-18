@@ -3,9 +3,10 @@ import { and, eq, inArray, desc, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { schema as s, type Database, type Tx } from "@japp/db";
 import {
-  addProduct, applyDiscount, removeDiscount, setCustomer, removeEmptyAccount, assertVersion, changeQuantity, deleteLine, fail, fastFoodTableId, issueInvoice, moveUnits, preBill, registerPayment, sendOrder,
+  addProduct, applyDiscount, removeDiscount, setCustomer, removeEmptyAccount, assertVersion, changeQuantity, deleteLine, fail, fastFoodTableId, issueInvoice, moveUnits, preBill, registerPayment,
   accountTotals, kitchenTicket, preBillTicket, invoiceTicket, type TicketContext, type Account, type Ctx, type Modifier, type Order, type Product,
   checkAnswers, reorderPending, planCourses, courseOfAnswer, chooseCourse, absorbIntoMenu, sendWithCourses, courseLabel, MENU_ABSORB_REASON, type QuestionRule, type KitchenItem,
+  applyPresence, assertCanCommand, kitchenItemOf, canEnterTable, transferAccount, assertMethodAllowed, presenceView, paymentKind, r2, sum, PRESENCE_LEASE_SECONDS, type CommandKind, type PresenceAction, type PresenceState,
 } from "@japp/domain";
 import { CLOCK, DATABASE, PRINTER, type Clock } from "../common/tokens-di.js";
 import type { Session } from "../common/auth.js";
@@ -15,7 +16,20 @@ import { StoreRepo } from "../repos/store.repo.js";
 import { PeriodsController } from "./periods.controller.js";
 import type { PrinterPort } from "../ports/printer.js";
 
-type Result<T> = { loaded: Loaded; next: Order; events: OrderEvent[]; extra?: T; movedReason?: string };
+type Result<T> = {
+  loaded: Loaded; next: Order; events: OrderEvent[]; extra?: T; movedReason?: string;
+  /** nada cambió: no se guarda, no sube la versión ni va a la cola */
+  noop?: boolean;
+  /** se cerró el cobro abierto de la mesa (pendiente a 0 o factura) */
+  clearCharging?: boolean;
+  /** después de guardar, en la misma transacción (p. ej. apuntar a qué impresora va cada línea) */
+  afterSave?: (tx: Tx) => Promise<void>;
+};
+/** Comanda para una impresora; rows = filas de order_line_printer que marca al imprimir. */
+interface KitchenJob { channel: string; printer: string; printerId: string | null; connection: string; items: KitchenItem[]; rows: string[]; table: { name: string; area: string }; guests: number; waiter: string; at: Date; }
+type Printed = { channel: string; printer: string; lines: number; ok: boolean };
+/** Un intento de impresión en curso «reserva» sus filas este tiempo (printed_at con printed = false); pasado, otro envío las reintenta. */
+const PRINT_CLAIM_SECONDS = 60;
 
 /**
  * Casos de uso de la orden. Todos siguen el mismo patrón (ver CLAUDE.md):
@@ -34,18 +48,54 @@ export class OrdersService {
 
   ctx(session: Session): Ctx { const now = this.clock(); return { now, newId: () => crypto.randomUUID(), actor: session.actor(now) }; }
 
-  /** Esqueleto común de los comandos sobre una orden. */
+  /**
+   * Esqueleto común de los comandos sobre una orden.
+   * Una persona por mesa: si otra persona (u otro equipo) tiene la mesa, solo pasan los comandos «save» (añadir y enviar);
+   * si quien llama la tiene, cada comando aceptado le renueva el plazo. Sin presencia, todo como siempre.
+   */
   private async command<T = undefined>(session: Session, orderId: string, version: number | null | undefined,
-    fn: (l: Loaded, ctx: Ctx, tx: Tx) => Promise<Omit<Result<T>, "loaded">> | Omit<Result<T>, "loaded">) {
+    fn: (l: Loaded, ctx: Ctx, tx: Tx) => Promise<Omit<Result<T>, "loaded">> | Omit<Result<T>, "loaded">, opts: { kind?: CommandKind } = {}) {
     const ctx = this.ctx(session);
     return this.database.withTx(async tx => {
       const loaded = await this.repo.load(tx, session.storeId, orderId, { lock: true });
       if (loaded.header.status === "closed" || loaded.header.status === "cancelled") fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
       if (version != null) assertVersion(loaded.header.version, version);
+      const g = assertCanCommand(loaded.header.presence, { userId: session.user.id, stationId: session.station.id }, opts.kind ?? "other", ctx.now);
       const r = await fn(loaded, ctx, tx);
-      const v = await this.repo.save(tx, session.storeId, loaded.order, r.next, loaded.header, { actor: ctx.actor, events: r.events, movedReason: r.movedReason });
+      let v = loaded.header.version;
+      if (!r.noop) {
+        v = await this.repo.save(tx, session.storeId, loaded.order, r.next, loaded.header, { actor: ctx.actor, events: r.events, movedReason: r.movedReason });
+        await r.afterSave?.(tx);
+      }
+      const p = loaded.header.presence;
+      if (g.holds || (r.clearCharging && p.chargingUntil)) {
+        const holder = g.holds && p.holder ? { ...p.holder, until: new Date(ctx.now.getTime() + PRESENCE_LEASE_SECONDS * 1000).toISOString() } : p.holder;
+        await this.repo.savePresence(tx, session.storeId, orderId, { holder, chargingUntil: r.clearCharging ? null : p.chargingUntil });
+      }
       const after = await this.repo.load(tx, session.storeId, orderId);
       return { transaction: await this.repo.transaction(tx, { ...after.header, version: v }, after.order), extra: r.extra as T, order: after.order };
+    });
+  }
+
+  /**
+   * Una persona por mesa: entrar, renovar, salir, abrir y cerrar el cobro (regla en @japp/domain → applyPresence).
+   * No cambia la versión de la orden. Si alguien con mesas.entrarOcupada desplaza a otro, queda en el historial.
+   */
+  async presence(session: Session, orderId: string, action: PresenceAction) {
+    const now = this.clock(), a = session.actor(now);
+    const me = { userId: session.user.id, userName: session.user.name, stationId: session.station.id, stationName: session.station.name, canTakeOver: session.can("mesas.entrarOcupada") };
+    return this.database.withTx(async tx => {
+      const [o] = await tx.select().from(s.orders).where(and(eq(s.orders.id, orderId), eq(s.orders.storeId, session.storeId))).for("update");
+      if (!o) fail("NOT_FOUND", "La orden no existe", { orderId });
+      if (o!.status === "closed" || o!.status === "cancelled") fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
+      const before = OrderRepo.presenceOf(o!);
+      const r = applyPresence(before, action, me, now);
+      if (JSON.stringify(r.state) !== JSON.stringify(before)) await this.repo.savePresence(tx, session.storeId, orderId, r.state);
+      if (r.displaced) {
+        await tx.insert(s.orderEvent).values({ id: crypto.randomUUID(), storeId: session.storeId, orderId, type: "tableTakenOver",
+          description: `${me.userName} entra en la mesa; ${r.displaced.userName} pasa a solo guardar`, at: a.at, userId: a.userId, userName: a.user, role: a.role, device: a.device, origin: a.origin } as any);
+      }
+      return presenceView(r.state, me, now);
     });
   }
 
@@ -93,7 +143,7 @@ export class OrdersService {
         fail("TABLE_BUSY", "La mesa ya está abierta", { orderId: busy[0]!.id });
       }
       const header: OrderHeader = { id: b.id ?? crypto.randomUUID(), storeId: session.storeId, periodId: period!.id, status: "open", version: 1, tableId: table.id, tableName: table.name,
-        zone: table.zone, priceList: table.priceList, guests: b.guests, note: null, openedBy: ctx.actor, lastEntry: ctx.actor };
+        zone: table.zone, priceList: table.priceList, guests: b.guests, note: null, openedBy: ctx.actor, lastEntry: ctx.actor, presence: { holder: null, chargingUntil: null } };
       await this.repo.insertHeader(tx, header);
       const empty: Order = { id: header.id, tableId: table.id ?? "", guests: b.guests, version: 1, accounts: [] };
       const acc: Account = { id: b.accountId ?? crypto.randomUUID(), name: b.accountName?.trim() || "Cuenta 1", status: "open", lines: [], deletedLines: [], discounts: [], payments: [], customerData: null, invoice: null };
@@ -168,7 +218,7 @@ export class OrdersService {
       const c = b.id ? { ...ctx, newId: () => b.id! } : ctx;
       const next = addProduct(acc, { product, area: { id: "", name: l.header.zone ?? "", priceList: l.header.priceList }, quantity: b.quantity, modifiers, courses, comment: b.comment ?? "", force: b.force, dupWindowMin: store.duplicateMinutes }, c);
       return { next: this.replace(l.order, next), events: [this.ev("lineAdded", `Se añade ${product.name} x${b.quantity}`, ctx, acc.id)] };
-    })).transaction;
+    }, { kind: "save" })).transaction;
   }
 
   async patchLine(session: Session, orderId: string, lineId: string, b: { quantity?: number; comment?: string | null; version?: number }) {
@@ -194,7 +244,8 @@ export class OrdersService {
       let reason = b.reason ?? undefined;
       if (b.reasonId) {
         const [r] = await tx.select().from(s.reason).where(and(eq(s.reason.storeId, session.storeId), eq(s.reason.id, b.reasonId)));
-        reason = r?.name ?? b.reasonId;
+        if (!r) fail("VALIDATION", "Ese motivo no existe", { field: "reasonId" });
+        reason = r!.name;
       }
       const perm = line.status === "pendingPrint" ? null : line.status === "printed" ? "pedido.elimEnviado" : "pedido.elimPrecuenta";
       const g = perm && reason?.trim() ? await this.auth.require(session, perm, b.authorization, ctx.now) : { authorizer: null, authorizerActor: null };
@@ -205,8 +256,8 @@ export class OrdersService {
     })).transaction;
   }
 
-  async moveLines(session: Session, orderId: string, b: { lines: { lineId: string; quantity: number }[]; toAccountId?: string | null; newAccountName?: string | null; version?: number }) {
-    await this.auth.require(session, "pedido.separar");
+  async moveLines(session: Session, orderId: string, b: { lines: { lineId: string; quantity: number }[]; toAccountId?: string | null; newAccountName?: string | null; authorization?: string | null; version?: number }) {
+    await this.auth.requireAny(session, ["pedido.pasarCuenta", "pedido.separar"], b.authorization);
     return (await this.command(session, orderId, b.version, (l, ctx) => {
       const from = l.order.accounts.find(a => a.lines.some(x => x.id === b.lines[0]?.lineId)) ?? fail("NOT_FOUND", "La línea no existe");
       if (b.lines.some(x => !from.lines.some(y => y.id === x.lineId))) fail("VALIDATION", "Todas las líneas deben ser de la misma cuenta");
@@ -219,42 +270,96 @@ export class OrdersService {
     })).transaction;
   }
 
-  /** Enviar a cocina/barra: agrupa por canal de impresión del producto y la impresora de la estación. */
+  /**
+   * Enviar a cocina/barra («Guardar»): agrupa por canal de impresión del producto y la impresora de la estación.
+   * Se guarda primero (líneas enviadas + order_line_printer pendiente de imprimir) y se imprime DESPUÉS del COMMIT, sin bloquear la mesa.
+   * Lo que no salió por una impresora queda pendiente y el siguiente envío lo imprime solo ahí (lo que ya salió no se repite).
+   * Sin nada que enviar ni que reimprimir: no cambia la versión ni va a la cola.
+   */
   async send(session: Session, orderId: string, b: { accountId?: string | null; version?: number }) {
     await this.auth.require(session, "pedido.enviar");
-    const r = await this.command<{ printed: { channel: string; printer: string; lines: number; ok: boolean }[] }>(session, orderId, b.version, async (l, ctx, tx) => {
+    const r = await this.command<{ jobs: KitchenJob[] }>(session, orderId, b.version, async (l, ctx, tx) => {
       let next = l.order; const items: KitchenItem[] = []; let n = 0;
       for (const acc of l.order.accounts.filter(a => a.status === "open" && (!b.accountId || a.id === b.accountId))) {
         const res = sendWithCourses(acc, { now: ctx.now }); next = this.replace(next, res.account);
         items.push(...res.items); n += res.sent.length;
       }
-      if (!items.length) return { next, events: [], extra: { printed: [] } };
-      const printed = await this.printKitchen(tx, session, l, ctx, items);
-      return { next, events: [this.ev("linePrinted", `Se envían ${n} líneas`, ctx)], extra: { printed } };
-    });
-    return { printed: r.extra.printed, order: r.transaction };
+      const retry = await this.pendingKitchenJobs(tx, session, l, ctx);
+      if (!n) return { next, events: [], noop: true, extra: { jobs: retry } };
+      const plan = await this.planKitchen(tx, session, l, ctx, items);
+      return { next, events: [this.ev("linePrinted", `Se envían ${n} líneas`, ctx)], extra: { jobs: [...plan.jobs, ...retry] }, afterSave: plan.record };
+    }, { kind: "save" });
+    const printed = await this.printKitchen(session, r.extra.jobs);
+    return { printed, order: r.transaction };
   }
 
-  /** Comandas por canal: cada pieza sale por las impresoras de su PLU (la bebida del menú a barra, el 1.º a cocina…). */
-  private async printKitchen(tx: Tx, session: Session, l: Loaded, ctx: Ctx, items: KitchenItem[]) {
-    const routes = await tx.select({ plu: s.product.plu, channel: s.printChannel.name, printer: s.printer.name, connection: s.printer.connection })
-      .from(s.product).innerJoin(s.productChannel, eq(s.productChannel.productId, s.product.id)).innerJoin(s.printChannel, eq(s.printChannel.id, s.productChannel.channelId))
-      .leftJoin(s.stationChannelPrinter, and(eq(s.stationChannelPrinter.channelId, s.printChannel.id), eq(s.stationChannelPrinter.stationId, session.station.id)))
-      .leftJoin(s.printer, eq(s.printer.id, s.stationChannelPrinter.printerId))
-      .where(and(eq(s.product.storeId, session.storeId), inArray(s.product.plu, [...new Set(items.map(x => x.plu))])));
-    const jobs = new Map<string, { channel: string; printer: string; connection: string; lines: KitchenItem[] }>();
+  /** Comandas por canal: cada pieza sale por las impresoras de su PLU (la bebida del menú a barra, el 1.º a cocina…). Solo decide; no imprime. */
+  private async planKitchen(tx: Tx, session: Session, l: Loaded, ctx: Ctx, items: KitchenItem[]) {
+    // canales de comanda de cada producto + sus copias (doble zona); impresora = la de esta estación para el canal o la del canal
+    const plus = [...new Set(items.map(x => x.plu))], S = session.storeId;
+    const routes = (await tx.execute(sql`WITH base AS (
+        SELECT p.plu, ch.id ch_id FROM product p JOIN product_channel pc ON pc.product_id = p.id AND pc.store_id = ${S}
+          JOIN print_channel ch ON ch.id = pc.channel_id AND ch.active AND ch.store_id = ${S}
+        WHERE p.store_id = ${S} AND p.plu = ANY(${"{" + plus.join(",") + "}"}::int[])
+      ), todos AS (SELECT plu, ch_id FROM base UNION SELECT b.plu, c.id FROM base b JOIN print_channel c ON c.copy_of_id = b.ch_id AND c.active AND c.store_id = ${S})
+      SELECT t.plu, ch.name channel, pr.id::text printer_id, pr.name printer, pr.connection FROM todos t JOIN print_channel ch ON ch.id = t.ch_id AND ch.store_id = ${S}
+        LEFT JOIN station_channel_printer scp ON scp.channel_id = ch.id AND scp.station_id = ${session.station.id} AND scp.store_id = ${S}
+        LEFT JOIN printer pr ON pr.id = coalesce(scp.printer_id, ch.printer_id) AND pr.store_id = ${S}
+      ORDER BY ch.copy_of_id NULLS FIRST, ch.name`)).rows as { plu: number; channel: string; printer_id: string | null; printer: string | null; connection: string | null }[];
+    const jobs = new Map<string, KitchenJob>(), rows: { id: string; lineId: string; channel: string; job: KitchenJob }[] = [];
     for (const it of items) for (const rt of routes.filter(x => x.plu === it.plu)) {
       const k = `${rt.channel}|${rt.printer ?? ""}`;
-      if (!jobs.has(k)) jobs.set(k, { channel: rt.channel, printer: rt.printer ?? rt.channel, connection: rt.connection ?? "", lines: [] });
-      jobs.get(k)!.lines.push(it);
+      if (!jobs.has(k)) jobs.set(k, { channel: rt.channel, printer: rt.printer ?? rt.channel, printerId: rt.printer_id, connection: rt.connection ?? "", items: [], rows: [], table: { name: l.header.tableName, area: l.header.zone ?? "" }, guests: l.order.guests, waiter: ctx.actor.user, at: ctx.now });
+      const job = jobs.get(k)!;
+      job.items.push(it);
+      if (it.lineId) { const id = crypto.randomUUID(); job.rows.push(id); rows.push({ id, lineId: it.lineId, channel: it.tag ? `${rt.channel}|${it.tag}` : rt.channel, job }); }
     }
-    const printed = [];
-    for (const j of jobs.values()) {
-      const ticket = kitchenTicket(j.lines, { channel: j.channel, waiter: ctx.actor.user, guests: l.order.guests, table: { name: l.header.tableName, area: l.header.zone ?? "" }, at: ctx.now });
-      const res = await this.printer.print({ kind: "kitchen", channel: j.channel, printer: j.printer, connection: j.connection, title: `Mesa ${l.header.tableName}`, ticket });
-      printed.push({ channel: j.channel, printer: j.printer, lines: j.lines.length, ok: res.ok });
+    // a qué impresora va cada línea; printed_at con printed = false = intento en curso (otro envío no lo repite mientras dura)
+    const record = async (t: Tx) => {
+      for (const r of rows) await t.insert(s.orderLinePrinter).values({ id: r.id, storeId: S, lineId: r.lineId, channelName: r.channel.slice(0, 40), printerId: r.job.printerId,
+        printerName: r.job.printer.slice(0, 40), interface: r.job.connection.slice(0, 120) || null, printed: false, printedAt: ctx.now.toISOString() } as any);
+    };
+    return { jobs: [...jobs.values()], record };
+  }
+
+  /**
+   * Comandas que no salieron (impresora apagada) y que nadie está imprimiendo ahora: se reservan y se rehacen desde la línea.
+   * Va dentro de command(), con la orden bloqueada (FOR UPDATE): dos reintentos a la vez se ponen en fila y el segundo ya ve
+   * las filas reservadas (printed_at reciente) por el primero, así que no imprime dos veces.
+   */
+  private async pendingKitchenJobs(tx: Tx, session: Session, l: Loaded, ctx: Ctx): Promise<KitchenJob[]> {
+    const S = session.storeId;
+    const rows = (await tx.execute(sql`SELECT olp.id::text id, olp.line_id::text line_id, olp.channel_name, olp.printer_id::text printer_id, olp.printer_name, olp.interface
+      FROM order_line_printer olp JOIN order_line ol ON ol.id = olp.line_id AND ol.store_id = ${S}
+      WHERE olp.store_id = ${S} AND ol.order_id = ${l.order.id} AND NOT olp.printed AND NOT ol.deleted
+        AND (olp.printed_at IS NULL OR olp.printed_at < ${new Date(ctx.now.getTime() - PRINT_CLAIM_SECONDS * 1000).toISOString()}::timestamptz)
+      ORDER BY olp.channel_name, olp.printer_name`)).rows as { id: string; line_id: string; channel_name: string; printer_id: string | null; printer_name: string | null; interface: string | null }[];
+    if (!rows.length) return [];
+    const lines = new Map(l.order.accounts.flatMap(a => a.lines.map(x => [x.id, x] as const)));
+    const jobs = new Map<string, KitchenJob>(), claimed: string[] = [];
+    for (const r of rows) {
+      const line = lines.get(r.line_id);
+      if (!line) continue;
+      const [channel, tag] = r.channel_name.split("|") as [string, string | undefined];
+      const k = `${channel}|${r.printer_name ?? ""}`;
+      if (!jobs.has(k)) jobs.set(k, { channel, printer: r.printer_name ?? channel, printerId: r.printer_id, connection: r.interface ?? "", items: [], rows: [], table: { name: l.header.tableName, area: l.header.zone ?? "" }, guests: l.order.guests, waiter: line.createdBy.user, at: ctx.now });
+      jobs.get(k)!.items.push(kitchenItemOf(line, tag)); jobs.get(k)!.rows.push(r.id); claimed.push(r.id);
     }
-    if (printed.some(p => !p.ok)) fail("PRINTER_OFFLINE", "Una impresora no responde; las líneas siguen «Por enviar»", { printed });
+    if (claimed.length) await tx.execute(sql`UPDATE order_line_printer SET printed_at = ${ctx.now.toISOString()}::timestamptz WHERE store_id = ${S} AND id = ANY(${"{" + claimed.join(",") + "}"}::uuid[])`);
+    return [...jobs.values()];
+  }
+
+  /** Imprime después del COMMIT y apunta qué salió. Si una impresora falla → 503 PRINTER_OFFLINE (lo que falló queda para el siguiente envío). */
+  private async printKitchen(session: Session, jobs: KitchenJob[]): Promise<Printed[]> {
+    const printed: Printed[] = [];
+    for (const j of jobs) {
+      const ticket = kitchenTicket(j.items, { channel: j.channel, waiter: j.waiter, guests: j.guests, table: j.table, at: j.at });
+      const res = await this.printer.print({ kind: "kitchen", channel: j.channel, printer: j.printer, connection: j.connection, title: `Mesa ${j.table.name}`, ticket }).catch(e => ({ ok: false, error: String(e?.message ?? e) }));
+      printed.push({ channel: j.channel, printer: j.printer, lines: j.items.length, ok: res.ok });
+      if (j.rows.length) await this.database.db.execute(sql`UPDATE order_line_printer SET printed = ${res.ok}, printed_at = ${res.ok ? this.clock().toISOString() : null}::timestamptz
+        WHERE store_id = ${session.storeId} AND id = ANY(${"{" + j.rows.join(",") + "}"}::uuid[])`);
+    }
+    if (printed.some(p => !p.ok)) fail("PRINTER_OFFLINE", "Una impresora no responde: lo que no salió se imprimirá al volver a enviar", { printed });
     return printed;
   }
 
@@ -278,14 +383,15 @@ export class OrdersService {
   /** Menú por pases: «Marchar» un pase en espera (o elegido) ahora mismo. */
   async fireCourse(session: Session, orderId: string, lineId: string, b: { course: number; version?: number | null }) {
     await this.auth.require(session, "pedido.enviar");
-    const r = await this.command<{ printed: { channel: string; printer: string; lines: number; ok: boolean }[] }>(session, orderId, b.version, async (l, ctx, tx) => {
+    const r = await this.command<{ jobs: KitchenJob[] }>(session, orderId, b.version, async (l, ctx, tx) => {
       const acc = l.order.accounts.find(a => a.lines.some(x => x.id === lineId)) ?? fail("NOT_FOUND", "La línea no existe", { lineId });
       const res = sendWithCourses(acc!, { now: ctx.now, force: { lineId, course: b.course } });
-      const printed = res.items.length ? await this.printKitchen(tx, session, l, ctx, res.items) : [];
+      const plan = res.items.length ? await this.planKitchen(tx, session, l, ctx, res.items) : { jobs: [], record: undefined };
       const name = acc!.lines.find(x => x.id === lineId)!.name;
-      return { next: this.replace(l.order, res.account), events: [this.ev("courseFired", `Marcha ${courseLabel(b.course)} de ${name}`, ctx, acc!.id)], extra: { printed } };
+      return { next: this.replace(l.order, res.account), events: [this.ev("courseFired", `Marcha ${courseLabel(b.course)} de ${name}`, ctx, acc!.id)], extra: { jobs: plan.jobs }, afterSave: plan.record };
     });
-    return { printed: r.extra.printed, order: r.transaction };
+    const printed = await this.printKitchen(session, r.extra.jobs);
+    return { printed, order: r.transaction };
   }
 
   /** «Inclúyeme la bebida en el menú»: una bebida ya pedida pasa a ser la del pase (sin encargado; queda con motivo). */
@@ -303,27 +409,34 @@ export class OrdersService {
 
   async prebill(session: Session, orderId: string, accountId: string) {
     await this.auth.require(session, "pedido.precuenta");
-    return (await this.command(session, orderId, null, async (l, ctx, tx) => {
+    // se guarda y se imprime después del COMMIT (sin bloquear la mesa durante la conexión con la impresora)
+    const r = await this.command<{ job: { p: { name: string; connection: string; channel: string }; title: string; ticket: ReturnType<typeof preBillTicket> } }>(session, orderId, null, async (l, ctx, tx) => {
       const acc = this.account(l.order, accountId);
       const next = preBill(acc);
-      const p = await this.ticketPrinter(tx, session);
-      const res = await this.printer.print({ kind: "prebill", channel: "TICKET", printer: p.name, connection: p.connection, title: `Precuenta mesa ${l.header.tableName}`, ticket: preBillTicket(next, await this.ticketCtx(tx, session, l, ctx.now)) });
-      if (!res.ok) fail("PRINTER_OFFLINE", "La impresora de tickets no responde; la precuenta no se ha impreso", { printer: p.name, error: res.error });
-      return { next: this.replace(l.order, next), events: [this.ev("preBill", `Precuenta de la ${acc.name}: ${accountTotals(acc).total.toFixed(2)} €`, ctx, acc.id)] };
-    })).transaction;
+      const p = await this.ticketPrinter(tx, session, orderId);
+      const ticket = preBillTicket(next, await this.ticketCtx(tx, session, l, ctx.now));
+      return { next: this.replace(l.order, next), events: [this.ev("preBill", `Precuenta de la ${acc.name}: ${accountTotals(acc).total.toFixed(2)} €`, ctx, acc.id)], extra: { job: { p, title: `Precuenta mesa ${l.header.tableName}`, ticket } } };
+    });
+    const { p, title, ticket } = r.extra.job;
+    const res = await this.printer.print({ kind: "prebill", channel: p.channel, printer: p.name, connection: p.connection, title, ticket }).catch(e => ({ ok: false, error: String(e?.message ?? e) }));
+    if (!res.ok) fail("PRINTER_OFFLINE", "La impresora de tickets no responde; la precuenta no se ha impreso (vuelve a pedirla)", { printer: p.name, error: res.error, printed: [{ channel: p.channel, printer: p.name, lines: 0, ok: false }] });
+    return r.transaction;
   }
 
-  async pay(session: Session, orderId: string, accountId: string, b: { id?: string; method: string; amount: number; tip?: number; cashGiven?: number | null; authorization?: string | null }) {
+  async pay(session: Session, orderId: string, accountId: string, b: { id?: string; method: string; amount?: number | null; tip?: number; cashGiven?: number | null; authorization?: string | null }) {
     await this.auth.require(session, "cobro.cobrar", b.authorization);
     const r = await this.command<{ payment: { id: string; status: string; change: number | null } }>(session, orderId, null, async (l, ctx, tx) => {
-      const [m] = await tx.select().from(s.paymentMethod).where(and(eq(s.paymentMethod.storeId, session.storeId), eq(s.paymentMethod.code, b.method), eq(s.paymentMethod.active, true)));
-      if (!m) fail("VALIDATION", "Forma de pago no disponible", { field: "method" });
-      const kind = m!.kind === "cash" ? "cash" : m!.kind === "card" ? "card" : "other";
-      if ((b.tip ?? 0) > 0 && !m!.allowsTip) fail("VALIDATION", "Esta forma de pago no admite propina", { field: "tip" });
+      // forma de pago de Ajustes (cualquier código: glovo, efectivo2…), permitida en esta estación (regla en @japp/domain)
+      const [row] = await tx.select().from(s.paymentMethod).where(and(eq(s.paymentMethod.storeId, session.storeId), eq(s.paymentMethod.code, b.method)));
+      const allowed = (await tx.select({ id: s.stationPaymentMethod.paymentMethodId }).from(s.stationPaymentMethod)
+        .where(and(eq(s.stationPaymentMethod.storeId, session.storeId), eq(s.stationPaymentMethod.stationId, session.station.id)))).map(x => x.id);
+      const m = assertMethodAllowed(row ? { id: row.id, code: row.code, kind: row.kind, active: row.active } : null, { name: session.station.name, kind: session.station.kind, methodIds: allowed }, b.method);
+      const kind = paymentKind(m.kind, m.code);
+      if ((b.tip ?? 0) > 0 && !row!.allowsTip) fail("VALIDATION", "Esta forma de pago no admite propina", { field: "tip" });
       const acc = this.account(l.order, accountId);
       const c = b.id ? { ...ctx, newId: () => b.id! } : ctx;
-      const res = registerPayment(acc, { method: b.method, kind, amount: b.amount, tip: b.tip, cashGiven: b.cashGiven }, c);
-      return { next: this.replace(l.order, res.account), events: [this.ev("paymentAdded", `Cobro ${m!.name} ${res.payment.amount.toFixed(2)} €`, ctx, acc.id)], extra: { payment: { id: res.payment.id, status: res.payment.status, change: res.payment.change } } };
+      const res = registerPayment(acc, { method: m.code, methodId: m.id, kind, amount: b.amount ?? null, tip: b.tip, cashGiven: b.cashGiven }, c);
+      return { next: this.replace(l.order, res.account), events: [this.ev("paymentAdded", `Cobro ${row!.name} ${res.payment.amount.toFixed(2)} €`, ctx, acc.id)], extra: { payment: { id: res.payment.id, status: res.payment.status, change: res.payment.change } }, clearCharging: res.settled };
     });
     const acc = r.order.accounts.find(a => a.id === accountId)!;
     const T = accountTotals(acc);
@@ -334,13 +447,16 @@ export class OrdersService {
    * Factura: número reservado con SELECT … FOR UPDATE en invoice_series dentro de la misma transacción,
    * factura + desglose de IVA + registro VeriFactu encadenado al anterior de la tienda.
    */
-  async invoice(session: Session, orderId: string, accountId: string) {
+  async invoice(session: Session, orderId: string, accountId: string, b: { authorization?: string | null } = {}) {
+    await this.auth.require(session, "cobro.cobrar", b.authorization);
     const store = await this.stores.store();
-    const r = await this.command<{ invoice: NonNullable<Account["invoice"]> }>(session, orderId, null, async (l, ctx, tx) => {
+    const r = await this.command<{ invoice: NonNullable<Account["invoice"]> }>(session, orderId, null, async (l, ctx0, tx) => {
       const acc = this.account(l.order, accountId);
       if (acc.status !== "open") fail("ACCOUNT_CLOSED", "La cuenta ya está facturada", { accountId });
-      // cadena VeriFactu: una factura de la tienda cada vez (las series F y T comparten cadena)
+      // cadena VeriFactu: una factura de la tienda cada vez (las series F y T comparten cadena).
+      // La hora se toma DESPUÉS de tener el bloqueo: así la cadena va en orden de tiempo.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${session.storeId}))`);
+      const now = this.clock(), ctx: Ctx = { ...ctx0, now, actor: session.actor(now) };
       const series = acc.customerData ? store.serieF : store.serieT;
       const [row] = await tx.select().from(s.invoiceSeries).where(and(eq(s.invoiceSeries.storeId, session.storeId), eq(s.invoiceSeries.series, series))).for("update");
       if (!row) fail("NOT_FOUND", `No existe la serie ${series}`, { series });
@@ -348,7 +464,7 @@ export class OrdersService {
       const inv = next.invoice!;
       await tx.update(s.invoiceSeries).set({ lastSequence: inv.sequence } as any).where(and(eq(s.invoiceSeries.storeId, session.storeId), eq(s.invoiceSeries.series, series)));
       const id = crypto.randomUUID();
-      const base = inv.taxes.reduce((a, t) => a + t.base, 0), tax = inv.taxes.reduce((a, t) => a + t.tax, 0);
+      const base = r2(sum(inv.taxes.map(t => t.base))), tax = r2(sum(inv.taxes.map(t => t.tax)));
       await tx.insert(s.invoice).values({
         id, storeId: session.storeId, accountId: acc.id, orderId: l.order.id, type: inv.type, series: inv.series, sequence: inv.sequence, invoiceNumber: inv.invoiceNumber, issuedAt: inv.issuedAt,
         issuerTaxId: store.nif, issuerName: store.issuerName, customerId: inv.customer?.id ?? null, customerType: inv.customer?.type ?? null, customerTaxId: inv.customer?.taxId ?? null,
@@ -358,13 +474,16 @@ export class OrdersService {
         issuedByUserId: ctx.actor.userId, issuedByUserName: ctx.actor.user, issuedByRole: ctx.actor.role, issuedByDevice: ctx.actor.device, issuedByAt: ctx.actor.at,
       } as any);
       for (const t of inv.taxes) await tx.insert(s.invoiceTax).values({ invoiceId: id, storeId: session.storeId, rate: t.rate.toFixed(2), base: t.base.toFixed(2), tax: t.tax.toFixed(2) } as any);
-      const [prev] = await tx.select().from(s.verifactuRecord).where(eq(s.verifactuRecord.storeId, session.storeId)).orderBy(desc(s.verifactuRecord.generatedAt)).limit(1).for("update");
+      // registro anterior = el último de la cadena (el que aún no tiene sucesor); la base garantiza uno solo (uq_verifactu_previous / uq_verifactu_genesis)
+      const [prev] = (await tx.execute(sql`SELECT v.id::text id, v.hash FROM verifactu_record v WHERE v.store_id = ${session.storeId}
+        AND NOT EXISTS (SELECT 1 FROM verifactu_record n WHERE n.store_id = v.store_id AND n.previous_record_id = v.id)
+        ORDER BY v.generated_at DESC, v.id DESC LIMIT 1`)).rows as { id: string; hash: string }[];
       const hash = createHash("sha256").update([store.nif, inv.invoiceNumber, inv.issuedAt.slice(0, 10), inv.type, tax.toFixed(2), inv.total.toFixed(2), prev?.hash ?? "", ctx.actor.at].join("&")).digest("hex").toUpperCase();
       await tx.insert(s.verifactuRecord).values({
         id: crypto.randomUUID(), storeId: session.storeId, invoiceId: id, issuerTaxId: store.nif, invoiceNumber: inv.invoiceNumber, issuedOn: inv.issuedAt.slice(0, 10), invoiceType: inv.type,
         taxTotal: tax.toFixed(2), total: inv.total.toFixed(2), previousRecordId: prev?.id ?? null, previousHash: prev?.hash ?? null, hash, generatedAt: ctx.actor.at,
       } as any);
-      return { next: this.replace(l.order, next), events: [this.ev("invoiceIssued", `Factura ${inv.type} ${inv.invoiceNumber} · ${inv.total.toFixed(2)} €`, ctx, acc.id)], extra: { invoice: inv } };
+      return { next: this.replace(l.order, next), events: [this.ev("invoiceIssued", `Factura ${inv.type} ${inv.invoiceNumber} · ${inv.total.toFixed(2)} €`, ctx, acc.id)], extra: { invoice: inv }, clearCharging: true };
     });
     const tableClosed = r.order.accounts.every(a => a.status === "invoiced");
     const printed = await this.printInvoice(session, orderId, accountId).catch(() => false);
@@ -372,14 +491,24 @@ export class OrdersService {
     return { invoice, tableClosed, printed };
   }
 
-  /** Impresora de tickets de la estación: la de tipo «ticket» o, si no hay, la primera que tenga asignada. */
-  private async ticketPrinter(tx: Tx, session: Session) {
+  /**
+   * Impresora de tickets (precuenta y factura): la del canal de tickets del ÁREA de la mesa, sea cual sea el equipo
+   * (terraza → impresora de terraza). Si el área no tiene canal: impresora de tipo «ticket» y, si no, la primera de la estación.
+   */
+  private async ticketPrinter(tx: Tx, session: Session, orderId?: string): Promise<{ name: string; connection: string; channel: string }> {
+    if (orderId) {
+      const r = (await tx.execute(sql`SELECT ch.name channel, pr.name, pr.connection FROM orders o JOIN dining_table dt ON dt.id = o.table_id AND dt.store_id = o.store_id JOIN area a ON a.id = dt.area_id AND a.store_id = o.store_id
+        JOIN print_channel ch ON ch.id = a.ticket_channel_id AND ch.active AND ch.store_id = o.store_id JOIN printer pr ON pr.id = ch.printer_id AND pr.active AND pr.store_id = o.store_id
+        WHERE o.id = ${orderId} AND o.store_id = ${session.storeId}`)).rows[0] as any;
+      if (r) return { name: r.name, connection: r.connection, channel: r.channel };
+    }
     const [t] = await tx.select({ name: s.printer.name, connection: s.printer.connection }).from(s.printer)
       .where(and(eq(s.printer.storeId, session.storeId), eq(s.printer.kind, "ticket"), eq(s.printer.active, true))).limit(1);
-    if (t) return t;
+    if (t) return { ...t, channel: "TICKET" };
     const [f] = await tx.select({ name: s.printer.name, connection: s.printer.connection }).from(s.stationChannelPrinter)
-      .innerJoin(s.printer, eq(s.printer.id, s.stationChannelPrinter.printerId)).where(eq(s.stationChannelPrinter.stationId, session.station.id)).limit(1);
-    return f ?? { name: "TICKET", connection: "" };
+      .innerJoin(s.printer, and(eq(s.printer.id, s.stationChannelPrinter.printerId), eq(s.printer.storeId, session.storeId)))
+      .where(and(eq(s.stationChannelPrinter.storeId, session.storeId), eq(s.stationChannelPrinter.stationId, session.station.id))).limit(1);
+    return { ...(f ?? { name: "TICKET", connection: "" }), channel: "TICKET" };
   }
 
   private async ticketCtx(tx: Tx, session: Session, l: Loaded, at: Date): Promise<TicketContext> {
@@ -398,10 +527,10 @@ export class OrdersService {
       const l = await this.repo.load(tx, session.storeId, orderId);
       const acc = l.order.accounts.find(a => a.id === accountId);
       if (!acc?.invoice) return false;
-      const p = await this.ticketPrinter(tx, session);
+      const p = await this.ticketPrinter(tx, session, orderId);
       const cash = acc.payments.some(x => x.status === "confirmed" && x.kind === "cash");
-      const [stn] = await tx.select({ opens: s.station.opensDrawer }).from(s.station).where(eq(s.station.id, session.station.id));
-      const res = await this.printer.print({ kind: "invoice", channel: "TICKET", printer: p.name, connection: p.connection, title: acc.invoice.invoiceNumber,
+      const [stn] = await tx.select({ opens: s.station.opensDrawer }).from(s.station).where(and(eq(s.station.storeId, session.storeId), eq(s.station.id, session.station.id)));
+      const res = await this.printer.print({ kind: "invoice", channel: p.channel, printer: p.name, connection: p.connection, title: acc.invoice.invoiceNumber,
         ticket: invoiceTicket(acc, await this.ticketCtx(tx, session, l, new Date(acc.invoice.issuedAt))), openDrawer: cash && !!stn?.opens });
       return res.ok;
     });
@@ -428,8 +557,8 @@ export class OrdersService {
     })).transaction;
   }
 
-  async removeDiscount(session: Session, orderId: string, accountId: string, discountId: string) {
-    await this.auth.require(session, "cobro.descuentos");
+  async removeDiscount(session: Session, orderId: string, accountId: string, discountId: string, b: { authorization?: string | null } = {}) {
+    await this.auth.require(session, "cobro.descuentos", b.authorization);
     return (await this.command(session, orderId, null, (l, ctx) => {
       const acc = this.account(l.order, accountId);
       const next = removeDiscount(acc, discountId);
@@ -498,13 +627,62 @@ export class OrdersService {
       const [t] = await tx.select({ t: s.diningTable, a: s.area }).from(s.diningTable).innerJoin(s.area, eq(s.area.id, s.diningTable.areaId))
         .where(and(eq(s.diningTable.id, b.toTableId), eq(s.diningTable.storeId, session.storeId))).for("update", { of: s.diningTable });
       if (!t) fail("NOT_FOUND", "La mesa de destino no existe", { tableId: b.toTableId });
-      const busy = await tx.select({ id: s.orders.id }).from(s.orders).where(and(eq(s.orders.tableId, b.toTableId), inArray(s.orders.status, ["open", "billing"])));
+      const busy = await tx.select({ id: s.orders.id }).from(s.orders).where(and(eq(s.orders.storeId, session.storeId), eq(s.orders.tableId, b.toTableId), inArray(s.orders.status, ["open", "billing"])));
       if (busy.length) fail("TABLE_BUSY", "La mesa de destino está ocupada", { orderId: busy[0]!.id });
       const from = l.header.tableName;
-      await tx.update(s.orders).set({ tableId: t!.t.id, tableName: String(t!.t.number), zone: t!.a.name, priceList: t!.a.priceList } as any).where(eq(s.orders.id, orderId));
+      await tx.update(s.orders).set({ tableId: t!.t.id, tableName: String(t!.t.number), zone: t!.a.name, priceList: t!.a.priceList } as any).where(and(eq(s.orders.id, orderId), eq(s.orders.storeId, session.storeId)));
       Object.assign(l.header, { tableId: t!.t.id, tableName: String(t!.t.number), zone: t!.a.name, priceList: t!.a.priceList });
       return { next: { ...l.order, tableId: t!.t.id }, events: [this.ev("tableTransferred", `Mesa ${from} → ${t!.t.number}`, ctx)] };
     })).transaction;
+  }
+
+  /**
+   * Pasar UNA cuenta a otra mesa (regla en @japp/domain → transferAccount). Va entera (líneas con su historia, descuentos,
+   * cobros parciales, cliente y pases) y con sus precios. Mesa libre → se abre con la cuenta; ocupada → una cuenta más.
+   * Bloqueos en orden fijo: la mesa de destino y luego las dos órdenes por id (sin interbloqueos con otros comandos).
+   */
+  async transferAccount(session: Session, orderId: string, accountId: string, b: { toTableId: string; version: number; authorization?: string | null }) {
+    await this.auth.require(session, "mesas.transferir", b.authorization);
+    const ctx = this.ctx(session), S = session.storeId;
+    const me = { userId: session.user.id, userName: session.user.name, stationId: session.station.id, stationName: session.station.name, canTakeOver: session.can("mesas.entrarOcupada") };
+    return this.database.withTx(async tx => {
+      const period = await PeriodsController.current(tx, S);
+      if (!period) fail("PERIOD_CLOSED", "No hay periodo abierto");
+      const [t] = await tx.select({ t: s.diningTable, a: s.area }).from(s.diningTable).innerJoin(s.area, eq(s.area.id, s.diningTable.areaId))
+        .where(and(eq(s.diningTable.id, b.toTableId), eq(s.diningTable.storeId, S))).for("update", { of: s.diningTable });
+      if (!t) fail("NOT_FOUND", "La mesa de destino no existe", { tableId: b.toTableId });
+      const [busy] = await tx.select({ id: s.orders.id }).from(s.orders).where(and(eq(s.orders.storeId, S), eq(s.orders.tableId, b.toTableId), inArray(s.orders.status, ["open", "billing"])));
+      // las dos órdenes, bloqueadas siempre en el mismo orden (por id)
+      await tx.execute(sql`SELECT id FROM orders WHERE store_id = ${S} AND id = ANY(${"{" + [orderId, ...(busy ? [busy.id] : [])].join(",") + "}"}::uuid[]) ORDER BY id FOR UPDATE`);
+      const src = await this.repo.load(tx, S, orderId, { lock: true });
+      if (src.header.status === "closed" || src.header.status === "cancelled") fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
+      assertVersion(src.header.version, b.version);
+      assertCanCommand(src.header.presence, me, "other", ctx.now);
+      if (busy?.id === orderId || src.header.tableId === b.toTableId) fail("VALIDATION", "La cuenta ya está en esa mesa", { field: "toTableId" });
+      const toName = String(t!.t.number);
+      let dst: Loaded;
+      if (busy) {
+        dst = await this.repo.load(tx, S, busy.id, { lock: true });
+        canEnterTable(dst.header.presence, me, ctx.now); // cobro abierto → TABLE_CHARGING; otra persona dentro → TABLE_TAKEN (salvo mesas.entrarOcupada)
+      } else {
+        const header: OrderHeader = { id: crypto.randomUUID(), storeId: S, periodId: period!.id, status: "open", version: 1, tableId: t!.t.id, tableName: toName, zone: t!.a.name,
+          priceList: t!.a.priceList === "terrace" ? "terrace" : "general", guests: 1, note: null, openedBy: ctx.actor, lastEntry: ctx.actor, presence: { holder: null, chargingUntil: null } };
+        await this.repo.insertHeader(tx, header);
+        dst = { header, order: { id: header.id, tableId: header.tableId!, guests: 1, version: 1, accounts: [] }, meta: new Map() };
+      }
+      const r = transferAccount(src.order, accountId, dst.order);
+      const name = r.account.name, oldName = r.renamedFrom ?? name;
+      // la cuenta y TODAS sus líneas (también las eliminadas) cambian de orden; cobros, descuentos y respuestas cuelgan de ellas
+      await tx.execute(sql`UPDATE account SET order_id = ${dst.header.id}, name = ${name}, updated_at = now() WHERE store_id = ${S} AND id = ${accountId} AND order_id = ${orderId}`);
+      await tx.execute(sql`UPDATE order_line SET order_id = ${dst.header.id}, updated_at = now() WHERE store_id = ${S} AND account_id = ${accountId} AND order_id = ${orderId}`);
+      // origen: sin la cuenta (ya no es suya); si no le queda ninguna viva se cierra como «cerrar mesa sin venta»
+      if (!r.sourceLive && !r.from.accounts.some(a => a.status === "invoiced")) src.header.status = "cancelled";
+      const vFrom = await this.repo.save(tx, S, r.from, r.from, src.header, { actor: ctx.actor, events: [this.ev("accountTransferred", `${oldName} pasa a la mesa ${toName}`, ctx)] });
+      if (!r.sourceLive) await this.repo.savePresence(tx, S, orderId, { holder: null, chargingUntil: null });
+      const vTo = await this.repo.save(tx, S, r.to, r.to, dst.header, { actor: ctx.actor, events: [this.ev("accountArrived", `Llega ${oldName} desde la mesa ${src.header.tableName}${r.renamedFrom ? ` (ahora ${name})` : ""}`, ctx, accountId)] });
+      const a = await this.repo.load(tx, S, orderId), d = await this.repo.load(tx, S, dst.header.id);
+      return { from: await this.repo.transaction(tx, { ...a.header, version: vFrom }, a.order), to: await this.repo.transaction(tx, { ...d.header, version: vTo }, d.order) };
+    });
   }
 
   async events(session: Session, orderId: string) {

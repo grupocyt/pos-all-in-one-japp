@@ -1,4 +1,5 @@
 import { D, r2, sum } from "./money.js";
+import { fail } from "./errors.js";
 
 export interface CashMovement { type: "retiro" | "ingreso"; amount: number; reason: string; }
 export interface CashPayment { kind: "cash" | "card" | "other"; amount: number; refund?: boolean; }
@@ -24,4 +25,25 @@ export const countedTotal = (count: Partial<Record<number, number>>) => r2(sum(D
 export function cashDifference(counted: number, expected: number, threshold = 5) {
   const diff = r2(D(counted).minus(expected));
   return { diff, needsReason: Math.abs(diff) > threshold };
+}
+
+/**
+ * Arqueo con desglose: Σ denominación × unidades. Las claves son la denominación como texto («50», «0.5» o «0,50»).
+ * Si no suma lo contado al céntimo → 422 VALIDATION en «detail» («El desglose suma X €, no Y €»).
+ */
+const eur = (n: number) => n.toFixed(2).replace(".", ",");
+export function detailTotal(detail: Record<string, number>): number {
+  let t = D(0);
+  for (const [k, units] of Object.entries(detail)) {
+    const v = Number(k.trim().replace(",", "."));
+    if (!/^\d+([.,]\d{1,2})?$/.test(k.trim()) || !(v > 0)) fail("VALIDATION", `Denominación no válida: «${k}»`, { field: "detail", key: k });
+    if (!Number.isInteger(units) || units < 0) fail("VALIDATION", `Unidades no válidas para ${k}`, { field: "detail", key: k });
+    t = t.plus(D(v).times(units));
+  }
+  return r2(t);
+}
+export function assertDetailMatches(detail: Record<string, number> | null | undefined, counted: number): void {
+  if (!detail) return;
+  const t = detailTotal(detail);
+  if (t !== r2(counted)) fail("VALIDATION", `El desglose suma ${eur(t)} €, no ${eur(r2(counted))} €`, { field: "detail", detailTotal: t, countedCash: r2(counted) });
 }

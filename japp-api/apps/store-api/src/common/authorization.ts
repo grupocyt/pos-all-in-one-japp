@@ -30,5 +30,15 @@ export class Authorization {
     this.used.set(c!.jti, c!.exp);
     return { authorizer: toUserLike(u!), authorizerActor: { userId: u!.id, user: u!.name, role: roleOf(u!), device: session.station.name, origin: session.origin, at: now.toISOString() } };
   }
+  /** Vale cualquiera de los permisos (p. ej. pasar a otra cuenta: pedido.pasarCuenta o pedido.separar). Con autorización, la del primero que tenga el encargado. */
+  async requireAny(session: Session, perms: string[], token?: string | null, now = new Date()): Promise<Granted> {
+    if (perms.some(p => session.can(p))) return { authorizer: null, authorizerActor: null };
+    if (token) {
+      const c = verifyToken<AuthClaims>(this.cfg.sessionSecret, token, "auth", now.getTime());
+      const perm = c && perms.includes(c.perm) ? c.perm : perms[0]!;
+      return this.require(session, perm, token, now);
+    }
+    return fail("PERMISSION_REQUIRED", "Hace falta la clave de un encargado", { permission: perms[0], anyOf: perms });
+  }
   private gc(now: Date) { for (const [k, exp] of this.used) if (exp * 1000 < now.getTime()) this.used.delete(k); }
 }

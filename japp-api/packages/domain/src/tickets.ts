@@ -1,4 +1,5 @@
-import { accountTotals, lineAmount } from "./totals.js";
+import { accountTotals, discountAmount, lineAmount } from "./totals.js";
+import { r2, sum } from "./money.js";
 import type { Account, Line, Payment } from "./types.js";
 
 /**
@@ -103,15 +104,15 @@ function body(acc: Account): TicketLine[] {
   out.push(R("-"));
   const tt = accountTotals(acc);
   for (const d of acc.discounts.filter(x => x.status === "applied")) {
-    const amt = d.type === "percentage" ? Math.round(tt.sub * d.value) / 100 : Math.min(d.value, tt.sub);
+    const amt = discountAmount(d, tt.sub);
     out.push(T(lr(`Descuento ${d.type === "percentage" ? pct(d.value) + " % " : ""}${d.reason}`.trim(), "-" + eur(amt))));
   }
   if (tt.disc) out.push(R("-"));
   // desglose de IVA: «  10,00 %: Base:      7,27 € Cuota:       0,73 €»
   const base = (rate: string, b: number, c: number, label = "Cuota:") => padL(rate, 16) + padL(eur(b), 12) + " " + label + padL(eur(c), 13);
   for (const x of tt.taxes) out.push(T(base(`${pct(x.rate)} %: Base:`, x.base, x.tax)));
-  const sb = tt.taxes.reduce((a, x) => a + x.base, 0), sc = tt.taxes.reduce((a, x) => a + x.tax, 0);
-  out.push(T(base("Total:", Math.round(sb * 100) / 100, Math.round(sc * 100) / 100, "Total:"), { bold: true }), R("-"));
+  const sb = r2(sum(tt.taxes.map(x => x.base))), sc = r2(sum(tt.taxes.map(x => x.tax)));
+  out.push(T(base("Total:", sb, sc, "Total:"), { bold: true }), R("-"));
   out.push(T(lr("Total (Impuestos Incl.)", eur(tt.total)), { bold: true }), R("="));
   return out;
 }

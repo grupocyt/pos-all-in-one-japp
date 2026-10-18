@@ -63,7 +63,7 @@ export interface paths {
         put?: never;
         /**
          * Entrar con clave
-         * @description Valida la clave de 4 cifras (bcrypt) y devuelve el usuario con su perfil, color y permisos efectivos (perfil + permisos propios del usuario). lockSeconds = segundos sin tocar la pantalla hasta volver a pedir la clave: el propio del usuario o, si no tiene, el de Parámetros (7 s en TPV, 10 s en móvil); 0 = nunca.
+         * @description Valida la clave de 4 cifras (bcrypt) y devuelve el usuario con su perfil, color y permisos efectivos (perfil + permisos propios del usuario). lockSeconds = segundos sin tocar la pantalla hasta volver a pedir la clave: el propio del usuario o, si no tiene, el de Parámetros (7 s en TPV, 10 s en móvil); 0 = nunca. Caja principal: un perfil con allowedStations = main (Cajero) solo entra en la estación con isMain = true; en otra responde 403 STATION_NOT_ALLOWED («Este perfil solo puede entrar en la caja principal», details {allowed: main, station}). La estación es la de X-Station-Id: si la estación tiene UUID de equipo (POST /devices/register), la cabecera tiene que ser ese UUID; por nombre o id responde 403 STATION_NOT_ALLOWED («Este equipo no es esa estación»). El bloqueo de PIN cuenta los fallos por equipo (su UUID si la estación lo tiene; si no, la estación), nunca por IP, y en la clave de encargado también por usuario; se guarda en la base y sobrevive a reinicios. Una sesión activa por usuario, guardada en la base (también tras reiniciar la API): entrar sustituye la sesión anterior de ese usuario (en otro equipo o en el mismo, p. ej. al desbloquear); con el token anterior cualquier petición responde 401 SESSION_REPLACED «Tu clave se ha abierto en {estación}: vuelve a entrar» (details.station). Si la anterior era en otro equipo, las mesas que tenía desde allí quedan libres (evento «{usuario} ha entrado en {estación}; sale de la mesa»). La clave de encargado (POST /sessions/authorize) no sustituye la sesión del encargado.
          *
          *     Lo llama: TPV, PDA
          *
@@ -109,7 +109,7 @@ export interface paths {
         };
         /**
          * Mi sesión
-         * @description Usuario, estación, permisos y segundos de bloqueo vigentes (cambian si se editan en Ajustes sin volver a entrar).
+         * @description Usuario, estación, permisos y segundos de bloqueo vigentes (cambian si se editan en Ajustes sin volver a entrar). Si el perfil pasó a «solo caja principal» y el equipo no lo es, responde 403 STATION_NOT_ALLOWED (igual que cualquier otra petición con esa sesión).
          *
          *     Lo llama: TPV, PDA
          *
@@ -120,7 +120,7 @@ export interface paths {
         post?: never;
         /**
          * Salir
-         * @description Cierra la sesión. El bloqueo por inactividad no cierra sesión: vuelve a pedir la clave.
+         * @description Cierra la sesión: el token deja de valer (después, 401 BAD_PIN). El bloqueo por inactividad no cierra sesión: vuelve a pedir la clave.
          *
          *     Lo llama: TPV, PDA
          */
@@ -139,7 +139,9 @@ export interface paths {
         };
         /**
          * Periodo abierto
-         * @description Lo llama: TPV, PDA
+         * @description El periodo abierto de la tienda. Si no hay ninguno responde 409 PERIOD_CLOSED (el equipo ofrece «Iniciar periodo»).
+         *
+         *     Lo llama: TPV, PDA
          *
          *     Tablas: sales_period
          */
@@ -163,9 +165,11 @@ export interface paths {
         put?: never;
         /**
          * Abrir periodo
-         * @description Permiso: funciones.periodo
+         * @description Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un encargado: POST /sessions/authorize con permission funciones.periodo y se reenvía con authorization (un solo uso; no crea ni sustituye la sesión del encargado). Si ya hay uno abierto responde 409 PERIOD_ALREADY_OPEN.
          *
-         *     Lo llama: TPV
+         *     Permiso: funciones.periodo
+         *
+         *     Lo llama: TPV, PDA
          *
          *     Tablas: sales_period, cash_movement
          */
@@ -187,7 +191,7 @@ export interface paths {
         put?: never;
         /**
          * Cerrar periodo con arqueo
-         * @description Guarda el arqueo final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar con mesas abiertas.
+         * @description Solo desde la caja principal (403 MAIN_STATION_REQUIRED «Solo desde la caja principal»). Guarda el arqueo final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar con mesas abiertas.
          *
          *     Permiso: funciones.periodo
          *
@@ -524,6 +528,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/transactions/day": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transacciones del día
+         * @description Una entrada por cuenta (kind = invoice, credit, open o cancelled) del día de negocio (apertura del periodo en hora de Madrid): mesa, quién abrió, líneas con PLU, nombre, PVP, hora y quién las marcó y sus opciones (respuestas a preguntas o pases), eliminaciones con el momento (sin enviar, impreso o precuenta), quién y quién autorizó, descuentos, cobros (forma de pago y quién cobró), factura con IVA y QR, e historial de la mesa.
+         *
+         *     Permiso: funciones.informes
+         *
+         *     Lo llama: TPV, Agente, Manager
+         *
+         *     Tablas: sales_period, orders, account, order_line, order_line_modifier, account_discount, payment, invoice, invoice_tax, order_event
+         */
+        get: operations["store_GET_transactions_day"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/sync/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enviar las transacciones del día al Manager
+         * @description Deja cada transacción en la cola hacia el Manager (sync_outbox, entity transaction) sin duplicar: si ya hay una igual (mismo hash) no se vuelve a meter. Con MANAGER_URL configurado la manda además al momento (POST /api/manager/v1/stores/{storeId}/transactions con Idempotency-Key).
+         *
+         *     Permiso: ajustes.devsync
+         *
+         *     Lo llama: TPV, Agente
+         *
+         *     Tablas: sync_outbox
+         */
+        post: operations["store_POST_sync_transactions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/tables": {
         parameters: {
             query?: never;
@@ -533,7 +589,7 @@ export interface paths {
         };
         /**
          * Estado de las mesas
-         * @description Para pintar el plano: estado (libre, en uso, mías, sin cobrar, separada), importe pendiente, camarero, minutos abierta y quién más está dentro.
+         * @description Para pintar el plano: estado (libre, en uso, mías, sin cobrar, separada), importe pendiente, camarero, minutos abierta y quién tiene la mesa ahora (holder: null si nadie o si su plazo caducó) y si se está cobrando (charging).
          *
          *     Lo llama: TPV, PDA
          *
@@ -647,7 +703,7 @@ export interface paths {
         put?: never;
         /**
          * Entrar o salir de la mesa
-         * @description Rellena lastEntry y lastExit y avisa a los demás equipos («También en esta mesa»). Mientras la mesa está abierta, el equipo la renueva cada 20 s.
+         * @description Una persona por mesa. action: enter (entrar), renew (renovar; el equipo lo manda cada 10 s), leave (salir), charging (abro el cobro; renovar mandándolo otra vez) o chargingEnd (cierro el cobro sin cobrar). Quien entra tiene la mesa 30 s (holderUntil), renovables con renew o con cualquier comando suyo aceptado. Mesa con otra persona dentro: si se está cobrando (60 s, renovable) responde 409 TABLE_CHARGING «Se está cobrando esta mesa» (también a un administrador); si no, quien tiene mesas.entrarOcupada (ADMIN y ADMIN_LOCAL) entra y la otra persona pasa a solo guardar (queda en el historial); sin ese permiso responde 409 TABLE_TAKEN «Mesa ocupada por {nombre} · {estación}» con details.holder {userName, stationName, until}. Quien tiene la mesa es la pareja usuario + equipo: el mismo usuario desde otro equipo cuenta como otra persona (TABLE_TAKEN salvo mesas.entrarOcupada; TABLE_CHARGING mientras se cobra). Como hay una sola sesión por usuario, al entrar con la clave en otro equipo la mesa del equipo anterior queda libre. Mientras otra persona o equipo tiene la mesa, solo se admite Guardar (POST …/lines y POST …/send); el resto de comandos de la orden responde 409 TABLE_TAKEN. Un cobro que deja lo pendiente a 0, la factura o chargingEnd quitan el cobro abierto; leave quita la mesa y el cobro. Sin presencia (nadie la tiene o caducó) todo funciona como siempre.
          *
          *     Lo llama: TPV, PDA
          *
@@ -678,6 +734,32 @@ export interface paths {
          *     Tablas: orders, account, order_event
          */
         post: operations["store_POST_orders_orderId_transfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/orders/{orderId}/accounts/{accountId}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pasar una cuenta a otra mesa
+         * @description Mueve UNA cuenta a otra mesa, entera: líneas (con su estado y su historia de eliminadas), descuentos, cobros parciales, cliente y pases del menú; los precios no cambian aunque la mesa de destino tenga otra tarifa. version = la de la orden de origen (409 VERSION_CONFLICT). Mesa de destino libre → se abre con 1 comensal (la abre quien llama) y la cuenta conserva su id; ocupada → es una cuenta más de esa orden (nunca se juntan líneas) y, si su nombre ya existe allí, pasa a «Cuenta N» (el primer número libre). La cuenta tiene que estar sin facturar y con productos (si no, 422 NOTHING_TO_TRANSFER); a la misma mesa → 422 VALIDATION. Destino cobrándose → 409 TABLE_CHARGING; destino con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; origen con otra persona dentro → 409 TABLE_TAKEN. Si al origen no le queda ninguna cuenta viva, se cierra (cancelled, o closed si tenía cuentas facturadas) y la mesa queda libre. Las dos órdenes suben de versión, van a la cola y quedan en su historial («Cuenta 2 pasa a la mesa 8» / «Llega Cuenta 2 desde la mesa 7»). Responde las dos transacciones.
+         *
+         *     Permiso: mesas.transferir
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: orders, account, order_line, order_event, sync_outbox
+         */
+        post: operations["store_POST_orders_orderId_accounts_accountId_transfer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -869,7 +951,7 @@ export interface paths {
         put?: never;
         /**
          * Eliminar producto
-         * @description Sin enviar se quita sin más. Enviado o con precuenta pide motivo y, si el usuario no tiene permiso, una autorización de encargado. La línea no se borra: pasa a deletedLines con motivo, quién y quién autorizó.
+         * @description Sin enviar se quita sin más. Enviado o con precuenta pide motivo y, si el usuario no tiene permiso, una autorización de encargado. La línea no se borra: pasa a deletedLines con motivo, quién y quién autorizó. reasonId es el UUID de un motivo de Ajustes (o reason con el texto). Si la cuenta tiene cobros y quedaría por debajo de lo cobrado responde 409 TOTAL_BELOW_PAID «Ya se ha cobrado {importe} €: no se puede dejar la cuenta por debajo» (no hay devoluciones; añadir productos sí se puede).
          *
          *     Permiso: pedido.elimEnviado | pedido.elimPrecuenta
          *
@@ -1019,7 +1101,7 @@ export interface paths {
         put?: never;
         /**
          * Enviar comanda
-         * @description Manda a cada impresora lo «Por enviar» según el canal del producto y la estación. Responde qué salió por cada impresora; si una falla, la línea sigue pendiente.
+         * @description «Guardar»: manda a cada impresora lo «Por enviar» según el canal del producto y la estación. Se guarda primero (las líneas quedan enviadas y se apunta a qué impresora va cada una en order_line_printer) y se imprime después, sin bloquear la mesa. Si una impresora falla responde 503 PRINTER_OFFLINE con details.printed (qué salió y qué no): lo que no salió queda pendiente de imprimir en esa impresora y el siguiente «Enviar» (aunque no haya nada nuevo) lo imprime solo ahí; lo que ya salió no se repite. Sin nada que enviar ni que reimprimir no cambia la versión. Se admite aunque otra persona tenga la mesa (solo guardar).
          *
          *     Permiso: pedido.enviar
          *
@@ -1045,7 +1127,9 @@ export interface paths {
         put?: never;
         /**
          * Imprimir precuenta
-         * @description Permiso: pedido.precuenta
+         * @description Se guarda la precuenta y se imprime después (sin bloquear la mesa). Si la impresora de tickets falla responde 503 PRINTER_OFFLINE; repetir la llamada la vuelve a imprimir.
+         *
+         *     Permiso: pedido.precuenta
          *
          *     Lo llama: TPV, PDA
          *
@@ -1096,7 +1180,7 @@ export interface paths {
         post?: never;
         /**
          * Quitar descuento
-         * @description Queda con status removed y quién lo retiró.
+         * @description Queda con status removed y quién lo retiró. Sin permiso, se reenvía con authorization (clave de encargado).
          *
          *     Permiso: cobro.descuentos
          *
@@ -1145,7 +1229,7 @@ export interface paths {
         put?: never;
         /**
          * Registrar un pago
-         * @description Efectivo con entrega y cambio, o tarjeta con propina. Un importe menor que lo pendiente es un pago parcial. La PDA solo admite tarjeta. Responde los totales recalculados.
+         * @description Efectivo con entrega y cambio, o tarjeta con propina. method = código de una forma de pago activa de Ajustes (cash, card, glovo…); se guarda su id y su tipo decide si es efectivo, tarjeta u otros (bizum, vales y plataformas cuentan como otros). Si la estación tiene formas de pago configuradas, solo esas; la PDA solo las de tipo tarjeta; si no → 409 METHOD_NOT_ALLOWED. amount null = lo pendiente; un importe menor es un pago parcial y uno mayor responde 409 AMOUNT_EXCEEDS_PENDING (nunca se recorta). Si deja lo pendiente a 0 quita el cobro abierto de la mesa. Responde los totales recalculados.
          *
          *     Permiso: cobro.cobrar
          *
@@ -1171,7 +1255,7 @@ export interface paths {
         put?: never;
         /**
          * Emitir factura VeriFactu
-         * @description Con lo pendiente en 0. En una sola transacción de base de datos: numera la serie con bloqueo, guarda la factura y su desglose de IVA, genera el registro VeriFactu encadenado y cierra la cuenta. Si era la última cuenta, cierra la mesa y deja la transacción en la cola hacia el Manager.
+         * @description Con lo pendiente en 0. Pide cobro.cobrar (sin él, clave de encargado en authorization). En una sola transacción de base de datos: numera la serie con bloqueo, guarda la factura y su desglose de IVA (Σ bases + cuotas = total exacto), genera el registro VeriFactu encadenado al último de la tienda y cierra la cuenta. Si era la última cuenta, cierra la mesa y deja la transacción en la cola hacia el Manager. La factura se imprime después del COMMIT (printed false si la impresora falla; se reimprime con POST /invoices/{id}/reprint).
          *
          *     Permiso: cobro.cobrar
          *
@@ -1319,7 +1403,9 @@ export interface paths {
         put?: never;
         /**
          * Retiro, fondo o depósito
-         * @description Permiso: funciones.caja
+         * @description Solo desde la caja principal (403 MAIN_STATION_REQUIRED).
+         *
+         *     Permiso: funciones.caja
          *
          *     Lo llama: TPV
          *
@@ -1343,7 +1429,9 @@ export interface paths {
         put?: never;
         /**
          * Arqueo
-         * @description Permiso: funciones.caja
+         * @description Arqueo sin cierre: lo contado frente a lo esperado ahora (fondo + efectivo cobrado − retiros + ingresos del periodo, la misma cuenta que el cierre). Solo desde la caja principal (403 MAIN_STATION_REQUIRED). countedCash ≥ 0; detail opcional = billetes y monedas → unidades enteras ({"20": 7, "0.5": 3}; la denominación con punto o coma: «0.5» o «0,50»): si se manda, Σ denominación × unidades tiene que ser countedCash al céntimo, si no 422 VALIDATION con field detail «El desglose suma X €, no Y €»; note hasta 200. Queda como movimiento de caja «count» con el detalle y no cambia lo esperado. difference = contado − esperado. Sin periodo abierto, 409 PERIOD_CLOSED.
+         *
+         *     Permiso: funciones.caja
          *
          *     Lo llama: TPV
          *
@@ -1452,6 +1540,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/printers/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vista previa de un ticket de ejemplo
+         * @description kind = test (caracteres y tamaños), kitchen (comanda), menu (comanda por pases), prebill (precuenta) o invoice (factura simplificada). Mismo formato que imprime la API (48 columnas).
+         *
+         *     Permiso: ajustes.impresoras
+         *
+         *     Lo llama: TPV
+         */
+        post: operations["store_POST_printers_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/printers/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Probar conexión con una impresora
+         * @description Abre y cierra una conexión TCP (no imprime). connection = IP, IP:puerto o tcp://IP:puerto (9100 por defecto).
+         *
+         *     Permiso: ajustes.impresoras
+         *
+         *     Lo llama: TPV
+         */
+        post: operations["store_POST_printers_ping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/printers/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Imprimir un ticket de ejemplo por IP
+         * @description Permiso: ajustes.impresoras
+         *
+         *     Lo llama: TPV
+         */
+        post: operations["store_POST_printers_print"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/printers/status": {
         parameters: {
             query?: never;
@@ -1461,7 +1619,11 @@ export interface paths {
         };
         /**
          * Estado de las impresoras
-         * @description Lo llama: TPV
+         * @description Conecta con cada impresora activa de Ajustes (sin imprimir).
+         *
+         *     Permiso: ajustes.impresoras
+         *
+         *     Lo llama: TPV
          *
          *     Tablas: printer
          */
@@ -1485,9 +1647,13 @@ export interface paths {
         put?: never;
         /**
          * Página de prueba
-         * @description Permiso: ajustes.impresoras
+         * @description Imprime un ticket de ejemplo (kind, por defecto test) en una impresora dada de alta.
+         *
+         *     Permiso: ajustes.impresoras
          *
          *     Lo llama: TPV
+         *
+         *     Tablas: printer
          */
         post: operations["store_POST_printers_printerId_test"];
         delete?: never;
@@ -1650,6 +1816,28 @@ export interface paths {
          *     Tablas: (tienda) sync_outbox
          */
         post: operations["manager_POST_stores_storeId_outbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/v1/stores/{storeId}/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recibir las transacciones del día
+         * @description La tienda manda el día completo (mismo formato que GET /api/v2/transactions/day). Idempotente por Idempotency-Key; cada transacción se guarda por su id.
+         *
+         *     Lo llama: Agente
+         */
+        post: operations["manager_POST_stores_storeId_transactions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2309,12 +2497,12 @@ export interface components {
                 zone?: string | null;
                 guests?: number;
                 openedBy?: {
-                    user?: string;
+                    user?: string | null;
                     device?: string | null;
                     at?: string;
-                };
+                } | null;
                 lastEntry?: {
-                    user?: string;
+                    user?: string | null;
                     device?: string | null;
                     at?: string;
                 } | null;
@@ -2324,31 +2512,31 @@ export interface components {
             events?: {
                 type?: string;
                 at?: string;
-                description?: string;
-                user?: string;
+                description?: string | null;
+                user?: string | null;
                 device?: string | null;
-                role?: string;
+                role?: string | null;
             }[];
             accounts?: {
-                id?: string;
+                id?: string | null;
                 name?: string;
                 status?: string;
                 openedBy?: {
-                    user?: string;
-                    role?: string;
+                    user?: string | null;
+                    role?: string | null;
                     device?: string | null;
                     at?: string;
-                };
+                } | null;
                 closedBy?: unknown;
                 lastEntry?: {
-                    user?: string;
-                    role?: string;
+                    user?: string | null;
+                    role?: string | null;
                     device?: string | null;
                     at?: string;
                 } | null;
                 note?: unknown;
                 lines?: {
-                    id?: string;
+                    id?: string | null;
                     productId?: number;
                     name?: string;
                     comment?: string | null;
@@ -2359,15 +2547,15 @@ export interface components {
                     printed?: boolean;
                     status?: string;
                     printers?: {
-                        area?: string;
+                        area?: string | null;
                         printer?: string;
                         printed?: boolean;
                         interface?: string;
                         at?: string;
                     }[];
                     createdBy?: {
-                        user?: string;
-                        role?: string;
+                        user?: string | null;
+                        role?: string | null;
                         origin?: string;
                         device?: string | null;
                         at?: string;
@@ -2375,7 +2563,7 @@ export interface components {
                     modifiers?: unknown[];
                 }[];
                 deletedLines?: {
-                    id?: string;
+                    id?: string | null;
                     productId?: number;
                     name?: string;
                     comment?: unknown;
@@ -2386,15 +2574,15 @@ export interface components {
                     printed?: boolean;
                     status?: string;
                     printers?: {
-                        area?: string;
+                        area?: string | null;
                         printer?: string;
                         printed?: boolean;
                         interface?: string;
                         at?: string;
                     }[];
                     createdBy?: {
-                        user?: string;
-                        role?: string;
+                        user?: string | null;
+                        role?: string | null;
                         origin?: string;
                         device?: string | null;
                         at?: string;
@@ -2402,7 +2590,7 @@ export interface components {
                     modifiers?: unknown[];
                 }[];
                 discounts?: {
-                    id?: string;
+                    id?: string | null;
                     source?: string;
                     couponId?: unknown;
                     couponCode?: unknown;
@@ -2410,19 +2598,19 @@ export interface components {
                     value?: number;
                     baseAmount?: number;
                     amount?: number | null;
-                    reason?: string;
+                    reason?: string | null;
                     status?: string;
                     appliedBy?: {
-                        user?: string;
-                        role?: string;
+                        user?: string | null;
+                        role?: string | null;
                         device?: string | null;
                         at?: string;
-                    };
+                    } | null;
                     authorizedBy?: unknown;
                     removedBy?: unknown;
                 }[];
                 payments?: {
-                    id?: string;
+                    id?: string | null;
                     method?: string;
                     amount?: number | null;
                     tip?: number;
@@ -2431,8 +2619,8 @@ export interface components {
                     cashDetail?: unknown;
                     status?: string;
                     collectedBy?: {
-                        user?: string;
-                        role?: string;
+                        user?: string | null;
+                        role?: string | null;
                         device?: string | null;
                         at?: string;
                     };
@@ -2485,10 +2673,10 @@ export interface components {
                 events?: {
                     type?: string;
                     at?: string;
-                    description?: string;
-                    user?: string;
+                    description?: string | null;
+                    user?: string | null;
                     device?: string | null;
-                    role?: string;
+                    role?: string | null;
                 }[];
             }[];
         };
@@ -2511,7 +2699,7 @@ export interface components {
         };
         ErrorItem: {
             /** @enum {string} */
-            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE";
+            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS";
             message: string;
             /** @description Campo con el problema, si lo hay */
             field: string | null;
@@ -2565,7 +2753,7 @@ export interface operations {
                         type?: "success";
                         data?: {
                             station?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 kind?: string;
                                 emissionPoint?: string | null;
@@ -2663,12 +2851,13 @@ export interface operations {
                             token?: string;
                             expiresAt?: string | null;
                             user?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 initials?: string | null;
                                 profile?: string;
                                 color?: string | null;
-                            };
+                                allowedStations?: string;
+                            } | null;
                             permissions?: string[];
                             overrides?: {
                                 canCharge?: boolean | null;
@@ -2676,9 +2865,10 @@ export interface operations {
                                 canDeletePrebill?: boolean | null;
                             };
                             station?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 kind?: string;
+                                isMain?: boolean;
                             };
                             lockSeconds?: number | null;
                         };
@@ -2687,6 +2877,15 @@ export interface operations {
             };
             /** @description BAD_PIN: Clave incorrecta. Tras varios intentos, PIN_LOCKED. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description STATION_NOT_ALLOWED: Este perfil solo puede entrar en la caja principal (details.allowed = main, details.station), o este equipo no es esa estación (la estación tiene UUID de equipo y X-Station-Id no lo trae). */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2746,8 +2945,8 @@ export interface operations {
                         data?: {
                             authorization?: {
                                 token?: string;
-                                user?: string;
-                                role?: string;
+                                user?: string | null;
+                                role?: string | null;
                                 expiresAt?: string | null;
                             } | null;
                         };
@@ -2794,20 +2993,40 @@ export interface operations {
                         type?: "success";
                         data?: {
                             user?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 initials?: string | null;
                                 profile?: string;
-                            };
+                                allowedStations?: string;
+                            } | null;
                             station?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 kind?: string;
+                                isMain?: boolean;
                             };
                             permissions?: string[];
                             lockSeconds?: number | null;
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description SESSION_REPLACED: Tu clave se ha abierto en otro equipo (o has vuelto a entrar): este token ya no vale. details.station = dónde está ahora la sesión. Vuelve a entrar con la clave. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description STATION_NOT_ALLOWED: Este perfil solo puede entrar en la caja principal (details.allowed = main, details.station), o este equipo no es esa estación (la estación tiene UUID de equipo y X-Station-Id no lo trae). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -2855,19 +3074,19 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                             status?: string;
                             openedBy?: {
-                                user?: string;
+                                user?: string | null;
                                 device?: string | null;
                                 at?: string;
-                            };
+                            } | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description NOT_FOUND: No existe o no es de esta tienda. */
-            404: {
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2887,10 +3106,10 @@ export interface operations {
         requestBody: {
             content: {
                 /** @example {
-                 *       "pin": 186
+                 *       "authorization": "auth_7Hk…"
                  *     } */
                 "application/json": {
-                    pin?: string;
+                    authorization?: string | null;
                 };
             };
         };
@@ -2905,18 +3124,18 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                             status?: string;
                             openedBy?: {
-                                user?: string;
+                                user?: string | null;
                                 device?: string | null;
                                 at?: string;
-                            };
+                            } | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description NOT_ALLOWED: La clave es correcta pero esa persona tampoco tiene el permiso. */
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. · NOT_ALLOWED: La clave es correcta pero esa persona tampoco tiene el permiso. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2925,7 +3144,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description PERIOD_ALREADY_OPEN: PERIOD_ALREADY_OPEN */
+            /** @description PERIOD_ALREADY_OPEN: Ya hay un periodo abierto en la tienda. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2985,7 +3204,7 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. · MAIN_STATION_REQUIRED: Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3029,7 +3248,7 @@ export interface operations {
                         data?: {
                             version?: number;
                             restaurant?: {
-                                id?: string;
+                                id?: string | null;
                                 version?: number;
                                 code?: string;
                                 name?: string;
@@ -3051,7 +3270,7 @@ export interface operations {
                                 cashFloat?: number;
                             };
                             areas?: {
-                                id?: string;
+                                id?: string | null;
                                 version?: number;
                                 active?: boolean;
                                 name?: string;
@@ -3059,10 +3278,10 @@ export interface operations {
                                 sortOrder?: number;
                                 tableNumberFrom?: number;
                                 tables?: {
-                                    id?: string;
+                                    id?: string | null;
                                     version?: number;
                                     active?: boolean;
-                                    number?: string;
+                                    number?: string | null;
                                     areaId?: string;
                                     capacity?: number;
                                     posX?: number | null;
@@ -3071,7 +3290,7 @@ export interface operations {
                             }[];
                             catalog?: {
                                 categories?: {
-                                    id?: string;
+                                    id?: string | null;
                                     version?: number;
                                     active?: boolean;
                                     name?: string;
@@ -3081,7 +3300,7 @@ export interface operations {
                                     hidden?: boolean;
                                 }[];
                                 products?: {
-                                    id?: string;
+                                    id?: string | null;
                                     version?: number;
                                     active?: boolean;
                                     plu?: number | null;
@@ -3095,7 +3314,7 @@ export interface operations {
                                     questions?: unknown[];
                                 }[];
                                 questions?: {
-                                    id?: string;
+                                    id?: string | null;
                                     version?: number;
                                     active?: boolean;
                                     name?: string;
@@ -3111,34 +3330,34 @@ export interface operations {
                                 }[];
                             };
                             taxes?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 rate?: number;
                             }[];
                             paymentMethods?: {
-                                id?: string;
+                                id?: string | null;
                                 code?: string;
                                 name?: string;
                                 kind?: string;
                             }[];
                             discounts?: unknown[];
                             reasons?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 kind?: string;
                             }[];
                             channels?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                             }[];
                             printers?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 connection?: string;
                                 kind?: string;
                             }[];
                             stations?: {
-                                id?: string;
+                                id?: string | null;
                                 name?: string;
                                 kind?: string;
                                 channels?: Record<string, never>;
@@ -3180,9 +3399,9 @@ export interface operations {
                         type?: "success";
                         data?: {
                             items?: {
-                                id?: string;
+                                id?: string | null;
                                 at?: string;
-                                user?: string;
+                                user?: string | null;
                                 device?: string | null;
                                 module?: string;
                                 action?: string;
@@ -3231,7 +3450,7 @@ export interface operations {
                         type?: "success";
                         data?: {
                             items?: {
-                                id?: string;
+                                id?: string | null;
                                 version?: number;
                                 active?: boolean;
                                 name?: string;
@@ -3300,11 +3519,11 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                             version?: number;
                             configVersion?: number | null;
                             item?: {
-                                id?: string;
+                                id?: string | null;
                                 version?: number;
                                 active?: boolean;
                                 name?: string;
@@ -3322,7 +3541,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description DUPLICATE: Ya existe un registro con ese nombre, código o PIN. */
+            /** @description DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3366,7 +3585,7 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                             version?: number;
                             active?: boolean;
                             plu?: number | null;
@@ -3426,11 +3645,11 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                             version?: number;
                             configVersion?: number | null;
                             item?: {
-                                id?: string;
+                                id?: string | null;
                                 version?: number;
                                 active?: boolean;
                                 price?: number;
@@ -3449,7 +3668,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · IN_USE: No se puede desactivar: está en uso. · DUPLICATE: Ya existe un registro con ese nombre, código o PIN. */
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · IN_USE: No se puede desactivar: está en uso. · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3491,7 +3710,7 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                             active?: boolean;
                             version?: number;
                         };
@@ -3723,7 +3942,7 @@ export interface operations {
                                 name?: string;
                                 qty?: number;
                                 amount?: number | null;
-                                reason?: string;
+                                reason?: string | null;
                                 by?: string;
                                 auth?: string | null;
                             }[];
@@ -3951,10 +4170,306 @@ export interface operations {
             };
         };
     };
+    store_GET_transactions_day: {
+        parameters: {
+            query?: {
+                /** @description AAAA-MM-DD (defecto: hoy) */
+                date?: string;
+                /** @description all (defecto), invoices, credits, open o cancelled */
+                type?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            date?: string;
+                            store?: {
+                                id?: string | null;
+                                code?: string;
+                                name?: string;
+                            };
+                            type?: string;
+                            periods?: {
+                                id?: string | null;
+                                status?: string;
+                                openedAt?: string | null;
+                                closedAt?: unknown;
+                            }[];
+                            counts?: {
+                                invoices?: number;
+                                credits?: number;
+                                open?: number;
+                                cancelled?: number;
+                            };
+                            totals?: {
+                                invoiced?: number;
+                                credited?: number;
+                                open?: number;
+                            };
+                            items?: {
+                                id?: string | null;
+                                kind?: string;
+                                orderId?: string | null;
+                                accountId?: string | null;
+                                periodId?: string | null;
+                                table?: {
+                                    id?: string | null;
+                                    number?: string | null;
+                                    name?: string;
+                                    area?: string | null;
+                                    priceList?: string;
+                                    guests?: number;
+                                    note?: unknown;
+                                    openedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    closedAt?: string | null;
+                                    status?: string;
+                                };
+                                account?: {
+                                    id?: string | null;
+                                    name?: string;
+                                    status?: string;
+                                    openedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    closedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                };
+                                invoice?: {
+                                    number?: string | null;
+                                    type?: string;
+                                    series?: string;
+                                    sequence?: number;
+                                    issuedAt?: string;
+                                    issuedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    taxBase?: number;
+                                    taxTotal?: number;
+                                    total?: number;
+                                    status?: string;
+                                    verifactuQr?: string | null;
+                                    customer?: unknown;
+                                    rectifies?: unknown;
+                                    taxes?: {
+                                        rate?: number;
+                                        base?: number;
+                                        tax?: number;
+                                    }[];
+                                } | null;
+                                lines?: {
+                                    lineId?: string;
+                                    plu?: number | null;
+                                    productName?: string;
+                                    quantity?: number;
+                                    unitPrice?: number;
+                                    taxRate?: number | null;
+                                    amount?: number | null;
+                                    comment?: string | null;
+                                    status?: string;
+                                    createdAt?: string;
+                                    createdBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    };
+                                    courses?: unknown;
+                                    options?: {
+                                        plu?: number | null;
+                                        name?: string;
+                                        quantity?: number;
+                                        unitPrice?: number;
+                                        course?: unknown;
+                                    }[];
+                                }[];
+                                deletedLines?: {
+                                    lineId?: string;
+                                    plu?: number | null;
+                                    productName?: string;
+                                    quantity?: number;
+                                    unitPrice?: number;
+                                    taxRate?: number | null;
+                                    amount?: number | null;
+                                    comment?: unknown;
+                                    status?: string;
+                                    createdAt?: string;
+                                    createdBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    };
+                                    courses?: unknown;
+                                    options?: unknown[];
+                                    stage?: string;
+                                    stageLabel?: string;
+                                    reason?: string | null;
+                                    deletedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    authorizedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                }[];
+                                discounts?: unknown[];
+                                payments?: {
+                                    method?: string;
+                                    methodName?: string;
+                                    kind?: string;
+                                    amount?: number | null;
+                                    tip?: number;
+                                    cashGiven?: number | null;
+                                    change?: number | null;
+                                    status?: string;
+                                    collectedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    };
+                                }[];
+                                totals?: {
+                                    subtotal?: number;
+                                    discount?: number;
+                                    total?: number;
+                                    paid?: number;
+                                    pending?: number;
+                                    tips?: number;
+                                };
+                                events?: {
+                                    at?: string;
+                                    type?: string;
+                                    description?: string | null;
+                                    user?: string | null;
+                                    role?: string | null;
+                                    device?: string | null;
+                                }[];
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_sync_transactions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "date": "2026-10-15",
+                 *       "type": "all"
+                 *     } */
+                "application/json": {
+                    date?: string;
+                    type?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            date?: string;
+                            type?: string;
+                            transactions?: number;
+                            queued?: number;
+                            skipped?: number;
+                            manager?: {
+                                ok?: boolean;
+                                status?: number;
+                                message?: string;
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     store_GET_tables: {
         parameters: {
             query?: {
-                /** @description Solo un área */
+                /** @description Solo un área (UUID) */
                 areaId?: string;
             };
             header?: never;
@@ -3975,19 +4490,31 @@ export interface operations {
                         data?: {
                             items?: {
                                 tableId?: string | null;
-                                number?: string;
+                                number?: string | null;
+                                area?: string | null;
                                 state?: string;
                                 orderId?: string | null;
                                 pending?: number;
                                 waiter?: string | null;
                                 openedMinutes?: number;
-                                presence?: {
-                                    user?: string;
-                                    device?: string | null;
-                                }[];
+                                presence?: unknown[];
+                                holder?: {
+                                    userName?: string;
+                                    stationName?: string;
+                                } | null;
+                                charging?: boolean;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -4026,7 +4553,7 @@ export interface operations {
                  *     } */
                 "application/json": {
                     tables?: {
-                        id?: string;
+                        id?: string | null;
                         x?: number;
                         y?: number;
                         width?: number | null;
@@ -4075,7 +4602,7 @@ export interface operations {
             query?: {
                 /** @description open | closed */
                 status?: string;
-                /** @description Mesa */
+                /** @description Mesa (UUID) */
                 tableId?: string;
             };
             header?: never;
@@ -4095,13 +4622,22 @@ export interface operations {
                         type?: "success";
                         data?: {
                             items?: {
-                                id?: string;
+                                id?: string | null;
                                 tableName?: string;
                                 status?: string;
                                 version?: number;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -4126,7 +4662,7 @@ export interface operations {
                  *       "accountName": "Cuenta 1"
                  *     } */
                 "application/json": {
-                    id?: string;
+                    id?: string | null;
                     tableId?: string | null;
                     guests?: number;
                     accountId?: string | null;
@@ -4281,13 +4817,44 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            presence?: {
-                                user?: string;
-                                device?: string | null;
-                                since?: string;
-                            }[];
+                            holder?: {
+                                userId?: string;
+                                userName?: string;
+                                stationId?: string;
+                                stationName?: string;
+                                until?: string;
+                            } | null;
+                            charging?: boolean;
+                            youHold?: boolean;
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · ORDER_CLOSED: La mesa se cerró desde otro equipo. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -4340,6 +4907,474 @@ export interface operations {
             };
         };
     };
+    store_POST_orders_orderId_accounts_accountId_transfer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                orderId: string;
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "version": 7,
+                 *       "toTableId": "b1f0c2d4-0000-4000-8000-0000000000a8",
+                 *       "authorization": null
+                 *     } */
+                "application/json": {
+                    version?: number;
+                    toTableId?: string;
+                    authorization?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            from?: {
+                                _id?: string;
+                                storeId?: string;
+                                status?: string;
+                                version?: number;
+                                tableData?: {
+                                    tableId?: string | null;
+                                    name?: string;
+                                    zone?: string | null;
+                                    guests?: number;
+                                    openedBy?: {
+                                        user?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    lastEntry?: {
+                                        user?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    lastExit?: unknown;
+                                    note?: unknown;
+                                };
+                                events?: {
+                                    type?: string;
+                                    at?: string;
+                                    description?: string | null;
+                                    user?: string | null;
+                                    device?: string | null;
+                                    role?: string | null;
+                                }[];
+                                accounts?: {
+                                    id?: string | null;
+                                    name?: string;
+                                    status?: string;
+                                    openedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    closedBy?: unknown;
+                                    lastEntry?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    note?: unknown;
+                                    lines?: {
+                                        id?: string | null;
+                                        productId?: number;
+                                        name?: string;
+                                        comment?: string | null;
+                                        quantity?: number;
+                                        unitPrice?: number;
+                                        iva?: number;
+                                        netoProce?: number;
+                                        printed?: boolean;
+                                        status?: string;
+                                        printers?: {
+                                            area?: string | null;
+                                            printer?: string;
+                                            printed?: boolean;
+                                            interface?: string;
+                                            at?: string;
+                                        }[];
+                                        createdBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            origin?: string;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        modifiers?: unknown[];
+                                    }[];
+                                    deletedLines?: {
+                                        id?: string | null;
+                                        productId?: number;
+                                        name?: string;
+                                        comment?: unknown;
+                                        quantity?: number;
+                                        unitPrice?: number;
+                                        iva?: number;
+                                        netoProce?: number;
+                                        printed?: boolean;
+                                        status?: string;
+                                        printers?: {
+                                            area?: string | null;
+                                            printer?: string;
+                                            printed?: boolean;
+                                            interface?: string;
+                                            at?: string;
+                                        }[];
+                                        createdBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            origin?: string;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        modifiers?: unknown[];
+                                    }[];
+                                    discounts?: {
+                                        id?: string | null;
+                                        source?: string;
+                                        couponId?: unknown;
+                                        couponCode?: unknown;
+                                        type?: string;
+                                        value?: number;
+                                        baseAmount?: number;
+                                        amount?: number | null;
+                                        reason?: string | null;
+                                        status?: string;
+                                        appliedBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            device?: string | null;
+                                            at?: string;
+                                        } | null;
+                                        authorizedBy?: unknown;
+                                        removedBy?: unknown;
+                                    }[];
+                                    payments?: {
+                                        id?: string | null;
+                                        method?: string;
+                                        amount?: number | null;
+                                        tip?: number;
+                                        cashGiven?: unknown;
+                                        change?: unknown;
+                                        cashDetail?: unknown;
+                                        status?: string;
+                                        collectedBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        bankData?: {
+                                            provider?: string;
+                                            merchantId?: unknown;
+                                            terminalId?: unknown;
+                                            transactionId?: unknown;
+                                            authorizationCode?: unknown;
+                                            responseCode?: unknown;
+                                            responseMessage?: unknown;
+                                            cardBrand?: unknown;
+                                            maskedPan?: string;
+                                            maskedPhone?: unknown;
+                                            entryMode?: unknown;
+                                            amount?: number | null;
+                                            currency?: string;
+                                            processedAt?: unknown;
+                                        } | null;
+                                    }[];
+                                    totals?: {
+                                        subtotal?: number;
+                                        discount?: number;
+                                        total?: number;
+                                        paid?: number;
+                                        pending?: number;
+                                        tips?: number;
+                                        taxes?: {
+                                            rate?: number;
+                                            base?: number;
+                                            tax?: number;
+                                        }[];
+                                    };
+                                    customerData?: {
+                                        customerId?: unknown;
+                                        type?: string;
+                                        taxId?: string;
+                                        name?: string;
+                                        email?: unknown;
+                                        phone?: unknown;
+                                        address?: {
+                                            street?: unknown;
+                                            postalCode?: unknown;
+                                            city?: unknown;
+                                            province?: unknown;
+                                            country?: string | null;
+                                        } | null;
+                                    } | null;
+                                    invoice?: unknown;
+                                    events?: {
+                                        type?: string;
+                                        at?: string;
+                                        description?: string | null;
+                                        user?: string | null;
+                                        device?: string | null;
+                                        role?: string | null;
+                                    }[];
+                                }[];
+                            };
+                            to?: {
+                                _id?: string;
+                                storeId?: string;
+                                status?: string;
+                                version?: number;
+                                tableData?: {
+                                    tableId?: string | null;
+                                    name?: string;
+                                    zone?: string | null;
+                                    guests?: number;
+                                    openedBy?: {
+                                        user?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    lastEntry?: {
+                                        user?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    lastExit?: unknown;
+                                    note?: unknown;
+                                };
+                                events?: {
+                                    type?: string;
+                                    at?: string;
+                                    description?: string | null;
+                                    user?: string | null;
+                                    device?: string | null;
+                                    role?: string | null;
+                                }[];
+                                accounts?: {
+                                    id?: string | null;
+                                    name?: string;
+                                    status?: string;
+                                    openedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    closedBy?: unknown;
+                                    lastEntry?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    note?: unknown;
+                                    lines?: {
+                                        id?: string | null;
+                                        productId?: number;
+                                        name?: string;
+                                        comment?: string | null;
+                                        quantity?: number;
+                                        unitPrice?: number;
+                                        iva?: number;
+                                        netoProce?: number;
+                                        printed?: boolean;
+                                        status?: string;
+                                        printers?: {
+                                            area?: string | null;
+                                            printer?: string;
+                                            printed?: boolean;
+                                            interface?: string;
+                                            at?: string;
+                                        }[];
+                                        createdBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            origin?: string;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        modifiers?: unknown[];
+                                    }[];
+                                    deletedLines?: {
+                                        id?: string | null;
+                                        productId?: number;
+                                        name?: string;
+                                        comment?: unknown;
+                                        quantity?: number;
+                                        unitPrice?: number;
+                                        iva?: number;
+                                        netoProce?: number;
+                                        printed?: boolean;
+                                        status?: string;
+                                        printers?: {
+                                            area?: string | null;
+                                            printer?: string;
+                                            printed?: boolean;
+                                            interface?: string;
+                                            at?: string;
+                                        }[];
+                                        createdBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            origin?: string;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        modifiers?: unknown[];
+                                    }[];
+                                    discounts?: {
+                                        id?: string | null;
+                                        source?: string;
+                                        couponId?: unknown;
+                                        couponCode?: unknown;
+                                        type?: string;
+                                        value?: number;
+                                        baseAmount?: number;
+                                        amount?: number | null;
+                                        reason?: string | null;
+                                        status?: string;
+                                        appliedBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            device?: string | null;
+                                            at?: string;
+                                        } | null;
+                                        authorizedBy?: unknown;
+                                        removedBy?: unknown;
+                                    }[];
+                                    payments?: {
+                                        id?: string | null;
+                                        method?: string;
+                                        amount?: number | null;
+                                        tip?: number;
+                                        cashGiven?: unknown;
+                                        change?: unknown;
+                                        cashDetail?: unknown;
+                                        status?: string;
+                                        collectedBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        bankData?: {
+                                            provider?: string;
+                                            merchantId?: unknown;
+                                            terminalId?: unknown;
+                                            transactionId?: unknown;
+                                            authorizationCode?: unknown;
+                                            responseCode?: unknown;
+                                            responseMessage?: unknown;
+                                            cardBrand?: unknown;
+                                            maskedPan?: string;
+                                            maskedPhone?: unknown;
+                                            entryMode?: unknown;
+                                            amount?: number | null;
+                                            currency?: string;
+                                            processedAt?: unknown;
+                                        } | null;
+                                    }[];
+                                    totals?: {
+                                        subtotal?: number;
+                                        discount?: number;
+                                        total?: number;
+                                        paid?: number;
+                                        pending?: number;
+                                        tips?: number;
+                                        taxes?: {
+                                            rate?: number;
+                                            base?: number;
+                                            tax?: number;
+                                        }[];
+                                    };
+                                    customerData?: {
+                                        customerId?: unknown;
+                                        type?: string;
+                                        taxId?: string;
+                                        name?: string;
+                                        email?: unknown;
+                                        phone?: unknown;
+                                        address?: {
+                                            street?: unknown;
+                                            postalCode?: unknown;
+                                            city?: unknown;
+                                            province?: unknown;
+                                            country?: string | null;
+                                        } | null;
+                                    } | null;
+                                    invoice?: unknown;
+                                    events?: {
+                                        type?: string;
+                                        at?: string;
+                                        description?: string | null;
+                                        user?: string | null;
+                                        device?: string | null;
+                                        role?: string | null;
+                                    }[];
+                                }[];
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · PERIOD_CLOSED: No hay periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOTHING_TO_TRANSFER: La cuenta está facturada o no tiene productos: no hay nada que pasar a otra mesa. · VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     store_POST_orders_orderId_accounts: {
         parameters: {
             query?: never;
@@ -4359,7 +5394,7 @@ export interface operations {
                  *       "name": "Cuenta 2"
                  *     } */
                 "application/json": {
-                    id?: string;
+                    id?: string | null;
                     name?: string;
                 };
             };
@@ -4484,10 +5519,10 @@ export interface operations {
                             items?: {
                                 type?: string;
                                 at?: string;
-                                description?: string;
-                                user?: string;
+                                description?: string | null;
+                                user?: string | null;
                                 device?: string | null;
-                                role?: string;
+                                role?: string | null;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -4560,7 +5595,7 @@ export interface operations {
                  *       "force": false
                  *     } */
                 "application/json": {
-                    id?: string;
+                    id?: string | null;
                     accountId?: string | null;
                     plu?: number | null;
                     quantity?: number;
@@ -4588,7 +5623,7 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado por otra persona hace menos de 3 minutos. Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT */
+            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado por otra persona hace menos de 3 minutos. Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4637,7 +5672,7 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description LINE_ALREADY_SENT: LINE_ALREADY_SENT · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
+            /** @description LINE_ALREADY_SENT: LINE_ALREADY_SENT · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4661,7 +5696,7 @@ export interface operations {
         requestBody: {
             content: {
                 /** @example {
-                 *       "reasonId": "motErr",
+                 *       "reasonId": "6f1c2d4e-0000-4000-8000-000000000001",
                  *       "quantity": 1,
                  *       "authorization": "auth_7Hk…"
                  *     } */
@@ -4695,7 +5730,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description REASON_REQUIRED: REASON_REQUIRED · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. */
+            /** @description REASON_REQUIRED: REASON_REQUIRED · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4822,12 +5857,12 @@ export interface operations {
                                     zone?: string | null;
                                     guests?: number;
                                     openedBy?: {
-                                        user?: string;
+                                        user?: string | null;
                                         device?: string | null;
                                         at?: string;
-                                    };
+                                    } | null;
                                     lastEntry?: {
-                                        user?: string;
+                                        user?: string | null;
                                         device?: string | null;
                                         at?: string;
                                     } | null;
@@ -4837,31 +5872,31 @@ export interface operations {
                                 events?: {
                                     type?: string;
                                     at?: string;
-                                    description?: string;
-                                    user?: string;
+                                    description?: string | null;
+                                    user?: string | null;
                                     device?: string | null;
-                                    role?: string;
+                                    role?: string | null;
                                 }[];
                                 accounts?: {
-                                    id?: string;
+                                    id?: string | null;
                                     name?: string;
                                     status?: string;
                                     openedBy?: {
-                                        user?: string;
-                                        role?: string;
+                                        user?: string | null;
+                                        role?: string | null;
                                         device?: string | null;
                                         at?: string;
-                                    };
+                                    } | null;
                                     closedBy?: unknown;
                                     lastEntry?: {
-                                        user?: string;
-                                        role?: string;
+                                        user?: string | null;
+                                        role?: string | null;
                                         device?: string | null;
                                         at?: string;
                                     } | null;
                                     note?: unknown;
                                     lines?: {
-                                        id?: string;
+                                        id?: string | null;
                                         productId?: number;
                                         name?: string;
                                         comment?: string | null;
@@ -4872,15 +5907,15 @@ export interface operations {
                                         printed?: boolean;
                                         status?: string;
                                         printers?: {
-                                            area?: string;
+                                            area?: string | null;
                                             printer?: string;
                                             printed?: boolean;
                                             interface?: string;
                                             at?: string;
                                         }[];
                                         createdBy?: {
-                                            user?: string;
-                                            role?: string;
+                                            user?: string | null;
+                                            role?: string | null;
                                             origin?: string;
                                             device?: string | null;
                                             at?: string;
@@ -4888,7 +5923,7 @@ export interface operations {
                                         modifiers?: unknown[];
                                     }[];
                                     deletedLines?: {
-                                        id?: string;
+                                        id?: string | null;
                                         productId?: number;
                                         name?: string;
                                         comment?: unknown;
@@ -4899,15 +5934,15 @@ export interface operations {
                                         printed?: boolean;
                                         status?: string;
                                         printers?: {
-                                            area?: string;
+                                            area?: string | null;
                                             printer?: string;
                                             printed?: boolean;
                                             interface?: string;
                                             at?: string;
                                         }[];
                                         createdBy?: {
-                                            user?: string;
-                                            role?: string;
+                                            user?: string | null;
+                                            role?: string | null;
                                             origin?: string;
                                             device?: string | null;
                                             at?: string;
@@ -4915,7 +5950,7 @@ export interface operations {
                                         modifiers?: unknown[];
                                     }[];
                                     discounts?: {
-                                        id?: string;
+                                        id?: string | null;
                                         source?: string;
                                         couponId?: unknown;
                                         couponCode?: unknown;
@@ -4923,19 +5958,19 @@ export interface operations {
                                         value?: number;
                                         baseAmount?: number;
                                         amount?: number | null;
-                                        reason?: string;
+                                        reason?: string | null;
                                         status?: string;
                                         appliedBy?: {
-                                            user?: string;
-                                            role?: string;
+                                            user?: string | null;
+                                            role?: string | null;
                                             device?: string | null;
                                             at?: string;
-                                        };
+                                        } | null;
                                         authorizedBy?: unknown;
                                         removedBy?: unknown;
                                     }[];
                                     payments?: {
-                                        id?: string;
+                                        id?: string | null;
                                         method?: string;
                                         amount?: number | null;
                                         tip?: number;
@@ -4944,8 +5979,8 @@ export interface operations {
                                         cashDetail?: unknown;
                                         status?: string;
                                         collectedBy?: {
-                                            user?: string;
-                                            role?: string;
+                                            user?: string | null;
+                                            role?: string | null;
                                             device?: string | null;
                                             at?: string;
                                         };
@@ -4998,10 +6033,10 @@ export interface operations {
                                     events?: {
                                         type?: string;
                                         at?: string;
-                                        description?: string;
-                                        user?: string;
+                                        description?: string | null;
+                                        user?: string | null;
                                         device?: string | null;
-                                        role?: string;
+                                        role?: string | null;
                                     }[];
                                 }[];
                             };
@@ -5027,7 +6062,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description PRINTER_OFFLINE: Una impresora no responde; las líneas siguen «Por enviar». */
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -5085,7 +6120,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5212,7 +6247,16 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5270,12 +6314,12 @@ export interface operations {
                                     zone?: string | null;
                                     guests?: number;
                                     openedBy?: {
-                                        user?: string;
+                                        user?: string | null;
                                         device?: string | null;
                                         at?: string;
-                                    };
+                                    } | null;
                                     lastEntry?: {
-                                        user?: string;
+                                        user?: string | null;
                                         device?: string | null;
                                         at?: string;
                                     } | null;
@@ -5285,31 +6329,31 @@ export interface operations {
                                 events?: {
                                     type?: string;
                                     at?: string;
-                                    description?: string;
-                                    user?: string;
+                                    description?: string | null;
+                                    user?: string | null;
                                     device?: string | null;
-                                    role?: string;
+                                    role?: string | null;
                                 }[];
                                 accounts?: {
-                                    id?: string;
+                                    id?: string | null;
                                     name?: string;
                                     status?: string;
                                     openedBy?: {
-                                        user?: string;
-                                        role?: string;
+                                        user?: string | null;
+                                        role?: string | null;
                                         device?: string | null;
                                         at?: string;
-                                    };
+                                    } | null;
                                     closedBy?: unknown;
                                     lastEntry?: {
-                                        user?: string;
-                                        role?: string;
+                                        user?: string | null;
+                                        role?: string | null;
                                         device?: string | null;
                                         at?: string;
                                     } | null;
                                     note?: unknown;
                                     lines?: {
-                                        id?: string;
+                                        id?: string | null;
                                         productId?: number;
                                         name?: string;
                                         comment?: string | null;
@@ -5320,15 +6364,15 @@ export interface operations {
                                         printed?: boolean;
                                         status?: string;
                                         printers?: {
-                                            area?: string;
+                                            area?: string | null;
                                             printer?: string;
                                             printed?: boolean;
                                             interface?: string;
                                             at?: string;
                                         }[];
                                         createdBy?: {
-                                            user?: string;
-                                            role?: string;
+                                            user?: string | null;
+                                            role?: string | null;
                                             origin?: string;
                                             device?: string | null;
                                             at?: string;
@@ -5336,7 +6380,7 @@ export interface operations {
                                         modifiers?: unknown[];
                                     }[];
                                     deletedLines?: {
-                                        id?: string;
+                                        id?: string | null;
                                         productId?: number;
                                         name?: string;
                                         comment?: unknown;
@@ -5347,15 +6391,15 @@ export interface operations {
                                         printed?: boolean;
                                         status?: string;
                                         printers?: {
-                                            area?: string;
+                                            area?: string | null;
                                             printer?: string;
                                             printed?: boolean;
                                             interface?: string;
                                             at?: string;
                                         }[];
                                         createdBy?: {
-                                            user?: string;
-                                            role?: string;
+                                            user?: string | null;
+                                            role?: string | null;
                                             origin?: string;
                                             device?: string | null;
                                             at?: string;
@@ -5363,7 +6407,7 @@ export interface operations {
                                         modifiers?: unknown[];
                                     }[];
                                     discounts?: {
-                                        id?: string;
+                                        id?: string | null;
                                         source?: string;
                                         couponId?: unknown;
                                         couponCode?: unknown;
@@ -5371,19 +6415,19 @@ export interface operations {
                                         value?: number;
                                         baseAmount?: number;
                                         amount?: number | null;
-                                        reason?: string;
+                                        reason?: string | null;
                                         status?: string;
                                         appliedBy?: {
-                                            user?: string;
-                                            role?: string;
+                                            user?: string | null;
+                                            role?: string | null;
                                             device?: string | null;
                                             at?: string;
-                                        };
+                                        } | null;
                                         authorizedBy?: unknown;
                                         removedBy?: unknown;
                                     }[];
                                     payments?: {
-                                        id?: string;
+                                        id?: string | null;
                                         method?: string;
                                         amount?: number | null;
                                         tip?: number;
@@ -5392,8 +6436,8 @@ export interface operations {
                                         cashDetail?: unknown;
                                         status?: string;
                                         collectedBy?: {
-                                            user?: string;
-                                            role?: string;
+                                            user?: string | null;
+                                            role?: string | null;
                                             device?: string | null;
                                             at?: string;
                                         };
@@ -5446,10 +6490,10 @@ export interface operations {
                                     events?: {
                                         type?: string;
                                         at?: string;
-                                        description?: string;
-                                        user?: string;
+                                        description?: string | null;
+                                        user?: string | null;
                                         device?: string | null;
-                                        role?: string;
+                                        role?: string | null;
                                     }[];
                                 }[];
                             };
@@ -5457,7 +6501,7 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description PRINTER_OFFLINE: Una impresora no responde; las líneas siguen «Por enviar». */
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -5493,8 +6537,17 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description ACCOUNT_EMPTY: ACCOUNT_EMPTY · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. */
+            /** @description ACCOUNT_EMPTY: ACCOUNT_EMPTY · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5574,7 +6627,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "authorization": null
+                 *     } */
+                "application/json": {
+                    authorization?: unknown;
+                };
+            };
+        };
         responses: {
             /** @description Transacción actualizada (en data) */
             200: {
@@ -5587,6 +6649,24 @@ export interface operations {
                         type?: "success";
                         data?: components["schemas"]["Transaction"];
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -5621,7 +6701,7 @@ export interface operations {
                     type?: string;
                     taxId?: string;
                     name?: string;
-                    email?: string;
+                    email?: string | null;
                     address?: {
                         street?: string;
                         postalCode?: string;
@@ -5690,7 +6770,7 @@ export interface operations {
                  *       "cashGiven": 20
                  *     } */
                 "application/json": {
-                    id?: string;
+                    id?: string | null;
                     method?: string;
                     amount?: number | null;
                     tip?: number;
@@ -5710,7 +6790,7 @@ export interface operations {
                         type?: "success";
                         data?: {
                             payment?: {
-                                id?: string;
+                                id?: string | null;
                                 status?: string;
                                 change?: number | null;
                             };
@@ -5732,7 +6812,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description METHOD_NOT_ALLOWED: METHOD_NOT_ALLOWED · AMOUNT_EXCEEDS_PENDING: AMOUNT_EXCEEDS_PENDING · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. */
+            /** @description METHOD_NOT_ALLOWED: Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta). · AMOUNT_EXCEEDS_PENDING: El importe supera lo pendiente (details.pending). Nunca se recorta. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5759,10 +6839,12 @@ export interface operations {
         requestBody: {
             content: {
                 /** @example {
-                 *       "print": true
+                 *       "print": true,
+                 *       "authorization": null
                  *     } */
                 "application/json": {
                     print?: boolean;
+                    authorization?: unknown;
                 };
             };
         };
@@ -5784,14 +6866,23 @@ export interface operations {
                                 invoiceNumber?: string;
                                 issuedAt?: string;
                                 total?: number;
-                                verifactuQr?: string;
+                                verifactuQr?: string | null;
                             } | null;
                             tableClosed?: boolean;
                         };
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description PENDING_NOT_ZERO: No se puede facturar con importe pendiente. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · ACCOUNT_INVOICED: ACCOUNT_INVOICED */
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PENDING_NOT_ZERO: No se puede facturar con importe pendiente. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · ACCOUNT_INVOICED: ACCOUNT_INVOICED · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5805,9 +6896,9 @@ export interface operations {
     store_GET_invoices: {
         parameters: {
             query?: {
-                /** @description Desde */
+                /** @description Desde (AAAA-MM-DD o fecha ISO) */
                 from?: string;
-                /** @description Hasta */
+                /** @description Hasta (AAAA-MM-DD o fecha ISO) */
                 to?: string;
                 /** @description Número, mesa, camarero o forma de pago */
                 q?: string;
@@ -5837,6 +6928,15 @@ export interface operations {
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -5940,7 +7040,7 @@ export interface operations {
                         type?: "success";
                         data?: {
                             invoiceNumber?: string;
-                            rectifies?: string;
+                            rectifies?: string | null;
                             total?: number;
                         };
                     } & components["schemas"]["Envelope"];
@@ -6037,9 +7137,27 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description MAIN_STATION_REQUIRED: Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo. · PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -6047,32 +7165,32 @@ export interface operations {
     store_POST_cash_counts: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
                 /** @example {
-                 *       "denominations": [
-                 *         {
-                 *           "value": 20,
-                 *           "kind": "bill",
-                 *           "quantity": 7
-                 *         },
-                 *         {
-                 *           "value": 2,
-                 *           "kind": "coin",
-                 *           "quantity": 9
-                 *         }
-                 *       ]
+                 *       "countedCash": 158,
+                 *       "detail": {
+                 *         "2": 9,
+                 *         "20": 7
+                 *       },
+                 *       "note": null,
+                 *       "authorization": null
                  *     } */
                 "application/json": {
-                    denominations?: {
-                        value?: number;
-                        kind?: string;
-                        quantity?: number;
-                    }[];
+                    countedCash?: number;
+                    detail?: {
+                        2?: number;
+                        20?: number;
+                    };
+                    note?: unknown;
+                    authorization?: unknown;
                 };
             };
         };
@@ -6087,11 +7205,44 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            counted?: number;
-                            expected?: number;
+                            id?: string | null;
+                            countedCash?: number;
+                            expectedCash?: number;
                             difference?: number;
+                            at?: string;
+                            by?: {
+                                user?: string | null;
+                                device?: string | null;
+                            };
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. · MAIN_STATION_REQUIRED: Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -6182,9 +7333,9 @@ export interface operations {
                                 table?: string;
                                 product?: string;
                                 stage?: string;
-                                user?: string;
-                                reason?: string;
-                                authorizedBy?: string;
+                                user?: string | null;
+                                reason?: string | null;
+                                authorizedBy?: string | null;
                                 amount?: number | null;
                             }[];
                         };
@@ -6213,13 +7364,196 @@ export interface operations {
                         type?: "success";
                         data?: {
                             items?: {
-                                user?: string;
+                                user?: string | null;
                                 score?: number;
                                 sales?: number;
                                 speed?: number;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    store_POST_printers_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "kind": "kitchen",
+                 *       "table": "12",
+                 *       "area": "Terraza",
+                 *       "waiter": "Prueba",
+                 *       "channel": "COCINA",
+                 *       "guests": 2
+                 *     } */
+                "application/json": {
+                    kind?: string;
+                    table?: string;
+                    area?: string | null;
+                    waiter?: string | null;
+                    channel?: string;
+                    guests?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            text?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_printers_ping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "connection": "192.168.1.50"
+                 *     } */
+                "application/json": {
+                    connection?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            ok?: boolean;
+                            ms?: number;
+                            message?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_printers_print: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "kind": "kitchen",
+                 *       "table": "12",
+                 *       "area": "Terraza",
+                 *       "waiter": "Prueba",
+                 *       "channel": "COCINA",
+                 *       "guests": 2,
+                 *       "connection": "192.168.1.50:9100",
+                 *       "copies": 1,
+                 *       "drawer": false,
+                 *       "logo": false
+                 *     } */
+                "application/json": {
+                    kind?: string;
+                    table?: string;
+                    area?: string | null;
+                    waiter?: string | null;
+                    channel?: string;
+                    guests?: number;
+                    connection?: string;
+                    copies?: number;
+                    drawer?: boolean;
+                    logo?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            ok?: boolean;
+                            copies?: number;
+                            ms?: number;
+                            text?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -6244,9 +7578,13 @@ export interface operations {
                         type?: "success";
                         data?: {
                             items?: {
+                                id?: string | null;
                                 name?: string;
-                                online?: boolean;
-                                lastPrintAt?: string;
+                                connection?: string;
+                                kind?: string;
+                                ok?: boolean;
+                                ms?: number;
+                                message?: string;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -6263,7 +7601,18 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "kind": "test",
+                 *       "copies": 1
+                 *     } */
+                "application/json": {
+                    kind?: string;
+                    copies?: number;
+                };
+            };
+        };
         responses: {
             /** @description Correcto */
             200: {
@@ -6275,9 +7624,30 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            printed?: boolean;
+                            printer?: string;
+                            ok?: boolean;
+                            copies?: number;
+                            ms?: number;
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -6340,7 +7710,7 @@ export interface operations {
                         type?: "success";
                         data?: {
                             items?: {
-                                id?: string;
+                                id?: string | null;
                                 table?: string;
                                 zone?: string | null;
                                 status?: string;
@@ -6376,7 +7746,7 @@ export interface operations {
                             orderId?: string | null;
                             version?: number;
                             by?: {
-                                user?: string;
+                                user?: string | null;
                                 device?: string | null;
                             };
                         };
@@ -6467,7 +7837,7 @@ export interface operations {
                             cursor?: string;
                             changes?: {
                                 entity?: string;
-                                id?: string;
+                                id?: string | null;
                                 op?: string;
                                 data?: {
                                     plu?: number | null;
@@ -6597,6 +7967,412 @@ export interface operations {
             };
         };
     };
+    manager_POST_stores_storeId_transactions: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                storeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "store": {
+                 *         "id": "62201d95-4be7-5b16-b482-5a17c533054d",
+                 *         "code": "CT 03"
+                 *       },
+                 *       "date": "2026-10-15",
+                 *       "type": "all",
+                 *       "counts": {
+                 *         "invoices": 61
+                 *       },
+                 *       "totals": {
+                 *         "invoiced": 1840.35
+                 *       },
+                 *       "items": [
+                 *         {
+                 *           "id": "…",
+                 *           "kind": "invoice",
+                 *           "orderId": "…",
+                 *           "accountId": "…",
+                 *           "periodId": "…",
+                 *           "table": {
+                 *             "id": "…",
+                 *             "number": "100",
+                 *             "name": "100",
+                 *             "area": "TERRAZA",
+                 *             "priceList": "terrace",
+                 *             "guests": 3,
+                 *             "note": null,
+                 *             "openedBy": {
+                 *               "user": "Mesero",
+                 *               "role": "waiter",
+                 *               "device": "PDA1",
+                 *               "at": "2026-10-13T16:40:00.000Z"
+                 *             },
+                 *             "closedAt": "2026-10-13T16:40:00.000Z",
+                 *             "status": "closed"
+                 *           },
+                 *           "account": {
+                 *             "id": "…",
+                 *             "name": "Cuenta 1",
+                 *             "status": "invoiced",
+                 *             "openedBy": {
+                 *               "user": "Mesero",
+                 *               "role": "waiter",
+                 *               "device": "PDA1",
+                 *               "at": "2026-10-13T16:40:00.000Z"
+                 *             },
+                 *             "closedBy": {
+                 *               "user": "Mesero",
+                 *               "role": "waiter",
+                 *               "device": "PDA1",
+                 *               "at": "2026-10-13T16:40:00.000Z"
+                 *             }
+                 *           },
+                 *           "invoice": {
+                 *             "number": "T2026-000123",
+                 *             "type": "F2",
+                 *             "series": "T2026",
+                 *             "sequence": 123,
+                 *             "issuedAt": "2026-10-13T16:40:00.000Z",
+                 *             "issuedBy": {
+                 *               "user": "Mesero",
+                 *               "role": "waiter",
+                 *               "device": "PDA1",
+                 *               "at": "2026-10-13T16:40:00.000Z"
+                 *             },
+                 *             "taxBase": 16.82,
+                 *             "taxTotal": 1.68,
+                 *             "total": 18.5,
+                 *             "status": "issued",
+                 *             "verifactuQr": "https://…",
+                 *             "customer": null,
+                 *             "rectifies": null,
+                 *             "taxes": [
+                 *               {
+                 *                 "rate": 10,
+                 *                 "base": 16.82,
+                 *                 "tax": 1.68
+                 *               }
+                 *             ]
+                 *           },
+                 *           "lines": [
+                 *             {
+                 *               "lineId": "…",
+                 *               "plu": 1813,
+                 *               "productName": "TOSTA DE JAMON IBERICO Y TUMACA",
+                 *               "quantity": 1,
+                 *               "unitPrice": 8.5,
+                 *               "taxRate": 10,
+                 *               "amount": 8.5,
+                 *               "comment": "bien tostada",
+                 *               "status": "printed",
+                 *               "createdAt": "2026-10-13T16:40:00.000Z",
+                 *               "createdBy": {
+                 *                 "user": "Mesero",
+                 *                 "role": "waiter",
+                 *                 "device": "PDA1",
+                 *                 "at": "2026-10-13T16:40:00.000Z"
+                 *               },
+                 *               "courses": null,
+                 *               "options": [
+                 *                 {
+                 *                   "plu": 2464,
+                 *                   "name": "Kas limón",
+                 *                   "quantity": 1,
+                 *                   "unitPrice": 0,
+                 *                   "course": null
+                 *                 }
+                 *               ]
+                 *             }
+                 *           ],
+                 *           "deletedLines": [
+                 *             {
+                 *               "lineId": "…",
+                 *               "plu": 1884,
+                 *               "productName": "CROQUETAS",
+                 *               "quantity": 1,
+                 *               "unitPrice": 5.95,
+                 *               "taxRate": 10,
+                 *               "amount": 5.95,
+                 *               "comment": null,
+                 *               "status": "deleted",
+                 *               "createdAt": "2026-10-13T16:40:00.000Z",
+                 *               "createdBy": {
+                 *                 "user": "Mesero",
+                 *                 "role": "waiter",
+                 *                 "device": "PDA1",
+                 *                 "at": "2026-10-13T16:40:00.000Z"
+                 *               },
+                 *               "courses": null,
+                 *               "options": [],
+                 *               "stage": "preBill",
+                 *               "stageLabel": "precuenta",
+                 *               "reason": "Error al marcar",
+                 *               "deletedBy": {
+                 *                 "user": "Mesero",
+                 *                 "role": "waiter",
+                 *                 "device": "PDA1",
+                 *                 "at": "2026-10-13T16:40:00.000Z"
+                 *               },
+                 *               "authorizedBy": {
+                 *                 "user": "Mesero",
+                 *                 "role": "waiter",
+                 *                 "device": "PDA1",
+                 *                 "at": "2026-10-13T16:40:00.000Z"
+                 *               }
+                 *             }
+                 *           ],
+                 *           "discounts": [],
+                 *           "payments": [
+                 *             {
+                 *               "method": "cash",
+                 *               "methodName": "Efectivo",
+                 *               "kind": "cash",
+                 *               "amount": 18.5,
+                 *               "tip": 0,
+                 *               "cashGiven": 20,
+                 *               "change": 1.5,
+                 *               "status": "confirmed",
+                 *               "collectedBy": {
+                 *                 "user": "Mesero",
+                 *                 "role": "waiter",
+                 *                 "device": "PDA1",
+                 *                 "at": "2026-10-13T16:40:00.000Z"
+                 *               }
+                 *             }
+                 *           ],
+                 *           "totals": {
+                 *             "subtotal": 18.5,
+                 *             "discount": 0,
+                 *             "total": 18.5,
+                 *             "paid": 18.5,
+                 *             "pending": 0,
+                 *             "tips": 0
+                 *           },
+                 *           "events": [
+                 *             {
+                 *               "at": "2026-10-13T16:40:00.000Z",
+                 *               "type": "preBill",
+                 *               "description": "Precuenta de la Cuenta 1: 18,50 €",
+                 *               "user": "Sistemas",
+                 *               "role": "manager",
+                 *               "device": "CAJA1"
+                 *             }
+                 *           ]
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    store?: {
+                        id?: string | null;
+                        code?: string;
+                    };
+                    date?: string;
+                    type?: string;
+                    counts?: {
+                        invoices?: number;
+                    };
+                    totals?: {
+                        invoiced?: number;
+                    };
+                    items?: {
+                        id?: string | null;
+                        kind?: string;
+                        orderId?: string | null;
+                        accountId?: string | null;
+                        periodId?: string | null;
+                        table?: {
+                            id?: string | null;
+                            number?: string | null;
+                            name?: string;
+                            area?: string | null;
+                            priceList?: string;
+                            guests?: number;
+                            note?: unknown;
+                            openedBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            } | null;
+                            closedAt?: string | null;
+                            status?: string;
+                        };
+                        account?: {
+                            id?: string | null;
+                            name?: string;
+                            status?: string;
+                            openedBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            } | null;
+                            closedBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            } | null;
+                        };
+                        invoice?: {
+                            number?: string | null;
+                            type?: string;
+                            series?: string;
+                            sequence?: number;
+                            issuedAt?: string;
+                            issuedBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            } | null;
+                            taxBase?: number;
+                            taxTotal?: number;
+                            total?: number;
+                            status?: string;
+                            verifactuQr?: string | null;
+                            customer?: unknown;
+                            rectifies?: unknown;
+                            taxes?: {
+                                rate?: number;
+                                base?: number;
+                                tax?: number;
+                            }[];
+                        } | null;
+                        lines?: {
+                            lineId?: string;
+                            plu?: number | null;
+                            productName?: string;
+                            quantity?: number;
+                            unitPrice?: number;
+                            taxRate?: number | null;
+                            amount?: number | null;
+                            comment?: string | null;
+                            status?: string;
+                            createdAt?: string;
+                            createdBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            };
+                            courses?: unknown;
+                            options?: {
+                                plu?: number | null;
+                                name?: string;
+                                quantity?: number;
+                                unitPrice?: number;
+                                course?: unknown;
+                            }[];
+                        }[];
+                        deletedLines?: {
+                            lineId?: string;
+                            plu?: number | null;
+                            productName?: string;
+                            quantity?: number;
+                            unitPrice?: number;
+                            taxRate?: number | null;
+                            amount?: number | null;
+                            comment?: unknown;
+                            status?: string;
+                            createdAt?: string;
+                            createdBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            };
+                            courses?: unknown;
+                            options?: unknown[];
+                            stage?: string;
+                            stageLabel?: string;
+                            reason?: string | null;
+                            deletedBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            } | null;
+                            authorizedBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            } | null;
+                        }[];
+                        discounts?: unknown[];
+                        payments?: {
+                            method?: string;
+                            methodName?: string;
+                            kind?: string;
+                            amount?: number | null;
+                            tip?: number;
+                            cashGiven?: number | null;
+                            change?: number | null;
+                            status?: string;
+                            collectedBy?: {
+                                user?: string | null;
+                                role?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            };
+                        }[];
+                        totals?: {
+                            subtotal?: number;
+                            discount?: number;
+                            total?: number;
+                            paid?: number;
+                            pending?: number;
+                            tips?: number;
+                        };
+                        events?: {
+                            at?: string;
+                            type?: string;
+                            description?: string | null;
+                            user?: string | null;
+                            role?: string | null;
+                            device?: string | null;
+                        }[];
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            accepted?: number;
+                            duplicates?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     manager_POST_stores_storeId_backups: {
         parameters: {
             query?: never;
@@ -6640,7 +8416,7 @@ export interface operations {
                  *       "password": "••••••••"
                  *     } */
                 "application/json": {
-                    user?: string;
+                    user?: string | null;
                     password?: string;
                 };
             };
@@ -6692,7 +8468,7 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            user?: string;
+                            user?: string | null;
                             access?: string[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -6780,7 +8556,7 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -6821,7 +8597,7 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
-                            id?: string;
+                            id?: string | null;
                             version?: number;
                         };
                     } & components["schemas"]["Envelope"];
@@ -7060,7 +8836,7 @@ export interface operations {
                         type?: "success";
                         data?: {
                             items?: {
-                                id?: string;
+                                id?: string | null;
                                 store?: string;
                                 table?: string;
                                 total?: number;

@@ -24,6 +24,23 @@ export class ErrorsFilter implements ExceptionFilter {
     } else if (ex instanceof ZodError) {
       status = 422;
       errors = ex.issues.map(i => ({ code: "VALIDATION", message: `${i.path.join(".") || "cuerpo"}: ${i.message}`, field: i.path.join(".") || null, details: {} }));
+    } else if (pgError(ex)) {
+      // errores de la base por datos del equipo: nunca un 500
+      const pg = pgError(ex)!, c = pg.constraint ?? "";
+      if (pg.code === "23505") {
+        const [code, message]: [string, string] =
+          /open_flag/.test(c) ? ["PERIOD_ALREADY_OPEN", "Ya hay un periodo abierto"]
+          : c === "uq_orders_open_table" ? ["TABLE_BUSY", "La mesa ya está abierta"]
+          : c === "uq_invoice_account_issued" ? ["ACCOUNT_CLOSED", "La cuenta ya está facturada"]
+          : ["DUPLICATE", "Ya existe: ese id, código o nombre ya se usó"];
+        status = HTTP_STATUS[code as keyof typeof HTTP_STATUS];
+        errors = [{ code, message, field: null, details: { constraint: c } }];
+      } else {
+        status = 422;
+        const message = pg.code === "23503" ? "Hace referencia a algo que no existe" : pg.code === "23514" ? "Valor fuera de lo permitido" : "Valor no válido";
+        errors = [{ code: "VALIDATION", message, field: null, details: c ? { constraint: c } : {} }];
+      }
+      req.log?.warn({ err: ex, traceId: req.id }, "error de datos");
     } else if (ex instanceof HttpException) {
       status = ex.getStatus();
       const code = status === 404 ? "NOT_FOUND" : status === 401 ? "UNAUTHORIZED" : status >= 500 ? "INTERNAL" : "VALIDATION";
@@ -35,3 +52,10 @@ export class ErrorsFilter implements ExceptionFilter {
   }
 }
 export { HTTP_STATUS };
+
+/** Clases de error de PostgreSQL que vienen de datos del cliente: único (23505), FK (23503), CHECK (23514), formato (22P02, 22007, 22008, 22003). */
+const CLIENT_PG = new Set(["23505", "23503", "23514", "22P02", "22007", "22008", "22003", "22001"]);
+export function pgError(ex: unknown): { code: string; constraint?: string } | null {
+  for (let e: any = ex, i = 0; e && i < 4; e = e.cause, i++) if (typeof e.code === "string" && CLIENT_PG.has(e.code)) return { code: e.code, constraint: e.constraint };
+  return null;
+}

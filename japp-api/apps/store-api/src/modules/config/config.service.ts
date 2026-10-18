@@ -229,8 +229,21 @@ export class ConfigService {
         rec.taxId = t.id;
       }
       if (!rec.taxId) fail("VALIDATION", "Falta el IVA (taxId o taxRate)", { field: "taxId" });
-      if (rec.plu == null) rec.plu = Number((await c.query(`SELECT coalesce(max(plu), 0) + 1 n FROM product WHERE store_id = $1`, [se.storeId])).rows[0].n);
+      if (rec.plu == null) {
+        // PLU siguiente: uno a la vez por tienda (dos altas a la vez no se llevan el mismo número)
+        await c.query(`SELECT pg_advisory_xact_lock(hashtext('plu:' || $1))`, [se.storeId]);
+        rec.plu = Number((await c.query(`SELECT coalesce(max(plu), 0) + 1 n FROM product WHERE store_id = $1`, [se.storeId])).rows[0].n);
+      }
       if (rec.channels) rec.channels = await this.resolve(c, se, "print_channel", rec.channels, "channels");
+    }
+    if (m === "facturacion") {
+      // la base exige que las series existan en invoice_series (FK): se crean en la misma transacción si faltan
+      for (const [k, kind] of [["seriesSimplified", "F2"], ["seriesFull", "F1"], ["seriesCredit", "R1"]] as const)
+        if (rec[k]) await c.query(`INSERT INTO invoice_series (store_id, series, kind) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [se.storeId, rec[k], kind]);
+    }
+    if (m === "estaciones" && rec.isMain === true && !before?.isMain) {
+      // una sola caja principal por tienda: la anterior deja de serlo
+      await c.query(`UPDATE station SET is_main = false, version = version + 1 WHERE store_id = $1 AND is_main AND id::text <> $2`, [se.storeId, before?.id ?? ""]);
     }
     if (m === "estaciones") {
       if (rec.paymentMethods) rec.paymentMethods = await this.resolve(c, se, "payment_method", rec.paymentMethods, "paymentMethods", "code");
@@ -239,6 +252,29 @@ export class ConfigService {
         const prs = await this.resolve(c, se, "printer", Object.values(rec.channels as Record<string, string | null>).filter(Boolean) as string[], "channels");
         let k = 0; rec.channels = Object.fromEntries(Object.entries(rec.channels as Record<string, string | null>).map(([, p], i) => [chs[i], p ? prs[k++] : null]));
       }
+    }
+    if (m === "canales") {
+      if (rec.kind === "ticket" && rec.copyOfId) fail("VALIDATION", "Un canal de tickets no es copia de otro", { field: "copyOfId" });
+      if (rec.copyOfId) {
+        if (before && rec.copyOfId === before.id) fail("VALIDATION", "Un canal no puede ser copia de sí mismo", { field: "copyOfId" });
+        const o = (await c.query(`SELECT kind, copy_of_id FROM print_channel WHERE store_id = $1 AND id::text = $2`, [se.storeId, rec.copyOfId])).rows[0];
+        if (!o) fail("VALIDATION", "El canal original no existe", { field: "copyOfId" });
+        if (o.kind !== "kitchen" || o.copy_of_id) fail("VALIDATION", "Solo se copia un canal de comanda que no sea a su vez una copia", { field: "copyOfId" });
+      }
+      if (before && rec.kind === "ticket" && before.kind !== "ticket") {
+        const n = Number((await c.query(`SELECT count(*) n FROM product_channel WHERE store_id = $1 AND channel_id = $2`, [se.storeId, before.id])).rows[0].n) + Number((await c.query(`SELECT count(*) n FROM print_channel WHERE store_id = $1 AND copy_of_id = $2 AND active`, [se.storeId, before.id])).rows[0].n);
+        if (n) fail("VALIDATION", "Tiene productos o copias: no puede pasar a canal de tickets", { field: "kind" });
+      }
+      if (before && rec.kind === "kitchen" && before.kind === "ticket" && Number((await c.query(`SELECT count(*) n FROM area WHERE store_id = $1 AND ticket_channel_id = $2 AND active`, [se.storeId, before.id])).rows[0].n))
+        fail("VALIDATION", "Lo usan áreas para sus tickets: no puede pasar a comanda", { field: "kind" });
+    }
+    if (m === "areas" && rec.ticketChannelId) {
+      const k = (await c.query(`SELECT kind FROM print_channel WHERE store_id = $1 AND id::text = $2 AND active`, [se.storeId, rec.ticketChannelId])).rows[0];
+      if (!k || k.kind !== "ticket") fail("VALIDATION", "Elige un canal de tickets activo", { field: "ticketChannelId" });
+    }
+    if (m === "productos" && rec.channels?.length) {
+      const bad = (await c.query(`SELECT name FROM print_channel WHERE store_id = $1 AND id = ANY($2::uuid[]) AND (kind <> 'kitchen' OR copy_of_id IS NOT NULL)`, [se.storeId, rec.channels])).rows;
+      if (bad.length) fail("VALIDATION", `Los productos van a canales de comanda (no a tickets ni a copias): ${bad.map(x => x.name).join(", ")}`, { field: "channels" });
     }
     if (m === "preguntas" && rec.answers) {
       for (const a of rec.answers as Row[]) if (!a.productId) {
@@ -315,8 +351,10 @@ export class ConfigService {
       case "mesas": return { openOrders: await n(`SELECT count(*) n FROM orders WHERE store_id=$1 AND table_id=$2 AND status IN ('open','billing')`, [S, id]) };
       case "impuestos": return { products: await n(`SELECT count(*) n FROM product WHERE store_id=$1 AND active AND tax_id=$2`, [S, id]) };
       case "categorias": return { products: await n(`SELECT count(*) n FROM product WHERE store_id=$1 AND active AND category_id=$2`, [S, id]) };
-      case "canales": return { products: await n(`SELECT count(*) n FROM product_channel pc JOIN product p ON p.id=pc.product_id WHERE pc.store_id=$1 AND p.active AND pc.channel_id=$2`, [S, id]) };
-      case "impresoras": return { stations: await n(`SELECT count(*) n FROM station_channel_printer scp JOIN station s ON s.id=scp.station_id WHERE scp.store_id=$1 AND s.active AND scp.printer_id=$2`, [S, id]) };
+      case "canales": return { products: await n(`SELECT count(*) n FROM product_channel pc JOIN product p ON p.id=pc.product_id WHERE pc.store_id=$1 AND p.active AND pc.channel_id=$2`, [S, id]),
+        activeChildren: await n(`SELECT count(*) n FROM print_channel WHERE store_id=$1 AND active AND copy_of_id=$2`, [S, id]) + await n(`SELECT count(*) n FROM area WHERE store_id=$1 AND active AND ticket_channel_id=$2`, [S, id]) };
+      case "impresoras": return { stations: await n(`SELECT count(*) n FROM station_channel_printer scp JOIN station s ON s.id=scp.station_id WHERE scp.store_id=$1 AND s.active AND scp.printer_id=$2`, [S, id])
+        + await n(`SELECT count(*) n FROM print_channel WHERE store_id=$1 AND active AND printer_id=$2`, [S, id]) };
       case "preguntas": return { products: await n(`SELECT count(*) n FROM product_question pq JOIN product p ON p.id=pq.product_id WHERE pq.store_id=$1 AND p.active AND pq.question_id=$2`, [S, id]) };
       case "formas-pago": return { base: ["cash", "card"].includes(r.code) };
       case "estaciones": return { self: id === se.station.id };
@@ -336,6 +374,8 @@ export class ConfigService {
     await c.query(`INSERT INTO sync_outbox (store_id, entity, entity_id, operation, payload) VALUES ($1, 'config', $2, 'upsert', $3)`,
       [se.storeId, /^[0-9a-f-]{36}$/.test(rid) ? rid : se.storeId, JSON.stringify({ module: m, action, configVersion: v, record: this.snap(after) })]);
     if (m === "productos") {
+      // código correlativo: uno a la vez por tienda (sin repetidos con dos cambios a la vez)
+      await c.query(`SELECT pg_advisory_xact_lock(hashtext('incident:' || $1))`, [se.storeId]);
       const code = `INC-${String(Number((await c.query(`SELECT count(*) + 1 n FROM product_incident WHERE store_id = $1`, [se.storeId])).rows[0].n)).padStart(4, "0")}`;
       await c.query(`INSERT INTO product_incident (id, store_id, code, at, user_name, product_id, product_name, action, diff, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')`,
         [crypto.randomUUID(), se.storeId, code, a.at, a.user, rid, name.slice(0, 80), action, diff.slice(0, 4000)]);

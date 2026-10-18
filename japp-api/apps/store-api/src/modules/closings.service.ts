@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 import type { Database, Tx } from "@japp/db";
-import { addDays, businessDate, fail, madridDay, r2, summarizePeriod, weeksReport, weeksTotals, type PeriodSummary, type SoldPayment } from "@japp/domain";
+import { addDays, businessDate, D, fail, madridDay, paymentKind, r2, sum, summarizePeriod, voidsOf, weeksReport, weeksTotals, type PeriodSummary } from "@japp/domain";
 import { CLOCK, DATABASE, type Clock } from "../common/tokens-di.js";
 
 type Q = Tx | Database["db"];
@@ -20,19 +20,21 @@ export class ClosingsService {
     const inv = await rows(q, sql`SELECT i.issued_at, i.total::float8 total, i.tax_base::float8 base, i.tax_total::float8 tax, i.type, o.opened_by_user_name waiter, o.table_name, o.id::text order_id, o.guests
       FROM invoice i JOIN orders o ON o.id = i.order_id WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.status <> 'cancelled' ORDER BY i.issued_at`);
     const pays = await rows(q, sql`SELECT p.method, pm.kind, p.amount::float8 amount, coalesce(p.tip, 0)::float8 tip FROM payment p
-      JOIN account a ON a.id = p.account_id JOIN orders o ON o.id = a.order_id LEFT JOIN payment_method pm ON pm.id = p.payment_method_id
+      JOIN account a ON a.id = p.account_id AND a.store_id = p.store_id JOIN orders o ON o.id = a.order_id AND o.store_id = p.store_id LEFT JOIN payment_method pm ON pm.id = p.payment_method_id AND pm.store_id = p.store_id
       WHERE p.store_id = ${storeId} AND o.period_id = ${periodId} AND p.status = 'confirmed'`);
-    const voids = await rows(q, sql`SELECT l.deleted_by_at, l.name, l.quantity::float8 qty, (l.quantity * l.unit_price)::float8 amount, l.delete_reason, l.deleted_by_user_name, l.delete_authorized_by_user_name
-      FROM order_line l JOIN orders o ON o.id = l.order_id WHERE l.store_id = ${storeId} AND o.period_id = ${periodId} AND l.deleted AND l.printed
-        AND coalesce(l.delete_reason, '') NOT LIKE 'Pasada a %' AND coalesce(l.delete_reason, '') <> 'Incluida en menú' ORDER BY l.deleted_by_at`);
+    // anulaciones: una sola regla (voidsOf en @japp/domain): eliminadas tras enviar, con modificadores, sin «Pasada a…» ni «Incluida en menú»
+    const deleted = await rows(q, sql`SELECT l.id::text id, l.deleted_by_at, l.name, l.quantity::text quantity, l.unit_price::text unit_price, l.delete_reason, l.deleted_stage, l.printed, l.deleted_by_user_name, l.delete_authorized_by_user_name,
+        coalesce((SELECT json_agg(json_build_object('unitPrice', m.unit_price::text, 'quantity', m.quantity::text)) FROM order_line_modifier m WHERE m.line_id = l.id AND m.store_id = l.store_id), '[]') mods
+      FROM order_line l JOIN orders o ON o.id = l.order_id AND o.store_id = l.store_id WHERE l.store_id = ${storeId} AND o.period_id = ${periodId} AND l.deleted ORDER BY l.deleted_by_at`);
+    const voids = voidsOf(deleted.map(l => ({ l, reason: l.delete_reason, stage: l.deleted_stage, printed: l.printed, quantity: Number(l.quantity), unitPrice: Number(l.unit_price),
+      modifiers: (l.mods as { unitPrice: string; quantity: string }[]).map(m => ({ unitPrice: Number(m.unitPrice), quantity: Number(m.quantity) })) })));
     const [disc] = await rows(q, sql`SELECT coalesce(sum(d.amount), 0)::float8 n FROM account_discount d JOIN account a ON a.id = d.account_id JOIN orders o ON o.id = a.order_id
       WHERE d.store_id = ${storeId} AND o.period_id = ${periodId} AND d.status = 'applied' AND a.status <> 'cancelled'`);
-    const kind = (method: string, k: string | null): SoldPayment["kind"] => (k === "cash" || method === "cash" ? "cash" : k === "card" || method === "card" ? "card" : "other");
     const s = summarizePeriod({
       openedAt: new Date(p.opened_by_at), discountAmount: disc?.n ?? 0, cashDifference,
       invoices: inv.map(i => ({ at: new Date(i.issued_at), total: i.total, base: i.base, tax: i.tax, type: i.type, waiter: i.waiter ?? "—", table: i.table_name, orderId: i.order_id, guests: Number(i.guests ?? 0) })),
-      payments: pays.map(x => ({ method: x.method, kind: kind(x.method, x.kind), amount: x.amount, tip: x.tip })),
-      voids: voids.map(v => ({ at: new Date(v.deleted_by_at ?? p.opened_by_at), name: v.name, qty: v.qty, amount: v.amount, reason: v.delete_reason ?? "", by: v.deleted_by_user_name ?? "—", auth: v.delete_authorized_by_user_name ?? null })),
+      payments: pays.map(x => ({ method: x.method, kind: paymentKind(x.kind, x.method), amount: x.amount, tip: x.tip })),
+      voids: voids.map(({ l, quantity, amount }) => ({ at: new Date(l.deleted_by_at ?? p.opened_by_at), name: l.name, qty: quantity, amount, reason: l.delete_reason ?? "", by: l.deleted_by_user_name ?? "—", auth: l.delete_authorized_by_user_name ?? null })),
     });
     return { ...s, openedAt: new Date(p.opened_by_at).toISOString() };
   }
@@ -80,9 +82,9 @@ export class ClosingsService {
     const prev = await rows(db, sql`SELECT business_date::text d, sum(gross_sales)::float8 s FROM period_summary WHERE store_id = ${storeId} AND business_date BETWEEN ${addDays(f, -364)} AND ${addDays(t, -364)} GROUP BY business_date`);
     const pm = new Map(prev.map(x => [x.d, x.s]));
     const items = all.map(r => { const v = this.view(r), ly = addDays(v.businessDate, -364); return { ...v, lastYear: { businessDate: ly, grossSales: pm.get(ly) ?? null } }; });
-    const total = r2(items.reduce((a, x) => a + x.grossSales, 0)), tickets = items.reduce((a, x) => a + x.tickets, 0), prevTotal = r2([...pm.values()].reduce((a, x) => a + x, 0));
-    return { from: f, to: t, items, totals: { grossSales: total, tickets, avgTicket: tickets ? r2(total / tickets) : 0, voidsCount: items.reduce((a, x) => a + x.voidsCount, 0), voidsAmount: r2(items.reduce((a, x) => a + x.voidsAmount, 0)),
-      lastYear: prevTotal, vsLastYearPct: prevTotal ? r2(((total - prevTotal) / prevTotal) * 100) : null } };
+    const total = r2(sum(items.map(x => x.grossSales))), tickets = items.reduce((a, x) => a + x.tickets, 0), prevTotal = r2(sum([...pm.values()]));
+    return { from: f, to: t, items, totals: { grossSales: total, tickets, avgTicket: tickets ? r2(D(total).div(tickets)) : 0, voidsCount: items.reduce((a, x) => a + x.voidsCount, 0), voidsAmount: r2(sum(items.map(x => x.voidsAmount))),
+      lastYear: prevTotal, vsLastYearPct: prevTotal ? r2(D(total).minus(prevTotal).div(prevTotal).times(100)) : null } };
   }
 
   async detail(storeId: string, periodId: string) {

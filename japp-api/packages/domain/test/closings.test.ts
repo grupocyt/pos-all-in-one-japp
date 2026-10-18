@@ -67,3 +67,14 @@ describe("Gestor de cierres · 52 semanas", () => {
     expect(t.vsProjPct).toBe(4.76);
   });
 });
+
+describe("anulaciones (una regla para eliminaciones, cierres y transacciones)", () => {
+  const row = (o: Partial<import("../src/closings.js").DeletedRow>) => ({ reason: "Error", stage: "printed", quantity: 2, unitPrice: 3, modifiers: [], ...o });
+  it("importe con modificadores; solo lo eliminado tras enviar; sin «Pasada a…» ni «Incluida en menú»", async () => {
+    const { voidsOf, voidAmount, deletedStageOf } = await import("../src/closings.js");
+    expect(voidAmount(row({ modifiers: [{ unitPrice: 0.5, quantity: 1 }] }))).toBe(7);
+    const v = voidsOf([row({}), row({ stage: "preBill" }), row({ stage: "pendingPrint" }), row({ reason: "Pasada a Cuenta 2" }), row({ reason: "Incluida en menú" }), row({ stage: null, printed: true })]);
+    expect(v.map(x => [x.stage, x.amount])).toEqual([["printed", 6], ["preBill", 6], ["printed", 6]]);
+    expect(deletedStageOf({ stage: null, printed: false })).toBe("pendingPrint");
+  });
+});

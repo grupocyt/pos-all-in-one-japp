@@ -8,8 +8,8 @@ Plan de Kevin: Node.js + TypeScript, PostgreSQL, Docker, Traefik; API de tienda 
 
 | Qué | Dónde | Regla |
 |---|---|---|
-| Contrato HTTP (88 endpoints, errores, ejemplos) | `docs/openapi.yaml` (versión legible: `docs/api-japp.html`) | La API cumple el contrato. Si hay que cambiarlo, se cambia primero el YAML |
-| Reglas de negocio | `packages/domain` (157 pruebas) | Los controladores y servicios **no** calculan: llaman al dominio |
+| Contrato HTTP (94 endpoints, errores, ejemplos) | `docs/openapi.yaml` (versión legible: `docs/api-japp.html`) | La API cumple el contrato. Si hay que cambiarlo, se cambia primero el YAML |
+| Reglas de negocio | `packages/domain` (191 pruebas) | Los controladores y servicios **no** calculan: llaman al dominio |
 | Esquema de base de datos | repo hermano `../japp-db` (`sql/01_esquema_postgres.sql`) | El back nunca crea ni altera tablas; se genera el esquema tipado con `drizzle-kit pull` |
 | Comportamiento esperado en pantalla | `docs/prototipo/tpv-japp.html` (abrir en el navegador; entrar con PIN 5845) | Si una regla no está en el dominio, búscala aquí y pórtala **con su prueba** |
 | Transacción de ejemplo | `docs/prototipo/transaccion-mesa-12.json` | Forma del JSON `Transaction` (vista-orden) |
@@ -27,10 +27,10 @@ Plan de Kevin: Node.js + TypeScript, PostgreSQL, Docker, Traefik; API de tienda 
 ## Estructura (monorepo con npm workspaces)
 
 ```
-packages/domain/      reglas puras, sin E/S (157 pruebas), incluidos los tickets (tickets.ts). No importa nada de Nest, Drizzle ni pg
+packages/domain/      reglas puras, sin E/S (191 pruebas), incluidos los tickets (tickets.ts). No importa nada de Nest, Drizzle ni pg
 packages/contracts/   tipos + validador generados de docs/openapi.yaml (npm run contracts)
 packages/db/          esquema Drizzle generado (npm run db:pull) + pool + withTx
-apps/store-api/       NestJS + Fastify: API de tienda /api/v2 (78 pruebas de integración contra PostgreSQL)
+apps/store-api/       NestJS + Fastify: API de tienda /api/v2 (136 pruebas de integración contra PostgreSQL)
   src/app.ts                  buildApp(): módulo, filtro de errores, guard de sesión, interceptor de idempotencia
   src/common/                 auth (sesión), authorization (clave de encargado), tokens HMAC, errores, idempotencia, validación zod
   src/repos/order.repo.ts     carga/guarda una orden entera (filas ↔ dominio), snapshot JSONB y outbox
@@ -48,42 +48,45 @@ Dockerfile, docker-compose.yml   base + API (que sirve también ../japp-tpv); al
 
 ## Estado (15/10/2026)
 
-**Hecho: 52 de los 67 endpoints de /api/v2, con pruebas de integración y contrato.**
+**Hecho: 62 de los 73 endpoints de /api/v2, con pruebas de integración y contrato.** La página `docs/api-japp.html` los ordena como el menú de Ajustes del TPV (1 · Ajustes, 2 · Transaccional, 3 · Reportes y sincronización) y marca cada uno «Hecho» o «Pendiente» leyendo las rutas de los controladores.
 
 | Módulo | Endpoints hechos |
 |---|---|
 | sistema | `GET /health`, `POST /devices/register`, `GET /transactions` |
 | sesiones | `POST /sessions`, `POST /sessions/authorize`, `GET` y `DELETE /sessions/current` |
-| periodos y caja | `GET /periods/current`, `POST /periods`, `POST /periods/{id}/close`, `GET /cash/summary`, `POST /cash/movements` |
-| mesas | `GET /tables`, `POST /orders/{id}/transfer` |
+| periodos y caja | `GET /periods/current`, `POST /periods`, `POST /periods/{id}/close`, `GET /cash/summary`, `POST /cash/movements`, `POST /cash/counts` (arqueo sin cierre) |
+| mesas | `GET /tables` (con `holder` y `charging`), `POST /orders/{id}/presence`, `POST /orders/{id}/transfer`, `POST /orders/{id}/accounts/{accountId}/transfer` |
 | órdenes y cuentas | `POST/GET /orders`, `GET/PATCH /orders/{id}`, `POST /orders/{id}/close`, `POST /orders/{id}/accounts`, `DELETE …/accounts/{id}`, `GET /orders/{id}/events` |
 | líneas | `POST …/lines`, `PATCH …/lines/{id}`, `POST …/lines/{id}/delete` (también parcial), `POST …/lines/move`, `POST …/lines/reorder`, `PUT …/lines/{id}/answers`, `POST …/lines/{id}/fire`, `POST …/lines/{id}/absorb`, `POST …/send`, `POST …/prebill` |
 | cobro | `POST …/discounts`, `DELETE …/discounts/{id}`, `PUT …/customer`, `POST …/payments`, `POST …/invoice` (F1/F2, VeriFactu encadenado) |
 | facturas e informes | `GET /invoices`, `GET /invoices/{id}`, `POST /invoices/{id}/reprint`, `GET /reports/deletions` |
 | Ajustes (19 módulos) | `GET /config` (ETag/304), `GET /config/history`, `GET/POST /config/{module}`, `GET/PATCH /config/{module}/{id}`, `POST /config/{module}/{id}/deactivate` |
+| prueba de impresoras | `POST /printers/preview`, `POST /printers/ping`, `POST /printers/print`, `GET /printers/status`, `POST /printers/{id}/test` |
+| transacciones del día (Manager) | `GET /transactions/day?date&type`, `POST /sync/transactions` |
 | gestor de cierres y sincronización | `GET /reports/closings`, `GET /reports/closings/{periodId}`, `GET /reports/weeks`, `GET /reports/live`, `GET /sync/status` |
 
 **Siguiente encargo, en este orden.** Cada uno con su regla en `@japp/domain` (si la tiene), sus pruebas de integración y `npm test` en verde:
 
 1. `POST /orders/{id}/reopen`.
 2. `POST /invoices/{id}/credit`: rectificativa R1, serie AB, encadenada en VeriFactu.
-4. `POST /cash/counts`, `POST /cash/drawer/open`.
+4. `POST /cash/drawer/open`.
 5. `GET /reports/sales`, `GET /reports/staff` (KPI de camareros, ver prototipo).
-7. `GET /devices/me`, `PUT /areas/{id}/layout`, `POST /orders/{id}/presence`, `GET /incidents`, `POST /incidents/send`.
-8. `GET /printers/status`, `POST /printers/{id}/test` y logo en raster (hoy el logo se imprime desde la memoria NV de la impresora).
+7. `GET /devices/me`, `PUT /areas/{id}/layout`, `GET /incidents`, `POST /incidents/send`.
+8. Logo en raster (hoy el logo se imprime desde la memoria NV de la impresora).
 9. `GET /ws` (WebSocket): emitir `order.updated` **después** del COMMIT de cada comando.
 10. `apps/sync-agent`: outbox → Manager (`/api/manager/v1/...`), latido cada 5 s, pull de config, pulso de venta cada minuto (`GET /reports/live` → `PUT …/live`) y envío al momento al cobrar (LISTEN/NOTIFY). Diseño completo en `docs/sincronizacion-manager.html`.
 
 **Decisiones tomadas al construir:**
-- **Tickets** (formato de las impresoras de la cadena, 48 columnas, CP858 con €): `@japp/domain/tickets.ts` construye factura (F1/F2: Nº Op., IVA por tipo, entregado/cambio, formas de pago, QR VERI*FACTU), precuenta («NO VÁLIDO COMO FACTURA», reparto por comensal) y comanda (comensales, CANAL/camarero, hora en doble alto, «Mesa N Área» en doble tamaño, productos en mayúsculas y doble ancho, `**comentario`, `-- n modificador`). `renderText` para vista previa/pruebas y `renderEscPos` para la impresora. Comanda y precuenta: si la impresora falla, no cambia nada (`PRINTER_OFFLINE`). Factura: se imprime después del COMMIT; un fallo de impresora nunca deshace una factura (`printed: false`, se reimprime con `POST /invoices/{id}/reprint`). El cajón se abre si hubo efectivo y la estación tiene `opens_drawer`.
+- **Tickets** (formato de las impresoras de la cadena, 48 columnas, CP858 con €): `@japp/domain/tickets.ts` construye factura (F1/F2: Nº Op., IVA por tipo, entregado/cambio, formas de pago, QR VERI*FACTU), precuenta («NO VÁLIDO COMO FACTURA», reparto por comensal) y comanda (comensales, CANAL/camarero, hora en doble alto, «Mesa N Área» en doble tamaño, productos en mayúsculas y doble ancho, `**comentario`, `-- n modificador`). `renderText` para vista previa/pruebas y `renderEscPos` para la impresora. Comanda y precuenta: ver «Impresión después del COMMIT». Factura: se imprime después del COMMIT; un fallo de impresora nunca deshace una factura (`printed: false`, se reimprime con `POST /invoices/{id}/reprint`). El cajón se abre si hubo efectivo y la estación tiene `opens_drawer`.
 - Bloqueo de sesión por inactividad: `POST /sessions` y `GET /sessions/current` devuelven `lockSeconds` = `app_user.lock_seconds` o, si es NULL, `store_parameters.lock_seconds` (TPV, 7 s) / `lock_seconds_pda` (móvil, 10 s); 0 = nunca. Regla en `@japp/domain` → `effectiveLockSeconds`. El equipo lo vuelve a leer al desbloquear.
 - Tokens de sesión firmados con HMAC (sin tabla de sesiones), con caducidad de `SESSION_HOURS` (12 h).
-- La estación del equipo llega en la cabecera `X-Station-Id` (id, UUID del equipo o nombre).
+- La estación del equipo llega en la cabecera `X-Station-Id` (id, UUID del equipo o nombre). Si la estación tiene `device_uuid` (`POST /devices/register`), solo vale ese UUID: por nombre o id → `403 STATION_NOT_ALLOWED` «Este equipo no es esa estación» (`resolveStation` en `@japp/domain/stations.ts`). Sin cabecera, la primera caja.
 - La autorización de encargado es de un solo uso y dura 2 minutos. El registro de usadas está en memoria (un proceso por tienda).
-- El bloqueo de PIN se cuenta por estación, en memoria.
+- El bloqueo de PIN se guarda en la base (`pin_attempt`, migración 0009; sobrevive a reinicios) por equipo: `device:<UUID>` si la estación tiene UUID de equipo, si no `station:<id>` (`pinLockKey`). Nunca por IP (detrás de un proxy bloquearía toda la tienda). En la clave de encargado, además, por usuario de la sesión (`user:<id>`). Al entrar no se sabe quién es (el PIN es la identidad).
 - La línea pasada entera a otra cuenta queda `deleted` con motivo «Pasada a …». Su copia vive en la otra cuenta, y el informe de eliminaciones no la muestra.
-- Las facturas de una tienda se emiten de una en una (`pg_advisory_xact_lock`), porque F y T comparten la cadena VeriFactu.
+- Las facturas de una tienda se emiten de una en una (`pg_advisory_xact_lock`), porque F y T comparten la cadena VeriFactu. La hora de la factura y del registro se toma **después** de tener el bloqueo, y el anterior de la cadena es el registro que aún no tiene sucesor (la base garantiza uno: `uq_verifactu_previous`, `uq_verifactu_genesis`), no «el más reciente por fecha».
 - Transferir mueve la mesa entera; una sola cuenta se pasa con «Separar cuenta». Sin productos no se transfiere (422).
+- **Pasar una cuenta a otra mesa** (15/10/2026; regla `transferAccount` en `@japp/domain/transfer.ts`): `POST /orders/{id}/accounts/{accountId}/transfer {version (la del origen), toTableId, authorization?}` → 200 `{from: Transaction, to: Transaction}`; permiso `mesas.transferir`, Idempotency-Key. La cuenta va entera (líneas con su estado y sus eliminadas, descuentos, cobros parciales, cliente, pases) y con sus precios: se cambian `account.order_id` y `order_line.order_id`, el resto cuelga de ellas. Destino libre → orden nueva (1 comensal, la abre quien llama); ocupado → una cuenta más, renombrada a «Cuenta N» (primer número libre) si el nombre existe; nunca se juntan líneas. Facturada o sin productos → `422 NOTHING_TO_TRANSFER`; misma mesa → 422; destino cobrándose → `TABLE_CHARGING`; destino con otra persona → `TABLE_TAKEN` salvo `mesas.entrarOcupada`. Origen sin cuentas vivas → `cancelled` (o `closed` si tenía facturadas) y mesa libre. Las dos órdenes suben de versión, van a la cola y llevan su evento. Bloqueo: la mesa de destino y luego las dos órdenes por id.
 - **Cuenta a 0,00 €** (15/10/2026): no se cobra, no se factura y no se imprime precuenta → `409 NOTHING_TO_CHARGE` (regla en `@japp/domain`: `registerPayment`, `issueInvoice`, `preBill`). Una invitación ya no es un descuento del 100 % facturado a 0: se eliminan las líneas con motivo «Invitación».
 - **Mesa sin productos**: `POST /orders/{id}/close` («Cerrar mesa sin venta») la cierra si no le queda nada vivo (sin líneas ni cobros en cuentas sin facturar); la orden queda `cancelled`, las cuentas sin facturar se anulan y la mesa libre. Con productos → `409 ORDER_NOT_EMPTY`. El TPV la deja disponible al salir y lo replica con este endpoint.
 - **Líneas iguales se juntan** mientras están «Por enviar»: mismo producto, mismo comentario y mismas respuestas a las preguntas (`modKey` en `lines.ts`). Respuestas distintas = otra línea (como la PDA y el TPV al pedir varias unidades por separado).
@@ -97,6 +100,25 @@ Dockerfile, docker-compose.yml   base + API (que sirve también ../japp-tpv); al
   - No se cobra ni se factura con pases `pending` → `409 COURSE_PENDING`.
   - `POST …/lines/{id}/absorb`: una bebida ya pedida pasa a ser la del pase; se quitan tantas unidades como menús; si estaba enviada queda eliminada con motivo «Incluida en menú» sin clave de encargado y el pase queda `fired`.
   - Las respuestas de una línea se reescriben (DELETE + INSERT en `order_line_modifier`) solo cuando cambian al elegir un pase; nunca en ventas cerradas.
+- **Caja principal** (15/10/2026, migración 0008; regla en `@japp/domain/stations.ts`): `station.is_main` (una por tienda; CAJA1) y `user_profile.allowed_stations` (`any` | `main`; el Cajero, `main`). Un perfil `main` solo entra y trabaja en la caja principal: `POST /sessions`, `GET /sessions/current` y el guard de sesión de cada petición → `403 STATION_NOT_ALLOWED` «Este perfil solo puede entrar en la caja principal» (`details {allowed:'main', station}`); se aplica en la siguiente petición si se cambia en Ajustes. Las sesiones devuelven `user.allowedStations` y `station.isMain`. `POST /cash/movements` y `POST /periods/{id}/close` solo desde la principal → `403 MAIN_STATION_REQUIRED` «Solo desde la caja principal»; abrir periodo, desde cualquiera. Otro `POST /periods` con uno abierto → `409 PERIOD_ALREADY_OPEN` (también si salta el único de la base). En Ajustes: `perfiles.allowedStations` y `estaciones.isMain` (al marcar otra, la anterior deja de serlo).
+- **Una persona por mesa** (15/10/2026, migración 0008; regla en `@japp/domain/presence.ts` con sus pruebas): `orders.holder_*` y `charging_until`. `POST /orders/{id}/presence {action: enter|renew|leave|charging|chargingEnd}` → `{holder:{userId,userName,stationId,stationName,until}|null, charging, youHold}`; no cambia la versión de la orden.
+  - Quien entra tiene la mesa 30 s (`holder_until`), renovables con `renew` o con cualquier comando suyo aceptado.
+  - Otra persona dentro: cobro abierto (`charging_until` > ahora) → `409 TABLE_CHARGING` «Se está cobrando esta mesa» (también a un administrador, y aunque su equipo deje de renovar); con `mesas.entrarOcupada` (ADMIN y ADMIN_LOCAL) entra y el otro pasa a solo guardar (evento `tableTakenOver` «Sistemas entra en la mesa; Pedro pasa a solo guardar»); sin él → `409 TABLE_TAKEN` «Mesa ocupada por {nombre} · {estación}» con `details.holder {userName, stationName, until}`.
+  - Quien tiene la mesa es la pareja **usuario + equipo** (cambio del product owner, 15/10/2026): el mismo usuario desde otro equipo, con el plazo vivo, cuenta como otra persona (`TABLE_TAKEN` salvo `mesas.entrarOcupada`; `TABLE_CHARGING` mientras se cobra). Renovando nunca se recupera una mesa que tiene otro.
+  - `charging` (solo quien la tiene) abre el cobro 60 s, renovable mandándolo otra vez; lo quitan `chargingEnd`, un cobro que deja lo pendiente a 0 y la factura. `leave` suelta mesa y cobro.
+  - El equipo desplazado, al volver, lee `GET /orders/{id}`: `status` (`closed` si se facturó todo, `cancelled` si se cerró sin venta) y cada cuenta con `status: invoiced` e `invoice`; `presence` sobre una mesa cerrada → `409 ORDER_CLOSED`.
+  - Guardia en `OrdersService.command()`: solo si hay alguien vivo y no es quien llama (usuario **y** estación), se admiten únicamente los comandos «Guardar» (`POST …/lines` y `POST …/send`); el resto → `409 TABLE_TAKEN`. Sin presencia (nadie o caducada), todo como siempre.
+  - `GET /tables`: cada mesa con `holder {userName, stationName} | null` y `charging`.
+- **Una sesión activa por usuario** (15/10/2026; regla `assertActiveSession`/`releasesStation` en `@japp/domain/session.ts`): `POST /sessions` sustituye cualquier sesión anterior del mismo usuario (en otro equipo o en el mismo, p. ej. al desbloquear). Con el token anterior, cualquier petición (también `GET /sessions/current`) → `401 SESSION_REPLACED` «Tu clave se ha abierto en {estación}: vuelve a entrar» (`details.station`). Si la anterior era en otro equipo, las mesas que el usuario tenía desde allí quedan libres (holder y cobro) con el evento `tableReleased` «{usuario} ha entrado en {estación}; sale de la mesa». `POST /sessions/authorize` no sustituye la sesión del encargado. La sesión vigente se guarda en la base (`app_session`, migración 0009: id = jti, una con `ended_at` NULL por usuario; la sustituida queda `replaced` con `replaced_by_id`), con una caché de 2 s en el proceso (`common/active-sessions.ts`); tras reiniciar la API un token sustituido sigue sin valer. `DELETE /sessions/current` la cierra (`logout`): después, `401 BAD_PIN`. Un token sin sesión vigente (salió, o anterior a la 0009) → `401 BAD_PIN`. Abrir el periodo sin `funciones.periodo` (Mesero en la PDA, Cajero): `POST /sessions/authorize` con `funciones.periodo` y `POST /periods {authorization}`; la sesión del encargado sigue intacta. `GET /periods/current` sin periodo → `409 PERIOD_CLOSED`.
+- **Línea ya cobrada** (15/10/2026): con cobros, la cuenta no puede quedar por debajo de lo cobrado: eliminar, bajar cantidad, pasar unidades o incluir en menú → `409 TOTAL_BELOW_PAID` «Ya se ha cobrado {pagado} €: no se puede dejar la cuenta por debajo» (`assertTotalCoversPaid` en `totals.ts`). Añadir tras un cobro parcial sí se puede. No hay devoluciones.
+- **Cobros** (15/10/2026): `method` = código de cualquier forma de pago de Ajustes (`glovo`, `efectivo2`…); se guarda `payment.payment_method_id` y su `kind` decide el tipo con **una** regla, `paymentKind()` (cash → efectivo, card → tarjeta, el resto —bizum, vales, plataformas— → otros), que usan cobro, repositorio, caja, cierres y transacciones del día. `assertMethodAllowed`: inactiva o desconocida, no configurada en la estación (si la estación tiene alguna en `station_payment_method`) o no tarjeta en la PDA → `409 METHOD_NOT_ALLOWED`. Más de lo pendiente → `409 AMOUNT_EXCEEDS_PENDING` (nunca se recorta); `amount: null` = lo pendiente. Facturar pide `cobro.cobrar` (o `authorization`).
+- **IVA cuadrado** (15/10/2026): `accountTotals` redondea el importe con IVA de cada tipo y manda el céntimo que descuadre al tipo más alto; base = importe / (1 + tipo) y cuota = importe − base. Σ (base + cuota) = total de la cuenta siempre (prueba de 0,01 a 14,00 € con 10/21 % y 7 % de descuento). `invoice.tax_base/tax_total` se suman con decimal.js.
+- **Idempotency-Key** (15/10/2026, `common/idempotency.ts`): la clave se reserva antes de ejecutar (`INSERT … ON CONFLICT DO NOTHING`, `status_code 0` = en curso). Terminada → misma respuesta (`Idempotent-Replayed: true`); en curso → espera hasta 5 s y repite la guardada, o `409 IDEMPOTENCY_IN_PROGRESS`; otro cuerpo → 422; si la acción falla se borra la reserva. Una reserva en curso de más de 120 s (proceso caído) se puede volver a tomar.
+- **Arqueo sin cierre** (`POST /cash/counts`, permiso `funciones.caja`, solo caja principal, Idempotency-Key): `{countedCash ≥ 0, detail?: {denominación: unidades enteras} (Σ = countedCash al céntimo, si no 422 en `detail` «El desglose suma X €, no Y €»; «0.5» o «0,50»), note? (≤ 200), authorization?}` → 201 `{id, countedCash, expectedCash, difference, at, by:{user, device}}`. `expectedCash` = fondo + efectivo − retiros + ingresos (la misma `cashState` que el cierre); se guarda como `cash_movement` kind `count` con `counted_detail` y no cambia lo esperado.
+- **Impresión después del COMMIT** (15/10/2026): `POST …/send` y `…/fire` guardan primero (líneas enviadas + una fila por línea e impresora en `order_line_printer` con `printed = false`; `printed_at` con `printed = false` = intento en curso, que otro envío no repite durante 60 s; el reintento decide qué falta y lo reserva con la orden bloqueada, así dos reintentos a la vez no imprimen dos veces) e imprimen **sin** tener la fila de la orden bloqueada. Lo que sale se marca `printed = true`. Si una impresora falla → `503 PRINTER_OFFLINE` con `details.printed`: las líneas ya figuran enviadas y lo que no salió queda pendiente en esa impresora; el siguiente `send` (aunque no haya nada nuevo) lo imprime solo ahí y no repite lo que ya salió. La pieza se rehace desde la línea (`kitchenItemOf` en `courses.ts`; `order_line_printer.channel_name` = `CANAL|TAG` para los pases del menú) con sus notas («2.º EN ESPERA: …», «… POR ELEGIR») sacadas del estado de los pases. Precuenta: se guarda y se imprime después; si falla, `503` y se vuelve a pedir. `send` sin nada que enviar ni reimprimir no sube la versión ni escribe en la cola.
+- **Anulaciones** (una regla, `voidsOf`/`voidAmount` en `closings.ts`): eliminadas tras enviar (`deleted_stage` printed o preBill), importe con modificadores, sin «Pasada a…» ni «Incluida en menú». La usan Eliminaciones (`stage` real: printed | preBill), el Gestor de cierres y Transacciones del día (`isVoid`).
+- **Errores de la base**: el filtro global convierte 23505 → `409 DUPLICATE` (o el específico: periodo abierto → `PERIOD_ALREADY_OPEN`, mesa abierta → `TABLE_BUSY`, cuenta facturada → `ACCOUNT_CLOSED`), y 23503/23514/22P02/22007/22008/22003 → `422 VALIDATION`. Los ids de consultas y cuerpos se validan como UUID y las fechas con zod (`GET /invoices?from&to`, `GET /tables?areaId`, `GET /orders?tableId&status`, `reasonId`, `periodId`). Un id de línea ya usado → `409 DUPLICATE`.
+- **Ajustes › Facturación**: cambiar una serie crea su fila en `invoice_series` en la misma transacción (la base tiene FK). PLU automático e incidencias de producto: uno a la vez por tienda (`pg_advisory_xact_lock`), sin repetidos con altas a la vez.
 - **Mesa en precuenta** (`GET /tables` → `bill`) solo mientras todas las líneas de la cuenta están en precuenta; si se vuelve a marcar, vuelve a `open`.
 - **Ajustes por API** (15/10/2026, migración 0005):
   - 19 módulos (`CONFIG_MODULES` en `@japp/domain/config.ts`): restaurante, empresa, facturacion, parametros (un solo registro, id `current`), usuarios, perfiles, areas, mesas, impuestos, categorias, productos, preguntas, canales, impresoras, estaciones, formas-pago, descuentos, motivos y objetivos. Permiso por módulo en `CONFIG_PERMISSION` (áreas/mesas: `mesas.editarPlano`; impuestos, formas de pago y descuentos: `ajustes.facturacion`; objetivos: `ajustes.cierres`).
@@ -106,6 +128,9 @@ Dockerfile, docker-compose.yml   base + API (que sirve también ../japp-tpv); al
   - Usuarios: PIN de 4 números, cifrado con bcrypt, nunca se devuelve y no se repite (`409 DUPLICATE`, `field: "pin"`). Productos: PLU siguiente si no viene, IVA por `taxId` o `taxRate`, canales por id o nombre, botón en `category_product`. Preguntas: respuestas por `productId` o `plu`. Estaciones: `channels` = canal → impresora, formas de pago por id o código.
   - Duplicados de la base (23505) → `409 DUPLICATE`; FK rota → `422 VALIDATION` con el campo. Restaurante, empresa, facturación y parámetros vacían la caché de `StoreRepo`: se aplican en la siguiente petición.
 - **Gestor de cierres** (15/10/2026): al cerrar el periodo se escribe `period_summary` en la misma transacción (regla `summarizePeriod` en `@japp/domain/closings.ts`: R1 resta venta y no cuenta ticket; por hora en Madrid; camarero = quien abrió la mesa; anulaciones = borradas tras enviar, sin «Pasada a…» ni «Incluida en menú») y va a la cola como `period.closed`. Día de negocio = fecha de apertura en Madrid. `weeksReport`: semanas ISO, año anterior por semana ISO (53 → 52), proyección = AA × (1 + objetivo de `sales_target`) o importe fijo de la semana; la semana en curso se compara con los mismos días. El periodo abierto se calcula al vuelo con la misma forma.
+- **Canales de impresión** (15/10/2026, migración 0006): `print_channel.kind` = `kitchen` (comanda) o `ticket` (precuenta y factura); `printer_id` = impresora por defecto; `copy_of_id` = copia de otro canal de comanda (doble zona: COPIA CONTROL imprime lo mismo que CONTROL en su impresora; un nivel, sin copias de copias). Comanda: canales del producto + sus copias; impresora = la de la estación para ese canal (`station_channel_printer`) o la del canal. Precuenta y factura: canal de tickets del **área** de la mesa (`area.ticket_channel_id`) y su impresora, sea cual sea el TPV o la PDA; si el área no tiene, impresora de tipo ticket y, si no, la primera de la estación. Los productos solo van a canales de comanda que no sean copias.
+- **Prueba de impresoras** (15/10/2026): lo que hacía `japp-print-test` ahora es `/printers/*` (permiso `ajustes.impresoras`): vista previa, ping TCP, imprimir ejemplos (test, comanda, menú, precuenta, factura) y estado de todas. Va siempre a la impresora real por TCP aunque `PRINTER_MODE=log`. `parseConnection` acepta `IP`, `IP:puerto` y `tcp://IP:puerto`.
+- **Transacciones del día** (15/10/2026, migración 0007): `GET /transactions/day` devuelve una entrada por cuenta (`kind` invoice | credit | open | cancelled) del día de negocio: mesa y quién la abrió, líneas (PLU, nombre, PVP, cantidad, hora, quién la marcó, opciones/pases), eliminaciones con `stage` (`pendingPrint` sin enviar, `printed` impreso, `preBill` precuenta — `order_line.deleted_stage`), quién y quién autorizó, descuentos, cobros (forma de pago, entregado/cambio, quién cobró), factura con IVA, QR y rectificada, e historial de eventos. `POST /sync/transactions` las deja en `sync_outbox` (entity `transaction`, sin duplicar por hash) y, con `MANAGER_URL`, las manda al momento a `POST /api/manager/v1/stores/{storeId}/transactions` con `Authorization: Bearer STORE_KEY` e `Idempotency-Key`.
 - La PDA no aplica descuentos.
 - En producción se ejecuta con `tsx` (sin compilar), igual que en desarrollo.
 - **Un solo contenedor de aplicación**: la API sirve el TPV (`../japp-tpv`, o `TPV_DIR`) en `/` con fallback SPA, así TPV y API comparten origen (sin CORS ni contenido mixto). `/api/*` que no existe responde 404 JSON. `CORS_ORIGINS` (vacío por defecto) solo hace falta para abrir el TPV desde otro origen o desde `file://` (`*`).
@@ -159,7 +184,8 @@ async addLine(session, orderId, b) {
    En los dos últimos casos el motivo es obligatorio, se guarda quién la borró y quién autorizó, y la línea queda con `deleted = true`. **Nunca `DELETE`.**
 6. **Permisos**: el código es `módulo.tecla` (`cobro.cobrar`, `ajustes.productos`…), igual en la tabla `permission`, en `@japp/domain` y en `details.permission`. La excepción personal del usuario (`app_user.can_charge`…) manda sobre el perfil. Si falta un permiso, responde `403 PERMISSION_REQUIRED`; el equipo pide la clave de un encargado (`POST /sessions/authorize`) y reenvía con `authorization`. Si el encargado tampoco lo tiene, responde `403 NOT_ALLOWED`.
 7. **Cobros**:
-   - Se cobra como mucho lo pendiente.
+   - Se cobra como mucho lo pendiente: más → `409 AMOUNT_EXCEEDS_PENDING` (nunca se recorta); sin importe, lo pendiente.
+   - La forma de pago es la de Ajustes (por código), permitida en la estación; su tipo lo da `paymentKind()`.
    - En efectivo, `cashGiven ≥ amount` y se calcula el cambio.
    - Propina solo con tarjeta.
    - Solo cuentan los pagos `confirmed`.
@@ -177,7 +203,7 @@ async addLine(session, orderId, b) {
 
 ## Errores
 
-Van en el formato común (ver «Formato de respuesta»): `type: "error"`, `data: null` y `errors: [{ code, message, field, details }]`, con `message` en español para el usuario. Los códigos y sus estados HTTP están en `packages/domain/src/errors.ts` (`HTTP_STATUS`), copiados de `docs/openapi.yaml`. El filtro global convierte `DomainError` → HTTP. Cualquier otra excepción → `500` sin detalles internos, con el log completo y el `traceId`.
+Van en el formato común (ver «Formato de respuesta»): `type: "error"`, `data: null` y `errors: [{ code, message, field, details }]`, con `message` en español para el usuario. Los códigos y sus estados HTTP están en `packages/domain/src/errors.ts` (`HTTP_STATUS`), copiados de `docs/openapi.yaml` (el contrato se genera con `/home/claude/api/regen.sh` desde `api.py` + `gen.py`). El filtro global convierte `DomainError` → HTTP y los errores de datos de PostgreSQL → 409/422 (ver decisiones). Cualquier otra excepción → `500` sin detalles internos, con el log completo y el `traceId`; nunca un 500 por datos del cliente.
 
 ## Seguridad
 
@@ -210,7 +236,7 @@ Al terminar un cambio, la base debe pasar `../japp-db` → `npm run verify` (cua
 
 ```bash
 npm install
-npm test                       # dominio (157) + API (78, necesita PostgreSQL y ../japp-db)
+npm test                       # dominio (191) + API (136, necesita PostgreSQL y ../japp-db)
 npm run typecheck
 npm run db:init                # crea/actualiza la base de DATABASE_URL (esquema + migraciones; SEED=1 carga la Sucursal Pruebas)
 npm run dev                    # API en http://localhost:8080/api/v2 (recarga al guardar)

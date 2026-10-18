@@ -85,3 +85,16 @@ describe("menú por pases", () => {
     expect(code(() => absorbIntoMenu(a, { menuLineId: a.lines[1]!.id, course: 0, sourceLineId: a.lines[0]!.id, answer: ANS[1050]! }, ctx()))).toBe("VALIDATION");
   });
 });
+
+describe("reimprimir una pieza del menú", () => {
+  it("rehecha desde la línea con las mismas notas que la primera vez", async () => {
+    const { kitchenItemOf } = await import("../src/courses.js");
+    const l = { id: "m1", productId: 4478, name: "Menú", quantity: 2, unitPrice: 12, taxRate: 10, comment: "", status: "printed" as const, createdBy: { user: "x", role: "waiter", at: "" },
+      modifiers: [{ name: "Agua", unitPrice: 0, plu: 4480, course: 0 }, { name: "Crema", unitPrice: 0, plu: 5990, course: 1 }, { name: "Merluza", unitPrice: 0, plu: 6619, course: 2 }],
+      courses: [{ course: 0, questionId: "q0", question: "Bebida", state: "fired" as const }, { course: 1, questionId: "q1", question: "1.º", state: "fired" as const }, { course: 2, questionId: "q2", question: "2.º", state: "held" as const }, { course: 3, questionId: "q3", question: "Postre", state: "pending" as const }] };
+    expect(kitchenItemOf(l, "MARCHA 1.º")).toMatchObject({ plu: 5990, tag: "MARCHA 1.º", modifiers: [{ name: "Crema" }], notes: ["2.º EN ESPERA: MERLUZA", "POSTRE POR ELEGIR"] });
+    expect(kitchenItemOf(l, "BEBIDA")).toMatchObject({ plu: 4480, notes: [] });
+    expect(kitchenItemOf(l, "AVISO MENÚ").notes).toEqual(["2.º EN ESPERA: MERLUZA", "POSTRE POR ELEGIR"]);
+    expect(kitchenItemOf(l).modifiers).toHaveLength(3);
+  });
+});

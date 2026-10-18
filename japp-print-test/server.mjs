@@ -77,11 +77,14 @@ function ping(ip, port, timeoutMs = 2500) {
 const validIp = ip => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && ip.split(".").every(n => +n <= 255) || /^[a-z0-9.-]+$/i.test(ip);
 
 // ---------- servidor ----------
-const json = (res, code, body) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(body)); };
+// CORS abierto: el TPV (Ajustes › Prueba de impresoras) llama a este servidor desde otro origen
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type", "access-control-allow-private-network": "true" };
+const json = (res, code, body) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8", ...CORS }); res.end(JSON.stringify(body)); };
 const body = req => new Promise(r => { let d = ""; req.on("data", c => (d += c)); req.on("end", () => { try { r(JSON.parse(d || "{}")); } catch { r({}); } }); });
 
 http.createServer(async (req, res) => {
   try {
+    if (req.method === "OPTIONS") { res.writeHead(204, CORS); return res.end(); }
     if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" });
       return res.end(await readFile(join(HERE, "public/index.html")));

@@ -12,6 +12,9 @@ export interface Config {
   /** Formato de respuesta: mode = developer | production (API_MODE) y author (API_AUTHOR). */
   apiMode: "developer" | "production";
   apiAuthor: string;
+  /** Japp Manager: URL base (…/api/manager/v1) y credencial de la tienda. Sin URL, «enviar» solo deja las transacciones en la cola. */
+  managerUrl?: string;
+  storeKey?: string;
 }
 export const API_AUTHOR = "Api Japp Grupo Cañas y Tapas";
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -29,5 +32,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     corsOrigins: (env.CORS_ORIGINS ?? "").split(",").map(x => x.trim()).filter(Boolean),
     apiMode: env.API_MODE === "production" ? "production" : "developer",
     apiAuthor: env.API_AUTHOR || API_AUTHOR,
+    managerUrl: env.MANAGER_URL?.trim() || undefined,
+    storeKey: env.STORE_KEY?.trim() || undefined,
   };
 }

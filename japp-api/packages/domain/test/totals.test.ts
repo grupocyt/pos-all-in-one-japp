@@ -1,4 +1,4 @@
-import { lineAmount, unitsAmount, accountTotals, discountAmount } from "../src/totals.js";
+import { lineAmount, unitsAmount, accountTotals, discountAmount, assertTotalCoversPaid } from "../src/totals.js";
 import { r2 } from "../src/money.js";
 import { account, line } from "./helpers.js";
 
@@ -83,5 +83,39 @@ describe("IVA por tipo", () => {
     const t = accountTotals(account({ lines: [line({ quantity: 3, unitPrice: 2.35, taxRate: 10 }), line({ quantity: 1, unitPrice: 7.99, taxRate: 21 }), line({ quantity: 2, unitPrice: 1.1, taxRate: 4 })] }));
     const s = t.taxes.reduce((a, x) => a + x.base + x.tax, 0);
     expect(Math.abs(r2(s) - t.total)).toBeLessThanOrEqual(0.01 * t.taxes.length);
+  });
+});
+
+describe("desglose de IVA cuadrado al céntimo", () => {
+  const T = accountTotals;
+  const cents = (n: number) => Math.round(n * 100);
+  const check = (acc: Parameters<typeof T>[0]) => {
+    const t = T(acc);
+    expect(t.taxes.reduce((a, x) => a + cents(x.base) + cents(x.tax), 0)).toBe(cents(t.total));
+    return t;
+  };
+  it("de 0,01 a 14,00 € con tipos 10 y 21 % mezclados y un 7 % de descuento: Σ base + cuota = total siempre", () => {
+    for (let c = 1; c <= 1400; c++) {
+      const p = c / 100;
+      check(account({ lines: [line({ unitPrice: p, taxRate: 10 }), line({ unitPrice: p, taxRate: 21, quantity: 3 }), line({ unitPrice: 1.13, taxRate: 10 })], discounts: [{ id: "d", type: "percentage", value: 7, reason: "x", status: "applied" }] }));
+      check(account({ lines: [line({ unitPrice: p, taxRate: 21 })] }));
+    }
+  });
+  it("0,13 € al 4 %: base 0,125 → 0,13 (mitad hacia arriba) y cuota 0,00; suma exacta", () => {
+    const t = check(account({ lines: [line({ unitPrice: 0.13, taxRate: 4 })] }));
+    expect(t.taxes).toEqual([{ rate: 4, base: 0.13, tax: 0 }]);
+  });
+  it("el céntimo que sobra va al tipo más alto", () => {
+    const t = check(account({ lines: [line({ unitPrice: 0.05, taxRate: 10 }), line({ unitPrice: 0.05, taxRate: 21 })], discounts: [{ id: "d", type: "fixed", value: 0.01, reason: "x", status: "applied" }] }));
+    expect(t.total).toBe(0.09);
+    expect(t.taxes.map(x => x.rate)).toEqual([10, 21]);
+  });
+});
+
+describe("TOTAL_BELOW_PAID", () => {
+  it("con cobros, la cuenta no puede quedar por debajo de lo cobrado", () => {
+    const pay = { id: "p", method: "card", kind: "card" as const, amount: 10, tip: 0, cashGiven: null, change: null, status: "confirmed" as const, collectedBy: { user: "x", role: "waiter", at: "" } };
+    expect(() => assertTotalCoversPaid(account({ lines: [line({ unitPrice: 9 })], payments: [pay] }))).toThrow("Ya se ha cobrado 10,00 €: no se puede dejar la cuenta por debajo");
+    expect(() => assertTotalCoversPaid(account({ lines: [line({ unitPrice: 10 })], payments: [pay] }))).not.toThrow();
   });
 });

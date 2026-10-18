@@ -2,10 +2,11 @@ import { can, canSettings, checkWithManager, ALL_PERMISSIONS, BASIC_PERMISSIONS,
 import { PROFILES, MARTA, PABLO, LUCIA, JEISON } from "./helpers.js";
 
 describe("permisos", () => {
-  it("árbol completo: 6 grupos, 49 códigos «módulo.tecla» sin repetir, 20 módulos de Ajustes + acceso", () => {
+  it("árbol completo: 6 grupos, 50 códigos «módulo.tecla» sin repetir, 20 módulos de Ajustes + acceso", () => {
     expect(Object.keys(PERMISSION_TREE)).toEqual(["mesas", "pedido", "cobro", "funciones", "ajustes", "sistema"]);
     expect(new Set(ALL_PERMISSIONS).size).toBe(ALL_PERMISSIONS.length);
-    expect(ALL_PERMISSIONS).toHaveLength(49);
+    expect(ALL_PERMISSIONS).toHaveLength(50);
+    expect(ALL_PERMISSIONS).toContain("mesas.entrarOcupada");
     expect(ALL_PERMISSIONS.filter(p => p.startsWith("ajustes."))).toHaveLength(21);
     expect(ALL_PERMISSIONS).toContain("pedido.elimEnviado");
   });

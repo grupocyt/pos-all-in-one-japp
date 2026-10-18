@@ -55,8 +55,12 @@ describe("mesa de terraza de punta a punta", () => {
 
     const p1 = await t.call("POST", `/orders/${orderId}/accounts/${accountId}/payments`, { token: barra, body: { method: "card", amount: 10, tip: 1 } });
     expect(p1.body.totals).toEqual({ total: 25.95, paid: 10, pending: 15.95 });
-    const p2 = await t.call("POST", `/orders/${orderId}/accounts/${accountId}/payments`, { token: barra, body: { method: "cash", amount: 50, cashGiven: 20 } });
-    expect(p2.body.payment.change).toBe(4.05);   // cobra solo lo pendiente (15,95) y devuelve 4,05
+    // más de lo pendiente ya no se recorta: 409 AMOUNT_EXCEEDS_PENDING con lo que queda
+    const over = await t.call("POST", `/orders/${orderId}/accounts/${accountId}/payments`, { token: barra, body: { method: "cash", amount: 50, cashGiven: 50 } });
+    expect([over.status, over.error.code, over.error.details.pending]).toEqual([409, "AMOUNT_EXCEEDS_PENDING", 15.95]);
+    // sin importe se cobra lo pendiente (15,95) y se devuelve el cambio de 20
+    const p2 = await t.call("POST", `/orders/${orderId}/accounts/${accountId}/payments`, { token: barra, body: { method: "cash", amount: null, cashGiven: 20 } });
+    expect(p2.body.payment.change).toBe(4.05);
     expect(p2.body.totals.pending).toBe(0);
 
     const inv = await t.call("POST", `/orders/${orderId}/accounts/${accountId}/invoice`, { token: barra });

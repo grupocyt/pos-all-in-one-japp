@@ -7,6 +7,8 @@ describe("impresora ESC/POS por red", () => {
     expect(parseConnection("tcp://10.221.11.32")).toEqual({ host: "10.221.11.32", port: 9100 });
     expect(parseConnection("tcp://127.0.0.1:9101")).toEqual({ host: "127.0.0.1", port: 9101 });
     expect(parseConnection("usb://x")).toBeNull();
+    expect(parseConnection("192.168.1.50")).toEqual({ host: "192.168.1.50", port: 9100 });
+    expect(parseConnection("192.168.1.50:9101")).toEqual({ host: "192.168.1.50", port: 9101 });
   });
   it("manda los bytes del ticket a la impresora", async () => {
     const got: Buffer[] = [];

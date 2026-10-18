@@ -1,5 +1,7 @@
 import { r2, sum } from "./money.js";
 import { TZ } from "./invoice.js";
+import { MENU_ABSORB_REASON } from "./courses.js";
+import { lineAmount } from "./totals.js";
 
 /** Gestor de cierres: resumen de un periodo, semanas ISO y comparativo con el año anterior y la proyección. */
 
@@ -99,4 +101,23 @@ export function weeksTotals(rows: WeekRow[]) {
   const pct = (a: number, b: number) => (b ? r2(((a - b) / b) * 100) : null);
   const yearEnd = r2(sum([ytd, ...rows.map(r => (r.real == null ? r.projFull : r.current ? r.projFull - r.proj : 0))]));
   return { ytd, ytdPrev, ytdProj, vsPrevPct: pct(ytd, ytdPrev), vsProjPct: pct(ytd, ytdProj), yearEnd, prevYear: r2(sum(rows.map(r => r.prevFull))), weeksClosed: done.filter(r => !r.current).length };
+}
+
+/**
+ * Anulaciones (una sola regla para Eliminaciones, Gestor de cierres y Transacciones del día):
+ * - línea eliminada después de enviar: deleted_stage printed o preBill (las de «Por enviar» no son anulación);
+ * - no cuentan las pasadas a otra cuenta («Pasada a …») ni las incluidas en un menú («Incluida en menú»);
+ * - importe = cantidad × (precio + modificadores), como la línea en la cuenta.
+ */
+export type DeletedStage = "pendingPrint" | "printed" | "preBill";
+export interface DeletedRow { reason: string | null; stage: string | null; printed?: boolean | null; quantity: number; unitPrice: number; modifiers: { unitPrice: number; quantity?: number }[]; }
+/** Momento en que se eliminó (filas antiguas sin deleted_stage: por printed). */
+export const deletedStageOf = (r: Pick<DeletedRow, "stage" | "printed">): DeletedStage =>
+  (r.stage === "pendingPrint" || r.stage === "printed" || r.stage === "preBill" ? r.stage : r.printed ? "printed" : "pendingPrint");
+export const isMovedOrAbsorbed = (reason: string | null | undefined) => (reason ?? "").startsWith("Pasada a ") || reason === MENU_ABSORB_REASON;
+export const isVoid = (r: Pick<DeletedRow, "reason" | "stage" | "printed">) => deletedStageOf(r) !== "pendingPrint" && !isMovedOrAbsorbed(r.reason);
+export const voidAmount = (r: Pick<DeletedRow, "quantity" | "unitPrice" | "modifiers">) => lineAmount({ quantity: r.quantity, unitPrice: r.unitPrice, modifiers: r.modifiers.map(m => ({ name: "", unitPrice: m.unitPrice, quantity: m.quantity ?? 1 })) });
+/** Las anulaciones de una lista de líneas eliminadas, con su momento e importe. */
+export function voidsOf<T extends DeletedRow>(rows: T[]): (T & { stage: DeletedStage; amount: number })[] {
+  return rows.filter(isVoid).map(r => ({ ...r, stage: deletedStageOf(r), amount: voidAmount(r) }));
 }

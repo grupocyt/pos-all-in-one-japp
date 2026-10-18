@@ -1,4 +1,5 @@
 import { D, r2, sum, Decimal } from "./money.js";
+import { fail } from "./errors.js";
 import type { Account, Line, Totals, TaxBreakdown } from "./types.js";
 
 /** Importe de una línea: cantidad × (precio + Σ modificadores × su cantidad). */
@@ -22,7 +23,8 @@ export function discountAmount(d: { type: "percentage" | "fixed"; value: number 
  * Totales de una cuenta (= accTotals del prototipo).
  * - El descuento nunca supera el subtotal.
  * - Solo cuentan los pagos confirmados; pendiente nunca es negativo.
- * - IVA por tipo: el descuento se reparte en proporción al peso de cada tipo; base = importe / (1 + tipo).
+ * - IVA por tipo: el descuento se reparte en proporción al peso de cada tipo; base = importe / (1 + tipo), cuota = importe − base.
+ *   Σ (base + cuota) = total exacto: el céntimo de redondeo va al grupo del tipo más alto.
  */
 export function accountTotals(acc: Pick<Account, "lines" | "discounts" | "payments">): Totals {
   const subD = sum(acc.lines.map(lineAmount));
@@ -35,10 +37,20 @@ export function accountTotals(acc: Pick<Account, "lines" | "discounts" | "paymen
 
   const byRate = new Map<number, Decimal>();
   for (const l of acc.lines) byRate.set(l.taxRate, (byRate.get(l.taxRate) ?? D(0)).plus(lineAmount(l)));
-  const taxes: TaxBreakdown[] = [...byRate.entries()].sort((a, b) => a[0] - b[0]).map(([rate, amt]) => {
-    const g = sub ? amt.times(total).div(sub) : D(0);
-    const base = g.div(D(1).plus(D(rate).div(100)));
-    return { rate, base: r2(base), tax: r2(g.minus(base)) };
+  // importe con IVA de cada tipo, redondeado a céntimos; el céntimo que descuadra va al tipo más alto
+  const groups = [...byRate.entries()].sort((a, b) => a[0] - b[0]).map(([rate, amt]) => ({ rate, gross: r2(sub ? amt.times(total).div(sub) : 0) }));
+  const diff = D(total).minus(sum(groups.map(g => g.gross)));
+  if (!diff.isZero() && groups.length) { const top = groups[groups.length - 1]!; top.gross = r2(D(top.gross).plus(diff)); }
+  // base y cuota de cada tipo suman exactamente su importe, y todos juntos el total de la cuenta
+  const taxes: TaxBreakdown[] = groups.map(({ rate, gross }) => {
+    const base = r2(D(gross).div(D(1).plus(D(rate).div(100))));
+    return { rate, base, tax: r2(D(gross).minus(base)) };
   });
   return { sub, disc, total, paid, pending, taxes };
+}
+
+/** Una cuenta con cobros no puede quedar por debajo de lo ya cobrado (no hay devoluciones): 409 TOTAL_BELOW_PAID. */
+export function assertTotalCoversPaid(acc: Pick<Account, "lines" | "discounts" | "payments">): void {
+  const T = accountTotals(acc);
+  if (T.paid > 0 && T.total < T.paid) fail("TOTAL_BELOW_PAID", `Ya se ha cobrado ${T.paid.toFixed(2).replace(".", ",")} €: no se puede dejar la cuenta por debajo`, { paid: T.paid, total: T.total });
 }

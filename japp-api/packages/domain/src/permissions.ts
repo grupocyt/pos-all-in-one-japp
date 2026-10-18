@@ -4,7 +4,7 @@ export const SETTINGS_MODULES = ["restaurante","facturacion","usuarios","perfile
 
 /** Teclas por módulo tal como aparecen en Ajustes › Perfiles (= PM_TREE del prototipo). */
 export const PERMISSION_TREE = {
-  mesas: ["abrirMesa", "transferir", "moverMesas", "editarPlano"],
+  mesas: ["abrirMesa", "transferir", "moverMesas", "editarPlano", "entrarOcupada"],
   pedido: ["enviar", "precuenta", "comentarios", "notaMesa", "comensales", "cuentas", "pasarCuenta", "separar", "elimEnviado", "elimPrecuenta", "historial", "transaccion"],
   cobro: ["cobrar", "descuentos", "clientes", "reabrir"],
   funciones: ["facturas", "abonar", "informes", "kpi", "caja", "abrirCajon", "periodo"],
