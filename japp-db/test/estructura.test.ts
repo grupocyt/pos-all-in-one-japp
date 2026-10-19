@@ -9,9 +9,9 @@ afterAll(async () => { await c.end(); });
 const cols = () => all(c, `SELECT table_name t, column_name col, data_type type, is_nullable FROM information_schema.columns WHERE table_schema='public'`);
 
 describe("estructura", () => {
-  it("50 tablas de la línea base + idempotency_key (0001) + 4 de la 0005 + 2 de la 0009 + schema_migrations, todas con clave primaria", async () => {
+  it("50 tablas de la línea base + idempotency_key (0001) + 4 de la 0005 + 2 de la 0009 + oot_token e invoice_credit_line (0012) + schema_migrations, todas con clave primaria", async () => {
     const t = await all(c, `SELECT tablename FROM pg_tables WHERE schemaname='public'`);
-    expect(t).toHaveLength(58);
+    expect(t).toHaveLength(60);
     const sinPk = await all(c, `SELECT c.relname FROM pg_class c WHERE c.relkind='r' AND c.relnamespace='public'::regnamespace
                                 AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conrelid=c.oid AND k.contype='p')`);
     expect(sinPk).toEqual([]);

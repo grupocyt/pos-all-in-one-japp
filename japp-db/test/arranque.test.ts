@@ -16,10 +16,11 @@ describe("datos de arranque", () => {
     expect(n((await one(c, "SELECT count(*) FROM product")).count)).toBe(487);
     expect(n((await one(c, "SELECT count(*) FROM product WHERE tax_id IS NULL OR price < 0")).count)).toBe(0);
   });
-  it("50 permisos «módulo.tecla» (47 de arranque + 2 de la 0005 + 1 de la 0008), iguales a los del dominio", async () => {
+  it("51 permisos «módulo.tecla» (47 de arranque + 2 de la 0005 + 1 de la 0008 + 1 de la 0012), iguales a los del dominio", async () => {
     const codes = (await all(c, "SELECT code FROM permission ORDER BY sort_order")).map(r => r.code);
-    expect(codes).toHaveLength(50);
+    expect(codes).toHaveLength(51);
     expect(codes).toContain("mesas.entrarOcupada");
+    expect(codes).toContain("mesas.orderOnTable");
     expect(codes).toEqual(expect.arrayContaining(["ajustes.cierres", "ajustes.devsync"]));
     expect(codes).toContain("pedido.elimEnviado");
     expect(codes).toContain("ajustes.devtx");
@@ -27,7 +28,7 @@ describe("datos de arranque", () => {
   });
   it("el administrador tiene todos los permisos", async () => {
     const r = await one(c, `SELECT count(*) FROM profile_permission pp JOIN user_profile p ON p.id=pp.profile_id WHERE p.code='ADMIN'`);
-    expect(n(r.count)).toBe(50);
+    expect(n(r.count)).toBe(51);
   });
   it("usuarios con PIN cifrado en bcrypt (nunca en claro); Jeison entra con su PIN de pruebas", async () => {
     const u = await all(c, "SELECT name, pin_hash FROM app_user");

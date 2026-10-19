@@ -1,27 +1,56 @@
-import { applyPresence, assertCanCommand, canEnterTable, presenceView, PRESENCE_LEASE_SECONDS, type PresenceState } from "../src/presence.js";
+import {
+  applyPresence,
+  assertCanCommand,
+  canEnterTable,
+  presenceView,
+  PRESENCE_LEASE_SECONDS,
+  type PresenceState,
+} from "../src/presence.js";
 import { DomainError } from "../src/errors.js";
 
 const T0 = new Date("2026-10-15T20:00:00Z");
 const plus = (s: number) => new Date(T0.getTime() + s * 1000);
-const code = (fn: () => unknown) => { try { fn(); } catch (e) { return (e as DomainError).code; } return "OK"; };
+const code = (fn: () => unknown) => {
+  try {
+    fn();
+  } catch (e) {
+    return (e as DomainError).code;
+  }
+  return "OK";
+};
 const PEDRO = { userId: "u-pedro", userName: "Pedro", stationId: "pda1", stationName: "PDA1" };
 const PEDRO_PDA2 = { ...PEDRO, stationId: "pda2", stationName: "PDA2" };
 const ANA = { userId: "u-ana", userName: "Ana", stationId: "pda3", stationName: "PDA3" };
-const SISTEMAS = { userId: "u-sis", userName: "Sistemas", stationId: "caja1", stationName: "CAJA1", canTakeOver: true };
+const SISTEMAS = {
+  userId: "u-sis",
+  userName: "Sistemas",
+  stationId: "caja1",
+  stationName: "CAJA1",
+  canTakeOver: true,
+};
 const FREE: PresenceState = { holder: null, chargingUntil: null };
 const held = (who = PEDRO, at = T0) => applyPresence(FREE, "enter", who, at).state;
 
 describe("una persona por mesa", () => {
   it("entrar en una mesa libre: la tiene 30 s", () => {
     const s = held();
-    expect(s.holder).toMatchObject({ userName: "Pedro", stationName: "PDA1", until: plus(PRESENCE_LEASE_SECONDS).toISOString() });
+    expect(s.holder).toMatchObject({
+      userName: "Pedro",
+      stationName: "PDA1",
+      until: plus(PRESENCE_LEASE_SECONDS).toISOString(),
+    });
     expect(presenceView(s, PEDRO, T0)).toMatchObject({ youHold: true, charging: false });
   });
   it("otra persona sin permiso → TABLE_TAKEN «Mesa ocupada por Pedro · PDA1» con quién y hasta cuándo", () => {
-    try { applyPresence(held(), "enter", ANA, plus(5)); throw new Error("no"); } catch (e) {
+    try {
+      applyPresence(held(), "enter", ANA, plus(5));
+      throw new Error("no");
+    } catch (e) {
       expect((e as DomainError).code).toBe("TABLE_TAKEN");
       expect((e as DomainError).message).toBe("Mesa ocupada por Pedro · PDA1");
-      expect((e as DomainError).details).toEqual({ holder: { userName: "Pedro", stationName: "PDA1", until: plus(30).toISOString() } });
+      expect((e as DomainError).details).toEqual({
+        holder: { userName: "Pedro", stationName: "PDA1", until: plus(30).toISOString() },
+      });
     }
   });
   it("pasados 30 s sin renovar, la mesa queda libre", () => {
@@ -35,8 +64,13 @@ describe("una persona por mesa", () => {
   it("el mismo usuario en otro equipo es otra persona: TABLE_TAKEN mientras dure el plazo", () => {
     expect(code(() => applyPresence(held(), "enter", PEDRO_PDA2, plus(5)))).toBe("TABLE_TAKEN");
     expect(code(() => assertCanCommand(held(), PEDRO_PDA2, "other", plus(5)))).toBe("TABLE_TAKEN");
-    expect(applyPresence(held(), "enter", PEDRO_PDA2, plus(31)).state.holder).toMatchObject({ userName: "Pedro", stationName: "PDA2" });
-    expect(applyPresence(held(), "enter", { ...PEDRO_PDA2, canTakeOver: true }, plus(5)).displaced?.stationName).toBe("PDA1");
+    expect(applyPresence(held(), "enter", PEDRO_PDA2, plus(31)).state.holder).toMatchObject({
+      userName: "Pedro",
+      stationName: "PDA2",
+    });
+    expect(
+      applyPresence(held(), "enter", { ...PEDRO_PDA2, canTakeOver: true }, plus(5)).displaced?.stationName,
+    ).toBe("PDA1");
   });
   it("con mesas.entrarOcupada se entra y el anterior queda desplazado", () => {
     const r = applyPresence(held(), "enter", SISTEMAS, plus(5));

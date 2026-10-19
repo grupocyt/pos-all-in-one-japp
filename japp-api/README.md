@@ -18,4 +18,15 @@ Con Docker: `cp .env.example .env`, añade `SESSION_SECRET` y `DB_PASSWORD` (ver
 
 Todas las respuestas llevan el mismo formato: `{ title, type, status, data, errors, traceId, author, mode }` (el resultado va en `data`).
 
-En el TPV: Ajustes › Developer › **Conexión API** replica cada cambio en la API y lo compara (pestaña de validación) y abre Swagger con tu sesión.
+En el TPV: Ajustes › Developer › **API backend** › *Conectar y probar* replica cada cambio en la API y lo compara, y abre Swagger con tu sesión.
+
+| Carpeta | Qué |
+|---|---|
+| `apps/store-api` | API de tienda (Controllers → Services → Applications) |
+| `apps/sync-agent` | Agente que envía las transacciones a Japp Manager (`npm start -w sync-agent`, o `docker compose --profile sync up -d`) |
+| `apps/fake-manager` | Manager de pruebas para el agente (`npm start -w fake-manager`) |
+| `packages/domain` | Reglas de negocio puras |
+| `packages/db` | Esquema Drizzle |
+| `packages/contracts` | Validador del contrato `docs/openapi.yaml` |
+
+Tiempo real: `ws://localhost:8080/api/v2/ws?token=<token de sesión>`. Order on Table: pon `OOT_INTEGRATION_KEY` en `.env`.

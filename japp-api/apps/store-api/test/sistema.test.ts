@@ -1,8 +1,13 @@
 import { setup, PIN, type T } from "./helpers.js";
 
 let t: T;
-beforeAll(async () => { t = await setup(); });
-afterAll(async () => { await t.sql.query("UPDATE pin_attempt SET failures = 0, locked_until = NULL"); await t.close(); });
+beforeAll(async () => {
+  t = await setup();
+});
+afterAll(async () => {
+  await t.sql.query("UPDATE pin_attempt SET failures = 0, locked_until = NULL");
+  await t.close();
+});
 
 describe("sistema y sesiones", () => {
   it("GET /health sin sesión: base ok y cola del outbox", async () => {
@@ -11,10 +16,14 @@ describe("sistema y sesiones", () => {
     expect(r.body).toMatchObject({ db: "ok", outboxPending: expect.any(Number) });
   });
   it("registro de equipo: el móvil recibe la PDA1 y repetir devuelve la misma", async () => {
-    const a = await t.call("POST", "/devices/register", { body: { deviceUuid: "pda-0001-aaaa", kind: "mobile" } });
+    const a = await t.call("POST", "/devices/register", {
+      body: { deviceUuid: "pda-0001-aaaa", kind: "mobile" },
+    });
     expect(a.status).toBe(201);
     expect(a.body.name).toBe("PDA1");
-    const b = await t.call("POST", "/devices/register", { body: { deviceUuid: "pda-0001-aaaa", kind: "mobile" } });
+    const b = await t.call("POST", "/devices/register", {
+      body: { deviceUuid: "pda-0001-aaaa", kind: "mobile" },
+    });
     expect(b.body.stationId).toBe(a.body.stationId);
   });
   it("entrar con PIN: perfil, permisos efectivos y excepciones", async () => {
@@ -25,16 +34,21 @@ describe("sistema y sesiones", () => {
     expect(r.body.permissions).not.toContain("cobro.cobrar");
     expect(r.body.overrides.canCharge).toBe(false);
     const j = await t.call("POST", "/sessions", { body: { pin: PIN.jeison } });
-    expect(j.body.permissions).toHaveLength(50); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada)
+    expect(j.body.permissions).toHaveLength(51); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada)
   });
   it("PIN mal formado → 422 VALIDATION; incorrecto → 401 BAD_PIN", async () => {
     expect((await t.call("POST", "/sessions", { body: { pin: "12" } })).error.code).toBe("VALIDATION");
-    const r = await t.call("POST", "/sessions", { body: { pin: "9999" }, headers: { "x-station-id": "pda-0001-aaaa" } });
+    const r = await t.call("POST", "/sessions", {
+      body: { pin: "9999" },
+      headers: { "x-station-id": "pda-0001-aaaa" },
+    });
     expect([r.status, r.error.code]).toEqual([401, "BAD_PIN"]);
   });
   it("tras 3 fallos el teclado se bloquea (423) y se desbloquea pasado el tiempo", async () => {
     const h = { "x-station-id": "CAJA1" };
-    for (let i = 0; i < 3; i++) await t.call("POST", "/sessions", { body: { pin: "0000" }, headers: h });
+    for (let i = 0; i < 3; i++) {
+      await t.call("POST", "/sessions", { body: { pin: "0000" }, headers: h });
+    }
     const locked = await t.call("POST", "/sessions", { body: { pin: PIN.sistemas }, headers: h });
     expect([locked.status, locked.error.code]).toEqual([423, "PIN_LOCKED"]);
     t.clock.now = new Date(Date.now() + 31_000);
@@ -58,23 +72,43 @@ describe("sistema y sesiones", () => {
     expect((await t.call("GET", "/tables", { token: forged })).status).toBe(401);
   });
   it("bloqueo de sesión: 7 s en TPV y 10 s en móvil por defecto; el del usuario manda y se ve sin volver a entrar", async () => {
-    const tpv = await t.call("POST", "/sessions", { body: { pin: PIN.mesero }, headers: { "x-station-id": "CAJA1" } });
+    const tpv = await t.call("POST", "/sessions", {
+      body: { pin: PIN.mesero },
+      headers: { "x-station-id": "CAJA1" },
+    });
     expect(tpv.body.lockSeconds).toBe(7);
     try {
       await t.sql.query("UPDATE app_user SET lock_seconds=15 WHERE name='Mesero'");
       expect((await t.call("GET", "/sessions/current", { token: tpv.body.token })).body.lockSeconds).toBe(15);
       await t.sql.query("UPDATE app_user SET lock_seconds=NULL WHERE name='Mesero'");
-      const pda = await t.call("POST", "/sessions", { body: { pin: PIN.mesero }, headers: { "x-station-id": "pda-0001-aaaa" } }); // la PDA1 tiene UUID de equipo desde el registro
+      const pda = await t.call("POST", "/sessions", {
+        body: { pin: PIN.mesero },
+        headers: { "x-station-id": "pda-0001-aaaa" },
+      }); // la PDA1 tiene UUID de equipo desde el registro
       expect(pda.body.lockSeconds).toBe(10);
       // una sesión por usuario: la del TPV queda sustituida
       const old = await t.call("GET", "/sessions/current", { token: tpv.body.token });
-      expect([old.status, old.error.code, old.error.message, old.error.details]).toEqual([401, "SESSION_REPLACED", "Tu clave se ha abierto en PDA1: vuelve a entrar", { station: "PDA1" }]);
+      expect([old.status, old.error.code, old.error.message, old.error.details]).toEqual([
+        401,
+        "SESSION_REPLACED",
+        "Tu clave se ha abierto en PDA1: vuelve a entrar",
+        { station: "PDA1" },
+      ]);
       await t.sql.query("UPDATE app_user SET lock_seconds=15 WHERE name='Mesero'");
       expect((await t.call("GET", "/sessions/current", { token: pda.body.token })).body.lockSeconds).toBe(15);
       await t.sql.query("UPDATE app_user SET lock_seconds=0 WHERE name='Mesero'");
       expect((await t.call("POST", "/sessions", { body: { pin: PIN.mesero } })).body.lockSeconds).toBe(0);
       // los demás siguen con el de la tienda
-      expect((await t.call("POST", "/sessions", { body: { pin: PIN.barra }, headers: { "x-station-id": "CAJA1" } })).body.lockSeconds).toBe(7);
-    } finally { await t.sql.query("UPDATE app_user SET lock_seconds=NULL WHERE name='Mesero'"); }
+      expect(
+        (
+          await t.call("POST", "/sessions", {
+            body: { pin: PIN.barra },
+            headers: { "x-station-id": "CAJA1" },
+          })
+        ).body.lockSeconds,
+      ).toBe(7);
+    } finally {
+      await t.sql.query("UPDATE app_user SET lock_seconds=NULL WHERE name='Mesero'");
+    }
   });
 });

@@ -23,10 +23,27 @@ describe("estado de mesa en el plano", () => {
 
 describe("caja", () => {
   it("efectivo esperado = fondo + cobros en efectivo − abonos − retiros + ingresos", () => {
-    const r = expectedCash(150, [
-      { kind: "cash", amount: 23.5 }, { kind: "cash", amount: 10 }, { kind: "card", amount: 50 }, { kind: "cash", amount: 5, refund: true },
-    ], [{ type: "retiro", amount: 100, reason: "Banco" }, { type: "ingreso", amount: 20, reason: "Cambio" }]);
-    expect(r).toEqual({ opening: 150, cashSales: 28.5, card: 50, withdrawals: 100, deposits: 20, expected: 98.5 });
+    const r = expectedCash(
+      150,
+      [
+        { kind: "cash", amount: 23.5 },
+        { kind: "cash", amount: 10 },
+        { kind: "card", amount: 50 },
+        { kind: "cash", amount: 5, refund: true },
+      ],
+      [
+        { type: "retiro", amount: 100, reason: "Banco" },
+        { type: "ingreso", amount: 20, reason: "Cambio" },
+      ],
+    );
+    expect(r).toEqual({
+      opening: 150,
+      cashSales: 28.5,
+      card: 50,
+      withdrawals: 100,
+      deposits: 20,
+      expected: 98.5,
+    });
   });
   it("arqueo ciego por billetes y monedas", () => {
     expect(countedTotal({ 50: 1, 20: 2, 5: 1, 2: 1, 1: 1, 0.5: 1 })).toBe(98.5);
@@ -56,7 +73,13 @@ describe("modo fastfood", () => {
 describe("bloqueo optimista", () => {
   it("misma versión → siguiente; distinta → VERSION_CONFLICT; sin versión → VALIDATION", () => {
     expect(assertVersion(7, 7)).toBe(8);
-    try { assertVersion(7, 6); expect.fail(); } catch (e) { expect((e as DomainError).code).toBe("VERSION_CONFLICT"); expect((e as DomainError).status).toBe(409); }
+    try {
+      assertVersion(7, 6);
+      expect.fail();
+    } catch (e) {
+      expect((e as DomainError).code).toBe("VERSION_CONFLICT");
+      expect((e as DomainError).status).toBe(409);
+    }
     expect(() => assertVersion(7, undefined)).toThrow(/version/);
   });
 });

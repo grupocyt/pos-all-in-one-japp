@@ -15,6 +15,47 @@ const fails = async (sql: string, params: unknown[], code: string) => {
 const openPeriod = (id = uuid()) => c.query(`INSERT INTO sales_period (id, store_id, status, opened_by_user_name, opened_by_at, open_flag) VALUES ($1,$2,'open','Lucía',now(),1)`, [id, store]);
 
 describe("reglas en la base", () => {
+  it("las series admiten los tipos de VeriFactu: F1, F2, F3 y R1…R5 (migración 0010)", () => rollback(c, async () => {
+    for (const kind of ["F3", "R2", "R3", "R4", "R5"]) {
+      expect(await fails(`INSERT INTO invoice_series (store_id, series, kind) VALUES ($1, $2, $3)`, [store, `T${kind}`, kind], "23514")).toBe("OK");
+    }
+  }));
+  it("dos estaciones activas no pueden tener el mismo UUID de equipo (23505, migración 0011)", () => rollback(c, async () => {
+    const st = await one(c, "SELECT id FROM station WHERE store_id=$1 LIMIT 1", [store]);
+    await c.query("UPDATE station SET device_uuid='AAAA1111-2222-4333-8444-555566667777' WHERE id=$1", [st.id]);
+    await fails(`INSERT INTO station (id, store_id, name, kind, device_uuid, ip, active) VALUES ($1, $2, 'DUP', 'pda', 'aaaa1111-2222-4333-8444-555566667777', '10.0.0.9', TRUE)`, [uuid(), store], "23505");
+  }));
+  it("el external_id del App Manager no se repite en la tienda (23505, migración 0012)", () => rollback(c, async () => {
+    const [p1, p2] = (await c.query("SELECT id FROM product WHERE store_id=$1 ORDER BY plu LIMIT 2", [store])).rows;
+    await c.query("UPDATE product SET external_id='MGR-P-1' WHERE id=$1", [p1.id]);
+    await fails("UPDATE product SET external_id='MGR-P-1' WHERE id=$1", [p2.id], "23505");
+    const [k1, k2] = (await c.query("SELECT id FROM category WHERE store_id=$1 LIMIT 2", [store])).rows;
+    await c.query("UPDATE category SET external_id='MGR-C-1' WHERE id=$1", [k1.id]);
+    await fails("UPDATE category SET external_id='MGR-C-1' WHERE id=$1", [k2.id], "23505");
+  }));
+  it("una orden tiene como mucho un token de Order on Table vigente (23505, migración 0012)", () => rollback(c, async () => {
+    const o = uuid();
+    await c.query(`INSERT INTO orders (id, store_id, table_name, opened_by_user_name, opened_by_at) VALUES ($1,$2,'1','x',now())`, [o, store]);
+    await c.query(`INSERT INTO oot_token (store_id, order_id, token) VALUES ($1,$2,'oot_a')`, [store, o]);
+    await fails(`INSERT INTO oot_token (store_id, order_id, token) VALUES ($1,$2,'oot_b')`, [store, o], "23505");
+    await c.query(`UPDATE oot_token SET revoked_at=now(), revoked_reason='manual' WHERE token='oot_a'`);
+    expect(await fails(`INSERT INTO oot_token (store_id, order_id, token) VALUES ($1,$2,'oot_b')`, [store, o], "23505")).toBe("OK");
+    await fails(`UPDATE oot_token SET revoked_reason='otro' WHERE token='oot_a'`, [], "23514");
+  }));
+  it("encolar en sync_outbox avisa al agente (NOTIFY sync_outbox al hacer COMMIT, migración 0013)", async () => {
+    const l = await connect(inject("dbUrl"));
+    const got: string[] = [];
+    l.on("notification", (m) => got.push(m.channel));
+    await l.query("LISTEN sync_outbox");
+    await c.query(`INSERT INTO sync_outbox (store_id, entity, entity_id, payload) VALUES ($1, 'test', $2, '{}')`, [store, uuid()]);
+    await c.query(`DELETE FROM sync_outbox WHERE entity = 'test'`);
+    for (let i = 0; i < 50 && got.length === 0; i++) await new Promise((r) => setTimeout(r, 20));
+    await l.end();
+    expect(got).toContain("sync_outbox");
+  });
+  it("un tipo de factura que no existe se rechaza (23514)", () => rollback(c, async () => {
+    await fails(`INSERT INTO invoice_series (store_id, series, kind) VALUES ($1, 'TX', 'R9')`, [store], "23514");
+  }));
   it("no puede haber dos periodos abiertos en la misma tienda (23505)", () => rollback(c, async () => {
     await openPeriod();
     await fails(`INSERT INTO sales_period (id, store_id, status, opened_by_user_name, opened_by_at, open_flag) VALUES ($1,$2,'open','Otro',now(),1)`, [uuid(), store], "23505");

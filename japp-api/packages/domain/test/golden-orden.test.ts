@@ -8,7 +8,9 @@ import type { Account } from "../src/types.js";
  */
 const raw = JSON.parse(readFileSync(new URL("./fixtures/orden-mesa-12.json", import.meta.url), "utf8"));
 const toAccount = (a: any): Account => ({
-  ...a, discounts: a.discounts ?? [], deletedLines: a.deletedLines ?? [],
+  ...a,
+  discounts: a.discounts ?? [],
+  deletedLines: a.deletedLines ?? [],
   lines: (a.lines ?? []).map((l: any) => ({ ...l, taxRate: l.taxRate ?? 10, modifiers: l.modifiers ?? [] })),
   payments: (a.payments ?? []).map((p: any) => ({ ...p, kind: p.method === "cash" ? "cash" : "card" })),
 });
@@ -26,7 +28,7 @@ describe("transacción de ejemplo · mesa 12", () => {
     expect(t.pending).toBe(0);
   });
   it("Cuenta 1: el efectivo de 100 € devuelve 90 €", () => {
-    const cash = c1.payments.find(p => p.method === "cash")!;
+    const cash = c1.payments.find((p) => p.method === "cash")!;
     expect(cash.cashGiven! - cash.amount).toBe(cash.change);
   });
   it("todas las cuentas: total ≥ 0 y pendiente ≤ total", () => {

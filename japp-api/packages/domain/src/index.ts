@@ -12,7 +12,14 @@ export * from "./tables.js";
 export * from "./cash.js";
 export * from "./fastfood.js";
 export * from "./concurrency.js";
-export { applyDiscount, removeDiscount, setCustomer, removeEmptyAccount, isValidSpanishTaxId, type DiscountInput } from "./accounts.js";
+export {
+  applyDiscount,
+  removeDiscount,
+  setCustomer,
+  removeEmptyAccount,
+  isValidSpanishTaxId,
+  type DiscountInput,
+} from "./accounts.js";
 export * from "./session.js";
 export * from "./tickets.js";
 export * from "./questions.js";
@@ -22,3 +29,12 @@ export * from "./closings.js";
 export * from "./stations.js";
 export * from "./presence.js";
 export * from "./transfer.js";
+export * from "./devices.js";
+export * from "./cartaSync.js";
+export * from "./oot.js";
+export * from "./ootTicket.js";
+export * from "./credit.js";
+export * from "./checkout.js";
+export * from "./reopen.js";
+export * from "./orderState.js";
+export * from "./staff.js";

@@ -20,8 +20,24 @@ services:
       PRINTER_MODE: "${PRINTER_MODE:-log}"
       API_MODE: "${API_MODE:-developer}"   # va en el campo mode de cada respuesta
       CORS_ORIGINS: "${CORS_ORIGINS:-}"   # vacío = solo mismo origen. Ver .env.example
+      OOT_INTEGRATION_KEY: "${OOT_INTEGRATION_KEY:-}"   # Order on Table; vacía = /api/v2/oot/* cerrado
       PORT: 8080
     ports: ["8080:8080"]               # abierto a la red local: TPV y PDA entran por http://<IP del Mac>:8080
+    restart: unless-stopped
+  # Envía las transacciones (abiertas y cerradas) a Japp Manager. Arranca con: docker compose --profile sync up -d
+  sync-agent:
+    profiles: [sync]
+    build: { context: .., dockerfile: japp-api/Dockerfile }
+    depends_on: { api: { condition: service_healthy } }
+    working_dir: /app/japp-api/apps/sync-agent
+    command: ["npx", "tsx", "src/Program.ts"]
+    environment:
+      DATABASE_URL: "postgres://japp:${DB_PASSWORD:-japp_local}@db:5432/japp"
+      STORE_CODE: "${STORE_CODE:-CT 03}"
+      MANAGER_URL: "${MANAGER_URL:?Pon MANAGER_URL en .env}"
+      STORE_KEY: "${STORE_KEY:?Pon STORE_KEY en .env}"
+      SYNC_INTERVAL_SECONDS: "${SYNC_INTERVAL_SECONDS:-60}"
+      SYNC_INSTANT: "${SYNC_INSTANT:-true}"
     restart: unless-stopped
 volumes:
   pgdata:

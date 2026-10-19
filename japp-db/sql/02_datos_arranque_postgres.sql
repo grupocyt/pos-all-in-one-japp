@@ -7,6 +7,12 @@ INSERT INTO company (id, legal_name, trade_name, tax_id, address, country, maxpo
 INSERT INTO store (id, company_id, code, name, service_type, address, city, phone, opening_hours, reviews_url, logo_url, ticket_header, ticket_footer, maxpoint_rst_id, server_url, active) VALUES
   ('62201d95-4be7-5b16-b482-5a17c533054d', '2e540e3e-9e0c-5185-96fb-91f723f0c720', 'CT 03', 'Cañas y Tapas · Sucursal Pruebas', 'table', 'C.C. Plaza Norte, 28700 Madrid', 'Madrid', '+34 910 000 000', '12:00 – 00:00', NULL, NULL, '¡Gracias por su visita!', 'IVA incluido · VERI*FACTU', NULL, 'https://japp.grupocyt.com.es/', TRUE);
 
+-- Series antes que billing_settings: sus columnas series_* apuntan a invoice_series (FK desde la migración 0008).
+INSERT INTO invoice_series (store_id, series, kind, last_sequence) VALUES
+  ('62201d95-4be7-5b16-b482-5a17c533054d', 'T2026', 'F2', 0),
+  ('62201d95-4be7-5b16-b482-5a17c533054d', 'F2026', 'F1', 0),
+  ('62201d95-4be7-5b16-b482-5a17c533054d', 'AB2026', 'R1', 0);
+
 INSERT INTO billing_settings (store_id, billing_email, establishment, emission_point, series_simplified, series_full, series_credit) VALUES
   ('62201d95-4be7-5b16-b482-5a17c533054d', NULL, '003', '050', 'T2026', 'F2026', 'AB2026');
 
@@ -2057,9 +2063,3 @@ INSERT INTO reason (id, store_id, name, kind, active) VALUES
   ('59782acc-b7ae-53c6-9727-86d1f6049d72', '62201d95-4be7-5b16-b482-5a17c533054d', 'Devolución al cliente', 'credit', TRUE),
   ('0dfbe4d6-0746-55f4-bf8a-cf537999b973', '62201d95-4be7-5b16-b482-5a17c533054d', 'El cliente pide factura completa', 'credit', TRUE),
   ('99c70467-d88a-5d43-8087-afaaa18d8270', '62201d95-4be7-5b16-b482-5a17c533054d', 'Otro motivo', 'credit', TRUE);
-
-INSERT INTO invoice_series (store_id, series, kind, last_sequence) VALUES
-  ('62201d95-4be7-5b16-b482-5a17c533054d', 'T2026', 'F2', 0),
-  ('62201d95-4be7-5b16-b482-5a17c533054d', 'F2026', 'F1', 0),
-  ('62201d95-4be7-5b16-b482-5a17c533054d', 'AB2026', 'R1', 0);
-

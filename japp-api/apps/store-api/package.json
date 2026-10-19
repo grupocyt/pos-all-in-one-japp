@@ -5,12 +5,13 @@
   "description": "API de tienda Japp v2 (NestJS + Fastify).",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
-    "start": "tsx --env-file-if-exists=../../.env src/main.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/Program.ts",
+    "start": "tsx --env-file-if-exists=../../.env src/Program.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fastify/websocket": "11.0.2",
     "@japp/db": "*",
     "@japp/domain": "*",
     "@nestjs/common": "11.2.7",
@@ -20,9 +21,9 @@
     "drizzle-orm": "0.45.4",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "zod": "3.25.76",
+    "swagger-ui-dist": "5.17.14",
     "tsx": "4.19.2",
-    "swagger-ui-dist": "5.17.14"
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@japp/contracts": "*",

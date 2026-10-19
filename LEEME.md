@@ -1,9 +1,11 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/    PostgreSQL 16: esquema, datos de arranque, migraciones, consultas de control · 39 pruebas
-japp-api/   API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 40 endpoints · 142 pruebas de dominio + 56 de integración
-japp-tpv/   el TPV (PWA). La API lo sirve en http://localhost:8080/
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0013, consultas de control · 61 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 97 endpoints · 234 pruebas de dominio + 242 de integración
+                  + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
+japp-tpv/         el TPV (PWA) 1.2.146. La API lo sirve en http://localhost:8080/
+japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
@@ -19,7 +21,8 @@ docker compose up --build -d
 ```
 
 - **TPV**: http://localhost:8080/ → PIN 0186. Arriba aparece la etiqueta «API ✓»: cada cambio del TPV se replica en la API y se compara.
-- **Ajustes › Developer › Conexión API**: pestaña *Conexión y validación* (registro y diferencias) y pestaña *Probar peticiones (Swagger)*.
+- **Ajustes › Developer › API backend**: documentación de la API y pestaña *Conectar y probar* (registro, diferencias y Swagger).
+- **Agente de sincronización** (opcional): pon `MANAGER_URL` y `STORE_KEY` en `.env` y `docker compose --profile sync up -d`.
 - **Swagger suelto**: http://localhost:8080/api/v2/docs/ (entra con el PIN en la barra de arriba).
 - Desde otro equipo de la red: http://<IP del Mac>:8080/
 

@@ -1,13 +1,28 @@
-import { can, canSettings, checkWithManager, ALL_PERMISSIONS, BASIC_PERMISSIONS, PERMISSION_TREE } from "../src/permissions.js";
+import {
+  can,
+  canSettings,
+  checkWithManager,
+  ALL_PERMISSIONS,
+  BASIC_PERMISSIONS,
+  PERMISSION_TREE,
+} from "../src/permissions.js";
 import { PROFILES, MARTA, PABLO, LUCIA, JEISON } from "./helpers.js";
 
 describe("permisos", () => {
-  it("árbol completo: 6 grupos, 50 códigos «módulo.tecla» sin repetir, 20 módulos de Ajustes + acceso", () => {
-    expect(Object.keys(PERMISSION_TREE)).toEqual(["mesas", "pedido", "cobro", "funciones", "ajustes", "sistema"]);
+  it("árbol completo: 6 grupos, 51 códigos «módulo.tecla» sin repetir, 20 módulos de Ajustes + acceso", () => {
+    expect(Object.keys(PERMISSION_TREE)).toEqual([
+      "mesas",
+      "pedido",
+      "cobro",
+      "funciones",
+      "ajustes",
+      "sistema",
+    ]);
     expect(new Set(ALL_PERMISSIONS).size).toBe(ALL_PERMISSIONS.length);
-    expect(ALL_PERMISSIONS).toHaveLength(50);
+    expect(ALL_PERMISSIONS).toHaveLength(51);
     expect(ALL_PERMISSIONS).toContain("mesas.entrarOcupada");
-    expect(ALL_PERMISSIONS.filter(p => p.startsWith("ajustes."))).toHaveLength(21);
+    expect(ALL_PERMISSIONS).toContain("mesas.orderOnTable");
+    expect(ALL_PERMISSIONS.filter((p) => p.startsWith("ajustes."))).toHaveLength(21);
     expect(ALL_PERMISSIONS).toContain("pedido.elimEnviado");
   });
   it("perfil básico: puede enviar y hacer precuenta, no cobrar ni borrar enviado", () => {
@@ -22,7 +37,7 @@ describe("permisos", () => {
     expect(can({ ...LUCIA, overrides: { "cobro.cobrar": null } }, "cobro.cobrar", PROFILES)).toBe(true);
   });
   it("administrador (Jeison) lo tiene todo", () => {
-    expect(ALL_PERMISSIONS.every(p => can(JEISON, p, PROFILES))).toBe(true);
+    expect(ALL_PERMISSIONS.every((p) => can(JEISON, p, PROFILES))).toBe(true);
   });
   it("sin usuario o perfil desconocido → no", () => {
     expect(can(null, "pedido.enviar", PROFILES)).toBe(false);
@@ -35,8 +50,18 @@ describe("permisos", () => {
   });
   it("checkWithManager", () => {
     expect(checkWithManager(LUCIA, "cobro.descuentos", PROFILES)).toEqual({ ok: true, authorizedBy: null });
-    expect(checkWithManager(MARTA, "cobro.descuentos", PROFILES)).toEqual({ ok: false, code: "PERMISSION_REQUIRED", permission: "cobro.descuentos" });
-    expect(checkWithManager(MARTA, "cobro.descuentos", PROFILES, PABLO)).toMatchObject({ ok: false, code: "NOT_ALLOWED" });
-    expect(checkWithManager(MARTA, "cobro.descuentos", PROFILES, LUCIA)).toEqual({ ok: true, authorizedBy: LUCIA });
+    expect(checkWithManager(MARTA, "cobro.descuentos", PROFILES)).toEqual({
+      ok: false,
+      code: "PERMISSION_REQUIRED",
+      permission: "cobro.descuentos",
+    });
+    expect(checkWithManager(MARTA, "cobro.descuentos", PROFILES, PABLO)).toMatchObject({
+      ok: false,
+      code: "NOT_ALLOWED",
+    });
+    expect(checkWithManager(MARTA, "cobro.descuentos", PROFILES, LUCIA)).toEqual({
+      ok: true,
+      authorizedBy: LUCIA,
+    });
   });
 });

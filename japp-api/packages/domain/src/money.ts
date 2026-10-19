@@ -10,8 +10,10 @@ Decimal.set({ precision: 28, rounding: Decimal.ROUND_HALF_UP });
 export type Money = number;
 export const D = (n: Decimal.Value) => new Decimal(n);
 /** Redondea a céntimos y devuelve número. Equivale a r2() del prototipo. */
-export const r2 = (n: Decimal.Value): Money => new Decimal(n).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+export const r2 = (n: Decimal.Value): Money =>
+  new Decimal(n).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
 export const sum = (xs: Decimal.Value[]): Decimal => xs.reduce<Decimal>((a, x) => a.plus(x), new Decimal(0));
-export const toCents = (n: Decimal.Value): number => new Decimal(n).times(100).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
+export const toCents = (n: Decimal.Value): number =>
+  new Decimal(n).times(100).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
 export const fromCents = (c: number): Money => new Decimal(c).div(100).toNumber();
 export { Decimal };

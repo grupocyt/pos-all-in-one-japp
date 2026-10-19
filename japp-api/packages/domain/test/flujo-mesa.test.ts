@@ -9,22 +9,33 @@ import { account, ctx, CANA, CROQUETAS, CAMISETA, TERRAZA, PROFILES, MARTA, LUCI
 it("mesa de terraza de principio a fin", () => {
   const c = ctx();
   let a = account({ id: "a1" });
-  a = addProduct(a, { product: CANA, area: TERRAZA, quantity: 4 }, c);          // 4 × 2,90 = 11,60
-  a = addProduct(a, { product: CROQUETAS, area: TERRAZA }, c);                  // 11,50
-  a = addProduct(a, { product: CAMISETA, area: TERRAZA }, c);                   // 15,00 (21 %)
+  a = addProduct(a, { product: CANA, area: TERRAZA, quantity: 4 }, c); // 4 × 2,90 = 11,60
+  a = addProduct(a, { product: CROQUETAS, area: TERRAZA }, c); // 11,50
+  a = addProduct(a, { product: CAMISETA, area: TERRAZA }, c); // 15,00 (21 %)
   expect(accountTotals(a).total).toBe(38.1);
   a = preBill(sendOrder(a).account);
-  expect(a.lines.every(l => l.status === "preBill")).toBe(true);
+  expect(a.lines.every((l) => l.status === "preBill")).toBe(true);
 
   let o: Order = { id: "o", tableId: "T4", guests: 2, version: 1, accounts: [a] };
-  const cana = a.lines.find(l => l.productId === CANA.plu)!;
+  const cana = a.lines.find((l) => l.productId === CANA.plu)!;
   const mv = moveUnits(o, "a1", "new", { [cana.id]: 2 }, c);
   o = mv.order;
   const [c1, c2] = o.accounts;
   expect([accountTotals(c1!).total, accountTotals(c2!).total]).toEqual([32.3, 5.8]);
 
-  const shirt = c1!.lines.find(l => l.productId === CAMISETA.plu)!;
-  const c1b = deleteLine(c1!, { lineId: shirt.id, reason: "No la quiere", actor: MARTA, authorizer: LUCIA, authorizerActor: { user: "Lucía", role: "manager", at: "" }, profiles: PROFILES }, c);
+  const shirt = c1!.lines.find((l) => l.productId === CAMISETA.plu)!;
+  const c1b = deleteLine(
+    c1!,
+    {
+      lineId: shirt.id,
+      reason: "No la quiere",
+      actor: MARTA,
+      authorizer: LUCIA,
+      authorizerActor: { user: "Lucía", role: "manager", at: "" },
+      profiles: PROFILES,
+    },
+    c,
+  );
   expect(accountTotals(c1b).total).toBe(17.3);
   expect(c1b.deletedLines).toHaveLength(1);
 

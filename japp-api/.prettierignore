@@ -1,0 +1,6 @@
+node_modules/
+packages/db/src/schema/
+packages/contracts/src/schema.d.ts
+docs/
+*.html
+**/fixtures/

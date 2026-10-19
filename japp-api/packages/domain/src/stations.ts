@@ -9,15 +9,30 @@ import { fail } from "./errors.js";
  *   (por nombre o id no vale: otro equipo podría hacerse pasar por ella). Sin device_uuid, vale id o nombre.
  */
 export type AllowedStations = "any" | "main";
-export interface StationLike { id: string; name: string; kind: string; isMain: boolean; deviceUuid?: string | null; }
+export interface StationLike {
+  id: string;
+  name: string;
+  kind: string;
+  isMain: boolean;
+  deviceUuid?: string | null;
+}
 
-export function assertStationAllowed(allowed: AllowedStations | string | null | undefined, station: Pick<StationLike, "name" | "isMain">): void {
-  if (allowed === "main" && !station.isMain)
-    fail("STATION_NOT_ALLOWED", "Este perfil solo puede entrar en la caja principal", { allowed: "main", station: station.name });
+export function assertStationAllowed(
+  allowed: AllowedStations | string | null | undefined,
+  station: Pick<StationLike, "name" | "isMain">,
+): void {
+  if (allowed === "main" && !station.isMain) {
+    fail("STATION_NOT_ALLOWED", "Este perfil solo puede entrar en la caja principal", {
+      allowed: "main",
+      station: station.name,
+    });
+  }
 }
 
 export function assertMainStation(station: Pick<StationLike, "name" | "isMain">): void {
-  if (!station.isMain) fail("MAIN_STATION_REQUIRED", "Solo desde la caja principal", { station: station.name });
+  if (!station.isMain) {
+    fail("MAIN_STATION_REQUIRED", "Solo desde la caja principal", { station: station.name });
+  }
 }
 
 /**
@@ -30,19 +45,24 @@ export function assertMainStation(station: Pick<StationLike, "name" | "isMain">)
 export function resolveStation<S extends StationLike>(stations: S[], header?: string | null): S | null {
   const h = header?.trim();
   if (h) {
-    const byDevice = stations.find(x => x.deviceUuid && x.deviceUuid === h);
-    if (byDevice) return byDevice;
-    const byName = stations.find(x => x.id === h || x.name === h);
+    const byDevice = stations.find((x) => x.deviceUuid && x.deviceUuid === h);
+    if (byDevice) {
+      return byDevice;
+    }
+    const byName = stations.find((x) => x.id === h || x.name === h);
     if (byName) {
-      if (byName.deviceUuid) fail("STATION_NOT_ALLOWED", "Este equipo no es esa estación", { station: byName.name });
+      if (byName.deviceUuid) {
+        fail("STATION_NOT_ALLOWED", "Este equipo no es esa estación", { station: byName.name });
+      }
       return byName;
     }
   }
-  return stations.find(x => x.kind === "station") ?? stations[0] ?? null;
+  return stations.find((x) => x.kind === "station") ?? stations[0] ?? null;
 }
 
 /**
  * Identidad del equipo para el bloqueo de PIN: su UUID si la estación lo tiene (el equipo registrado) o, si no, la estación.
  * No se cuenta por dirección IP: detrás de un proxy todas las peticiones llegan con la misma y se bloquearía toda la tienda.
  */
-export const pinLockKey = (st: Pick<StationLike, "id" | "deviceUuid">) => (st.deviceUuid ? `device:${st.deviceUuid}` : `station:${st.id}`);
+export const pinLockKey = (st: Pick<StationLike, "id" | "deviceUuid">) =>
+  st.deviceUuid ? `device:${st.deviceUuid}` : `station:${st.id}`;

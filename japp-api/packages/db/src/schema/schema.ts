@@ -1,5 +1,5 @@
 // ⚠️ GENERADO con `npm run db:pull` desde la base de japp-db. No editar a mano.
-import { pgTable, index, foreignKey, unique, check, uuid, varchar, boolean, timestamp, smallint, numeric, jsonb, integer, date, text, bigint, primaryKey, char } from "drizzle-orm/pg-core"
+import { pgTable, index, foreignKey, unique, check, uuid, varchar, boolean, timestamp, smallint, numeric, jsonb, integer, date, text, bigint, primaryKey, char, uniqueIndex } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 const TS = (name: string) => timestamp(name, { precision: 3, withTimezone: true, mode: 'string' });
 
@@ -582,6 +582,8 @@ export const category = pgTable("category", {
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
+	externalId: varchar("external_id", { length: 60 }),
+	orderOnTable: boolean("order_on_table").default(true).notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],
@@ -845,6 +847,9 @@ export const product = pgTable("product", {
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
+	externalId: varchar("external_id", { length: 60 }),
+	description: varchar({ length: 300 }),
+	orderOnTable: boolean("order_on_table").default(true).notNull(),
 }, (table) => [
 	index("ix_product_category_id").using("btree", table.categoryId.asc().nullsLast().op("uuid_ops")),
 	index("ix_product_tax_id").using("btree", table.taxId.asc().nullsLast().op("uuid_ops")),
@@ -1096,6 +1101,7 @@ export const question = pgTable("question", {
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
+	externalId: varchar("external_id", { length: 60 }),
 }, (table) => [
 	index("ix_question_store_id").using("btree", table.storeId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
@@ -1145,6 +1151,7 @@ export const store = pgTable("store", {
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
 	configVersion: bigint("config_version", { mode: "number" }).default(1).notNull(),
+	webOrderUrl: varchar("web_order_url", { length: 300 }),
 }, (table) => [
 	index("ix_store_company_id").using("btree", table.companyId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
@@ -1812,4 +1819,77 @@ export const pinAttempt = pgTable("pin_attempt", {
 	primaryKey({ columns: [table.storeId, table.key], name: "pin_attempt_pkey" }),
 	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "pin_attempt_store_id_fkey" }),
 	check("ck_pin_attempt_failures", sql`failures >= 0`),
+]);
+
+// 0012 · Order on Table y abonos por líneas
+export const ootToken = pgTable("oot_token", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	storeId: uuid("store_id").notNull(),
+	orderId: uuid("order_id").notNull(),
+	token: varchar({ length: 60 }).notNull(),
+	createdByUserId: uuid("created_by_user_id"),
+	createdByUserName: varchar("created_by_user_name", { length: 60 }),
+	createdByDevice: varchar("created_by_device", { length: 40 }),
+	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	revokedAt: timestamp("revoked_at", { precision: 3, withTimezone: true, mode: 'string' }),
+	revokedReason: varchar("revoked_reason", { length: 30 }),
+}, (table) => [
+	index("ix_oot_token_created_by_user_id").using("btree", table.createdByUserId.asc().nullsLast().op("uuid_ops")),
+	index("ix_oot_token_store_id").using("btree", table.storeId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("uq_oot_token_order_live").using("btree", table.orderId.asc().nullsLast().op("uuid_ops")).where(sql`(revoked_at IS NULL)`),
+	foreignKey({
+			columns: [table.createdByUserId],
+			foreignColumns: [appUser.id],
+			name: "oot_token_created_by_user_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.orderId],
+			foreignColumns: [orders.id],
+			name: "oot_token_order_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.storeId],
+			foreignColumns: [store.id],
+			name: "oot_token_store_id_fkey"
+		}),
+	unique("uq_oot_token_token").on(table.token),
+	check("oot_token_revoked_reason_check", sql`(revoked_reason)::text = ANY ((ARRAY['manual'::character varying, 'closed'::character varying, 'transferred'::character varying])::text[])`),
+]);
+
+export const invoiceCreditLine = pgTable("invoice_credit_line", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	storeId: uuid("store_id").notNull(),
+	creditInvoiceId: uuid("credit_invoice_id").notNull(),
+	rectifiedInvoiceId: uuid("rectified_invoice_id").notNull(),
+	orderLineId: uuid("order_line_id").notNull(),
+	quantity: numeric({ precision: 9, scale:  3 }).notNull(),
+	amount: numeric({ precision: 10, scale:  2 }).notNull(),
+	taxRate: numeric("tax_rate", { precision: 5, scale:  2 }).notNull(),
+}, (table) => [
+	index("ix_invoice_credit_line_order_line_id").using("btree", table.orderLineId.asc().nullsLast().op("uuid_ops")),
+	index("ix_invoice_credit_line_rectified").using("btree", table.rectifiedInvoiceId.asc().nullsLast().op("uuid_ops"), table.orderLineId.asc().nullsLast().op("uuid_ops")),
+	index("ix_invoice_credit_line_store_id").using("btree", table.storeId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.creditInvoiceId],
+			foreignColumns: [invoice.id],
+			name: "invoice_credit_line_credit_invoice_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.orderLineId],
+			foreignColumns: [orderLine.id],
+			name: "invoice_credit_line_order_line_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.rectifiedInvoiceId],
+			foreignColumns: [invoice.id],
+			name: "invoice_credit_line_rectified_invoice_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.storeId],
+			foreignColumns: [store.id],
+			name: "invoice_credit_line_store_id_fkey"
+		}),
+	unique("uq_invoice_credit_line").on(table.creditInvoiceId, table.orderLineId),
+	check("invoice_credit_line_amount_check", sql`amount >= (0)::numeric`),
+	check("invoice_credit_line_quantity_check", sql`quantity > (0)::numeric`),
 ]);

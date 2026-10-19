@@ -1,0 +1,27 @@
+{
+  "name": "sync-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agente de la tienda que envía las transacciones (sync_outbox) a Japp Manager.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/Program.ts",
+    "start": "tsx --env-file-if-exists=../../.env src/Program.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@japp/db": "*",
+    "drizzle-orm": "0.45.4",
+    "pino": "10.4.0",
+    "tsx": "4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.9.0",
+    "@types/pg": "8.11.10",
+    "fake-manager": "*",
+    "pg": "8.13.1",
+    "typescript": "5.6.3",
+    "vitest": "2.1.8"
+  }
+}

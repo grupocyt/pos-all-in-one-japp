@@ -13,9 +13,16 @@
     "db:pull": "npm run db:pull -w @japp/db",
     "dev": "npm run dev -w store-api",
     "start": "npm start -w store-api",
-    "db:init": "node ../japp-db/scripts/init.mjs"
+    "db:init": "node ../japp-db/scripts/init.mjs",
+    "format": "prettier --write \"apps/**/*.ts\" \"packages/domain/**/*.ts\" && eslint --fix \"apps/**/*.ts\" \"packages/domain/**/*.ts\" && prettier --write \"apps/**/*.ts\" \"packages/domain/**/*.ts\"",
+    "lint": "eslint \"apps/**/*.ts\" \"packages/domain/**/*.ts\""
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "eslint": "9.13.0",
+    "prettier": "3.3.3",
+    "typescript-eslint": "8.11.0"
   }
 }

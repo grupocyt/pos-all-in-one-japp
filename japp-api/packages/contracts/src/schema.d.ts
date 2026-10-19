@@ -28,30 +28,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/devices/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Configuración de mi estación
-         * @description Formas de pago y descuentos activos en la estación, y por qué impresora sale cada canal.
-         *
-         *     Lo llama: TPV, PDA
-         *
-         *     Tablas: station, station_payment_method, station_discount, station_channel_printer
-         */
-        get: operations["store_GET_devices_me"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/sessions": {
         parameters: {
             query?: never;
@@ -350,54 +326,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/incidents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Incidencias de productos
-         * @description Permiso: ajustes.incidencias
-         *
-         *     Lo llama: TPV
-         *
-         *     Tablas: product_incident
-         */
-        get: operations["store_GET_incidents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/incidents/send": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Enviar incidencias a Marketing
-         * @description Permiso: ajustes.incidencias
-         *
-         *     Lo llama: TPV
-         *
-         *     Tablas: incident_request, product_incident, sync_outbox
-         */
-        post: operations["store_POST_incidents_send"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/reports/closings": {
         parameters: {
             query?: never;
@@ -604,30 +532,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/areas/{areaId}/layout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Guardar Editar sala
-         * @description Permiso: mesas.editarPlano
-         *
-         *     Lo llama: TPV
-         *
-         *     Tablas: dining_table, area_drawing, config_change_log
-         */
-        put: operations["store_PUT_areas_areaId_layout"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/orders": {
         parameters: {
             query?: never;
@@ -710,30 +614,6 @@ export interface paths {
          *     Tablas: orders, order_event
          */
         post: operations["store_POST_orders_orderId_presence"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/orders/{orderId}/transfer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Transferir mesa o cuenta
-         * @description Permiso: mesas.transferir
-         *
-         *     Lo llama: TPV, PDA
-         *
-         *     Tablas: orders, account, order_event
-         */
-        post: operations["store_POST_orders_orderId_transfer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -837,7 +717,17 @@ export interface paths {
         delete: operations["store_DELETE_orders_orderId_accounts_accountId"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Renombrar cuenta
+         * @description Nombre de 1 a 40 caracteres, sin repetir en la mesa (409 DUPLICATE). Una cuenta facturada no cambia (409 ACCOUNT_CLOSED).
+         *
+         *     Permiso: pedido.cuentas
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: account, order_event
+         */
+        patch: operations["store_PATCH_orders_orderId_accounts_accountId"];
         trace?: never;
     };
     "/api/v2/orders/{orderId}/events": {
@@ -858,32 +748,6 @@ export interface paths {
         get: operations["store_GET_orders_orderId_events"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/orders/{orderId}/reopen": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reabrir mesa
-         * @description Solo para cuentas sin factura. Una cuenta facturada se corrige con un abono.
-         *
-         *     Permiso: cobro.reabrir
-         *
-         *     Lo llama: TPV
-         *
-         *     Tablas: orders, account, order_event
-         */
-        post: operations["store_POST_orders_orderId_reopen"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1342,32 +1206,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/invoices/{invoiceId}/credit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Abono (factura rectificativa)
-         * @description Emite una R1 en la serie de abonos que rectifica la factura; la original no cambia.
-         *
-         *     Permiso: funciones.abonar
-         *
-         *     Lo llama: TPV
-         *
-         *     Tablas: invoice_series, invoice, verifactu_record, sync_outbox
-         */
-        post: operations["store_POST_invoices_invoiceId_credit"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/cash/summary": {
         parameters: {
             query?: never;
@@ -1444,54 +1282,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/cash/drawer/open": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Abrir cajón
-         * @description Permiso: funciones.abrirCajon
-         *
-         *     Lo llama: TPV
-         *
-         *     Tablas: order_event
-         */
-        post: operations["store_POST_cash_drawer_open"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/reports/sales": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Resumen de ventas
-         * @description Permiso: funciones.informes
-         *
-         *     Lo llama: TPV
-         *
-         *     Tablas: invoice, order_line
-         */
-        get: operations["store_GET_reports_sales"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/reports/deletions": {
         parameters: {
             query?: never;
@@ -1508,30 +1298,6 @@ export interface paths {
          *     Tablas: order_line
          */
         get: operations["store_GET_reports_deletions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/reports/staff": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Camareros · KPI
-         * @description Permiso: funciones.kpi
-         *
-         *     Lo llama: TPV
-         *
-         *     Tablas: orders, order_line, payment
-         */
-        get: operations["store_GET_reports_staff"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2196,6 +1962,834 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/config/carta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Carta completa (categorías, productos y preguntas)
+         * @description Lo mismo que se manda en los sync, con id y externalId de cada registro (también los desactivados con active=all), para comparar antes de cargar.
+         *
+         *     Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
+         *
+         *     Lo llama: Manager, TPV
+         *
+         *     Tablas: category, product, category_product, product_question, question, question_answer
+         */
+        get: operations["store_GET_config_carta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/carta/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reemplazar la carta completa
+         * @description Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Categorías + productos + preguntas juntos: los productos nombran categorías y preguntas por externalId, y las respuestas de las preguntas nombran productos (productExternalId o plu). Lo que no viene se quita en cascada, sin IN_USE. Canales de impresión y agotado son de la tienda: se conservan. Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian (cada línea guarda su nombre y precio).
+         *
+         *     Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
+         *
+         *     Lo llama: Manager
+         *
+         *     Tablas: category, product, category_product, product_question, question, question_answer, config_change_log, sync_outbox
+         */
+        post: operations["store_POST_config_carta_sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/categorias/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reemplazar todas las categorías
+         * @description Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el nombre. Una categoría que hay que quitar con productos activos → 409 IN_USE (details.items). Máximo 500.
+         *
+         *     Permiso: ajustes.categorias
+         *
+         *     Lo llama: Manager
+         *
+         *     Tablas: category, config_change_log, sync_outbox
+         */
+        post: operations["store_POST_config_categorias_sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/productos/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reemplazar todos los productos
+         * @description Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el PLU (un producto nuevo sin plu recibe el siguiente libre). Categoría por categoryExternalId (o categoryId), preguntas por questionExternalIds (o questionIds) en orden, IVA por taxRate: si no existen → 422 REF_NOT_FOUND (sincroniza antes categorías y preguntas). channels se ignora y soldOut, si no viene, se conserva. Un producto que hay que quitar en una mesa abierta → 409 IN_USE. Máximo 2.000.
+         *
+         *     Permiso: ajustes.productos
+         *
+         *     Lo llama: Manager
+         *
+         *     Tablas: product, category_product, product_question, config_change_log, sync_outbox
+         */
+        post: operations["store_POST_config_productos_sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/preguntas/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reemplazar todas las preguntas
+         * @description Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el texto (name). Las respuestas son productos (productExternalId o plu) que tienen que existir (422 REF_NOT_FOUND) y sustituyen a las que tenía, en el orden de la lista. Una pregunta que hay que quitar y la usa un producto activo → 409 IN_USE. Máximo 500 preguntas y 100 respuestas por pregunta.
+         *
+         *     Permiso: ajustes.preguntas
+         *
+         *     Lo llama: Manager
+         *
+         *     Tablas: question, question_answer, config_change_log, sync_outbox
+         */
+        post: operations["store_POST_config_preguntas_sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/carta/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Carta en JSON (TPV u Order on Table)
+         * @description La carta tal como la ve el TPV (mode=tpv: categorías visibles con sus productos) o el cliente en Order on Table (mode=oot: solo categorías y productos con orderOnTable, sin agotados ni modificadores).
+         *
+         *     Permiso: ajustes.productos
+         *
+         *     Lo llama: TPV, Manager
+         *
+         *     Tablas: category, product, category_product
+         */
+        get: operations["store_GET_config_carta_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/devices/identify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconocer el equipo por su UUID
+         * @description Primer arranque: busca la estación activa con ese UUID (Ajustes › Estaciones, sin distinguir mayúsculas). type = desktop (cualquier estación que no sea PDA) o mobile (PDA). Sin estación → 404 DEVICE_NOT_REGISTERED; con el otro tipo → 409 DEVICE_TYPE_MISMATCH (details.actual). Desde ahí el equipo manda su UUID en X-Station-Id. No pide sesión.
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: station
+         */
+        post: operations["store_POST_devices_identify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/devices/claim-main": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Configurar este equipo como caja principal
+         * @description La caja principal (CAJA 1) se configura en cualquier equipo de escritorio con la clave de un administrador (permiso ajustes.estaciones): guarda el UUID en la estación principal y lo quita de cualquier otra que lo tuviera (el UUID es único en la tienda). Queda en el historial de Ajustes y sube la versión de configuración. Clave incorrecta o de alguien sin el permiso → 401 BAD_PIN (sin decir de quién es); cuenta para el bloqueo del equipo y para uno fijo de la tienda (claim-main), con los intentos y segundos de Parámetros; cualquiera de los dos bloqueado → 423 PIN_LOCKED. No pide sesión.
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: station, config_change_log, sync_outbox
+         */
+        post: operations["store_POST_devices_claim_main"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/devices/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Configuración de mi estación
+         * @description La estación de este equipo (X-Station-Id): si es la principal, si abre cajón, formas de pago (códigos), descuentos (ids) y por qué impresora sale cada canal. Sin formas de pago configuradas en la estación valen todas las activas (en la PDA, las de tarjeta).
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: station, station_payment_method, station_discount, station_channel_printer, payment_method
+         */
+        get: operations["store_GET_devices_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/areas/{areaId}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Guardar Editar sala
+         * @description Posición y tamaño de cada mesa del área y lo dibujado en el plano, todo de una vez (los dibujos se sustituyen). version = la del área (409 VERSION_CONFLICT). Sube la versión de configuración.
+         *
+         *     Permiso: mesas.editarPlano
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: dining_table, area_drawing, config_change_log
+         */
+        put: operations["store_PUT_config_areas_areaId_layout"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/areas/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ordenar áreas
+         * @description ids = todas las áreas activas en el orden nuevo.
+         *
+         *     Permiso: mesas.editarPlano
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: area, config_change_log
+         */
+        put: operations["store_PUT_config_areas_order"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/orders/{orderId}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cambiar de mesa (mesa entera o una cuenta)
+         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa libre toTableId (ocupada → 409 TABLE_BUSY). scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan.
+         *
+         *     Permiso: mesas.transferir
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: orders, account, order_line, order_event, sync_outbox
+         */
+        post: operations["store_POST_orders_orderId_transfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/orders/{orderId}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Guardar y salir
+         * @description El botón Guardar del TPV y la PDA: envía lo «Por enviar» (como POST …/send) y sale de la mesa (suelta la presencia). Si a la mesa no le queda nada vivo (sin productos ni cobros en cuentas sin facturar) la cierra sin venta y queda libre (released = true). Si una impresora falla, la mesa queda guardada y responde 503 PRINTER_OFFLINE como send. Si hay algo que enviar pide pedido.enviar (como send); salir o liberar una mesa vacía no pide permiso. Si otra persona tiene la mesa, solo guarda: ni la cierra ni le quita la presencia.
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox
+         */
+        post: operations["store_POST_orders_orderId_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/orders/{orderId}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reabrir mesa
+         * @description Vuelve a abrir una mesa cerrada sin venta o con cuentas sin facturar (status cancelled o closed del periodo abierto) en su misma mesa, si está libre. Las cuentas anuladas sin facturar vuelven a open; las facturadas siguen bloqueadas (se corrigen con un abono). Mesa ocupada → 409 TABLE_BUSY; todas facturadas → 409 ACCOUNT_CLOSED. Sin permiso, clave de encargado en authorization.
+         *
+         *     Permiso: cobro.reabrir
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: orders, account, order_event, sync_outbox
+         */
+        post: operations["store_POST_orders_orderId_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/orders/{orderId}/accounts/{accountId}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cobrar y facturar
+         * @description Pagos + factura VeriFactu en una sola operación, todo o nada: cada pago con las reglas de POST …/payments (amount null = lo pendiente); tienen que dejar lo pendiente a 0 (si no, 409 PENDING_NOT_ZERO y no se guarda ninguno). payments vacío = la cuenta ya estaba pagada (pagos parciales). Emite F1 con cliente o F2 sin él, con el mismo bloqueo y numeración que POST …/invoice; si era la última cuenta cierra la mesa. Imprime la factura después del COMMIT (printed false si la impresora falla). version opcional: si viene y no coincide, 409 VERSION_CONFLICT.
+         *
+         *     Permiso: cobro.cobrar
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: payment, payment_cash_detail, invoice_series, invoice, invoice_tax, verifactu_record, account, orders, order_event, sync_outbox
+         */
+        post: operations["store_POST_orders_orderId_accounts_accountId_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Buscar cliente
+         * @description Ficha de clientes para factura completa: busca por NIF o nombre (mínimo 2 caracteres), hasta 20.
+         *
+         *     Permiso: cobro.clientes
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: customer_ref
+         */
+        get: operations["store_GET_customers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/invoices/{invoiceId}/credit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abono (factura rectificativa)
+         * @description Rectificativa por diferencias en la serie de abonos de Ajustes › Facturación: R5 si la factura es simplificada (F2), R1 si es completa (F1). Total (lines vacío o null) o de algunas unidades de algunas líneas; nunca más de lo que queda por abonar (422 QUANTITY_EXCEEDS). Cada línea abona su parte del descuento; el abono que deja la factura a 0 cuadra al céntimo con lo que quedaba. Mismo bloqueo y cadena VeriFactu que facturar. La original pasa a rectified cuando se abona entera. reasonId = motivo de tipo credit (o reason con el texto). Imprime el abono después del COMMIT.
+         *
+         *     Permiso: funciones.abonar
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: invoice_series, invoice, invoice_tax, invoice_credit_line, verifactu_record, sync_outbox
+         */
+        post: operations["store_POST_invoices_invoiceId_credit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/invoices/{invoiceId}/verifactu": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Estado VeriFactu
+         * @description Permiso: funciones.facturas
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: verifactu_record
+         */
+        get: operations["store_GET_invoices_invoiceId_verifactu"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/cash/drawer/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abrir cajón
+         * @description Manda el pulso de apertura a la impresora de tickets de la estación (si la estación abre cajón). Queda en el registro de caja como movimiento sin importe. Si la impresora falla → 503 PRINTER_OFFLINE.
+         *
+         *     Permiso: funciones.abrirCajon
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: cash_movement
+         */
+        post: operations["store_POST_cash_drawer_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/cash/x-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Corte X
+         * @description Lo mismo que el cierre (Z) pero sin cerrar: ventas facturadas del periodo por forma de pago, tickets, efectivo esperado y las mesas abiertas con su importe.
+         *
+         *     Permiso: funciones.caja
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: invoice, payment, cash_movement, orders
+         */
+        get: operations["store_GET_cash_x_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/reports/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumen de ventas
+         * @description Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA, tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos.
+         *
+         *     Permiso: funciones.informes
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: invoice, order_line, payment
+         */
+        get: operations["store_GET_reports_sales"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/reports/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Camareros · KPI
+         * @description Por camarero (quien abrió la mesa) en el periodo: mesas, tickets facturados, venta, ticket medio y anulaciones (borradas tras enviar).
+         *
+         *     Permiso: funciones.kpi
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: orders, invoice, order_line
+         */
+        get: operations["store_GET_reports_staff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/categorias/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ordenar categorías
+         * @description ids = todas las categorías activas en el orden nuevo.
+         *
+         *     Permiso: ajustes.categorias
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: category, config_change_log
+         */
+        put: operations["store_PUT_config_categorias_order"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/productos/{id}/sold-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marcar o quitar agotado
+         * @description id = UUID o PLU. Rápido desde la lista de productos y desde el TPV; avisa a todos los equipos.
+         *
+         *     Permiso: ajustes.productos
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: product, config_change_log, sync_outbox
+         */
+        post: operations["store_POST_config_productos_id_sold_out"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/permisos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catálogo de permisos
+         * @description Para pintar las casillas de un perfil, en el orden de la tabla permission.
+         *
+         *     Permiso: ajustes.perfiles
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: permission
+         */
+        get: operations["store_GET_config_permisos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/restaurante/pwa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar la PWA de la PDA
+         * @description Manifest para instalar la PDA con el nombre y el color del local. Nunca incluye PIN ni tokens.
+         *
+         *     Permiso: ajustes.restaurante
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: store
+         */
+        get: operations["store_GET_config_restaurante_pwa"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Incidencias de productos
+         * @description Cambios de productos hechos en el local (alta, cambio o baja) para que Marketing los apruebe. status = pending (sin enviar) o sent.
+         *
+         *     Permiso: ajustes.incidencias
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: product_incident
+         */
+        get: operations["store_GET_incidents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/incidents/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enviar incidencias a Marketing
+         * @description Agrupa las pendientes (todas, o las de ids) en una solicitud REQ-nnnn, las marca enviadas y la deja en la cola hacia el Manager. Sin pendientes responde sent 0 y request null.
+         *
+         *     Permiso: ajustes.incidencias
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: incident_request, product_incident, sync_outbox
+         */
+        post: operations["store_POST_incidents_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/sync/now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enviar ahora al Manager
+         * @description Despierta al agente de sincronización (NOTIFY sync_outbox; el agente también se despierta solo al encolar) para que mande ya lo pendiente sin esperar a su ciclo. Responde cuántas transacciones hay en cola.
+         *
+         *     Permiso: ajustes.devsync
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: sync_outbox
+         */
+        post: operations["store_POST_sync_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/orders/{orderId}/oot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Order on Table: generar el QR de la mesa
+         * @description Un token por orden abierta: si ya tiene uno vigente lo devuelve (reused = true). url = URL de Order on Table de Ajustes › Restaurante + /t/ + token (sin URL → 409 OOT_NOT_CONFIGURED). Caduca al cerrar la mesa (facturada o sin venta) o al anularlo; no caduca por tiempo. print = imprime el ticket con el QR en la impresora de tickets del área (después del COMMIT; printed false si falla).
+         *
+         *     Permiso: mesas.orderOnTable
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: oot_token, orders
+         */
+        post: operations["store_POST_orders_orderId_oot"];
+        /**
+         * Order on Table: anular el QR
+         * @description El QR impreso deja de funcionar (404 OOT_TOKEN_INVALID para el cliente). Sin token vigente no hace nada.
+         *
+         *     Permiso: mesas.orderOnTable
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: oot_token
+         */
+        delete: operations["store_DELETE_orders_orderId_oot"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/oot/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mesa y carta del token
+         * @description La mesa del QR y la carta de Order on Table (las mismas reglas que GET /config/carta/preview?mode=oot, con PVP según el área). Token caducado, anulado o de una mesa cerrada → 404 OOT_TOKEN_INVALID. Clave de integración que falta o no coincide → 403 NOT_ALLOWED.
+         *
+         *     Lo llama: Order on Table
+         *
+         *     Tablas: oot_token, orders, category, product
+         */
+        get: operations["store_GET_oot_token"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/oot/{token}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pedido del cliente
+         * @description Se envía solo: las líneas entran en la cuenta «Order on Table» de la mesa (se crea si no existe) como si el camarero las marcara y pulsara Enviar, y salen por la impresora de cada canal después del COMMIT. Precio según el área. Solo productos con orderOnTable cuya categoría también lo tenga, sin agotados (422 PRODUCT_NOT_OOT con field items[n].plu); preguntas obligatorias como en POST …/lines (422 VALIDATION). Si una impresora falla el pedido queda guardado y pendiente de imprimir (printed dice qué salió). requestId (o Idempotency-Key) evita duplicar el pedido si el otro sistema reintenta.
+         *
+         *     Lo llama: Order on Table
+         *
+         *     Tablas: oot_token, orders, account, order_line, order_line_printer, order_event, sync_outbox
+         */
+        post: operations["store_POST_oot_token_lines"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2699,7 +3293,7 @@ export interface components {
         };
         ErrorItem: {
             /** @enum {string} */
-            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS";
+            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY";
             message: string;
             /** @description Campo con el problema, si lo hay */
             field: string | null;
@@ -2779,43 +3373,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    store_GET_devices_me: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Correcto */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            station?: {
-                                name?: string;
-                                kind?: string;
-                            };
-                            paymentMethods?: string[];
-                            discounts?: unknown[];
-                            channels?: {
-                                BARRA?: {
-                                    printer?: string;
-                                    connection?: string;
-                                };
-                            };
-                        };
-                    } & components["schemas"]["Envelope"];
                 };
             };
         };
@@ -3737,64 +4294,6 @@ export interface operations {
             };
         };
     };
-    store_GET_incidents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Correcto */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            items?: {
-                                code?: string;
-                                product?: string;
-                                action?: string;
-                                status?: string;
-                            }[];
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-        };
-    };
-    store_POST_incidents_send: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Creado */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            request?: string;
-                            sent?: number;
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-        };
-    };
     store_GET_reports_closings: {
         parameters: {
             query?: {
@@ -4519,84 +5018,6 @@ export interface operations {
             };
         };
     };
-    store_PUT_areas_areaId_layout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                areaId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /** @example {
-                 *       "tables": [
-                 *         {
-                 *           "id": "…",
-                 *           "x": 18,
-                 *           "y": 30,
-                 *           "width": 110,
-                 *           "height": 90
-                 *         }
-                 *       ],
-                 *       "drawings": [
-                 *         {
-                 *           "kind": "wall",
-                 *           "x1": 10,
-                 *           "y1": 80,
-                 *           "x2": 60,
-                 *           "y2": 80
-                 *         }
-                 *       ],
-                 *       "version": 7
-                 *     } */
-                "application/json": {
-                    tables?: {
-                        id?: string | null;
-                        x?: number;
-                        y?: number;
-                        width?: number | null;
-                        height?: number | null;
-                    }[];
-                    drawings?: {
-                        kind?: string;
-                        x1?: number;
-                        y1?: number;
-                        x2?: number;
-                        y2?: number;
-                    }[];
-                    version?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Correcto */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            version?: number;
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     store_GET_orders: {
         parameters: {
             query?: {
@@ -4850,54 +5271,6 @@ export interface operations {
             };
             /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    store_POST_orders_orderId_transfer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                orderId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /** @example {
-                 *       "toTableId": "m5",
-                 *       "accountId": null,
-                 *       "version": 7
-                 *     } */
-                "application/json": {
-                    toTableId?: string;
-                    accountId?: unknown;
-                    version?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Transacción actualizada (en data) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: components["schemas"]["Transaction"];
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-            /** @description TABLE_BUSY: La mesa de destino está ocupada. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5495,6 +5868,62 @@ export interface operations {
             };
         };
     };
+    store_PATCH_orders_orderId_accounts_accountId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "name": "Ana",
+                 *       "version": 14
+                 *     } */
+                "application/json": {
+                    name?: string;
+                    version?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Transacción actualizada (en data) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: components["schemas"]["Transaction"];
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     store_GET_orders_orderId_events: {
         parameters: {
             query?: never;
@@ -5526,41 +5955,6 @@ export interface operations {
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
-                };
-            };
-        };
-    };
-    store_POST_orders_orderId_reopen: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                orderId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Transacción actualizada (en data) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: components["schemas"]["Transaction"];
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-            /** @description ACCOUNT_INVOICED: ACCOUNT_INVOICED */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -7002,70 +7396,6 @@ export interface operations {
             };
         };
     };
-    store_POST_invoices_invoiceId_credit: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
-                "Idempotency-Key"?: string;
-            };
-            path: {
-                invoiceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /** @example {
-                 *       "reasonId": "aboErr",
-                 *       "lines": null,
-                 *       "authorization": "auth_…"
-                 *     } */
-                "application/json": {
-                    reasonId?: string | null;
-                    lines?: unknown;
-                    authorization?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Creado */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            invoiceNumber?: string;
-                            rectifies?: string | null;
-                            total?: number;
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description ALREADY_RECTIFIED: ALREADY_RECTIFIED */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     store_GET_cash_summary: {
         parameters: {
             query?: never;
@@ -7247,68 +7577,6 @@ export interface operations {
             };
         };
     };
-    store_POST_cash_drawer_open: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Correcto */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            opened?: boolean;
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-        };
-    };
-    store_GET_reports_sales: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Correcto */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            sold?: number;
-                            projection?: number;
-                            net?: number;
-                            byHour?: {
-                                hour?: number;
-                                amount?: number | null;
-                            }[];
-                            topProducts?: {
-                                plu?: number | null;
-                                amount?: number | null;
-                            }[];
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-        };
-    };
     store_GET_reports_deletions: {
         parameters: {
             query?: never;
@@ -7337,37 +7605,6 @@ export interface operations {
                                 reason?: string | null;
                                 authorizedBy?: string | null;
                                 amount?: number | null;
-                            }[];
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-        };
-    };
-    store_GET_reports_staff: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Correcto */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            items?: {
-                                user?: string | null;
-                                score?: number;
-                                sales?: number;
-                                speed?: number;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -8980,6 +9217,2633 @@ export interface operations {
                             status?: string;
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    store_GET_config_carta: {
+        parameters: {
+            query?: {
+                /** @description true (defecto) o all */
+                active?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            categories?: {
+                                id?: string | null;
+                                externalId?: unknown;
+                                name?: string;
+                                bgColor?: unknown;
+                                fgColor?: unknown;
+                                sortOrder?: number;
+                                hidden?: boolean;
+                                orderOnTable?: boolean;
+                                active?: boolean;
+                            }[];
+                            products?: {
+                                id?: string | null;
+                                externalId?: unknown;
+                                plu?: number | null;
+                                name?: string;
+                                ticketName?: unknown;
+                                description?: unknown;
+                                categoryId?: unknown;
+                                categoryExternalId?: unknown;
+                                price?: number;
+                                priceTerrace?: unknown;
+                                taxRate?: number | null;
+                                questionIds?: string[];
+                                questionExternalIds?: string[];
+                                bgColor?: unknown;
+                                fgColor?: unknown;
+                                answerOnly?: boolean;
+                                orderOnTable?: boolean;
+                                soldOut?: boolean;
+                                active?: boolean;
+                            }[];
+                            questions?: {
+                                id?: string | null;
+                                externalId?: unknown;
+                                name?: string;
+                                minAnswers?: number;
+                                maxAnswers?: number;
+                                course?: unknown;
+                                active?: boolean;
+                                answers?: {
+                                    productId?: string;
+                                    productExternalId?: unknown;
+                                    plu?: number | null;
+                                    label?: unknown;
+                                    extraPrice?: number;
+                                    bgColor?: unknown;
+                                    fgColor?: unknown;
+                                }[];
+                            }[];
+                            configVersion?: number | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_config_carta_sync: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "categories": [
+                 *         {
+                 *           "externalId": "MGR-CAT-01",
+                 *           "name": "BEBIDAS FRIAS",
+                 *           "bgColor": "#1b5e66",
+                 *           "fgColor": "#ffffff",
+                 *           "sortOrder": 1,
+                 *           "hidden": false,
+                 *           "orderOnTable": true
+                 *         }
+                 *       ],
+                 *       "products": [
+                 *         {
+                 *           "externalId": "MGR-P-5543",
+                 *           "plu": 5543,
+                 *           "name": "GRANIZADO DE LIMON",
+                 *           "ticketName": "GRANIZADO DE LIMON",
+                 *           "description": "Limón natural\nSin azúcar añadido",
+                 *           "categoryExternalId": "MGR-CAT-01",
+                 *           "price": 3.95,
+                 *           "priceTerrace": null,
+                 *           "taxRate": 10,
+                 *           "questionExternalIds": [],
+                 *           "bgColor": "#b6d7a8",
+                 *           "fgColor": "#000000",
+                 *           "answerOnly": false,
+                 *           "orderOnTable": true
+                 *         }
+                 *       ],
+                 *       "questions": [
+                 *         {
+                 *           "externalId": "MGR-Q-PRIMERO",
+                 *           "name": "Primero menú del día",
+                 *           "minAnswers": 1,
+                 *           "maxAnswers": 1,
+                 *           "course": 1,
+                 *           "answers": [
+                 *             {
+                 *               "productExternalId": "MGR-P-9201",
+                 *               "label": "Ensalada mixta",
+                 *               "extraPrice": 0
+                 *             }
+                 *           ]
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    categories?: {
+                        externalId?: string;
+                        name?: string;
+                        bgColor?: string | null;
+                        fgColor?: string | null;
+                        sortOrder?: number;
+                        hidden?: boolean;
+                        orderOnTable?: boolean;
+                    }[];
+                    products?: {
+                        externalId?: string;
+                        plu?: number | null;
+                        name?: string;
+                        ticketName?: string | null;
+                        description?: string | null;
+                        categoryExternalId?: string;
+                        price?: number;
+                        priceTerrace?: unknown;
+                        taxRate?: number | null;
+                        questionExternalIds?: unknown[];
+                        bgColor?: string | null;
+                        fgColor?: string | null;
+                        answerOnly?: boolean;
+                        orderOnTable?: boolean;
+                    }[];
+                    questions?: {
+                        externalId?: string;
+                        name?: string;
+                        minAnswers?: number;
+                        maxAnswers?: number;
+                        course?: number | null;
+                        answers?: {
+                            productExternalId?: string;
+                            label?: string | null;
+                            extraPrice?: number;
+                        }[];
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            categories?: {
+                                created?: number;
+                                updated?: number;
+                                deactivated?: number;
+                                unchanged?: number;
+                            };
+                            products?: {
+                                created?: number;
+                                updated?: number;
+                                deactivated?: number;
+                                unchanged?: number;
+                            };
+                            questions?: {
+                                created?: number;
+                                updated?: number;
+                                deactivated?: number;
+                                unchanged?: number;
+                            };
+                            configVersion?: number | null;
+                            ids?: {
+                                "MGR-CAT-01"?: string;
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IN_USE: No se puede desactivar: está en uso. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TOO_LARGE: Demasiadas filas en una carga (details.max). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · REF_NOT_FOUND: Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_config_categorias_sync: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "items": [
+                 *         {
+                 *           "externalId": "MGR-CAT-01",
+                 *           "name": "BEBIDAS FRIAS",
+                 *           "bgColor": "#1b5e66",
+                 *           "fgColor": "#ffffff",
+                 *           "sortOrder": 1,
+                 *           "hidden": false,
+                 *           "orderOnTable": true
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    items?: {
+                        externalId?: string;
+                        name?: string;
+                        bgColor?: string | null;
+                        fgColor?: string | null;
+                        sortOrder?: number;
+                        hidden?: boolean;
+                        orderOnTable?: boolean;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            created?: number;
+                            updated?: number;
+                            deactivated?: number;
+                            unchanged?: number;
+                            configVersion?: number | null;
+                            items?: {
+                                externalId?: unknown;
+                                id?: string | null;
+                                name?: string;
+                                plu?: unknown;
+                                action?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IN_USE: No se puede desactivar: está en uso. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TOO_LARGE: Demasiadas filas en una carga (details.max). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · REF_NOT_FOUND: Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_config_productos_sync: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "items": [
+                 *         {
+                 *           "externalId": "MGR-P-5543",
+                 *           "plu": 5543,
+                 *           "name": "GRANIZADO DE LIMON",
+                 *           "ticketName": "GRANIZADO DE LIMON",
+                 *           "description": "Limón natural\nSin azúcar añadido",
+                 *           "categoryExternalId": "MGR-CAT-01",
+                 *           "price": 3.95,
+                 *           "priceTerrace": null,
+                 *           "taxRate": 10,
+                 *           "questionExternalIds": [],
+                 *           "bgColor": "#b6d7a8",
+                 *           "fgColor": "#000000",
+                 *           "answerOnly": false,
+                 *           "orderOnTable": true
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    items?: {
+                        externalId?: string;
+                        plu?: number | null;
+                        name?: string;
+                        ticketName?: string | null;
+                        description?: string | null;
+                        categoryExternalId?: string;
+                        price?: number;
+                        priceTerrace?: unknown;
+                        taxRate?: number | null;
+                        questionExternalIds?: unknown[];
+                        bgColor?: string | null;
+                        fgColor?: string | null;
+                        answerOnly?: boolean;
+                        orderOnTable?: boolean;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            created?: number;
+                            updated?: number;
+                            deactivated?: number;
+                            unchanged?: number;
+                            configVersion?: number | null;
+                            items?: {
+                                externalId?: unknown;
+                                id?: string | null;
+                                name?: string;
+                                plu?: unknown;
+                                action?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IN_USE: No se puede desactivar: está en uso. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TOO_LARGE: Demasiadas filas en una carga (details.max). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · REF_NOT_FOUND: Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_config_preguntas_sync: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "items": [
+                 *         {
+                 *           "externalId": "MGR-Q-PRIMERO",
+                 *           "name": "Primero menú del día",
+                 *           "minAnswers": 1,
+                 *           "maxAnswers": 1,
+                 *           "course": 1,
+                 *           "answers": [
+                 *             {
+                 *               "productExternalId": "MGR-P-9201",
+                 *               "label": "Ensalada mixta",
+                 *               "extraPrice": 0
+                 *             }
+                 *           ]
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    items?: {
+                        externalId?: string;
+                        name?: string;
+                        minAnswers?: number;
+                        maxAnswers?: number;
+                        course?: number | null;
+                        answers?: {
+                            productExternalId?: string;
+                            label?: string | null;
+                            extraPrice?: number;
+                        }[];
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            created?: number;
+                            updated?: number;
+                            deactivated?: number;
+                            unchanged?: number;
+                            configVersion?: number | null;
+                            items?: {
+                                externalId?: unknown;
+                                id?: string | null;
+                                name?: string;
+                                plu?: unknown;
+                                action?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IN_USE: No se puede desactivar: está en uso. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TOO_LARGE: Demasiadas filas en una carga (details.max). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · REF_NOT_FOUND: Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_config_carta_preview: {
+        parameters: {
+            query?: {
+                /** @description tpv (defecto) u oot */
+                mode?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            mode?: string;
+                            categories?: {
+                                id?: string | null;
+                                name?: string;
+                                bgColor?: unknown;
+                                fgColor?: unknown;
+                                orderOnTable?: boolean;
+                                products?: {
+                                    id?: string | null;
+                                    plu?: number | null;
+                                    name?: string;
+                                    description?: unknown;
+                                    price?: number;
+                                    priceTerrace?: unknown;
+                                    soldOut?: boolean;
+                                    orderOnTable?: boolean;
+                                    questions?: string[];
+                                }[];
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_devices_identify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "deviceUuid": "2a6c930e-b2a3-4f71-9281-e06f4d425746",
+                 *       "type": "desktop"
+                 *     } */
+                "application/json": {
+                    deviceUuid?: string | null;
+                    type?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            stationId?: string;
+                            name?: string;
+                            kind?: string;
+                            main?: boolean;
+                            ip?: unknown;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description DEVICE_NOT_REGISTERED: Ninguna estación activa tiene el UUID de este equipo: darlo de alta en Ajustes › Estaciones. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DEVICE_TYPE_MISMATCH: El UUID está dado de alta con el otro tipo (PDA o escritorio): details.actual dice cuál. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_devices_claim_main: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "deviceUuid": "2a6c930e-b2a3-4f71-9281-e06f4d425746",
+                 *       "pin": 186
+                 *     } */
+                "application/json": {
+                    deviceUuid?: string | null;
+                    pin?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            stationId?: string;
+                            name?: string;
+                            main?: boolean;
+                            previousUuid?: unknown;
+                            configVersion?: number | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description BAD_PIN: Clave incorrecta. Tras varios intentos, PIN_LOCKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PIN_LOCKED: Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo). */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_devices_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            stationId?: string;
+                            name?: string;
+                            kind?: string;
+                            main?: boolean;
+                            opensDrawer?: boolean;
+                            ip?: unknown;
+                            paymentMethods?: string[];
+                            discounts?: string[];
+                            channels?: {
+                                BARRA?: {
+                                    printer?: string;
+                                    connection?: string;
+                                };
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    store_PUT_config_areas_areaId_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                areaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "tables": [
+                 *         {
+                 *           "id": "…",
+                 *           "x": 18,
+                 *           "y": 30,
+                 *           "width": 110,
+                 *           "height": 90
+                 *         }
+                 *       ],
+                 *       "drawings": [
+                 *         {
+                 *           "kind": "wall",
+                 *           "x1": 10,
+                 *           "y1": 80,
+                 *           "x2": 60,
+                 *           "y2": 80
+                 *         }
+                 *       ],
+                 *       "version": 7
+                 *     } */
+                "application/json": {
+                    tables?: {
+                        id?: string | null;
+                        x?: number;
+                        y?: number;
+                        width?: number | null;
+                        height?: number | null;
+                    }[];
+                    drawings?: {
+                        kind?: string;
+                        x1?: number;
+                        y1?: number;
+                        x2?: number;
+                        y2?: number;
+                    }[];
+                    version?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            version?: number;
+                            configVersion?: number | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_PUT_config_areas_order: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "ids": [
+                 *         "…",
+                 *         "…"
+                 *       ]
+                 *     } */
+                "application/json": {
+                    ids?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            configVersion?: number | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_orders_orderId_transfer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "scope": "account",
+                 *       "accountId": null,
+                 *       "toTableId": "b1f0c2d4-0000-4000-8000-0000000000a8",
+                 *       "version": 7,
+                 *       "authorization": null
+                 *     } */
+                "application/json": {
+                    scope?: string;
+                    accountId?: unknown;
+                    toTableId?: string;
+                    version?: number;
+                    authorization?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Transacción actualizada (en data) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: components["schemas"]["Transaction"];
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TABLE_BUSY: La mesa de destino está ocupada. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOTHING_TO_TRANSFER: La cuenta está facturada o no tiene productos: no hay nada que pasar a otra mesa. · VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_orders_orderId_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "version": 9
+                 *     } */
+                "application/json": {
+                    version?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            released?: boolean;
+                            sent?: number;
+                            version?: number;
+                            order?: {
+                                _id?: string;
+                                storeId?: string;
+                                status?: string;
+                                version?: number;
+                                tableData?: {
+                                    tableId?: string | null;
+                                    name?: string;
+                                    zone?: string | null;
+                                    guests?: number;
+                                    openedBy?: {
+                                        user?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    lastEntry?: {
+                                        user?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    lastExit?: unknown;
+                                    note?: unknown;
+                                };
+                                events?: {
+                                    type?: string;
+                                    at?: string;
+                                    description?: string | null;
+                                    user?: string | null;
+                                    device?: string | null;
+                                    role?: string | null;
+                                }[];
+                                accounts?: {
+                                    id?: string | null;
+                                    name?: string;
+                                    status?: string;
+                                    openedBy?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    closedBy?: unknown;
+                                    lastEntry?: {
+                                        user?: string | null;
+                                        role?: string | null;
+                                        device?: string | null;
+                                        at?: string;
+                                    } | null;
+                                    note?: unknown;
+                                    lines?: {
+                                        id?: string | null;
+                                        productId?: number;
+                                        name?: string;
+                                        comment?: string | null;
+                                        quantity?: number;
+                                        unitPrice?: number;
+                                        iva?: number;
+                                        netoProce?: number;
+                                        printed?: boolean;
+                                        status?: string;
+                                        printers?: {
+                                            area?: string | null;
+                                            printer?: string;
+                                            printed?: boolean;
+                                            interface?: string;
+                                            at?: string;
+                                        }[];
+                                        createdBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            origin?: string;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        modifiers?: unknown[];
+                                    }[];
+                                    deletedLines?: {
+                                        id?: string | null;
+                                        productId?: number;
+                                        name?: string;
+                                        comment?: unknown;
+                                        quantity?: number;
+                                        unitPrice?: number;
+                                        iva?: number;
+                                        netoProce?: number;
+                                        printed?: boolean;
+                                        status?: string;
+                                        printers?: {
+                                            area?: string | null;
+                                            printer?: string;
+                                            printed?: boolean;
+                                            interface?: string;
+                                            at?: string;
+                                        }[];
+                                        createdBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            origin?: string;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        modifiers?: unknown[];
+                                    }[];
+                                    discounts?: {
+                                        id?: string | null;
+                                        source?: string;
+                                        couponId?: unknown;
+                                        couponCode?: unknown;
+                                        type?: string;
+                                        value?: number;
+                                        baseAmount?: number;
+                                        amount?: number | null;
+                                        reason?: string | null;
+                                        status?: string;
+                                        appliedBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            device?: string | null;
+                                            at?: string;
+                                        } | null;
+                                        authorizedBy?: unknown;
+                                        removedBy?: unknown;
+                                    }[];
+                                    payments?: {
+                                        id?: string | null;
+                                        method?: string;
+                                        amount?: number | null;
+                                        tip?: number;
+                                        cashGiven?: unknown;
+                                        change?: unknown;
+                                        cashDetail?: unknown;
+                                        status?: string;
+                                        collectedBy?: {
+                                            user?: string | null;
+                                            role?: string | null;
+                                            device?: string | null;
+                                            at?: string;
+                                        };
+                                        bankData?: {
+                                            provider?: string;
+                                            merchantId?: unknown;
+                                            terminalId?: unknown;
+                                            transactionId?: unknown;
+                                            authorizationCode?: unknown;
+                                            responseCode?: unknown;
+                                            responseMessage?: unknown;
+                                            cardBrand?: unknown;
+                                            maskedPan?: string;
+                                            maskedPhone?: unknown;
+                                            entryMode?: unknown;
+                                            amount?: number | null;
+                                            currency?: string;
+                                            processedAt?: unknown;
+                                        } | null;
+                                    }[];
+                                    totals?: {
+                                        subtotal?: number;
+                                        discount?: number;
+                                        total?: number;
+                                        paid?: number;
+                                        pending?: number;
+                                        tips?: number;
+                                        taxes?: {
+                                            rate?: number;
+                                            base?: number;
+                                            tax?: number;
+                                        }[];
+                                    };
+                                    customerData?: {
+                                        customerId?: unknown;
+                                        type?: string;
+                                        taxId?: string;
+                                        name?: string;
+                                        email?: unknown;
+                                        phone?: unknown;
+                                        address?: {
+                                            street?: unknown;
+                                            postalCode?: unknown;
+                                            city?: unknown;
+                                            province?: unknown;
+                                            country?: string | null;
+                                        } | null;
+                                    } | null;
+                                    invoice?: unknown;
+                                    events?: {
+                                        type?: string;
+                                        at?: string;
+                                        description?: string | null;
+                                        user?: string | null;
+                                        device?: string | null;
+                                        role?: string | null;
+                                    }[];
+                                }[];
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · ORDER_CLOSED: La mesa se cerró desde otro equipo. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_orders_orderId_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "authorization": null
+                 *     } */
+                "application/json": {
+                    authorization?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Transacción actualizada (en data) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: components["schemas"]["Transaction"];
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TABLE_BUSY: La mesa de destino está ocupada. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_orders_orderId_accounts_accountId_checkout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                orderId: string;
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "payments": [
+                 *         {
+                 *           "method": "cash",
+                 *           "amount": 30,
+                 *           "cashGiven": 50
+                 *         },
+                 *         {
+                 *           "method": "card",
+                 *           "amount": 18.6,
+                 *           "tip": 0
+                 *         }
+                 *       ],
+                 *       "print": true,
+                 *       "version": null,
+                 *       "authorization": null
+                 *     } */
+                "application/json": {
+                    payments?: {
+                        method?: string;
+                        amount?: number | null;
+                        cashGiven?: number | null;
+                    }[];
+                    print?: boolean;
+                    version?: unknown;
+                    authorization?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            invoice?: {
+                                type?: string;
+                                series?: string;
+                                sequence?: number;
+                                invoiceNumber?: string;
+                                issuedAt?: string;
+                                total?: number;
+                                verifactuQr?: string | null;
+                            } | null;
+                            payments?: {
+                                id?: string | null;
+                                method?: string;
+                                amount?: number | null;
+                                tip?: number;
+                                cashGiven?: unknown;
+                                change?: unknown;
+                            }[];
+                            change?: number | null;
+                            tableClosed?: boolean;
+                            printed?: boolean;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PENDING_NOT_ZERO: No se puede facturar con importe pendiente. · AMOUNT_EXCEEDS_PENDING: El importe supera lo pendiente (details.pending). Nunca se recorta. · METHOD_NOT_ALLOWED: Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta). · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_customers: {
+        parameters: {
+            query?: {
+                /** @description NIF o nombre */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            items?: {
+                                id?: string | null;
+                                type?: string;
+                                taxId?: string;
+                                name?: string;
+                                email?: unknown;
+                                phone?: unknown;
+                                address?: {
+                                    street?: unknown;
+                                    postalCode?: unknown;
+                                    city?: unknown;
+                                    province?: unknown;
+                                    country?: string | null;
+                                } | null;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_invoices_invoiceId_credit: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "reasonId": null,
+                 *       "reason": "Error al cobrar",
+                 *       "lines": [
+                 *         {
+                 *           "lineId": "…",
+                 *           "quantity": 1
+                 *         }
+                 *       ],
+                 *       "print": true,
+                 *       "authorization": null
+                 *     } */
+                "application/json": {
+                    reasonId?: unknown;
+                    reason?: string | null;
+                    lines?: {
+                        lineId?: string;
+                        quantity?: number;
+                    }[];
+                    print?: boolean;
+                    authorization?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string | null;
+                            type?: string;
+                            invoiceNumber?: string;
+                            rectifies?: string | null;
+                            issuedAt?: string;
+                            total?: number;
+                            taxes?: {
+                                rate?: number;
+                                base?: number;
+                                tax?: number;
+                            }[];
+                            lines?: {
+                                lineId?: string;
+                                name?: string;
+                                quantity?: number;
+                                amount?: number | null;
+                            }[];
+                            full?: boolean;
+                            verifactuQr?: string | null;
+                            printed?: boolean;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. · NOT_ALLOWED: La clave es correcta pero esa persona tampoco tiene el permiso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description QUANTITY_EXCEEDS: Se piden más unidades de las que quedan (details.left). · VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_invoices_invoiceId_verifactu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            invoiceNumber?: string;
+                            type?: string;
+                            status?: string;
+                            hash?: string;
+                            previousHash?: unknown;
+                            generatedAt?: string;
+                            sentAt?: unknown;
+                            attempts?: number;
+                            lastError?: unknown;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_cash_drawer_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "reasonId": null,
+                 *       "authorization": null
+                 *     } */
+                "application/json": {
+                    reasonId?: unknown;
+                    authorization?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            opened?: boolean;
+                            printer?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_cash_x_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            periodId?: string | null;
+                            at?: string;
+                            sales?: number;
+                            tickets?: number | null;
+                            byMethod?: {
+                                cash?: number;
+                                card?: number;
+                                other?: number;
+                            };
+                            expectedCash?: number;
+                            openTables?: {
+                                count?: number;
+                                amount?: number | null;
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_reports_sales: {
+        parameters: {
+            query?: {
+                /** @description Periodo (UUID); vacío = el abierto */
+                periodId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            periodId?: string | null;
+                            sold?: number;
+                            net?: number;
+                            tickets?: number | null;
+                            avgTicket?: number;
+                            guests?: number;
+                            byHour?: {
+                                hour?: number;
+                                amount?: number | null;
+                            }[];
+                            byMethod?: {
+                                cash?: number;
+                                card?: number;
+                                other?: number;
+                            };
+                            topProducts?: {
+                                plu?: number | null;
+                                name?: string;
+                                quantity?: number;
+                                amount?: number | null;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_reports_staff: {
+        parameters: {
+            query?: {
+                /** @description Periodo (UUID); vacío = el abierto */
+                periodId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            periodId?: string | null;
+                            items?: {
+                                userId?: unknown;
+                                user?: string | null;
+                                tables?: number;
+                                tickets?: number | null;
+                                sales?: number;
+                                avgTicket?: number;
+                                voids?: number;
+                                voidsAmount?: number;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_PUT_config_categorias_order: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "ids": [
+                 *         "…",
+                 *         "…"
+                 *       ]
+                 *     } */
+                "application/json": {
+                    ids?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            configVersion?: number | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_config_productos_id_sold_out: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "soldOut": true
+                 *     } */
+                "application/json": {
+                    soldOut?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string | null;
+                            plu?: number | null;
+                            soldOut?: boolean;
+                            configVersion?: number | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_config_permisos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            items?: {
+                                code?: string;
+                                module?: string;
+                                name?: string;
+                                sortOrder?: number;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_config_restaurante_pwa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            storeCode?: string;
+                            manifest?: {
+                                name?: string;
+                                short_name?: string;
+                                start_url?: string;
+                                display?: string;
+                                background_color?: string;
+                                theme_color?: string;
+                                icons?: {
+                                    src?: string;
+                                    sizes?: string;
+                                    type?: string;
+                                }[];
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_incidents: {
+        parameters: {
+            query?: {
+                /** @description pending (defecto), sent o all */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            items?: {
+                                id?: string | null;
+                                plu?: number | null;
+                                product?: string;
+                                action?: string;
+                                detail?: string;
+                                at?: string;
+                                user?: string | null;
+                                status?: string;
+                                requestCode?: unknown;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_incidents_send: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "ids": null,
+                 *       "note": null
+                 *     } */
+                "application/json": {
+                    ids?: unknown;
+                    note?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            request?: unknown;
+                            sent?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_sync_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            queued?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    store_POST_orders_orderId_oot: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "print": true
+                 *     } */
+                "application/json": {
+                    print?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            token?: string;
+                            url?: string;
+                            createdAt?: string;
+                            reused?: boolean;
+                            printed?: boolean;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description OOT_NOT_CONFIGURED: Falta la URL de Order on Table en Ajustes › Restaurante. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_DELETE_orders_orderId_oot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto (data: null) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: null;
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_oot_token: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Clave de integración de Order on Table */
+                "X-Integration-Key"?: string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            store?: {
+                                code?: string;
+                                name?: string;
+                            };
+                            table?: string;
+                            area?: string | null;
+                            orderId?: string | null;
+                            open?: boolean;
+                            menu?: {
+                                categories?: {
+                                    id?: string | null;
+                                    name?: string;
+                                    products?: {
+                                        plu?: number | null;
+                                        name?: string;
+                                        description?: unknown;
+                                        price?: number;
+                                        questions?: {
+                                            id?: string | null;
+                                            name?: string;
+                                            minAnswers?: number;
+                                            maxAnswers?: number;
+                                            answers?: {
+                                                plu?: number | null;
+                                                label?: string | null;
+                                                extraPrice?: number;
+                                            }[];
+                                        }[];
+                                    }[];
+                                }[];
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_ALLOWED: La clave es correcta pero esa persona tampoco tiene el permiso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description OOT_TOKEN_INVALID: Token de Order on Table caducado, anulado o de una mesa cerrada. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_oot_token_lines: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Clave de integración de Order on Table */
+                "X-Integration-Key"?: string;
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "items": [
+                 *         {
+                 *           "plu": 1042,
+                 *           "quantity": 2,
+                 *           "comment": null,
+                 *           "modifiers": []
+                 *         }
+                 *       ],
+                 *       "requestId": null
+                 *     } */
+                "application/json": {
+                    items?: {
+                        plu?: number | null;
+                        quantity?: number;
+                        comment?: unknown;
+                        modifiers?: unknown[];
+                    }[];
+                    requestId?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            accepted?: number;
+                            accountId?: string | null;
+                            version?: number;
+                            printed?: {
+                                channel?: string;
+                                printer?: string;
+                                lines?: number;
+                                ok?: boolean;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_ALLOWED: La clave es correcta pero esa persona tampoco tiene el permiso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description OOT_TOKEN_INVALID: Token de Order on Table caducado, anulado o de una mesa cerrada. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PRODUCT_NOT_OOT: Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu). · VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

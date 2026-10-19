@@ -34,16 +34,31 @@ export function contractErrors(method: string, url: string, status: number, body
   if (status >= 400) schema = { $ref: "openapi#/components/schemas/Error" };
   else {
     const r = responses[String(status)];
-    if (!r) return [`${method} ${found.template} no documenta ${status} (documenta ${Object.keys(responses).join(", ")})`];
+    if (!r)
+      return [
+        `${method} ${found.template} no documenta ${status} (documenta ${Object.keys(responses).join(", ")})`,
+      ];
     const c = r.content?.["application/json"];
     if (!c) return [];
     schema = c.schema ?? null;
     if (!schema) return [];
   }
-  const fix = (s: any): any => (s && typeof s === "object" ? (Array.isArray(s) ? s.map(fix) : Object.fromEntries(Object.entries(s).map(([k, v]) =>
-    [k, k === "$ref" && typeof v === "string" && v.startsWith("#/") ? "openapi" + v : fix(v)]))) : s);
+  const fix = (s: any): any =>
+    s && typeof s === "object"
+      ? Array.isArray(s)
+        ? s.map(fix)
+        : Object.fromEntries(
+            Object.entries(s).map(([k, v]) => [
+              k,
+              k === "$ref" && typeof v === "string" && v.startsWith("#/") ? "openapi" + v : fix(v),
+            ]),
+          )
+      : s;
   const validate = ajv.compile(fix(schema));
-  const errs = validate(body) ? [] : (validate.errors ?? []).map((e: any) => `${e.instancePath || "/"} ${e.message}`);
-  if (body && typeof body === "object" && (body as any).status !== status) errs.push(`/status ${(body as any).status} ≠ HTTP ${status}`);
+  const errs = validate(body)
+    ? []
+    : (validate.errors ?? []).map((e: any) => `${e.instancePath || "/"} ${e.message}`);
+  if (body && typeof body === "object" && (body as any).status !== status)
+    errs.push(`/status ${(body as any).status} ≠ HTTP ${status}`);
   return errs;
 }
