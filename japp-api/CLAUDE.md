@@ -64,6 +64,8 @@ Regla de capas (comprobación): `grep -nE "tx\.(select|insert|update|delete|exec
 
 **Pendiente:** logo en raster; registro del cajón abierto (hace falta un `kind` nuevo en `cash_movement`); enviar las incidencias al cerrar el periodo (`IncidentsService.sendPending` está listo, sin conectar); color de la PWA por local; estado del agente en `sync_state` (hoy va en `last_error`); cómo llega el Manager a la API de cada tienda para los servicios Sync (VPN, túnel o relé).
 
+**Tienda de este servidor y usuario de la base (21/10/2026):** cada tienda tiene su servidor y su base. `STORE_CODE` es opcional: sin él la API y el agente usan la única tienda activa de la base; con él se compara sin espacios ni mayúsculas (`pickStore` en `@japp/domain/stores.ts`). Si no se puede saber (varias tiendas sin código, código que no existe, base vacía) la API no arranca y lo dice (`Program.ts`). El código de verdad es `store.code` (Ajustes › Restaurante); al crear la base, `STORE_CODE=CT05 npm run db:init` (con `SEED=1`) o `npm run db:reset` lo pone. El usuario de la base es `sa` (en Docker, `DB_USER`, por defecto `sa`).
+
 **Decisiones del 18–19/10/2026:**
 - **Guardar** (`POST /orders/{id}/save`): envía lo por enviar (pide `pedido.enviar` solo si hay algo), sale de la mesa y, si no le queda nada vivo, la cierra sin venta (`released: true`). Con otra persona dentro solo guarda.
 - **Cambio de mesa en un solo endpoint**: `POST /orders/{id}/transfer {scope: table|account}`; responde la transacción de destino. `POST …/accounts/{accountId}/transfer` sigue para compatibilidad.

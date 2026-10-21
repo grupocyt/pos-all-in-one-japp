@@ -12,7 +12,6 @@ export async function setup(over: Partial<Config> = {}) {
   const config: Config = {
     databaseUrl: inject("dbUrl"),
     port: 0,
-    storeCode: "CT 03",
     sessionSecret: "pruebas-".padEnd(40, "x"),
     sessionHours: 12,
     version: "test",

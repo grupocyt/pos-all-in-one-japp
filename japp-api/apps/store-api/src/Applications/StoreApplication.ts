@@ -1,7 +1,14 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, inArray } from "drizzle-orm";
 import { schema as s, type Database, type Tx, type Db } from "@japp/db";
-import { fail, resolveStation, type AllowedStations, type Profile, type UserLike } from "@japp/domain";
+import {
+  fail,
+  pickStore,
+  resolveStation,
+  type AllowedStations,
+  type Profile,
+  type UserLike,
+} from "@japp/domain";
 import { CONFIG, DATABASE } from "../Constants/Injection.js";
 import type { Config } from "../Properties/AppSettings.js";
 
@@ -72,16 +79,18 @@ export class StoreApplication {
     if (this.storeCache) {
       return this.storeCache;
     }
-    const [r] = await q
+    // Todas las tiendas (normalmente una); cuál es este servidor lo decide pickStore (STORE_CODE opcional).
+    const rows = await q
       .select({ st: s.store, p: s.storeParameters, b: s.billingSettings, c: s.company })
       .from(s.store)
       .innerJoin(s.storeParameters, eq(s.storeParameters.storeId, s.store.id))
       .innerJoin(s.billingSettings, eq(s.billingSettings.storeId, s.store.id))
-      .innerJoin(s.company, eq(s.company.id, s.store.companyId))
-      .where(eq(s.store.code, this.cfg.storeCode));
-    if (!r) {
-      throw new Error(`No existe la tienda ${this.cfg.storeCode} en la base`);
-    }
+      .innerJoin(s.company, eq(s.company.id, s.store.companyId));
+    const picked = pickStore(
+      rows.map((x) => ({ id: x.st.id, code: x.st.code, active: x.st.active })),
+      this.cfg.storeCode,
+    );
+    const r = rows.find((x) => x.st.id === picked.id)!;
     this.storeCache = {
       id: r.st.id,
       code: r.st.code,

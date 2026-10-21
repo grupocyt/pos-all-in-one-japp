@@ -4,18 +4,18 @@
 services:
   db:
     image: postgres:16.4
-    environment: { POSTGRES_USER: japp, POSTGRES_PASSWORD: "${DB_PASSWORD:-japp_local}", POSTGRES_DB: japp, TZ: UTC }
+    environment: { POSTGRES_USER: "${DB_USER:-sa}", POSTGRES_PASSWORD: "${DB_PASSWORD:-sa_local}", POSTGRES_DB: japp, TZ: UTC }
     volumes: [pgdata:/var/lib/postgresql/data]
     ports: ["127.0.0.1:5433:5432"]   # solo desde este Mac (TablePlus, psql). 5433 para no chocar con un PostgreSQL de Homebrew
     restart: unless-stopped
-    healthcheck: { test: ["CMD-SHELL", "pg_isready -U japp"], interval: 2s, retries: 30 }
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sa}"], interval: 2s, retries: 30 }
   api:
     build: { context: .., dockerfile: japp-api/Dockerfile }
     depends_on: { db: { condition: service_healthy } }
     environment:
-      DATABASE_URL: "postgres://japp:${DB_PASSWORD:-japp_local}@db:5432/japp"
+      DATABASE_URL: "postgres://${DB_USER:-sa}:${DB_PASSWORD:-sa_local}@db:5432/japp"
       SESSION_SECRET: "${SESSION_SECRET:?Pon SESSION_SECRET en .env (32+ caracteres aleatorios)}"
-      STORE_CODE: "${STORE_CODE:-CT 03}"
+      STORE_CODE: "${STORE_CODE:-}"   # vacío = la única tienda de la base
       SEED: "${SEED:-1}"
       PRINTER_MODE: "${PRINTER_MODE:-log}"
       API_MODE: "${API_MODE:-developer}"   # va en el campo mode de cada respuesta
@@ -32,8 +32,8 @@ services:
     working_dir: /app/japp-api/apps/sync-agent
     command: ["npx", "tsx", "src/Program.ts"]
     environment:
-      DATABASE_URL: "postgres://japp:${DB_PASSWORD:-japp_local}@db:5432/japp"
-      STORE_CODE: "${STORE_CODE:-CT 03}"
+      DATABASE_URL: "postgres://${DB_USER:-sa}:${DB_PASSWORD:-sa_local}@db:5432/japp"
+      STORE_CODE: "${STORE_CODE:-}"   # vacío = la única tienda de la base
       MANAGER_URL: "${MANAGER_URL:?Pon MANAGER_URL en .env}"
       STORE_KEY: "${STORE_KEY:?Pon STORE_KEY en .env}"
       SYNC_INTERVAL_SECONDS: "${SYNC_INTERVAL_SECONDS:-60}"

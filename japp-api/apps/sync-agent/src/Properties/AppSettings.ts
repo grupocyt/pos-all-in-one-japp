@@ -5,7 +5,7 @@ export interface AppSettings {
   databaseUrl: string;
   /** URL base del contrato del Manager, ya terminada en /api/manager/v1. */
   managerUrl: string;
-  /** Tienda: STORE_ID (UUID) o, si no, STORE_CODE para buscar store.id por code. */
+  /** Tienda: STORE_ID (UUID); si no, STORE_CODE (sin espacios ni mayúsculas); si no, la única tienda de la base. */
   storeId?: string;
   storeCode?: string;
   storeKey: string;
@@ -73,9 +73,6 @@ export function loadSettings(env: NodeJS.ProcessEnv = process.env): AppSettings 
   };
   const storeId = env.STORE_ID?.trim() || undefined;
   const storeCode = env.STORE_CODE?.trim() || undefined;
-  if (!storeId && !storeCode) {
-    throw new Error("Falta STORE_ID o STORE_CODE (mira .env.example)");
-  }
   return {
     databaseUrl: need("DATABASE_URL"),
     managerUrl: managerBase(need("MANAGER_URL")),

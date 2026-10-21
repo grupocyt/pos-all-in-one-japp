@@ -118,12 +118,12 @@ export class OutboxApplication {
     return new LeaderSession(client, storeId);
   }
 
-  async findStoreId(code: string): Promise<string | null> {
-    const [r] = await rows<{ id: string }>(
+  /** Todas las tiendas de la base (normalmente una); cuál es la de este servidor lo decide pickStore. */
+  async stores(): Promise<{ id: string; code: string; active: boolean }[]> {
+    return rows<{ id: string; code: string; active: boolean }>(
       this.database.db,
-      sql`SELECT id::text id FROM store WHERE code = ${code} LIMIT 1`,
+      sql`SELECT id::text id, code, active FROM store`,
     );
-    return r?.id ?? null;
   }
 
   async storeExists(storeId: string): Promise<boolean> {

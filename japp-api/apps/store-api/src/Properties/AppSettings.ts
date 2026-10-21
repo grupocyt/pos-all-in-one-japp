@@ -2,7 +2,8 @@
 export interface Config {
   databaseUrl: string;
   port: number;
-  storeCode: string;
+  /** Opcional: solo hace falta si la base tiene varias tiendas (ver pickStore en @japp/domain). */
+  storeCode?: string;
   sessionSecret: string;
   sessionHours: number;
   version: string;
@@ -34,7 +35,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     databaseUrl: need("DATABASE_URL"),
     port: Number(env.PORT ?? 8080),
-    storeCode: env.STORE_CODE ?? "CT 03",
+    storeCode: env.STORE_CODE?.trim() || undefined,
     sessionSecret: secret,
     sessionHours: Number(env.SESSION_HOURS ?? 12),
     version: env.APP_VERSION ?? "0.1.0",

@@ -1,11 +1,12 @@
 import { createDatabase } from "@japp/db";
+import { pickStore } from "@japp/domain";
 import { OutboxApplication } from "./Applications/OutboxApplication.js";
 import { ManagerClient } from "./Clases/ManagerClient.js";
 import { createLogger } from "./Helpers/Logger.js";
 import { loadSettings } from "./Properties/AppSettings.js";
 import { SyncService } from "./Services/SyncService.js";
 
-// Arranque del agente: configuración por entorno, tienda (STORE_ID o STORE_CODE), ciclo y parada limpia con SIGTERM.
+// Arranque del agente: configuración por entorno, tienda (STORE_ID, STORE_CODE o la única de la base), ciclo y parada limpia con SIGTERM.
 const settings = loadSettings();
 const log = createLogger(settings.logLevel);
 // Pocas conexiones: una dedicada al bloqueo/LISTEN y otra para el trabajo; el agente no compite con store-api.
@@ -22,11 +23,8 @@ async function resolveStoreId(): Promise<string> {
     }
     return settings.storeId;
   }
-  const id = await outbox.findStoreId(settings.storeCode!);
-  if (!id) {
-    throw new Error(`No hay ninguna tienda con code = ${settings.storeCode} (STORE_CODE)`);
-  }
-  return id;
+  // Sin STORE_ID: la misma regla que la API (la única tienda de la base, o la de STORE_CODE sin espacios ni mayúsculas).
+  return pickStore(await outbox.stores(), settings.storeCode).id;
 }
 
 let service: SyncService | null = null;

@@ -30,4 +30,6 @@ EXPOSE 8080
 # El agente de sincronización usa esta misma imagen: docker-compose lo arranca con otro comando (servicio sync-agent).
 # Al arrancar: esquema + migraciones pendientes (no borra nada) y después la API.
 CMD ["sh", "-c", "node /app/japp-db/scripts/init.mjs && exec npx tsx src/Program.ts"]
-HEALTHCHECK --interval=10s --timeout=3s CMD node -e "fetch('http://localhost:8080/api/v2/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+# Sano = /api/v2/health responde 200. 127.0.0.1 y no localhost: localhost puede resolver a ::1 (IPv6) y la API escucha en IPv4.
+# start-period: la primera vez crea la base y aplica las migraciones antes de arrancar; ese tiempo no cuenta como fallo.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=90s --retries=5 CMD node -e "fetch('http://127.0.0.1:8080/api/v2/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
