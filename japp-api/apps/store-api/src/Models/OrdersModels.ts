@@ -119,6 +119,10 @@ export const ChooseAnswers = z
         }),
       )
       .max(30),
+    // cambiar un pase ya marchado (falta de stock): motivo de la lista o en texto, y clave de encargado si hace falta
+    reasonId: Uuid.nullish(),
+    reason: z.string().max(120).nullish(),
+    authorization: auth,
     version,
   })
   .strict();

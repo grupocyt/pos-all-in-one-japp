@@ -42,6 +42,9 @@ import {
   kitchenItemOf,
   canEnterTable,
   transferAccount,
+  mergeOrders,
+  newAccountName,
+  changeFiredCourse,
   assertMethodAllowed,
   presenceView,
   paymentKind,
@@ -155,60 +158,72 @@ export class OrdersService {
     orderId: string,
     version: number | null | undefined,
     fn: (l: Loaded, ctx: Ctx, tx: Tx) => Promise<Omit<Result<T>, "loaded">> | Omit<Result<T>, "loaded">,
-    opts: { kind?: CommandKind; before?: (tx: Tx) => Promise<void> } = {},
+    opts: { kind?: CommandKind } = {},
   ) {
     const ctx = this.ctx(session);
-    return this.database.withTx(async (tx) => {
-      // bloqueos que van ANTES que la orden (p. ej. la mesa de destino): mismo orden que abrir mesa, sin interbloqueos
-      await opts.before?.(tx);
-      const loaded = await this.repo.load(tx, session.storeId, orderId, { lock: true });
-      if (loaded.header.status === "closed" || loaded.header.status === "cancelled") {
-        fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
+    return this.database.withTx((tx) => this.commandIn(tx, session, orderId, version, fn, ctx, opts));
+  }
+
+  /**
+   * El cuerpo de command() dentro de una transacción ya abierta: para los casos de uso que tienen que bloquear algo
+   * ANTES que la orden (p. ej. la mesa de destino al transferir: mismo orden que abrir mesa, sin interbloqueos).
+   */
+  private async commandIn<T = undefined>(
+    tx: Tx,
+    session: Session,
+    orderId: string,
+    version: number | null | undefined,
+    fn: (l: Loaded, ctx: Ctx, tx: Tx) => Promise<Omit<Result<T>, "loaded">> | Omit<Result<T>, "loaded">,
+    ctx: Ctx,
+    opts: { kind?: CommandKind } = {},
+  ) {
+    const loaded = await this.repo.load(tx, session.storeId, orderId, { lock: true });
+    if (loaded.header.status === "closed" || loaded.header.status === "cancelled") {
+      fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
+    }
+    if (version != null) {
+      assertVersion(loaded.header.version, version);
+    }
+    const g = assertCanCommand(
+      loaded.header.presence,
+      { userId: session.user.id, stationId: session.station.id },
+      opts.kind ?? "other",
+      ctx.now,
+    );
+    const r = await fn(loaded, ctx, tx);
+    let v = loaded.header.version;
+    if (!r.noop) {
+      v = await this.repo.save(tx, session.storeId, loaded.order, r.next, loaded.header, {
+        actor: ctx.actor,
+        events: r.events,
+        movedReason: r.movedReason,
+      });
+      await r.afterSave?.(tx);
+    }
+    const p = loaded.header.presence;
+    if (r.presence) {
+      if (JSON.stringify(r.presence) !== JSON.stringify(p)) {
+        await this.repo.savePresence(tx, session.storeId, orderId, r.presence);
       }
-      if (version != null) {
-        assertVersion(loaded.header.version, version);
-      }
-      const g = assertCanCommand(
-        loaded.header.presence,
-        { userId: session.user.id, stationId: session.station.id },
-        opts.kind ?? "other",
-        ctx.now,
-      );
-      const r = await fn(loaded, ctx, tx);
-      let v = loaded.header.version;
-      if (!r.noop) {
-        v = await this.repo.save(tx, session.storeId, loaded.order, r.next, loaded.header, {
-          actor: ctx.actor,
-          events: r.events,
-          movedReason: r.movedReason,
-        });
-        await r.afterSave?.(tx);
-      }
-      const p = loaded.header.presence;
-      if (r.presence) {
-        if (JSON.stringify(r.presence) !== JSON.stringify(p)) {
-          await this.repo.savePresence(tx, session.storeId, orderId, r.presence);
-        }
-      } else if (g.holds || (r.clearCharging && p.chargingUntil)) {
-        const holder =
-          g.holds && p.holder
-            ? {
-                ...p.holder,
-                until: new Date(ctx.now.getTime() + PRESENCE_LEASE_SECONDS * 1000).toISOString(),
-              }
-            : p.holder;
-        await this.repo.savePresence(tx, session.storeId, orderId, {
-          holder,
-          chargingUntil: r.clearCharging ? null : p.chargingUntil,
-        });
-      }
-      const after = await this.repo.load(tx, session.storeId, orderId);
-      return {
-        transaction: await this.repo.transaction(tx, { ...after.header, version: v }, after.order),
-        extra: r.extra as T,
-        order: after.order,
-      };
-    });
+    } else if (g.holds || (r.clearCharging && p.chargingUntil)) {
+      const holder =
+        g.holds && p.holder
+          ? {
+              ...p.holder,
+              until: new Date(ctx.now.getTime() + PRESENCE_LEASE_SECONDS * 1000).toISOString(),
+            }
+          : p.holder;
+      await this.repo.savePresence(tx, session.storeId, orderId, {
+        holder,
+        chargingUntil: r.clearCharging ? null : p.chargingUntil,
+      });
+    }
+    const after = await this.repo.load(tx, session.storeId, orderId);
+    return {
+      transaction: await this.repo.transaction(tx, { ...after.header, version: v }, after.order),
+      extra: r.extra as T,
+      order: after.order,
+    };
   }
 
   /**
@@ -413,8 +428,11 @@ export class OrdersService {
   async addAccount(session: Session, orderId: string, b: { id?: string; name?: string; version?: number }) {
     await this.auth.require(session, "pedido.cuentas");
     return (
-      await this.command(session, orderId, b.version, (l, ctx) => {
-        const name = b.name?.trim() || `Cuenta ${l.order.accounts.length + 1}`;
+      await this.command(session, orderId, b.version, async (l, ctx, tx) => {
+        // sin nombre: el siguiente «Cuenta N» sin reutilizar números (también los de cuentas ya anuladas);
+        // con nombre: se respeta, y si repite el de otra cuenta de la mesa → 409 DUPLICATE (como al renombrar)
+        const names = await this.repo.accountNames(tx, session.storeId, orderId);
+        const name = newAccountName(l.order, b.name, names);
         const acc: Account = {
           id: b.id ?? ctx.newId(),
           name,
@@ -671,7 +689,7 @@ export class OrdersService {
   ) {
     await this.auth.requireAny(session, ["pedido.pasarCuenta", "pedido.separar"], b.authorization);
     return (
-      await this.command(session, orderId, b.version, (l, ctx) => {
+      await this.command(session, orderId, b.version, async (l, ctx, tx) => {
         const from =
           l.order.accounts.find((a) => a.lines.some((x) => x.id === b.lines[0]?.lineId)) ??
           fail("NOT_FOUND", "La línea no existe");
@@ -679,7 +697,9 @@ export class OrdersService {
           fail("VALIDATION", "Todas las líneas deben ser de la misma cuenta");
         }
         const pick = Object.fromEntries(b.lines.map((x) => [x.lineId, x.quantity]));
-        const r = moveUnits(l.order, from.id, b.toAccountId ?? "new", pick, ctx);
+        // a cuenta nueva: «Cuenta N» sin repetir números de cuentas ya anuladas de la mesa
+        const names = b.toAccountId ? [] : await this.repo.accountNames(tx, session.storeId, orderId);
+        const r = moveUnits(l.order, from.id, b.toAccountId ?? "new", pick, ctx, names);
         let next = r.order;
         if (!b.toAccountId && b.newAccountName) {
           next = {
@@ -955,39 +975,54 @@ export class OrdersService {
     return printed;
   }
 
-  /** Menú por pases: elegir (o cambiar) un pase que aún no ha salido. Sale al guardar (send) si toca. */
+  /**
+   * Menú por pases: elegir (o cambiar) un pase que aún no ha salido. Sale al guardar (send) si toca.
+   * Un pase YA MARCHADO también se puede cambiar (falta de stock, decidido tras las pruebas en tienda, 23/10/2026),
+   * como quien elimina algo enviado: con motivo (reasonId o reason; sin él → 422 field reason) y pedido.elimEnviado
+   * (o authorization de encargado; sin él → 403). Queda en el historial lo que había, el pase sigue marchado con la
+   * respuesta nueva y su comanda «>> CAMBIO 1.º» (nota «ANTES: …») sale DESPUÉS del COMMIT por las impresoras de la
+   * respuesta nueva, con las filas de order_line_printer como «Marchar».
+   */
   async chooseAnswers(
     session: Session,
     orderId: string,
     lineId: string,
-    b: { course: number; modifiers: { plu: number; quantity?: number }[]; version?: number | null },
+    b: {
+      course: number;
+      modifiers: { plu: number; quantity?: number }[];
+      reasonId?: string | null;
+      reason?: string | null;
+      authorization?: string | null;
+      version?: number | null;
+    },
   ) {
-    return (
-      await this.command(session, orderId, b.version, async (l, ctx, tx) => {
-        const acc =
-          l.order.accounts.find((a) => a.lines.some((x) => x.id === lineId)) ??
-          fail("NOT_FOUND", "La línea no existe", { lineId });
-        const line = acc!.lines.find((x) => x.id === lineId)!;
-        const rules = await this.questionRules(tx, session.storeId, line.productId);
-        const rule =
-          rules.find((q) => q.course === b.course) ??
-          fail("VALIDATION", "Ese producto no tiene ese pase", { field: "course" });
-        const bad = b.modifiers.find((m) => !rule!.answers.includes(m.plu));
-        if (bad) {
-          fail("VALIDATION", `Esa respuesta no es de «${rule!.name}»`, {
-            field: "modifiers",
-            plu: bad.plu,
-            questionId: rule!.id,
-          });
-        }
-        const input = b.modifiers.map((m) => ({ ...m, questionId: rule!.id }));
-        checkAnswers([rule!], input, { only: rule!.id });
-        const mods = (await this.modifiers(tx, session.storeId, input)).map((m, i) => ({
-          ...m,
-          plu: input[i]!.plu,
-          course: b.course,
+    const r = await this.command<{ jobs: KitchenJob[] }>(session, orderId, b.version, async (l, ctx, tx) => {
+      const acc =
+        l.order.accounts.find((a) => a.lines.some((x) => x.id === lineId)) ??
+        fail("NOT_FOUND", "La línea no existe", { lineId });
+      const line = acc!.lines.find((x) => x.id === lineId)!;
+      const rules = await this.questionRules(tx, session.storeId, line.productId);
+      const rule =
+        rules.find((q) => q.course === b.course) ??
+        fail("VALIDATION", "Ese producto no tiene ese pase", { field: "course" });
+      const bad = b.modifiers.find((m) => !rule!.answers.includes(m.plu));
+      if (bad) {
+        fail("VALIDATION", `Esa respuesta no es de «${rule!.name}»`, {
+          field: "modifiers",
+          plu: bad.plu,
           questionId: rule!.id,
-        }));
+        });
+      }
+      const input = b.modifiers.map((m) => ({ ...m, questionId: rule!.id }));
+      checkAnswers([rule!], input, { only: rule!.id });
+      const mods = (await this.modifiers(tx, session.storeId, input)).map((m, i) => ({
+        ...m,
+        plu: input[i]!.plu,
+        course: b.course,
+        questionId: rule!.id,
+      }));
+      const state = line.courses?.find((c) => c.course === b.course)?.state;
+      if (state !== "fired") {
         const next = chooseCourse(acc!, lineId, b.course, mods);
         return {
           next: this.replace(l.order, next),
@@ -999,9 +1034,56 @@ export class OrdersService {
               acc!.id,
             ),
           ],
+          extra: { jobs: [] },
         };
-      })
-    ).transaction;
+      }
+      const reason = await this.changeReason(tx, session, b);
+      const g = await this.auth.require(session, "pedido.elimEnviado", b.authorization, ctx.now);
+      const ch = changeFiredCourse(acc!, lineId, b.course, mods, ctx.now);
+      const plan = await this.planKitchen(tx, session, l, ctx, [ch.item]);
+      const upper = (ms: Modifier[]) => ms.map((m) => m.name.toUpperCase()).join(", ");
+      let who = ctx.actor.user;
+      if (g.authorizerActor) {
+        who = `${who}/${g.authorizerActor.user}`;
+      }
+      return {
+        next: this.replace(l.order, ch.account),
+        events: [
+          this.ev(
+            "courseChanged",
+            `Cambio ${courseLabel(b.course)}: ${upper(ch.before)} → ${upper(mods)} · ${reason} · ${who}`,
+            ctx,
+            acc!.id,
+          ),
+        ],
+        extra: { jobs: plan.jobs },
+        afterSave: plan.record,
+      };
+    });
+    if (r.extra.jobs.length) {
+      await this.printKitchen(session, r.extra.jobs);
+    }
+    return r.transaction;
+  }
+
+  /** Motivo de un cambio de pase marchado: el de la lista (reasonId) o el texto; sin ninguno → 422 field reason. */
+  private async changeReason(
+    tx: Tx,
+    session: Session,
+    b: { reasonId?: string | null; reason?: string | null },
+  ): Promise<string> {
+    if (b.reasonId) {
+      const r = await this.carta.reason(tx, session.storeId, b.reasonId);
+      if (!r) {
+        fail("VALIDATION", "Ese motivo no existe", { field: "reasonId" });
+      }
+      return r!.name;
+    }
+    const text = b.reason?.trim();
+    if (!text) {
+      fail("VALIDATION", "Ese pase ya está marchado: indica el motivo del cambio", { field: "reason" });
+    }
+    return text!;
   }
 
   /** Menú por pases: «Marchar» un pase en espera (o elegido) ahora mismo. */
@@ -1750,7 +1832,13 @@ export class OrdersService {
     ).transaction;
   }
 
-  /** Transferir la mesa entera a otra libre (la cuenta suelta se pasa con «Separar cuenta»). Los precios ya marcados se mantienen. */
+  /**
+   * Transferir la mesa entera (la cuenta suelta se pasa con «Separar cuenta»). Los precios ya marcados se mantienen.
+   * - Mesa de destino libre: la orden cambia de mesa, como siempre.
+   * - Mesa de destino ocupada (decidido tras las pruebas en tienda, 23/10/2026): se juntan → mergeTables.
+   * La mesa de destino se bloquea ANTES que la orden, como en transferAccount y reopen (y al abrir mesa): con el orden
+   * al revés, dos cambios de mesa cruzados (A → B y B → A) se esperarían el uno al otro.
+   */
   async transfer(
     session: Session,
     orderId: string,
@@ -1764,18 +1852,19 @@ export class OrdersService {
         { field: "accountId" },
       );
     }
-    // la mesa de destino se bloquea ANTES que la orden, como en transferAccount y reopen (y al abrir mesa): con el orden
-    // al revés, dos cambios de mesa cruzados (A → B y B → A) se esperarían el uno al otro
-    let t: Awaited<ReturnType<TablesApplication["lockWithArea"]>>;
-    const lockTarget = async (tx: Tx) => {
-      t = await this.tables.lockWithArea(tx, session.storeId, b.toTableId);
-    };
-    return (
-      await this.command(
+    const ctx = this.ctx(session);
+    return this.database.withTx(async (tx) => {
+      const t = await this.tables.lockWithArea(tx, session.storeId, b.toTableId);
+      const [busy] = t ? await this.repo.liveOnTable(tx, session.storeId, { tableId: b.toTableId }) : [];
+      if (busy && busy.id !== orderId) {
+        return this.mergeTables(tx, session, ctx, orderId, busy.id, b);
+      }
+      const r = await this.commandIn(
+        tx,
         session,
         orderId,
         b.version,
-        async (l, ctx, tx) => {
+        async (l, c, q) => {
           if (!l.order.accounts.some((a) => a.status !== "invoiced" && a.lines.length)) {
             fail("VALIDATION", "La mesa no tiene productos: no hay nada que transferir", {
               field: "orderId",
@@ -1784,33 +1873,115 @@ export class OrdersService {
           if (!t) {
             fail("NOT_FOUND", "La mesa de destino no existe", { tableId: b.toTableId });
           }
-          const busy = await this.repo.liveOnTable(tx, session.storeId, { tableId: b.toTableId });
-          if (busy.length) {
-            fail("TABLE_BUSY", "La mesa de destino está ocupada", { orderId: busy[0]!.id });
+          // la propia orden ya está en esa mesa
+          if (busy) {
+            fail("TABLE_BUSY", "La mesa de destino está ocupada", { orderId: busy.id });
           }
           const from = l.header.tableName;
-          await this.repo.moveToTable(tx, session.storeId, orderId, {
+          const dest = {
             tableId: t!.t.id,
             tableName: String(t!.t.number),
             zone: t!.a.name,
             priceList: t!.a.priceList,
-          });
+          };
+          await this.repo.moveToTable(q, session.storeId, orderId, dest);
           // el QR de Order on Table era de la mesa vieja: se anula en la misma transacción (el camarero saca otro)
-          await this.oot.revoke(tx, session.storeId, orderId, "transferred");
-          Object.assign(l.header, {
-            tableId: t!.t.id,
-            tableName: String(t!.t.number),
-            zone: t!.a.name,
-            priceList: t!.a.priceList,
-          });
+          await this.oot.revoke(q, session.storeId, orderId, "transferred");
+          Object.assign(l.header, dest);
           return {
             next: { ...l.order, tableId: t!.t.id },
-            events: [this.ev("tableTransferred", `Mesa ${from} → ${t!.t.number}`, ctx)],
+            events: [this.ev("tableTransferred", `Mesa ${from} → ${t!.t.number}`, c)],
           };
         },
-        { before: lockTarget },
-      )
-    ).transaction;
+        ctx,
+      );
+      return r.transaction;
+    });
+  }
+
+  /**
+   * Juntar mesas (regla mergeOrders en @japp/domain): cada cuenta viva del origen pasa entera a la orden de la mesa
+   * de destino, como transferAccount (líneas con su historia, descuentos, cobros parciales, cliente y pases, con sus
+   * precios; nombres repetidos → siguiente «Cuenta N» del destino). Se suman los comensales y se une la nota.
+   * El origen queda cancelled (closed si tenía facturadas), su mesa libre y su QR de Order on Table anulado ('transferred').
+   * Mismos bloqueos que transferAccount: la mesa de destino (ya bloqueada por transfer) y luego las dos órdenes por id.
+   * Responde la transacción de destino.
+   */
+  private async mergeTables(
+    tx: Tx,
+    session: Session,
+    ctx: Ctx,
+    orderId: string,
+    destId: string,
+    b: { version?: number },
+  ) {
+    const S = session.storeId;
+    const me = {
+      userId: session.user.id,
+      userName: session.user.name,
+      stationId: session.station.id,
+      stationName: session.station.name,
+      canTakeOver: session.can("mesas.entrarOcupada"),
+    };
+    // las dos órdenes, bloqueadas siempre en el mismo orden (por id)
+    await this.repo.lockByIds(tx, S, [orderId, destId]);
+    const src = await this.repo.load(tx, S, orderId, { lock: true });
+    if (src.header.status === "closed" || src.header.status === "cancelled") {
+      fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
+    }
+    if (b.version != null) {
+      assertVersion(src.header.version, b.version);
+    }
+    assertCanCommand(src.header.presence, me, "other", ctx.now);
+    const dst = await this.repo.load(tx, S, destId, { lock: true });
+    // cobro abierto → TABLE_CHARGING; otra persona dentro → TABLE_TAKEN (salvo mesas.entrarOcupada)
+    canEnterTable(dst.header.presence, me, ctx.now);
+    const names = await this.repo.accountNames(tx, S, destId);
+    const r = mergeOrders(src.order, dst.order, {
+      knownNames: names,
+      fromNote: src.header.note,
+      toNote: dst.header.note,
+    });
+    // cada cuenta y TODAS sus líneas (también las eliminadas) cambian de orden; cobros, descuentos y respuestas cuelgan de ellas
+    for (const m of r.moved) {
+      await this.repo.moveAccount(tx, S, m.account.id, orderId, destId, m.account.name);
+    }
+    // el QR de la mesa vieja deja de pedir en ella (antes de save(), que lo anularía como 'closed')
+    await this.oot.revoke(tx, S, orderId, "transferred");
+    const movedIds = new Set(r.moved.map((m) => m.account.id));
+    // las cuentas que se van ya no son del origen: save() no las anula; las vivas vacías sí (desaparecen de la orden)
+    const srcBefore: Order = {
+      ...src.order,
+      accounts: src.order.accounts.filter((a) => !movedIds.has(a.id)),
+    };
+    if (r.sourceStatus === "cancelled") {
+      src.header.status = "cancelled";
+    }
+    const srcName = src.header.tableName;
+    const dstName = dst.header.tableName;
+    const list = r.moved.map((m) => m.account.name).join(", ");
+    await this.repo.save(tx, S, srcBefore, r.from, src.header, {
+      actor: ctx.actor,
+      events: [this.ev("tablesMerged", `La mesa ${srcName} se junta con la mesa ${dstName} (${list})`, ctx)],
+    });
+    await this.repo.savePresence(tx, S, orderId, { holder: null, chargingUntil: null });
+    const renamed = r.moved
+      .filter((m) => m.renamedFrom)
+      .map((m) => `${m.renamedFrom} ahora ${m.account.name}`)
+      .join(", ");
+    dst.header.note = r.note;
+    const vTo = await this.repo.save(tx, S, r.to, r.to, dst.header, {
+      actor: ctx.actor,
+      events: [
+        this.ev(
+          "tablesMerged",
+          `Se junta la mesa ${srcName}: ${list}${renamed ? ` (${renamed})` : ""} · ${r.to.guests} comensales`,
+          ctx,
+        ),
+      ],
+    });
+    const d = await this.repo.load(tx, S, destId);
+    return this.repo.transaction(tx, { ...d.header, version: vTo }, d.order);
   }
 
   /**
@@ -1917,7 +2088,9 @@ export class OrdersService {
           meta: new Map(),
         };
       }
-      const r = transferAccount(src.order, accountId, dst.order);
+      // nombre repetido en el destino → siguiente «Cuenta N» de allí, sin reutilizar los de sus cuentas anuladas
+      const names = busy ? await this.repo.accountNames(tx, S, busy.id) : [];
+      const r = transferAccount(src.order, accountId, dst.order, names);
       const name = r.account.name;
       const oldName = r.renamedFrom ?? name;
       // la cuenta y TODAS sus líneas (también las eliminadas) cambian de orden; cobros, descuentos y respuestas cuelgan de ellas

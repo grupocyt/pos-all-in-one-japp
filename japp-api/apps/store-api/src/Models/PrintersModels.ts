@@ -1,8 +1,21 @@
 import { z } from "zod";
 import { parseConnection } from "../Clases/Printers.js";
 
-/** Tickets de ejemplo de la prueba de impresoras. */
-export const SAMPLE_KINDS = ["test", "kitchen", "menu", "prebill", "invoice"] as const;
+/**
+ * Tickets de ejemplo de la prueba de impresoras: hoja de prueba, comanda, menú por pases, precuenta, factura y,
+ * además (los manda el TPV), anulación (void), corte X (cutx), corte Z (cutz) y QR de Order on Table (oot).
+ */
+export const SAMPLE_KINDS = [
+  "test",
+  "kitchen",
+  "menu",
+  "prebill",
+  "invoice",
+  "void",
+  "cutx",
+  "cutz",
+  "oot",
+] as const;
 export const Sample = z.object({
   kind: z.enum(SAMPLE_KINDS).default("test"),
   table: z.string().max(20).default("12"),

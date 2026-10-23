@@ -183,6 +183,19 @@ export function kitchenItemOf(l: Line, tag?: string): KitchenItem {
   if (!tag) {
     return { ...base, modifiers: l.modifiers };
   }
+  const changed = [0, 1, 2, 3, 4, 5].find((c) => tag === changeTag(c));
+  if (changed != null) {
+    // reimpresión de un cambio de pase: la respuesta nueva (lo de antes no se guarda en la línea)
+    const mods = l.modifiers.filter((m) => m.course === changed);
+    return {
+      ...base,
+      plu: mods.find((m) => m.plu)?.plu ?? l.productId,
+      comment: changed ? l.comment : "",
+      modifiers: mods,
+      tag,
+      notes: [],
+    };
+  }
   const course = [0, 1, 2, 3, 4, 5].find(
     (c) => tag === (c === 0 ? "BEBIDA" : `MARCHA ${courseLabel(c).toUpperCase()}`),
   );
@@ -287,4 +300,56 @@ export function absorbIntoMenu(
   c!.firedAt = sentSrc ? ctx.now.toISOString() : null;
   assertTotalCoversPaid(out);
   return out;
+}
+
+/** Etiqueta de la comanda de un pase cambiado: «CAMBIO 1.º» (sale como «>> CAMBIO 1.º»). */
+export const changeTag = (course: number) => `CAMBIO ${courseLabel(course).toUpperCase()}`;
+
+/**
+ * Cambiar un pase YA MARCHADO (falta de stock: «no queda salmorejo, que sea gazpacho»). Decidido tras las pruebas en tienda (23/10/2026):
+ * - solo un pase fired, y con respuesta nueva (no se puede dejar un pase marchado sin nada) → si no, 422 VALIDATION;
+ * - el pase sigue fired con firedAt = ahora y las respuestas nuevas (el precio se recalcula con sus suplementos);
+ * - con cobros, la cuenta no puede quedar por debajo de lo cobrado → 409 TOTAL_BELOW_PAID;
+ * - devuelve la respuesta anterior (para el historial) y la pieza de comanda: «>> CAMBIO 1.º» con la nota «ANTES: SALMOREJO».
+ * El motivo y el permiso (pedido.elimEnviado) los comprueba quien llama, como al eliminar algo enviado.
+ */
+export function changeFiredCourse(
+  acc: Account,
+  lineId: string,
+  course: number,
+  mods: Modifier[],
+  now: Date,
+): { account: Account; before: Modifier[]; item: KitchenItem } {
+  if (acc.status !== "open") {
+    fail("ACCOUNT_CLOSED", "La cuenta ya está facturada", { accountId: acc.id });
+  }
+  const out = clone(acc);
+  const l = out.lines.find((x) => x.id === lineId) ?? fail("NOT_FOUND", "La línea no existe", { lineId });
+  const c =
+    l!.courses?.find((x) => x.course === course) ??
+    fail("VALIDATION", "Ese pase no existe en la línea", { field: "course" });
+  if (c!.state !== "fired") {
+    fail("VALIDATION", `${courseLabel(course)} aún no está marchado`, { field: "course" });
+  }
+  if (!mods.length) {
+    fail("VALIDATION", `Elige la respuesta nueva de ${courseLabel(course)}`, { field: "modifiers" });
+  }
+  const before = l!.modifiers.filter((m) => m.course === course);
+  const next = mods.map((m) => ({ ...m, course, questionId: c!.questionId }));
+  l!.modifiers = [...l!.modifiers.filter((m) => m.course !== course), ...next];
+  c!.state = "fired";
+  c!.firedAt = now.toISOString();
+  assertTotalCoversPaid(out);
+  const food = course >= 1;
+  const item: KitchenItem = {
+    lineId: l!.id,
+    plu: next.find((m) => m.plu)?.plu ?? l!.productId,
+    quantity: l!.quantity,
+    name: l!.name,
+    comment: food ? l!.comment : "",
+    modifiers: next,
+    tag: changeTag(course),
+    notes: [`ANTES: ${before.map((m) => m.name.toUpperCase()).join(", ") || "SIN ELEGIR"}`],
+  };
+  return { account: out, before, item };
 }

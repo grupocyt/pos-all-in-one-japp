@@ -988,6 +988,18 @@ export class OrdersApplication {
     }));
   }
 
+  /**
+   * Nombres de TODAS las cuentas de la orden, también las anuladas (load() no las trae), para que el siguiente
+   * «Cuenta N» (nextAccountName) nunca repita un número ya usado en la mesa.
+   */
+  async accountNames(tx: Tx, storeId: string, orderId: string): Promise<string[]> {
+    const rows = await tx
+      .select({ name: s.account.name })
+      .from(s.account)
+      .where(and(eq(s.account.orderId, orderId), eq(s.account.storeId, storeId)));
+    return rows.map((r) => r.name);
+  }
+
   /** Reabrir mesa: las cuentas anuladas indicadas vuelven a open (sin quién la cerró). */
   async reopenAccounts(tx: Tx, storeId: string, orderId: string, ids: string[]) {
     if (!ids.length) {

@@ -117,14 +117,9 @@ describe("factura completa F1", () => {
 });
 
 describe("mesa", () => {
-  it("transferir a una mesa libre (no a una ocupada) y queda en el historial", async () => {
+  // a una mesa ocupada ya no es TABLE_BUSY: se juntan (23/10/2026, pruebas en correcciones-tienda.test.ts)
+  it("transferir a una mesa libre y queda en el historial", async () => {
     const o = await newOrder();
-    const busy = await newOrder();
-    const busyTable = (await t.call("GET", `/orders/${busy.id}`, { token: mesero })).body.tableData.tableId;
-    expect(
-      (await t.call("POST", `/orders/${o.id}/transfer`, { token: mesero, body: { toTableId: busyTable } }))
-        .error.code,
-    ).toBe("TABLE_BUSY");
     const to = await freeTable(t, "TERRAZA");
     const r = await t.call("POST", `/orders/${o.id}/transfer`, { token: mesero, body: { toTableId: to } });
     expect(r.status, JSON.stringify(r.body)).toBe(200);

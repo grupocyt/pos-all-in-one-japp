@@ -4,6 +4,7 @@ import { checkWithManager, type Profile, type UserLike } from "./permissions.js"
 import { priceFor } from "./pricing.js";
 import { accountTotals, assertTotalCoversPaid } from "./totals.js";
 import { sendWithCourses, type KitchenItem } from "./courses.js";
+import { nextAccountName } from "./accountNames.js";
 import type { Account, Area, DeletedLine, Line, LineCourse, Modifier, Order, Product } from "./types.js";
 
 export const DUPLICATE_WINDOW_MIN = 3; // Parámetros › dupMin
@@ -253,7 +254,7 @@ export const isMovable = (a: Account) => a.status === "open" && a.payments.lengt
 /**
  * Pasar unidades entre cuentas (= «Separar cuenta»):
  * - origen y destino abiertos y sin cobros;
- * - target "new" crea «Cuenta N+1»;
+ * - target "new" crea la cuenta con nextAccountName (nunca repite un número, también los de cuentas ya anuladas: knownNames);
  * - si en destino hay una línea igual (sameKey) suma, si no copia la línea con id nuevo;
  * - el origen se queda sin la línea al llegar a 0; si queda vacío (y sin borradas) y hay más cuentas, desaparece.
  */
@@ -263,6 +264,7 @@ export function moveUnits(
   target: string | "new",
   pick: Record<string, number>,
   ctx: Ctx,
+  knownNames: readonly string[] = [],
 ): { order: Order; destId: string } {
   const out = clone(order);
   const src =
@@ -275,7 +277,7 @@ export function moveUnits(
   if (target === "new") {
     dest = {
       id: ctx.newId(),
-      name: `Cuenta ${out.accounts.length + 1}`,
+      name: nextAccountName(out, knownNames),
       status: "open",
       lines: [],
       deletedLines: [],

@@ -83,9 +83,8 @@ describe("factura simplificada (formato del ticket de ejemplo)", () => {
       "================================================",
       "Uds.   Producto                          Importe",
       "------------------------------------------------",
+      // sin desglose de respuestas: una línea por producto con su importe (decidido 23/10/2026)
       "   1   Hamburguesa                        5,00 €",
-      "         c. Queso",
-      "         c. Bacon",
       "   1   Coca Cola                          3,00 €",
       "------------------------------------------------",
       "  10,00 %: Base:      7,27 € Cuota:       0,73 €",
@@ -99,6 +98,8 @@ describe("factura simplificada (formato del ticket de ejemplo)", () => {
       "",
       "                   [QR ··]",
       "                 QR tributario:",
+      "         Factura verificable en la sede",
+      "             electrónica de la AEAT",
     ]);
   });
   it("lleva los datos obligatorios del emisor y la leyenda VERI*FACTU", () => {
@@ -126,7 +127,7 @@ describe("factura simplificada (formato del ticket de ejemplo)", () => {
     expect(t).toContain("                    FACTURA\n");
     expect(t).toContain("Cliente:\nEventos Madrid SL\nNIF: B12345674\nCalle Mayor 10, 28013 Madrid");
   });
-  it("modificador con precio: su importe en su propia línea y el total cuadra", () => {
+  it("modificador con precio: va sumado en la línea del producto (sin «c. …») y el total cuadra", () => {
     const acc = account({
       lines: [
         line({
@@ -138,8 +139,8 @@ describe("factura simplificada (formato del ticket de ejemplo)", () => {
       ],
     });
     const t = renderText(preBillTicket(acc, tctx)).split("\n");
-    expect(t).toContain("   2   Tosta                             17,00 €");
-    expect(t).toContain("         c. 2 Extra jamón                 3,00 €");
+    expect(t).toContain("   2   Tosta                             20,00 €");
+    expect(t.some((x) => x.includes("Extra jamón") || x.includes("c. "))).toBe(false);
     expect(t).toContain("Total (Impuestos Incl.)                  20,00 €");
   });
 });

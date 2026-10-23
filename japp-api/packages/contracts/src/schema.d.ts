@@ -167,7 +167,7 @@ export interface paths {
         put?: never;
         /**
          * Cerrar periodo con arqueo
-         * @description Solo desde la caja principal (403 MAIN_STATION_REQUIRED «Solo desde la caja principal»). Guarda el arqueo final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar con mesas abiertas.
+         * @description Solo desde la caja principal (403 MAIN_STATION_REQUIRED «Solo desde la caja principal»). Guarda el arqueo final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar con mesas abiertas. Si el efectivo contado descuadra más que el umbral y no hay nota → 422 VALIDATION (field note) con details {expectedCash, countedCash, difference, threshold}: lo esperado según el servidor.
          *
          *     Permiso: funciones.periodo
          *
@@ -657,7 +657,9 @@ export interface paths {
         put?: never;
         /**
          * Nueva cuenta
-         * @description Permiso: pedido.cuentas
+         * @description Sin name la cuenta se llama «Cuenta N», con N = el número más alto usado en la mesa + 1 (también las anuladas): nunca se repite un número. Con name, si repite el de otra cuenta de la mesa → 409 DUPLICATE (field name).
+         *
+         *     Permiso: pedido.cuentas
          *
          *     Lo llama: TPV, PDA
          *
@@ -840,7 +842,7 @@ export interface paths {
         get?: never;
         /**
          * Elegir un pase del menú
-         * @description Menú por pases: elige (o cambia) las respuestas de un pase que aún no ha salido (1.º, 2.º, postre). Queda «ready» y sale con el siguiente envío (POST …/send) si es el siguiente pase; si no, queda «en espera» hasta marcharlo. Las preguntas con pase se configuran en Ajustes › Preguntas (question.course: 0 bebida, 1 primero, 2 segundo, 3 postre).
+         * @description Menú por pases: elige (o cambia) las respuestas de un pase que aún no ha salido (1.º, 2.º, postre). Queda «ready» y sale con el siguiente envío (POST …/send) si es el siguiente pase; si no, queda «en espera» hasta marcharlo. Las preguntas con pase se configuran en Ajustes › Preguntas (question.course: 0 bebida, 1 primero, 2 segundo, 3 postre). Cambiar un pase ya marchado: pide pedido.elimEnviado (o authorization) y un motivo (reasonId de Ajustes › Motivos o reason, texto de hasta 120); sin motivo → 422 VALIDATION (field reason). Sale una comanda «>> CAMBIO» con lo de antes, después del COMMIT, y queda el evento courseChanged.
          *
          *     Lo llama: TPV, PDA
          *
@@ -1317,7 +1319,7 @@ export interface paths {
         put?: never;
         /**
          * Vista previa de un ticket de ejemplo
-         * @description kind = test (caracteres y tamaños), kitchen (comanda), menu (comanda por pases), prebill (precuenta) o invoice (factura simplificada). Mismo formato que imprime la API (48 columnas).
+         * @description kind = test (caracteres y tamaños), kitchen (comanda), menu (comanda por pases), prebill (precuenta), invoice (factura simplificada), void (anulación), cutx (corte X), cutz (corte Z) u oot (QR de Order on Table). Mismo formato que imprime la API (48 columnas).
          *
          *     Permiso: ajustes.impresoras
          *
@@ -1413,7 +1415,7 @@ export interface paths {
         put?: never;
         /**
          * Página de prueba
-         * @description Imprime un ticket de ejemplo (kind, por defecto test) en una impresora dada de alta.
+         * @description Imprime un ticket de ejemplo (kind: test por defecto, kitchen, menu, prebill, invoice, void, cutx, cutz u oot) en una impresora dada de alta.
          *
          *     Permiso: ajustes.impresoras
          *
@@ -2253,7 +2255,7 @@ export interface paths {
         put?: never;
         /**
          * Cambiar de mesa (mesa entera o una cuenta)
-         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa libre toTableId (ocupada → 409 TABLE_BUSY). scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan.
+         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId; si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan.
          *
          *     Permiso: mesas.transferir
          *
@@ -5786,6 +5788,24 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
+            /** @description DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     store_POST_orders_orderId_close: {
@@ -6155,7 +6175,10 @@ export interface operations {
                  *           "quantity": 1
                  *         }
                  *       ],
-                 *       "version": 9
+                 *       "version": 9,
+                 *       "reasonId": null,
+                 *       "reason": null,
+                 *       "authorization": null
                  *     } */
                 "application/json": {
                     course?: number | null;
@@ -6164,6 +6187,9 @@ export interface operations {
                         quantity?: number;
                     }[];
                     version?: number;
+                    reasonId?: unknown;
+                    reason?: unknown;
+                    authorization?: unknown;
                 };
             };
         };
@@ -6181,7 +6207,16 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. */
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6192,6 +6227,15 @@ export interface operations {
             };
             /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

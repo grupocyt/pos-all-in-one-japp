@@ -2991,7 +2991,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details></div><div class="mi" id="aj-equipos-prueba-de-impresoras"><h4>Prueba de impresoras</h4><details class="ep" id="post-printers-preview-aj">
 <summary><span class="m post">POST</span><code class="p">/printers/preview</code><span class="s">Vista previa de un ticket de ejemplo</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
-<p>kind = test (caracteres y tamaños), kitchen (comanda), menu (comanda por pases), prebill (precuenta) o invoice (factura simplificada). Mismo formato que imprime la API (48 columnas).</p>
+<p>kind = test (caracteres y tamaños), kitchen (comanda), menu (comanda por pases), prebill (precuenta), invoice (factura simplificada), void (anulación), cutx (corte X), cutz (corte Z) u oot (QR de Order on Table). Mismo formato que imprime la API (48 columnas).</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>ajustes.impresoras</code></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -3102,7 +3102,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-printers-printerid-test-aj">
 <summary><span class="m post">POST</span><code class="p">/printers/{printerId}/test</code><span class="s">Página de prueba</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
-<p>Imprime un ticket de ejemplo (kind, por defecto test) en una impresora dada de alta.</p>
+<p>Imprime un ticket de ejemplo (kind: test por defecto, kitchen, menu, prebill, invoice, void, cutx, cutz u oot) en una impresora dada de alta.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>ajustes.impresoras</code></dd><dt>Tablas</dt><dd><code>printer</code></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -4539,7 +4539,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-periods-periodid-close-tx">
 <summary><span class="m post">POST</span><code class="p">/periods/{periodId}/close</code><span class="s">Cerrar periodo con arqueo</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
-<p>Solo desde la caja principal (403 MAIN_STATION_REQUIRED «Solo desde la caja principal»). Guarda el arqueo final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar con mesas abiertas.</p>
+<p>Solo desde la caja principal (403 MAIN_STATION_REQUIRED «Solo desde la caja principal»). Guarda el arqueo final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar con mesas abiertas. Si el efectivo contado descuadra más que el umbral y no hay nota → 422 VALIDATION (field note) con details {expectedCash, countedCash, difference, threshold}: lo esperado según el servidor.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.periodo</code></dd><dt>En el TPV</dt><dd>Gestiones › Cerrar periodo</dd><dt>Tablas</dt><dd><code>sales_period</code> <code>cash_closing</code> <code>incident_request</code> <code>product_incident</code> <code>sync_outbox</code></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -5334,7 +5334,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-orders-orderid-accounts-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/accounts</code><span class="s">Nueva cuenta</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
-
+<p>Sin name la cuenta se llama «Cuenta N», con N = el número más alto usado en la mesa + 1 (también las anuladas): nunca se repite un número. Con name, si repite el de otra cuenta de la mesa → 409 DUPLICATE (field name).</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>pedido.cuentas</code></dd><dt>Tablas</dt><dd><code>account</code> <code>order_event</code></dd><dt>Notas</dt><dd><span class="flag">Idempotente</span></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -5350,7 +5350,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
-
+<h5>Errores</h5><ul class="pl"><li><code>DUPLICATE</code> <span class="pin">409</span> Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</li><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>ACCOUNT_CLOSED</code> <span class="pin">409</span> La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</li></ul>
 </div></details><details class="ep" id="post-orders-orderid-close-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/close</code><span class="s">Cerrar mesa sin venta</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
@@ -5426,7 +5426,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-orders-orderid-transfer-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/transfer</code><span class="s">Cambiar de mesa (mesa entera o una cuenta)</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
-<p>Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa libre toTableId (ocupada → 409 TABLE_BUSY). scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan.</p>
+<p>Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId; si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>mesas.transferir</code></dd><dt>En el TPV</dt><dd>Transferir · Separar › Cambiar mesa</dd><dt>Tablas</dt><dd><code>orders</code> <code>account</code> <code>order_line</code> <code>order_event</code> <code>sync_outbox</code></dd><dt>Notas</dt><dd><span class="flag">Idempotente</span><span class="flag">Con versión</span></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -5909,7 +5909,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="put-orders-orderid-lines-lineid-answers-tx">
 <summary><span class="m put">PUT</span><code class="p">/orders/{orderId}/lines/{lineId}/answers</code><span class="s">Elegir un pase del menú</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
-<p>Menú por pases: elige (o cambia) las respuestas de un pase que aún no ha salido (1.º, 2.º, postre). Queda «ready» y sale con el siguiente envío (POST …/send) si es el siguiente pase; si no, queda «en espera» hasta marcharlo. Las preguntas con pase se configuran en Ajustes › Preguntas (question.course: 0 bebida, 1 primero, 2 segundo, 3 postre).</p>
+<p>Menú por pases: elige (o cambia) las respuestas de un pase que aún no ha salido (1.º, 2.º, postre). Queda «ready» y sale con el siguiente envío (POST …/send) si es el siguiente pase; si no, queda «en espera» hasta marcharlo. Las preguntas con pase se configuran en Ajustes › Preguntas (question.course: 0 bebida, 1 primero, 2 segundo, 3 postre). Cambiar un pase ya marchado: pide pedido.elimEnviado (o authorization) y un motivo (reasonId de Ajustes › Motivos o reason, texto de hasta 120); sin motivo → 422 VALIDATION (field reason). Sale una comanda «&gt;&gt; CAMBIO» con lo de antes, después del COMMIT, y queda el evento courseChanged.</p>
 <dl class="meta"><dt>En el TPV</dt><dd>Línea del menú › «Elegir 1.º»</dd><dt>Tablas</dt><dd><code>order_line</code> <code>order_line_modifier</code> <code>order_event</code></dd><dt>Notas</dt><dd><span class="flag">Con versión</span></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -5920,7 +5920,10 @@ footer{color:var(--muted);font-size:13px;text-align:center}
       &quot;quantity&quot;: 1
     }
   ],
-  &quot;version&quot;: 9
+  &quot;version&quot;: 9,
+  &quot;reasonId&quot;: null,
+  &quot;reason&quot;: null,
+  &quot;authorization&quot;: null
 }</code></pre></div><div><h5>Responde 200</h5><p class="muted">En <code>data</code>, la transacción completa (ver «Transacción»).</p><pre class="ex"><code>{
   &quot;title&quot;: &quot;Elegir un pase del menú&quot;,
   &quot;type&quot;: &quot;success&quot;,
@@ -5931,7 +5934,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
-<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</li><li><code>ACCOUNT_CLOSED</code> <span class="pin">409</span> La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</li></ul>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</li><li><code>ACCOUNT_CLOSED</code> <span class="pin">409</span> La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li><li><code>TOTAL_BELOW_PAID</code> <span class="pin">409</span> Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).</li><li><code>PRINTER_OFFLINE</code> <span class="pin">503</span> Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir.</li></ul>
 </div></details><details class="ep" id="post-orders-orderid-lines-lineid-fire-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/lines/{lineId}/fire</code><span class="s">Marchar un pase</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
@@ -9496,7 +9499,8 @@ paths:
       summary: Cerrar periodo con arqueo
       description: &#x27;Solo desde la caja principal (403 MAIN_STATION_REQUIRED «Solo desde la caja principal»). Guarda el arqueo
         final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar
-        con mesas abiertas.
+        con mesas abiertas. Si el efectivo contado descuadra más que el umbral y no hay nota → 422 VALIDATION (field note)
+        con details {expectedCash, countedCash, difference, threshold}: lo esperado según el servidor.
 
 
         Permiso: funciones.periodo
@@ -14609,7 +14613,11 @@ paths:
       tags:
       - API de tienda v2 · Órdenes y cuentas
       summary: Nueva cuenta
-      description: &#x27;Permiso: pedido.cuentas
+      description: &#x27;Sin name la cuenta se llama «Cuenta N», con N = el número más alto usado en la mesa + 1 (también las anuladas):
+        nunca se repite un número. Con name, si repite el de otra cuenta de la mesa → 409 DUPLICATE (field name).
+
+
+        Permiso: pedido.cuentas
 
 
         Lo llama: TPV, PDA
@@ -14638,6 +14646,45 @@ paths:
                 status: 201
                 data: *id002
                 errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · ACCOUNT_CLOSED:
+            La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Nueva cuenta
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: DUPLICATE
+                  message: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Nueva cuenta
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
@@ -15344,6 +15391,9 @@ paths:
       description: &#x27;Menú por pases: elige (o cambia) las respuestas de un pase que aún no ha salido (1.º, 2.º, postre). Queda
         «ready» y sale con el siguiente envío (POST …/send) si es el siguiente pase; si no, queda «en espera» hasta marcharlo.
         Las preguntas con pase se configuran en Ajustes › Preguntas (question.course: 0 bebida, 1 primero, 2 segundo, 3 postre).
+        Cambiar un pase ya marchado: pide pedido.elimEnviado (o authorization) y un motivo (reasonId de Ajustes › Motivos
+        o reason, texto de hasta 120); sin motivo → 422 VALIDATION (field reason). Sale una comanda «&gt;&gt; CAMBIO» con lo de
+        antes, después del COMMIT, y queda el evento courseChanged.
 
 
         Lo llama: TPV, PDA
@@ -15396,7 +15446,8 @@ paths:
                 mode: developer
         &#x27;409&#x27;:
           description: &#x27;VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo
-            la pinta y reintenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.&#x27;
+            la pinta y reintenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.
+            · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).&#x27;
           content:
             application/json:
               schema:
@@ -15410,6 +15461,50 @@ paths:
                 - code: VERSION_CONFLICT
                   message: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta
                     y reintenta.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Elegir un pase del menú
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;503&#x27;:
+          description: &#x27;PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo
+            que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta:
+            repetir la llamada la vuelve a imprimir.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Elegir un pase del menú
+                type: error
+                status: 503
+                data: null
+                errors:
+                - code: PRINTER_OFFLINE
+                  message: &#x27;Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió
+                    queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir
+                    la llamada la vuelve a imprimir.&#x27;
                   field: null
                   details: {}
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
@@ -15450,12 +15545,18 @@ paths:
                         type: integer
                 version:
                   type: integer
+                reasonId: {}
+                reason: {}
+                authorization: {}
             example:
               course: 1
               modifiers:
               - plu: 7001
                 quantity: 1
               version: 9
+              reasonId: null
+              reason: null
+              authorization: null
       x-concurrency: Lleva version; si no coincide responde 409 VERSION_CONFLICT con la transacción actual
   /api/v2/orders/{orderId}/lines/{lineId}/fire:
     post:
@@ -18416,8 +18517,9 @@ paths:
       tags:
       - API de tienda v2 · Prueba de impresoras
       summary: Vista previa de un ticket de ejemplo
-      description: &#x27;kind = test (caracteres y tamaños), kitchen (comanda), menu (comanda por pases), prebill (precuenta) o
-        invoice (factura simplificada). Mismo formato que imprime la API (48 columnas).
+      description: &#x27;kind = test (caracteres y tamaños), kitchen (comanda), menu (comanda por pases), prebill (precuenta),
+        invoice (factura simplificada), void (anulación), cutx (corte X), cutz (corte Z) u oot (QR de Order on Table). Mismo
+        formato que imprime la API (48 columnas).
 
 
         Permiso: ajustes.impresoras
@@ -18808,7 +18910,8 @@ paths:
       tags:
       - API de tienda v2 · Prueba de impresoras
       summary: Página de prueba
-      description: &#x27;Imprime un ticket de ejemplo (kind, por defecto test) en una impresora dada de alta.
+      description: &#x27;Imprime un ticket de ejemplo (kind: test por defecto, kitchen, menu, prebill, invoice, void, cutx, cutz
+        u oot) en una impresora dada de alta.
 
 
         Permiso: ajustes.impresoras
@@ -23187,11 +23290,14 @@ paths:
       tags:
       - API de tienda v2 · Órdenes y cuentas
       summary: Cambiar de mesa (mesa entera o una cuenta)
-      description: &#x27;Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa libre toTableId
-        (ocupada → 409 TABLE_BUSY). scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta
-        a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER).
-        version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera).
-        POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan.
+      description: &#x27;Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId;
+        si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas
+        a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con
+        otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account:
+        la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada
+        → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde
+        la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue
+        para los equipos que ya lo usan.
 
 
         Permiso: mesas.transferir

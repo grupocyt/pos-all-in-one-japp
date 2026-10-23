@@ -128,21 +128,21 @@ function storeBlock(s: StoreHeader): TicketLine[] {
   return out;
 }
 
-/** Cuerpo común de factura y precuenta: productos, descuentos, IVA y total. */
+/**
+ * Cuerpo común de factura y precuenta: productos, descuentos, IVA y total.
+ * Una línea por producto con su importe total, suplementos de sus respuestas incluidos (lineAmount). Las respuestas y
+ * los pases del menú no se listan (decidido tras las pruebas en tienda, 23/10/2026): son desglose interno de cocina y
+ * al cliente solo le importa qué paga por cada producto. La comanda (kitchenTicket) sí los sigue mostrando.
+ */
 function body(acc: Account): TicketLine[] {
   const out: TicketLine[] = [T(lr("Uds.   Producto", "Importe")), R("-")];
   const AMT = 11;
   const NAME = WIDTH - 7 - AMT;
   for (const l of acc.lines) {
-    const amount = eur(lineAmount({ ...l, modifiers: l.modifiers.filter((m) => !m.unitPrice) }));
+    const amount = eur(lineAmount(l));
     const names = wrap(l.name, NAME);
     out.push(T(padL(String(l.quantity), 4) + "   " + padR(names[0]!, NAME) + padL(amount, AMT)));
     names.slice(1).forEach((n) => out.push(T(" ".repeat(7) + n)));
-    for (const m of l.modifiers) {
-      const q = (m.quantity ?? 1) * l.quantity;
-      const label = " ".repeat(9) + "c. " + (q > 1 && m.unitPrice ? `${q} ` : "") + m.name;
-      out.push(T(m.unitPrice ? lr(label, eur(m.unitPrice * q)) : label));
-    }
   }
   out.push(R("-"));
   const tt = accountTotals(acc);
@@ -398,6 +398,123 @@ export function kitchenTicket(
       wrap(`   (${n})`, WIDTH).forEach((x) => out.push(T(x)));
     }
   });
+  out.push({ k: "feed", n: 3 }, { k: "cut" });
+  return out;
+}
+
+/** Lo que lleva el ticket de una anulación (una línea eliminada después de enviarla). */
+export interface VoidTicketData {
+  table: { name: string; area: string };
+  product: string;
+  quantity: number;
+  /** importe anulado (con los suplementos de sus respuestas), en positivo */
+  amount: number;
+  reason: string;
+  /** quién la eliminó */
+  user: string;
+  /** quién autorizó (encargado), si hizo falta */
+  authorizedBy?: string | null;
+  at: Date;
+}
+
+/**
+ * Ticket de anulación (para el encargado / control): «ANULACIÓN» en grande, mesa, producto y unidades, motivo,
+ * quién la eliminó y quién autorizó, e importe anulado en negativo.
+ */
+export function voidTicket(
+  v: VoidTicketData,
+  store?: Pick<StoreHeader, "tradeName" | "legalName">,
+): TicketLine[] {
+  const when = madridParts(v.at);
+  const out: TicketLine[] = [];
+  if (store) {
+    out.push(T(store.tradeName || store.legalName, { align: "center", bold: true }));
+  }
+  out.push(
+    T("ANULACIÓN", { align: "center", size: "wh", bold: true }),
+    R("="),
+    T(lr(`Mesa ${v.table.name} ${v.table.area}`.trim(), `${when.date} ${when.hm}`), { bold: true }),
+    R("-"),
+  );
+  const AMT = 11;
+  const NAME = WIDTH - 7 - AMT;
+  const names = wrap(v.product, NAME);
+  out.push(
+    T(padL(String(v.quantity), 4) + "   " + padR(names[0]!, NAME) + padL(eur(-Math.abs(v.amount)), AMT)),
+  );
+  names.slice(1).forEach((n) => out.push(T(" ".repeat(7) + n)));
+  out.push(R("-"));
+  wrap(`Motivo: ${v.reason}`, WIDTH).forEach((x) => out.push(T(x)));
+  out.push(T(`Eliminado por: ${v.user}`));
+  if (v.authorizedBy) {
+    out.push(T(`Autorizado por: ${v.authorizedBy}`));
+  }
+  out.push(R("="), T(lr("Importe anulado", eur(-Math.abs(v.amount))), { bold: true }));
+  out.push({ k: "feed", n: 3 }, { k: "cut" });
+  return out;
+}
+
+/** Lo que lleva un corte X (lectura sin cerrar) o Z (cierre del periodo). */
+export interface CutTicketData {
+  kind: "X" | "Z";
+  store: Pick<StoreHeader, "tradeName" | "legalName" | "taxId">;
+  /** estación o caja del corte */
+  station?: string;
+  from: Date;
+  to: Date;
+  /** ventas por forma de pago (nombre como en Ajustes), con cuántos cobros si se sabe */
+  byMethod: { name: string; amount: number; count?: number }[];
+  tickets: number;
+  expectedCash: number;
+  /** número de cierre (solo Z), si lo hay */
+  closingNumber?: number | null;
+  user: string;
+}
+
+/**
+ * Corte X / Corte Z (48 columnas): título, periodo (desde–hasta), ventas por forma de pago y su total, número de
+ * tickets y efectivo esperado en caja. El Z lleva «Z nº N» si hay número de cierre; el X avisa de que no cierra nada.
+ */
+export function cutTicket(c: CutTicketData): TicketLine[] {
+  const from = madridParts(c.from);
+  const to = madridParts(c.to);
+  const out: TicketLine[] = [
+    T(c.store.tradeName || c.store.legalName, { align: "center", bold: true }),
+    T(`NIF: ${c.store.taxId}`, { align: "center" }),
+    R("="),
+    T(`CORTE ${c.kind}`, { align: "center", size: "wh", bold: true }),
+  ];
+  if (c.kind === "Z" && c.closingNumber != null) {
+    out.push(T(`Z nº ${String(c.closingNumber).padStart(4, "0")}`, { align: "center", bold: true }));
+  }
+  if (c.kind === "X") {
+    out.push(T("Lectura sin cierre", { align: "center" }));
+  }
+  out.push(R("-"));
+  if (c.station) {
+    out.push(T(lr("Caja", c.station)));
+  }
+  out.push(
+    T(lr("Desde", `${from.date} ${from.hm}`)),
+    T(lr("Hasta", `${to.date} ${to.hm}`)),
+    T(lr("Usuario", c.user)),
+    R("="),
+    T("VENTAS POR FORMA DE PAGO", { bold: true }),
+    R("-"),
+  );
+  for (const m of c.byMethod) {
+    const label = m.count != null ? `${m.name} (${m.count})` : m.name;
+    out.push(T(lr(label, eur(m.amount))));
+  }
+  const total = r2(sum(c.byMethod.map((m) => m.amount)));
+  out.push(
+    R("-"),
+    T(lr("Total ventas", eur(total)), { bold: true }),
+    T(lr("Tickets", String(c.tickets))),
+    R("="),
+    T(lr("Efectivo esperado", eur(c.expectedCash)), { bold: true }),
+    R("="),
+  );
   out.push({ k: "feed", n: 3 }, { k: "cut" });
   return out;
 }

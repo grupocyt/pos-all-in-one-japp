@@ -1,7 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  cutTicket,
   fail,
   invoiceTicket,
+  ootQrTicket,
+  ootUrl,
+  voidTicket,
   issueInvoice,
   kitchenTicket,
   preBillTicket,
@@ -42,7 +46,7 @@ export class PrintersService {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  /** Tickets de ejemplo con el formato real (comanda, menú por pases, precuenta, factura) o la hoja de prueba de caracteres. */
+  /** Tickets de ejemplo con el formato real (comanda, menú por pases, precuenta, factura, anulación, corte X/Z, QR de Order on Table) o la hoja de prueba de caracteres. */
   private async sample(b: SampleInput, connection = ""): Promise<TicketLine[]> {
     const now = this.clock();
     const st = await this.stores.store();
@@ -161,6 +165,47 @@ export class PrintersService {
         issueInvoice(paid, 1, { serieF: "PRUEBA-F", serieT: "PRUEBA-T", nif: st.nif }, ctx),
         { ...tctx, paymentNames: { cash: "Efectivo", card: "Tarjeta" } },
       );
+    }
+    if (b.kind === "void") {
+      return voidTicket(
+        {
+          table: tctx.table,
+          product: "Croquetas de boletus (media)",
+          quantity: 2,
+          amount: 11.9,
+          reason: "Error al marcar",
+          user: b.waiter,
+          authorizedBy: "Encargado",
+          at: now,
+        },
+        tctx.store,
+      );
+    }
+    if (b.kind === "cutx" || b.kind === "cutz") {
+      return cutTicket({
+        kind: b.kind === "cutx" ? "X" : "Z",
+        store: tctx.store,
+        station: "CAJA1",
+        from: new Date(now.getTime() - 8 * 3600 * 1000),
+        to: now,
+        byMethod: [
+          { name: "Efectivo", amount: 245.3, count: 18 },
+          { name: "Tarjeta", amount: 612.75, count: 41 },
+          { name: "Bizum", amount: 34.5, count: 3 },
+        ],
+        tickets: 62,
+        expectedCash: 395.3,
+        closingNumber: b.kind === "cutz" ? 1 : null,
+        user: b.waiter,
+      });
+    }
+    if (b.kind === "oot") {
+      return ootQrTicket({
+        store: { tradeName: st.name, legalName: st.issuerName },
+        table: tctx.table,
+        url: ootUrl("https://japp.grupocyt.com.es/", "PRUEBA"),
+        at: now,
+      });
     }
     const T = (text: string, x: Record<string, unknown> = {}) => ({ k: "text", text, ...x }) as TicketLine;
     return [

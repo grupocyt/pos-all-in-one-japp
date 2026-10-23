@@ -93,9 +93,13 @@ export class PeriodsService {
       const c = await this.periods.cashState(tx, session.storeId, periodId, store.cashFloat);
       const d = cashDifference(b.countedCash, c.expected, store.cashDiffThreshold);
       if (d.needsReason && !b.note?.trim()) {
+        // con los datos de la API, para que el TPV enseñe lo esperado, lo contado y el umbral sin calcularlos él
         fail("VALIDATION", "El descuadre supera el umbral: escribe el motivo", {
           field: "note",
+          expectedCash: c.expected,
+          countedCash: b.countedCash,
           difference: d.diff,
+          threshold: store.cashDiffThreshold,
         });
       }
       await this.periods.insertClosing(

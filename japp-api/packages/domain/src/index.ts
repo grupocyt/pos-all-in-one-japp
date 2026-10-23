@@ -29,6 +29,7 @@ export * from "./closings.js";
 export * from "./stations.js";
 export * from "./presence.js";
 export * from "./transfer.js";
+export * from "./accountNames.js";
 export * from "./devices.js";
 export * from "./cartaSync.js";
 export * from "./oot.js";
