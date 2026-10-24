@@ -768,6 +768,7 @@ export const paymentMethod = pgTable("payment_method", {
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
+	externalId: varchar("external_id", { length: 60 }),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],

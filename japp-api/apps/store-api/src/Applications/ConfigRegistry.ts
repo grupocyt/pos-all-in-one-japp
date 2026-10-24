@@ -327,6 +327,7 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       kind: F("kind", "s", z.enum(["cash", "card", "platform", "voucher"]), "Tipo", { required: true }),
       opensDrawer: F("opens_drawer", "b", z.boolean(), "Abre cajón", { default: false }),
       allowsTip: F("allows_tip", "b", z.boolean(), "Admite propina", { default: false }),
+      externalId: F("external_id", "s", optStr(60), "Id de integración"),
     },
   },
   descuentos: {

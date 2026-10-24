@@ -33,6 +33,11 @@ describe("reglas en la base", () => {
     await c.query("UPDATE category SET external_id='MGR-C-1' WHERE id=$1", [k1.id]);
     await fails("UPDATE category SET external_id='MGR-C-1' WHERE id=$1", [k2.id], "23505");
   }));
+  it("el id de integración de una forma de pago no se repite en la tienda (23505, migración 0014)", () => rollback(c, async () => {
+    const [m1, m2] = (await c.query("SELECT id FROM payment_method WHERE store_id=$1 ORDER BY code LIMIT 2", [store])).rows;
+    await c.query("UPDATE payment_method SET external_id='PAG-1' WHERE id=$1", [m1.id]);
+    await fails("UPDATE payment_method SET external_id='PAG-1' WHERE id=$1", [m2.id], "23505");
+  }));
   it("una orden tiene como mucho un token de Order on Table vigente (23505, migración 0012)", () => rollback(c, async () => {
     const o = uuid();
     await c.query(`INSERT INTO orders (id, store_id, table_name, opened_by_user_name, opened_by_at) VALUES ($1,$2,'1','x',now())`, [o, store]);

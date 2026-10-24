@@ -30,7 +30,7 @@ Plan de Kevin: Node.js + TypeScript, PostgreSQL, Docker, Traefik; API de tienda 
 packages/domain/      reglas puras, sin E/S (251 pruebas), incluidos los tickets (tickets.ts). No importa nada de Nest, Drizzle ni pg
 packages/contracts/   tipos + validador generados de docs/openapi.yaml (npm run contracts)
 packages/db/          esquema Drizzle (npm run db:pull) + pool + withTx
-apps/store-api/       NestJS + Fastify: API de tienda /api/v2 (255 pruebas de integración contra PostgreSQL)
+apps/store-api/       NestJS + Fastify: API de tienda /api/v2 (258 pruebas de integración contra PostgreSQL)
   src/Program.ts              arranque (lee Properties/AppSettings.ts y llama a Startup.buildApp)
   src/Startup.ts              módulo Nest: controladores, servicios, applications, filtro de errores, guard de sesión e interceptores
   src/Controllers/            HTTP: ruta, verbo, leer cuerpo/params, sesión, validar la forma (Models/) y llamar a UN método del servicio
@@ -238,7 +238,7 @@ Al terminar un cambio, la base debe pasar `../japp-db` → `npm run verify` (cua
 
 ```bash
 npm install
-npm test                       # dominio (251) + API (255) + agente (14) + Manager de pruebas (6); necesita PostgreSQL y ../japp-db
+npm test                       # dominio (251) + API (258) + agente (14) + Manager de pruebas (6); necesita PostgreSQL y ../japp-db
 npm run typecheck
 npm run db:init                # crea/actualiza la base de DATABASE_URL (esquema + migraciones; SEED=1 carga la Sucursal Pruebas)
 npm run dev                    # API en http://localhost:8080/api/v2 (recarga al guardar)

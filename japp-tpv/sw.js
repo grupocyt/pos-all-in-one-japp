@@ -1,5 +1,5 @@
 /* Japp TPV · service worker (rutas relativas: funciona en la raíz o en una subcarpeta) */
-const VERSION = "japp-tpv-v151";
+const VERSION = "japp-tpv-v155";
 const BASE = self.registration.scope;
 const U = p => new URL(p, BASE).href;
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png"].map(U);
