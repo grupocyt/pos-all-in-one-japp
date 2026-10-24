@@ -8,6 +8,7 @@ import pg from "pg";
 import { loadEnv } from "./env.mjs";
 import { migrate, readSql } from "./db.mjs";
 loadEnv();
+const seed = ["1", "true", "si", "sí"].includes(String(process.env.SEED ?? "").trim().toLowerCase()); // «set SEED=1 && …» en CMD deja un espacio al final
 const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
 await c.connect();
 try {
@@ -16,15 +17,15 @@ try {
   if (fresh) {
     await c.query("BEGIN");
     await c.query(readSql("01_esquema_postgres.sql"));
-    if (process.env.SEED === "1") {
+    if (seed) {
       await c.query(readSql("02_datos_arranque_postgres.sql"));
     }
     await c.query("COMMIT");
-    console.log(`✓ línea base aplicada${process.env.SEED === "1" ? " con la carta y los datos de arranque" : ""}`);
+    console.log(`✓ línea base aplicada${seed ? " con la carta y los datos de arranque" : ""}`);
   } else console.log("· la base ya tiene esquema");
   const done = await migrate(c, m => console.log(`✓ ${m}`));
   console.log(done.length ? `${done.length} migraciones aplicadas` : "· sin migraciones pendientes");
-  if (fresh && process.env.SEED === "1") {
+  if (fresh && seed) {
     await c.query("BEGIN");
     await c.query(readSql("04_datos_tienda_inicial.sql"));
     const code = process.env.STORE_CODE?.trim();
