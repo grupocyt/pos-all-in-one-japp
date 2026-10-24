@@ -8,7 +8,7 @@ Plan de Kevin: Node.js + TypeScript, PostgreSQL, Docker, Traefik; API de tienda 
 
 | Qué | Dónde | Regla |
 |---|---|---|
-| Contrato HTTP (119 endpoints, errores, ejemplos) | `docs/openapi.yaml` (versión legible: `docs/api-japp.html`) | La API cumple el contrato. Si hay que cambiarlo, se cambia primero el YAML |
+| Contrato HTTP (122 endpoints, errores, ejemplos) | `docs/openapi.yaml` (versión legible: `docs/api-japp.html`) | La API cumple el contrato. Si hay que cambiarlo, se cambia primero el YAML |
 | Reglas de negocio | `packages/domain` (251 pruebas) | Los controladores y servicios **no** calculan: llaman al dominio |
 | Esquema de base de datos | repo hermano `../japp-db` (`sql/01_esquema_postgres.sql`) | El back nunca crea ni altera tablas; se genera el esquema tipado con `drizzle-kit pull` |
 | Comportamiento esperado en pantalla | `docs/prototipo/tpv-japp.html` (abrir en el navegador; entrar con PIN 5845) | Si una regla no está en el dominio, búscala aquí y pórtala **con su prueba** |
@@ -30,7 +30,7 @@ Plan de Kevin: Node.js + TypeScript, PostgreSQL, Docker, Traefik; API de tienda 
 packages/domain/      reglas puras, sin E/S (251 pruebas), incluidos los tickets (tickets.ts). No importa nada de Nest, Drizzle ni pg
 packages/contracts/   tipos + validador generados de docs/openapi.yaml (npm run contracts)
 packages/db/          esquema Drizzle (npm run db:pull) + pool + withTx
-apps/store-api/       NestJS + Fastify: API de tienda /api/v2 (258 pruebas de integración contra PostgreSQL)
+apps/store-api/       NestJS + Fastify: API de tienda /api/v2 (264 pruebas de integración contra PostgreSQL)
   src/Program.ts              arranque (lee Properties/AppSettings.ts y llama a Startup.buildApp)
   src/Startup.ts              módulo Nest: controladores, servicios, applications, filtro de errores, guard de sesión e interceptores
   src/Controllers/            HTTP: ruta, verbo, leer cuerpo/params, sesión, validar la forma (Models/) y llamar a UN método del servicio
@@ -178,7 +178,7 @@ async addLine(session, orderId, b) {
 1. **Totales siempre en el servidor** con `accountTotals()`. Lo que mande el equipo es una pista, nunca la verdad. (El JSON de ejemplo trae `totals: {}`.)
 2. **Dinero en `decimal.js`**, redondeo a céntimos mitad hacia arriba (`r2`). Nada de sumar `number` a pelo.
 3. **Precio según la zona**: `priceFor()`. El área con `price_list = 'terrace'` usa `price_terrace` si es > 0.
-4. **Duplicados**: el mismo producto marcado por otra persona hace menos de `store_parameters.duplicate_minutes` (3) devuelve `409 DUPLICATE_SUSPECTED`; se reenvía con `force: true`.
+4. **Duplicados**: el mismo producto marcado desde otro equipo (24/10/2026; en el mismo equipo no se avisa) hace menos de `store_parameters.duplicate_minutes` (3) devuelve `409 DUPLICATE_SUSPECTED`; se reenvía con `force: true`.
 5. **Borrar líneas**:
    - «Por enviar»: se quita sin más.
    - Enviada: pide `pedido.elimEnviado`. En precuenta: pide `pedido.elimPrecuenta`.
@@ -238,7 +238,7 @@ Al terminar un cambio, la base debe pasar `../japp-db` → `npm run verify` (cua
 
 ```bash
 npm install
-npm test                       # dominio (251) + API (258) + agente (14) + Manager de pruebas (6); necesita PostgreSQL y ../japp-db
+npm test                       # dominio (255) + API (264) + agente (14) + Manager de pruebas (6); necesita PostgreSQL y ../japp-db
 npm run typecheck
 npm run db:init                # crea/actualiza la base de DATABASE_URL (esquema + migraciones; SEED=1 carga la Sucursal Pruebas)
 npm run dev                    # API en http://localhost:8080/api/v2 (recarga al guardar)

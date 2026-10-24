@@ -6454,13 +6454,13 @@ paths:
       tags:
       - API de tienda v2 · Productos de la cuenta
       summary: Añadir producto
-      description: 'El precio lo pone la tienda según el área (PVP general o terraza), nunca el equipo. Si otra persona marcó
-        el mismo producto en la mesa hace menos de 3 minutos responde 409 DUPLICATE_SUSPECTED; el equipo pregunta «¿Es otro
-        o es el mismo?» y reenvía con force = true. Las preguntas obligatorias del producto (mínimo ≥ 1 en Ajustes › Preguntas)
-        deben venir respondidas en modifiers (PLU de la respuesta); si falta alguna, o sobran respuestas, responde 422 VALIDATION
-        (las de pase de comida, 1.º/2.º/postre, pueden quedar «por elegir»: la línea trae courses con su estado) con field
-        = modifiers y la pregunta en details. Las líneas «Por enviar» iguales (mismo producto, comentario y respuestas) se
-        juntan.
+      description: 'El precio lo pone la tienda según el área (PVP general o terraza), nunca el equipo. Si el mismo producto
+        se marcó en la mesa desde otro equipo hace menos de 3 minutos responde 409 DUPLICATE_SUSPECTED; el equipo pregunta
+        «¿Es otro o es el mismo?» y reenvía con force = true. Las preguntas obligatorias del producto (mínimo ≥ 1 en Ajustes
+        › Preguntas) deben venir respondidas en modifiers (PLU de la respuesta); si falta alguna, o sobran respuestas, responde
+        422 VALIDATION (las de pase de comida, 1.º/2.º/postre, pueden quedar «por elegir»: la línea trae courses con su estado)
+        con field = modifiers y la pregunta en details. Las líneas «Por enviar» iguales (mismo producto, comentario y respuestas)
+        se juntan.
 
 
         Lo llama: TPV, PDA
@@ -6494,9 +6494,9 @@ paths:
                 mode: developer
         '409':
           description: 'ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED:
-            La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado por otra persona hace menos
-            de 3 minutos. Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT
-            · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS:
+            La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos
+            de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE
+            · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS:
             Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.'
           content:
             application/json:
@@ -18148,6 +18148,489 @@ paths:
                 comment: null
                 modifiers: []
               requestId: null
+  /api/v2/order-incidents:
+    post:
+      tags:
+      - API de tienda v2 · Órdenes y cuentas
+      summary: Guardar una incidencia de mesa
+      description: 'El equipo guarda solo lo que le ha pasado en una mesa SIN aplicar nada: kind = offline (cambios que se
+        quedaron en el equipo sin conexión), mismatch (pantalla y servidor no coinciden) o rejected (el servidor no aceptó
+        un cambio). detail = los cambios pendientes, las diferencias o el error, tal como los vio el equipo (hasta 64 KB).
+        El id lo genera el equipo: repetir el envío devuelve la misma incidencia sin duplicarla. orderId puede no existir
+        aún en el servidor (mesa abierta sin conexión). Equipo y usuario salen de la sesión. Resolverla lo decide una persona
+        en ese equipo (POST /order-incidents/{incidentId}/resolve).
+
+
+        Lo llama: TPV, PDA
+
+
+        Tablas: order_incident'
+      operationId: store_POST_order_incidents
+      security:
+      - session: []
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - 'null'
+                      orderId:
+                        type:
+                        - string
+                        - 'null'
+                      accountId: {}
+                      tableName:
+                        type: string
+                      kind:
+                        type: string
+                      status:
+                        type: string
+                      detail:
+                        type: object
+                        properties:
+                          pendientes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                quantity:
+                                  type: integer
+                      device:
+                        type:
+                        - string
+                        - 'null'
+                      occurredAt:
+                        type: string
+                      openedBy:
+                        type:
+                        - object
+                        - 'null'
+                        properties:
+                          user:
+                            type:
+                            - string
+                            - 'null'
+                          device:
+                            type:
+                            - string
+                            - 'null'
+                          at:
+                            type: string
+                      resolvedBy: {}
+              example:
+                title: Guardar una incidencia de mesa
+                type: success
+                status: 201
+                data: &id010
+                  id: …
+                  orderId: …
+                  accountId: null
+                  tableName: '12'
+                  kind: offline
+                  status: open
+                  detail: &id011
+                    pendientes:
+                    - name: Caña
+                      quantity: 2
+                  device: PDA1
+                  occurredAt: '2026-10-13T16:40:00.000Z'
+                  openedBy: &id012
+                    user: Pedro
+                    device: PDA1
+                    at: '2026-10-13T16:40:00.000Z'
+                  resolvedBy: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar una incidencia de mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type:
+                  - string
+                  - 'null'
+                orderId:
+                  type:
+                  - string
+                  - 'null'
+                accountId: {}
+                tableName:
+                  type: string
+                kind:
+                  type: string
+                detail:
+                  type: object
+                  properties:
+                    pendientes:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          quantity:
+                            type: integer
+                occurredAt:
+                  type: string
+            example:
+              id: …
+              orderId: …
+              accountId: null
+              tableName: '12'
+              kind: offline
+              detail:
+                pendientes:
+                - name: Caña
+                  quantity: 2
+              occurredAt: '2026-10-13T16:40:00.000Z'
+    get:
+      tags:
+      - API de tienda v2 · Órdenes y cuentas
+      summary: Incidencias de mesa
+      description: 'status = open (por defecto) o all; orderId para las de una mesa. La más reciente primero, hasta 200.
+
+
+        Lo llama: TPV, Manager
+
+
+        Tablas: order_incident'
+      operationId: store_GET_order_incidents
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            orderId:
+                              type:
+                              - string
+                              - 'null'
+                            accountId: {}
+                            tableName:
+                              type: string
+                            kind:
+                              type: string
+                            status:
+                              type: string
+                            detail:
+                              type: object
+                              properties:
+                                pendientes:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      name:
+                                        type: string
+                                      quantity:
+                                        type: integer
+                            device:
+                              type:
+                              - string
+                              - 'null'
+                            occurredAt:
+                              type: string
+                            openedBy:
+                              type:
+                              - object
+                              - 'null'
+                              properties:
+                                user:
+                                  type:
+                                  - string
+                                  - 'null'
+                                device:
+                                  type:
+                                  - string
+                                  - 'null'
+                                at:
+                                  type: string
+                            resolvedBy: {}
+              example:
+                title: Incidencias de mesa
+                type: success
+                status: 200
+                data:
+                  items:
+                  - *id010
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Incidencias de mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+  /api/v2/order-incidents/{incidentId}/resolve:
+    post:
+      tags:
+      - API de tienda v2 · Órdenes y cuentas
+      summary: Resolver una incidencia de mesa
+      description: 'Lo que decidió la persona: status = retried (se reintentó el envío), discarded (se quedó lo del servidor;
+        el equipo pide antes la clave de encargado y la guarda en authorizedBy) o resolved (volvió a cuadrar sola). Repetir
+        la misma resolución no hace nada; resolverla de otra forma responde 409 INCIDENT_RESOLVED.
+
+
+        Lo llama: TPV, PDA
+
+
+        Tablas: order_incident'
+      operationId: store_POST_order_incidents_incidentId_resolve
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - 'null'
+                      orderId:
+                        type:
+                        - string
+                        - 'null'
+                      accountId: {}
+                      tableName:
+                        type: string
+                      kind:
+                        type: string
+                      status:
+                        type: string
+                      detail:
+                        type: object
+                        properties:
+                          pendientes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                quantity:
+                                  type: integer
+                      device:
+                        type:
+                        - string
+                        - 'null'
+                      occurredAt:
+                        type: string
+                      openedBy:
+                        type:
+                        - object
+                        - 'null'
+                        properties:
+                          user:
+                            type:
+                            - string
+                            - 'null'
+                          device:
+                            type:
+                            - string
+                            - 'null'
+                          at:
+                            type: string
+                      resolvedBy:
+                        type: object
+                        properties:
+                          user:
+                            type:
+                            - string
+                            - 'null'
+                          authorizedBy:
+                            type:
+                            - string
+                            - 'null'
+                          at:
+                            type: string
+                          note: {}
+              example:
+                title: Resolver una incidencia de mesa
+                type: success
+                status: 200
+                data:
+                  id: …
+                  orderId: …
+                  accountId: null
+                  tableName: '12'
+                  kind: offline
+                  status: discarded
+                  detail: *id011
+                  device: PDA1
+                  occurredAt: '2026-10-13T16:40:00.000Z'
+                  openedBy: *id012
+                  resolvedBy:
+                    user: Pedro
+                    authorizedBy: Lucía
+                    at: '2026-10-13T16:40:00.000Z'
+                    note: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Resolver una incidencia de mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe o no es de esta tienda.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Resolver una incidencia de mesa
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'INCIDENT_RESOLVED: La incidencia de mesa ya está resuelta de otra forma.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Resolver una incidencia de mesa
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INCIDENT_RESOLVED
+                  message: La incidencia de mesa ya está resuelta de otra forma.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: incidentId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                note: {}
+                authorizedBy:
+                  type:
+                  - string
+                  - 'null'
+            example:
+              status: discarded
+              note: null
+              authorizedBy: Lucía
 components:
   securitySchemes:
     session:
@@ -18687,6 +19170,7 @@ components:
           - NOT_ALLOWED
           - VERSION_CONFLICT
           - DUPLICATE_SUSPECTED
+          - INCIDENT_RESOLVED
           - ACCOUNT_CLOSED
           - ORDER_CLOSED
           - TABLE_BUSY

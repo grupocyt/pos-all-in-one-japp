@@ -84,7 +84,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <div class="wrap">
 <header class="hero"><div><div class="eyebrow">Japp · contrato de integración · v0.1</div><h1>API Japp</h1>
 <p class="lead">Los endpoints que conectan la caja, las PDA, el servidor de cada tienda, Japp Manager y el backoffice. Cada endpoint dice quién lo llama, qué permiso pide, qué envía, qué responde y qué tablas toca. La transacción es la estructura acordada en vista-orden.</p></div>
-<div class="stats"><div><b>119</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>40</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
+<div class="stats"><div><b>122</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>41</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
 <section class="card"><h2>Quién llama a quién</h2><svg viewBox="0 0 760 330" role="img" aria-label="Quién llama a quién en Japp" class="arch">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
 <rect x="8" y="8" width="360" height="314" rx="14" class="zone"/><text x="22" y="30" class="zt">TIENDA</text>
@@ -116,7 +116,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></section>
 <section class="card"><h2>Una mesa de principio a fin</h2><ol class="flow"><li><span>Abrir mesa</span><code>POST /orders</code></li><li><span>Entrar y avisar a los demás equipos</span><code>POST /orders/{orderId}/presence</code></li><li><span>Marcar productos (precio según el área)</span><code>POST /orders/{orderId}/lines</code></li><li><span>Enviar a cocina o barra</span><code>POST /orders/{orderId}/send</code></li><li><span>Precuenta</span><code>POST /orders/{orderId}/accounts/{accountId}/prebill</code></li><li><span>Separar si hace falta</span><code>POST /orders/{orderId}/lines/move</code></li><li><span>Cobrar (uno o varios pagos)</span><code>POST /orders/{orderId}/accounts/{accountId}/payments</code></li><li><span>Emitir la factura VeriFactu y cerrar la mesa</span><code>POST /orders/{orderId}/accounts/{accountId}/invoice</code></li><li><span>El agente envía la transacción, la factura y el registro VeriFactu al Manager</span><code>POST /stores/{storeId}/outbox</code></li></ol></section>
 <nav class="toc"><a href="#sec-ajustes">1 · Ajustes</a><a href="#sec-tx">2 · Transaccional</a><a href="#sec-rep">3 · Reportes y sincronización</a><a href="#api-manager">Manager</a><a href="#api-gateway">Gateway</a><a href="#errores">Errores</a><a href="#openapi">OpenAPI</a></nav>
-<section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 97 de 97 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
+<section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 100 de 100 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
 <summary><span class="m get">GET</span><code class="p">/config</code><span class="s">Paquete de configuración</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
 <p>Todo lo que el equipo necesita para trabajar sin más llamadas: restaurante, empresa, facturación, parámetros, áreas con sus mesas, carta (categorías, productos con canales y preguntas, preguntas con respuestas), impuestos, formas de pago, descuentos, motivos, canales, impresoras y estaciones. Solo lo activo. Cabecera ETag = versión de configuración; con If-None-Match igual responde 304 sin cuerpo.</p>
@@ -5838,10 +5838,158 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda.</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="post-order-incidents-tx">
+<summary><span class="m post">POST</span><code class="p">/order-incidents</code><span class="s">Guardar una incidencia de mesa</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
+<div class="eb">
+<p>El equipo guarda solo lo que le ha pasado en una mesa SIN aplicar nada: kind = offline (cambios que se quedaron en el equipo sin conexión), mismatch (pantalla y servidor no coinciden) o rejected (el servidor no aceptó un cambio). detail = los cambios pendientes, las diferencias o el error, tal como los vio el equipo (hasta 64 KB). El id lo genera el equipo: repetir el envío devuelve la misma incidencia sin duplicarla. orderId puede no existir aún en el servidor (mesa abierta sin conexión). Equipo y usuario salen de la sesión. Resolverla lo decide una persona en ese equipo (POST /order-incidents/{incidentId}/resolve).</p>
+<dl class="meta"><dt>En el TPV</dt><dd>Pedido › Incidencias</dd><dt>Tablas</dt><dd><code>order_incident</code></dd></dl>
+
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;id&quot;: &quot;…&quot;,
+  &quot;orderId&quot;: &quot;…&quot;,
+  &quot;accountId&quot;: null,
+  &quot;tableName&quot;: &quot;12&quot;,
+  &quot;kind&quot;: &quot;offline&quot;,
+  &quot;detail&quot;: {
+    &quot;pendientes&quot;: [
+      {
+        &quot;name&quot;: &quot;Caña&quot;,
+        &quot;quantity&quot;: 2
+      }
+    ]
+  },
+  &quot;occurredAt&quot;: &quot;2026-10-13T16:40:00.000Z&quot;
+}</code></pre></div><div><h5>Responde 201</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Guardar una incidencia de mesa&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 201,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;orderId&quot;: &quot;…&quot;,
+    &quot;accountId&quot;: null,
+    &quot;tableName&quot;: &quot;12&quot;,
+    &quot;kind&quot;: &quot;offline&quot;,
+    &quot;status&quot;: &quot;open&quot;,
+    &quot;detail&quot;: {
+      &quot;pendientes&quot;: [
+        {
+          &quot;name&quot;: &quot;Caña&quot;,
+          &quot;quantity&quot;: 2
+        }
+      ]
+    },
+    &quot;device&quot;: &quot;PDA1&quot;,
+    &quot;occurredAt&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+    &quot;openedBy&quot;: {
+      &quot;user&quot;: &quot;Pedro&quot;,
+      &quot;device&quot;: &quot;PDA1&quot;,
+      &quot;at&quot;: &quot;2026-10-13T16:40:00.000Z&quot;
+    },
+    &quot;resolvedBy&quot;: null
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li></ul>
+</div></details><details class="ep" id="post-order-incidents-incidentid-resolve-tx">
+<summary><span class="m post">POST</span><code class="p">/order-incidents/{incidentId}/resolve</code><span class="s">Resolver una incidencia de mesa</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
+<div class="eb">
+<p>Lo que decidió la persona: status = retried (se reintentó el envío), discarded (se quedó lo del servidor; el equipo pide antes la clave de encargado y la guarda en authorizedBy) o resolved (volvió a cuadrar sola). Repetir la misma resolución no hace nada; resolverla de otra forma responde 409 INCIDENT_RESOLVED.</p>
+<dl class="meta"><dt>En el TPV</dt><dd>Pedido › Incidencias › Reintentar envío / Quedarme con lo del servidor</dd><dt>Tablas</dt><dd><code>order_incident</code></dd></dl>
+
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;status&quot;: &quot;discarded&quot;,
+  &quot;note&quot;: null,
+  &quot;authorizedBy&quot;: &quot;Lucía&quot;
+}</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Resolver una incidencia de mesa&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;orderId&quot;: &quot;…&quot;,
+    &quot;accountId&quot;: null,
+    &quot;tableName&quot;: &quot;12&quot;,
+    &quot;kind&quot;: &quot;offline&quot;,
+    &quot;status&quot;: &quot;discarded&quot;,
+    &quot;detail&quot;: {
+      &quot;pendientes&quot;: [
+        {
+          &quot;name&quot;: &quot;Caña&quot;,
+          &quot;quantity&quot;: 2
+        }
+      ]
+    },
+    &quot;device&quot;: &quot;PDA1&quot;,
+    &quot;occurredAt&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+    &quot;openedBy&quot;: {
+      &quot;user&quot;: &quot;Pedro&quot;,
+      &quot;device&quot;: &quot;PDA1&quot;,
+      &quot;at&quot;: &quot;2026-10-13T16:40:00.000Z&quot;
+    },
+    &quot;resolvedBy&quot;: {
+      &quot;user&quot;: &quot;Pedro&quot;,
+      &quot;authorizedBy&quot;: &quot;Lucía&quot;,
+      &quot;at&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+      &quot;note&quot;: null
+    }
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda.</li><li><code>INCIDENT_RESOLVED</code> <span class="pin">409</span> La incidencia de mesa ya está resuelta de otra forma.</li></ul>
+</div></details><details class="ep" id="get-order-incidents-tx">
+<summary><span class="m get">GET</span><code class="p">/order-incidents</code><span class="s">Incidencias de mesa</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>Manager</i></span></summary>
+<div class="eb">
+<p>status = open (por defecto) o all; orderId para las de una mesa. La más reciente primero, hasta 200.</p>
+<dl class="meta"><dt>Tablas</dt><dd><code>order_incident</code></dd></dl>
+
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Incidencias de mesa&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;orderId&quot;: &quot;…&quot;,
+        &quot;accountId&quot;: null,
+        &quot;tableName&quot;: &quot;12&quot;,
+        &quot;kind&quot;: &quot;offline&quot;,
+        &quot;status&quot;: &quot;open&quot;,
+        &quot;detail&quot;: {
+          &quot;pendientes&quot;: [
+            {
+              &quot;name&quot;: &quot;Caña&quot;,
+              &quot;quantity&quot;: 2
+            }
+          ]
+        },
+        &quot;device&quot;: &quot;PDA1&quot;,
+        &quot;occurredAt&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+        &quot;openedBy&quot;: {
+          &quot;user&quot;: &quot;Pedro&quot;,
+          &quot;device&quot;: &quot;PDA1&quot;,
+          &quot;at&quot;: &quot;2026-10-13T16:40:00.000Z&quot;
+        },
+        &quot;resolvedBy&quot;: null
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li></ul>
 </div></details></section><section class="grp"><h3>Productos de la cuenta</h3><p class="gd">Marcar, cambiar, eliminar, pasar de cuenta y enviar a cocina o barra.</p><details class="ep" id="post-orders-orderid-lines-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/lines</code><span class="s">Añadir producto</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
-<p>El precio lo pone la tienda según el área (PVP general o terraza), nunca el equipo. Si otra persona marcó el mismo producto en la mesa hace menos de 3 minutos responde 409 DUPLICATE_SUSPECTED; el equipo pregunta «¿Es otro o es el mismo?» y reenvía con force = true. Las preguntas obligatorias del producto (mínimo ≥ 1 en Ajustes › Preguntas) deben venir respondidas en modifiers (PLU de la respuesta); si falta alguna, o sobran respuestas, responde 422 VALIDATION (las de pase de comida, 1.º/2.º/postre, pueden quedar «por elegir»: la línea trae courses con su estado) con field = modifiers y la pregunta en details. Las líneas «Por enviar» iguales (mismo producto, comentario y respuestas) se juntan.</p>
+<p>El precio lo pone la tienda según el área (PVP general o terraza), nunca el equipo. Si el mismo producto se marcó en la mesa desde otro equipo hace menos de 3 minutos responde 409 DUPLICATE_SUSPECTED; el equipo pregunta «¿Es otro o es el mismo?» y reenvía con force = true. Las preguntas obligatorias del producto (mínimo ≥ 1 en Ajustes › Preguntas) deben venir respondidas en modifiers (PLU de la respuesta); si falta alguna, o sobran respuestas, responde 422 VALIDATION (las de pase de comida, 1.º/2.º/postre, pueden quedar «por elegir»: la línea trae courses con su estado) con field = modifiers y la pregunta en details. Las líneas «Por enviar» iguales (mismo producto, comentario y respuestas) se juntan.</p>
 <dl class="meta"><dt>En el TPV</dt><dd>Tocar un producto · Añadir a la cuenta</dd><dt>Tablas</dt><dd><code>order_line</code> <code>order_line_modifier</code> <code>order_event</code> <code>account</code></dd><dt>Notas</dt><dd><span class="flag">Idempotente</span></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -5868,7 +6016,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
-<h5>Errores</h5><ul class="pl"><li><code>ACCOUNT_CLOSED</code> <span class="pin">409</span> La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</li><li><code>ORDER_CLOSED</code> <span class="pin">409</span> La mesa se cerró desde otro equipo.</li><li><code>DUPLICATE_SUSPECTED</code> <span class="pin">409</span> Mismo producto marcado por otra persona hace menos de 3 minutos. Reenviar con force = true si es otro.</li><li><code>QUESTION_INCOMPLETE</code> <span class="pin">409</span> </li><li><code>SOLD_OUT</code> <span class="pin">409</span> </li><li><code>DUPLICATE</code> <span class="pin">409</span> Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</li><li><code>IDEMPOTENCY_IN_PROGRESS</code> <span class="pin">409</span> Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</li></ul>
+<h5>Errores</h5><ul class="pl"><li><code>ACCOUNT_CLOSED</code> <span class="pin">409</span> La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</li><li><code>ORDER_CLOSED</code> <span class="pin">409</span> La mesa se cerró desde otro equipo.</li><li><code>DUPLICATE_SUSPECTED</code> <span class="pin">409</span> Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.</li><li><code>QUESTION_INCOMPLETE</code> <span class="pin">409</span> </li><li><code>SOLD_OUT</code> <span class="pin">409</span> </li><li><code>DUPLICATE</code> <span class="pin">409</span> Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</li><li><code>IDEMPOTENCY_IN_PROGRESS</code> <span class="pin">409</span> Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</li></ul>
 </div></details><details class="ep" id="patch-orders-orderid-lines-lineid-tx">
 <summary><span class="m patch">PATCH</span><code class="p">/orders/{orderId}/lines/{lineId}</code><span class="s">Cambiar cantidad o comentario</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
@@ -8595,7 +8743,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 
 </div></details></section></section></section>
-<section class="card" id="errores"><h2>Códigos de error</h2><p class="muted">Las respuestas de error usan el mismo formato con <code>"type": "error"</code>, <code>"data": null</code> y <code>"errors": [{"code", "message", "field", "details"}]</code>. Con <code>VALIDATION</code> hay un elemento por campo.</p><div class="tw"><table><thead><tr><th>Código</th><th>HTTP</th><th>Qué pasa y qué hace el equipo</th></tr></thead><tbody><tr><td><code>VALIDATION</code></td><td>422</td><td>Faltan datos o tienen un formato incorrecto. details dice qué campo.</td></tr><tr><td><code>NOT_FOUND</code></td><td>404</td><td>No existe o no es de esta tienda.</td></tr><tr><td><code>BAD_PIN</code></td><td>401</td><td>Clave incorrecta. Tras varios intentos, PIN_LOCKED.</td></tr><tr><td><code>PIN_LOCKED</code></td><td>423</td><td>Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).</td></tr><tr><td><code>PERMISSION_REQUIRED</code></td><td>403</td><td>Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</td></tr><tr><td><code>NOT_ALLOWED</code></td><td>403</td><td>La clave es correcta pero esa persona tampoco tiene el permiso.</td></tr><tr><td><code>VERSION_CONFLICT</code></td><td>409</td><td>Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</td></tr><tr><td><code>DUPLICATE_SUSPECTED</code></td><td>409</td><td>Mismo producto marcado por otra persona hace menos de 3 minutos. Reenviar con force = true si es otro.</td></tr><tr><td><code>ACCOUNT_CLOSED</code></td><td>409</td><td>La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</td></tr><tr><td><code>ORDER_CLOSED</code></td><td>409</td><td>La mesa se cerró desde otro equipo.</td></tr><tr><td><code>TABLE_BUSY</code></td><td>409</td><td>La mesa de destino está ocupada.</td></tr><tr><td><code>PERIOD_CLOSED</code></td><td>409</td><td>No hay periodo abierto.</td></tr><tr><td><code>PENDING_NOT_ZERO</code></td><td>409</td><td>No se puede facturar con importe pendiente.</td></tr><tr><td><code>ORDER_NOT_EMPTY</code></td><td>409</td><td>La mesa aún tiene productos o cobros: no se puede cerrar sin venta.</td></tr><tr><td><code>COURSE_PENDING</code></td><td>409</td><td>Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar.</td></tr><tr><td><code>NOTHING_TO_CHARGE</code></td><td>409</td><td>La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta.</td></tr><tr><td><code>PRINTER_OFFLINE</code></td><td>503</td><td>Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir.</td></tr><tr><td><code>IN_USE</code></td><td>409</td><td>No se puede desactivar: está en uso.</td></tr><tr><td><code>DUPLICATE</code></td><td>409</td><td>Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</td></tr><tr><td><code>STATION_NOT_ALLOWED</code></td><td>403</td><td>Este perfil solo puede entrar en la caja principal (details.allowed = main, details.station), o este equipo no es esa estación (la estación tiene UUID de equipo y X-Station-Id no lo trae).</td></tr><tr><td><code>MAIN_STATION_REQUIRED</code></td><td>403</td><td>Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo.</td></tr><tr><td><code>PERIOD_ALREADY_OPEN</code></td><td>409</td><td>Ya hay un periodo abierto en la tienda.</td></tr><tr><td><code>TABLE_TAKEN</code></td><td>409</td><td>Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</td></tr><tr><td><code>TABLE_CHARGING</code></td><td>409</td><td>Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador).</td></tr><tr><td><code>TOTAL_BELOW_PAID</code></td><td>409</td><td>Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).</td></tr><tr><td><code>AMOUNT_EXCEEDS_PENDING</code></td><td>409</td><td>El importe supera lo pendiente (details.pending). Nunca se recorta.</td></tr><tr><td><code>METHOD_NOT_ALLOWED</code></td><td>409</td><td>Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta).</td></tr><tr><td><code>NOTHING_TO_TRANSFER</code></td><td>422</td><td>La cuenta está facturada o no tiene productos: no hay nada que pasar a otra mesa.</td></tr><tr><td><code>SESSION_REPLACED</code></td><td>401</td><td>Tu clave se ha abierto en otro equipo (o has vuelto a entrar): este token ya no vale. details.station = dónde está ahora la sesión. Vuelve a entrar con la clave.</td></tr><tr><td><code>IDEMPOTENCY_IN_PROGRESS</code></td><td>409</td><td>Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</td></tr><tr><td><code>DEVICE_NOT_REGISTERED</code></td><td>404</td><td>Ninguna estación activa tiene el UUID de este equipo: darlo de alta en Ajustes › Estaciones.</td></tr><tr><td><code>DEVICE_TYPE_MISMATCH</code></td><td>409</td><td>El UUID está dado de alta con el otro tipo (PDA o escritorio): details.actual dice cuál.</td></tr><tr><td><code>OOT_NOT_CONFIGURED</code></td><td>409</td><td>Falta la URL de Order on Table en Ajustes › Restaurante.</td></tr><tr><td><code>OOT_TOKEN_INVALID</code></td><td>404</td><td>Token de Order on Table caducado, anulado o de una mesa cerrada.</td></tr><tr><td><code>PRODUCT_NOT_OOT</code></td><td>422</td><td>Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu).</td></tr><tr><td><code>REF_NOT_FOUND</code></td><td>422</td><td>Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</td></tr><tr><td><code>TOO_LARGE</code></td><td>413</td><td>Demasiadas filas en una carga (details.max).</td></tr><tr><td><code>LINE_NOT_SENT</code></td><td>409</td><td>Una línea pendiente de imprimir no se puede pasar a otra cuenta.</td></tr><tr><td><code>QUANTITY_EXCEEDS</code></td><td>422</td><td>Se piden más unidades de las que quedan (details.left).</td></tr><tr><td><code>BUSY_RETRY</code></td><td>409</td><td>Otro equipo está cambiando lo mismo a la vez (la base ha deshecho esta petición): vuelve a intentarlo.</td></tr></tbody></table></div></section>
+<section class="card" id="errores"><h2>Códigos de error</h2><p class="muted">Las respuestas de error usan el mismo formato con <code>"type": "error"</code>, <code>"data": null</code> y <code>"errors": [{"code", "message", "field", "details"}]</code>. Con <code>VALIDATION</code> hay un elemento por campo.</p><div class="tw"><table><thead><tr><th>Código</th><th>HTTP</th><th>Qué pasa y qué hace el equipo</th></tr></thead><tbody><tr><td><code>VALIDATION</code></td><td>422</td><td>Faltan datos o tienen un formato incorrecto. details dice qué campo.</td></tr><tr><td><code>NOT_FOUND</code></td><td>404</td><td>No existe o no es de esta tienda.</td></tr><tr><td><code>BAD_PIN</code></td><td>401</td><td>Clave incorrecta. Tras varios intentos, PIN_LOCKED.</td></tr><tr><td><code>PIN_LOCKED</code></td><td>423</td><td>Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).</td></tr><tr><td><code>PERMISSION_REQUIRED</code></td><td>403</td><td>Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</td></tr><tr><td><code>NOT_ALLOWED</code></td><td>403</td><td>La clave es correcta pero esa persona tampoco tiene el permiso.</td></tr><tr><td><code>VERSION_CONFLICT</code></td><td>409</td><td>Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</td></tr><tr><td><code>DUPLICATE_SUSPECTED</code></td><td>409</td><td>Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.</td></tr><tr><td><code>INCIDENT_RESOLVED</code></td><td>409</td><td>La incidencia de mesa ya está resuelta de otra forma.</td></tr><tr><td><code>ACCOUNT_CLOSED</code></td><td>409</td><td>La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</td></tr><tr><td><code>ORDER_CLOSED</code></td><td>409</td><td>La mesa se cerró desde otro equipo.</td></tr><tr><td><code>TABLE_BUSY</code></td><td>409</td><td>La mesa de destino está ocupada.</td></tr><tr><td><code>PERIOD_CLOSED</code></td><td>409</td><td>No hay periodo abierto.</td></tr><tr><td><code>PENDING_NOT_ZERO</code></td><td>409</td><td>No se puede facturar con importe pendiente.</td></tr><tr><td><code>ORDER_NOT_EMPTY</code></td><td>409</td><td>La mesa aún tiene productos o cobros: no se puede cerrar sin venta.</td></tr><tr><td><code>COURSE_PENDING</code></td><td>409</td><td>Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar.</td></tr><tr><td><code>NOTHING_TO_CHARGE</code></td><td>409</td><td>La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta.</td></tr><tr><td><code>PRINTER_OFFLINE</code></td><td>503</td><td>Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir.</td></tr><tr><td><code>IN_USE</code></td><td>409</td><td>No se puede desactivar: está en uso.</td></tr><tr><td><code>DUPLICATE</code></td><td>409</td><td>Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</td></tr><tr><td><code>STATION_NOT_ALLOWED</code></td><td>403</td><td>Este perfil solo puede entrar en la caja principal (details.allowed = main, details.station), o este equipo no es esa estación (la estación tiene UUID de equipo y X-Station-Id no lo trae).</td></tr><tr><td><code>MAIN_STATION_REQUIRED</code></td><td>403</td><td>Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo.</td></tr><tr><td><code>PERIOD_ALREADY_OPEN</code></td><td>409</td><td>Ya hay un periodo abierto en la tienda.</td></tr><tr><td><code>TABLE_TAKEN</code></td><td>409</td><td>Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</td></tr><tr><td><code>TABLE_CHARGING</code></td><td>409</td><td>Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador).</td></tr><tr><td><code>TOTAL_BELOW_PAID</code></td><td>409</td><td>Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).</td></tr><tr><td><code>AMOUNT_EXCEEDS_PENDING</code></td><td>409</td><td>El importe supera lo pendiente (details.pending). Nunca se recorta.</td></tr><tr><td><code>METHOD_NOT_ALLOWED</code></td><td>409</td><td>Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta).</td></tr><tr><td><code>NOTHING_TO_TRANSFER</code></td><td>422</td><td>La cuenta está facturada o no tiene productos: no hay nada que pasar a otra mesa.</td></tr><tr><td><code>SESSION_REPLACED</code></td><td>401</td><td>Tu clave se ha abierto en otro equipo (o has vuelto a entrar): este token ya no vale. details.station = dónde está ahora la sesión. Vuelve a entrar con la clave.</td></tr><tr><td><code>IDEMPOTENCY_IN_PROGRESS</code></td><td>409</td><td>Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</td></tr><tr><td><code>DEVICE_NOT_REGISTERED</code></td><td>404</td><td>Ninguna estación activa tiene el UUID de este equipo: darlo de alta en Ajustes › Estaciones.</td></tr><tr><td><code>DEVICE_TYPE_MISMATCH</code></td><td>409</td><td>El UUID está dado de alta con el otro tipo (PDA o escritorio): details.actual dice cuál.</td></tr><tr><td><code>OOT_NOT_CONFIGURED</code></td><td>409</td><td>Falta la URL de Order on Table en Ajustes › Restaurante.</td></tr><tr><td><code>OOT_TOKEN_INVALID</code></td><td>404</td><td>Token de Order on Table caducado, anulado o de una mesa cerrada.</td></tr><tr><td><code>PRODUCT_NOT_OOT</code></td><td>422</td><td>Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu).</td></tr><tr><td><code>REF_NOT_FOUND</code></td><td>422</td><td>Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</td></tr><tr><td><code>TOO_LARGE</code></td><td>413</td><td>Demasiadas filas en una carga (details.max).</td></tr><tr><td><code>LINE_NOT_SENT</code></td><td>409</td><td>Una línea pendiente de imprimir no se puede pasar a otra cuenta.</td></tr><tr><td><code>QUANTITY_EXCEEDS</code></td><td>422</td><td>Se piden más unidades de las que quedan (details.left).</td></tr><tr><td><code>BUSY_RETRY</code></td><td>409</td><td>Otro equipo está cambiando lo mismo a la vez (la base ha deshecho esta petición): vuelve a intentarlo.</td></tr></tbody></table></div></section>
 <section class="card" id="openapi"><h2>Contrato OpenAPI 3.1</h2><p class="muted">El mismo contenido en formato máquina, validado con openapi-spec-validator. Sirve para generar el cliente de TypeScript y probar la API.</p>
 <div class="bar"><button type="button" id="cp">Copiar openapi.yaml</button><span id="cpm" role="status"></span></div><pre class="yaml" id="yaml" tabindex="0">openapi: 3.1.0
 info:
@@ -15053,13 +15201,13 @@ paths:
       tags:
       - API de tienda v2 · Productos de la cuenta
       summary: Añadir producto
-      description: &#x27;El precio lo pone la tienda según el área (PVP general o terraza), nunca el equipo. Si otra persona marcó
-        el mismo producto en la mesa hace menos de 3 minutos responde 409 DUPLICATE_SUSPECTED; el equipo pregunta «¿Es otro
-        o es el mismo?» y reenvía con force = true. Las preguntas obligatorias del producto (mínimo ≥ 1 en Ajustes › Preguntas)
-        deben venir respondidas en modifiers (PLU de la respuesta); si falta alguna, o sobran respuestas, responde 422 VALIDATION
-        (las de pase de comida, 1.º/2.º/postre, pueden quedar «por elegir»: la línea trae courses con su estado) con field
-        = modifiers y la pregunta en details. Las líneas «Por enviar» iguales (mismo producto, comentario y respuestas) se
-        juntan.
+      description: &#x27;El precio lo pone la tienda según el área (PVP general o terraza), nunca el equipo. Si el mismo producto
+        se marcó en la mesa desde otro equipo hace menos de 3 minutos responde 409 DUPLICATE_SUSPECTED; el equipo pregunta
+        «¿Es otro o es el mismo?» y reenvía con force = true. Las preguntas obligatorias del producto (mínimo ≥ 1 en Ajustes
+        › Preguntas) deben venir respondidas en modifiers (PLU de la respuesta); si falta alguna, o sobran respuestas, responde
+        422 VALIDATION (las de pase de comida, 1.º/2.º/postre, pueden quedar «por elegir»: la línea trae courses con su estado)
+        con field = modifiers y la pregunta en details. Las líneas «Por enviar» iguales (mismo producto, comentario y respuestas)
+        se juntan.
 
 
         Lo llama: TPV, PDA
@@ -15093,9 +15241,9 @@ paths:
                 mode: developer
         &#x27;409&#x27;:
           description: &#x27;ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED:
-            La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado por otra persona hace menos
-            de 3 minutos. Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT
-            · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS:
+            La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos
+            de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE
+            · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS:
             Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.&#x27;
           content:
             application/json:
@@ -26747,6 +26895,489 @@ paths:
                 comment: null
                 modifiers: []
               requestId: null
+  /api/v2/order-incidents:
+    post:
+      tags:
+      - API de tienda v2 · Órdenes y cuentas
+      summary: Guardar una incidencia de mesa
+      description: &#x27;El equipo guarda solo lo que le ha pasado en una mesa SIN aplicar nada: kind = offline (cambios que se
+        quedaron en el equipo sin conexión), mismatch (pantalla y servidor no coinciden) o rejected (el servidor no aceptó
+        un cambio). detail = los cambios pendientes, las diferencias o el error, tal como los vio el equipo (hasta 64 KB).
+        El id lo genera el equipo: repetir el envío devuelve la misma incidencia sin duplicarla. orderId puede no existir
+        aún en el servidor (mesa abierta sin conexión). Equipo y usuario salen de la sesión. Resolverla lo decide una persona
+        en ese equipo (POST /order-incidents/{incidentId}/resolve).
+
+
+        Lo llama: TPV, PDA
+
+
+        Tablas: order_incident&#x27;
+      operationId: store_POST_order_incidents
+      security:
+      - session: []
+      responses:
+        &#x27;201&#x27;:
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      orderId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      accountId: {}
+                      tableName:
+                        type: string
+                      kind:
+                        type: string
+                      status:
+                        type: string
+                      detail:
+                        type: object
+                        properties:
+                          pendientes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                quantity:
+                                  type: integer
+                      device:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      occurredAt:
+                        type: string
+                      openedBy:
+                        type:
+                        - object
+                        - &#x27;null&#x27;
+                        properties:
+                          user:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          device:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          at:
+                            type: string
+                      resolvedBy: {}
+              example:
+                title: Guardar una incidencia de mesa
+                type: success
+                status: 201
+                data: &amp;id010
+                  id: …
+                  orderId: …
+                  accountId: null
+                  tableName: &#x27;12&#x27;
+                  kind: offline
+                  status: open
+                  detail: &amp;id011
+                    pendientes:
+                    - name: Caña
+                      quantity: 2
+                  device: PDA1
+                  occurredAt: &#x27;2026-10-13T16:40:00.000Z&#x27;
+                  openedBy: &amp;id012
+                    user: Pedro
+                    device: PDA1
+                    at: &#x27;2026-10-13T16:40:00.000Z&#x27;
+                  resolvedBy: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar una incidencia de mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+                orderId:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+                accountId: {}
+                tableName:
+                  type: string
+                kind:
+                  type: string
+                detail:
+                  type: object
+                  properties:
+                    pendientes:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          quantity:
+                            type: integer
+                occurredAt:
+                  type: string
+            example:
+              id: …
+              orderId: …
+              accountId: null
+              tableName: &#x27;12&#x27;
+              kind: offline
+              detail:
+                pendientes:
+                - name: Caña
+                  quantity: 2
+              occurredAt: &#x27;2026-10-13T16:40:00.000Z&#x27;
+    get:
+      tags:
+      - API de tienda v2 · Órdenes y cuentas
+      summary: Incidencias de mesa
+      description: &#x27;status = open (por defecto) o all; orderId para las de una mesa. La más reciente primero, hasta 200.
+
+
+        Lo llama: TPV, Manager
+
+
+        Tablas: order_incident&#x27;
+      operationId: store_GET_order_incidents
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            orderId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            accountId: {}
+                            tableName:
+                              type: string
+                            kind:
+                              type: string
+                            status:
+                              type: string
+                            detail:
+                              type: object
+                              properties:
+                                pendientes:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      name:
+                                        type: string
+                                      quantity:
+                                        type: integer
+                            device:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            occurredAt:
+                              type: string
+                            openedBy:
+                              type:
+                              - object
+                              - &#x27;null&#x27;
+                              properties:
+                                user:
+                                  type:
+                                  - string
+                                  - &#x27;null&#x27;
+                                device:
+                                  type:
+                                  - string
+                                  - &#x27;null&#x27;
+                                at:
+                                  type: string
+                            resolvedBy: {}
+              example:
+                title: Incidencias de mesa
+                type: success
+                status: 200
+                data:
+                  items:
+                  - *id010
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Incidencias de mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+  /api/v2/order-incidents/{incidentId}/resolve:
+    post:
+      tags:
+      - API de tienda v2 · Órdenes y cuentas
+      summary: Resolver una incidencia de mesa
+      description: &#x27;Lo que decidió la persona: status = retried (se reintentó el envío), discarded (se quedó lo del servidor;
+        el equipo pide antes la clave de encargado y la guarda en authorizedBy) o resolved (volvió a cuadrar sola). Repetir
+        la misma resolución no hace nada; resolverla de otra forma responde 409 INCIDENT_RESOLVED.
+
+
+        Lo llama: TPV, PDA
+
+
+        Tablas: order_incident&#x27;
+      operationId: store_POST_order_incidents_incidentId_resolve
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      orderId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      accountId: {}
+                      tableName:
+                        type: string
+                      kind:
+                        type: string
+                      status:
+                        type: string
+                      detail:
+                        type: object
+                        properties:
+                          pendientes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                quantity:
+                                  type: integer
+                      device:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      occurredAt:
+                        type: string
+                      openedBy:
+                        type:
+                        - object
+                        - &#x27;null&#x27;
+                        properties:
+                          user:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          device:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          at:
+                            type: string
+                      resolvedBy:
+                        type: object
+                        properties:
+                          user:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          authorizedBy:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          at:
+                            type: string
+                          note: {}
+              example:
+                title: Resolver una incidencia de mesa
+                type: success
+                status: 200
+                data:
+                  id: …
+                  orderId: …
+                  accountId: null
+                  tableName: &#x27;12&#x27;
+                  kind: offline
+                  status: discarded
+                  detail: *id011
+                  device: PDA1
+                  occurredAt: &#x27;2026-10-13T16:40:00.000Z&#x27;
+                  openedBy: *id012
+                  resolvedBy:
+                    user: Pedro
+                    authorizedBy: Lucía
+                    at: &#x27;2026-10-13T16:40:00.000Z&#x27;
+                    note: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Resolver una incidencia de mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: No existe o no es de esta tienda.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Resolver una incidencia de mesa
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;INCIDENT_RESOLVED: La incidencia de mesa ya está resuelta de otra forma.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Resolver una incidencia de mesa
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INCIDENT_RESOLVED
+                  message: La incidencia de mesa ya está resuelta de otra forma.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: incidentId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                note: {}
+                authorizedBy:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+            example:
+              status: discarded
+              note: null
+              authorizedBy: Lucía
 components:
   securitySchemes:
     session:
@@ -27286,6 +27917,7 @@ components:
           - NOT_ALLOWED
           - VERSION_CONFLICT
           - DUPLICATE_SUSPECTED
+          - INCIDENT_RESOLVED
           - ACCOUNT_CLOSED
           - ORDER_CLOSED
           - TABLE_BUSY

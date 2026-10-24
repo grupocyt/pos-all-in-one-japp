@@ -31,19 +31,27 @@ export interface AddProductInput {
  * Busca el mismo producto marcado por OTRA persona hace menos de dupMin minutos en la cuenta.
  * Devuelve la línea sospechosa o null.
  */
+/**
+ * Doble marcado (24/10/2026): solo avisa si el mismo producto se marcó hace poco desde OTRO equipo
+ * (dos camareros en distintas PDA). En el mismo equipo no avisa, aunque cambie el usuario.
+ * Si alguno de los dos no sabe su equipo, se compara por usuario.
+ */
 export function findSuspectedDuplicate(
   acc: Account,
   productId: number,
-  actorUser: string,
+  actor: string | { user: string; device?: string | null },
   now: Date,
   windowMin = DUPLICATE_WINDOW_MIN,
 ): Line | null {
   const limit = now.getTime() - windowMin * 60_000;
+  const me = typeof actor === "string" ? { user: actor, device: null } : actor;
+  const other = (l: Line) => {
+    const d = (l.createdBy as { device?: string | null }).device;
+    return d && me.device ? d !== me.device : l.createdBy.user !== me.user;
+  };
   return (
-    acc.lines.find(
-      (l) =>
-        l.productId === productId && l.createdBy.user !== actorUser && Date.parse(l.createdBy.at) >= limit,
-    ) ?? null
+    acc.lines.find((l) => l.productId === productId && other(l) && Date.parse(l.createdBy.at) >= limit) ??
+    null
   );
 }
 
@@ -65,9 +73,9 @@ export function addProduct(acc: Account, input: AddProductInput, ctx: Ctx): Acco
     fail("VALIDATION", "Cantidad no válida", { field: "quantity" });
   }
   if (!input.force) {
-    const dup = findSuspectedDuplicate(acc, input.product.plu, ctx.actor.user, ctx.now, input.dupWindowMin);
+    const dup = findSuspectedDuplicate(acc, input.product.plu, ctx.actor, ctx.now, input.dupWindowMin);
     if (dup) {
-      fail("DUPLICATE_SUSPECTED", "Mismo producto marcado por otra persona hace poco", {
+      fail("DUPLICATE_SUSPECTED", "Mismo producto marcado desde otro equipo hace poco", {
         lineId: dup.id,
         by: dup.createdBy.user,
       });

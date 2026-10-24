@@ -30,19 +30,33 @@ describe("Formas de pago · id de integración", () => {
     });
     expect(p.status).toBe(200);
     expect(p.body.item.externalId).toBe("PAG-TR2");
-    const cash = (await t.call("GET", "/config/formas-pago", { token: sis })).body.items.find((x: any) => x.code === "cash");
+    const cash = (await t.call("GET", "/config/formas-pago", { token: sis })).body.items.find(
+      (x: any) => x.code === "cash",
+    );
     expect(cash.externalId).toBeNull();
   });
   it("un id repetido en la tienda → 409 DUPLICATE", async () => {
-    await t.call("POST", "/config/formas-pago", { token: sis, body: { code: "intx1", name: "Integración X1", kind: "platform", externalId: "PAG-X" } });
-    const r = await t.call("POST", "/config/formas-pago", { token: sis, body: { code: "intx2", name: "Integración X2", kind: "platform", externalId: "PAG-X" } });
+    await t.call("POST", "/config/formas-pago", {
+      token: sis,
+      body: { code: "intx1", name: "Integración X1", kind: "platform", externalId: "PAG-X" },
+    });
+    const r = await t.call("POST", "/config/formas-pago", {
+      token: sis,
+      body: { code: "intx2", name: "Integración X2", kind: "platform", externalId: "PAG-X" },
+    });
     expect(r.status).toBe(409);
     expect(r.error.code).toBe("DUPLICATE");
   });
   it("demasiado largo → 422 VALIDATION y sin permiso → 403", async () => {
-    const r = await t.call("POST", "/config/formas-pago", { token: sis, body: { code: "largo", name: "Largo", kind: "platform", externalId: "x".repeat(61) } });
+    const r = await t.call("POST", "/config/formas-pago", {
+      token: sis,
+      body: { code: "largo", name: "Largo", kind: "platform", externalId: "x".repeat(61) },
+    });
     expect(r.status).toBe(422);
-    const m = await t.call("POST", "/config/formas-pago", { token: mesero, body: { code: "mes", name: "Mes", kind: "platform", externalId: "PAG-M" } });
+    const m = await t.call("POST", "/config/formas-pago", {
+      token: mesero,
+      body: { code: "mes", name: "Mes", kind: "platform", externalId: "PAG-M" },
+    });
     expect(m.status).toBe(403);
   });
 });

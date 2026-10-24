@@ -767,7 +767,7 @@ export interface paths {
         put?: never;
         /**
          * Añadir producto
-         * @description El precio lo pone la tienda según el área (PVP general o terraza), nunca el equipo. Si otra persona marcó el mismo producto en la mesa hace menos de 3 minutos responde 409 DUPLICATE_SUSPECTED; el equipo pregunta «¿Es otro o es el mismo?» y reenvía con force = true. Las preguntas obligatorias del producto (mínimo ≥ 1 en Ajustes › Preguntas) deben venir respondidas en modifiers (PLU de la respuesta); si falta alguna, o sobran respuestas, responde 422 VALIDATION (las de pase de comida, 1.º/2.º/postre, pueden quedar «por elegir»: la línea trae courses con su estado) con field = modifiers y la pregunta en details. Las líneas «Por enviar» iguales (mismo producto, comentario y respuestas) se juntan.
+         * @description El precio lo pone la tienda según el área (PVP general o terraza), nunca el equipo. Si el mismo producto se marcó en la mesa desde otro equipo hace menos de 3 minutos responde 409 DUPLICATE_SUSPECTED; el equipo pregunta «¿Es otro o es el mismo?» y reenvía con force = true. Las preguntas obligatorias del producto (mínimo ≥ 1 en Ajustes › Preguntas) deben venir respondidas en modifiers (PLU de la respuesta); si falta alguna, o sobran respuestas, responde 422 VALIDATION (las de pase de comida, 1.º/2.º/postre, pueden quedar «por elegir»: la línea trae courses con su estado) con field = modifiers y la pregunta en details. Las líneas «Por enviar» iguales (mismo producto, comentario y respuestas) se juntan.
          *
          *     Lo llama: TPV, PDA
          *
@@ -2792,6 +2792,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/order-incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Incidencias de mesa
+         * @description status = open (por defecto) o all; orderId para las de una mesa. La más reciente primero, hasta 200.
+         *
+         *     Lo llama: TPV, Manager
+         *
+         *     Tablas: order_incident
+         */
+        get: operations["store_GET_order_incidents"];
+        put?: never;
+        /**
+         * Guardar una incidencia de mesa
+         * @description El equipo guarda solo lo que le ha pasado en una mesa SIN aplicar nada: kind = offline (cambios que se quedaron en el equipo sin conexión), mismatch (pantalla y servidor no coinciden) o rejected (el servidor no aceptó un cambio). detail = los cambios pendientes, las diferencias o el error, tal como los vio el equipo (hasta 64 KB). El id lo genera el equipo: repetir el envío devuelve la misma incidencia sin duplicarla. orderId puede no existir aún en el servidor (mesa abierta sin conexión). Equipo y usuario salen de la sesión. Resolverla lo decide una persona en ese equipo (POST /order-incidents/{incidentId}/resolve).
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: order_incident
+         */
+        post: operations["store_POST_order_incidents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/order-incidents/{incidentId}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolver una incidencia de mesa
+         * @description Lo que decidió la persona: status = retried (se reintentó el envío), discarded (se quedó lo del servidor; el equipo pide antes la clave de encargado y la guarda en authorizedBy) o resolved (volvió a cuadrar sola). Repetir la misma resolución no hace nada; resolverla de otra forma responde 409 INCIDENT_RESOLVED.
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: order_incident
+         */
+        post: operations["store_POST_order_incidents_incidentId_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3295,7 +3351,7 @@ export interface components {
         };
         ErrorItem: {
             /** @enum {string} */
-            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY";
+            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY";
             message: string;
             /** @description Campo con el problema, si lo hay */
             field: string | null;
@@ -6037,7 +6093,7 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado por otra persona hace menos de 3 minutos. Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -11882,6 +11938,241 @@ export interface operations {
                 };
             };
             /** @description PRODUCT_NOT_OOT: Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu). · VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_order_incidents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            items?: {
+                                id?: string | null;
+                                orderId?: string | null;
+                                accountId?: unknown;
+                                tableName?: string;
+                                kind?: string;
+                                status?: string;
+                                detail?: {
+                                    pendientes?: {
+                                        name?: string;
+                                        quantity?: number;
+                                    }[];
+                                };
+                                device?: string | null;
+                                occurredAt?: string;
+                                openedBy?: {
+                                    user?: string | null;
+                                    device?: string | null;
+                                    at?: string;
+                                } | null;
+                                resolvedBy?: unknown;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_order_incidents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "id": "…",
+                 *       "orderId": "…",
+                 *       "accountId": null,
+                 *       "tableName": "12",
+                 *       "kind": "offline",
+                 *       "detail": {
+                 *         "pendientes": [
+                 *           {
+                 *             "name": "Caña",
+                 *             "quantity": 2
+                 *           }
+                 *         ]
+                 *       },
+                 *       "occurredAt": "2026-10-13T16:40:00.000Z"
+                 *     } */
+                "application/json": {
+                    id?: string | null;
+                    orderId?: string | null;
+                    accountId?: unknown;
+                    tableName?: string;
+                    kind?: string;
+                    detail?: {
+                        pendientes?: {
+                            name?: string;
+                            quantity?: number;
+                        }[];
+                    };
+                    occurredAt?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string | null;
+                            orderId?: string | null;
+                            accountId?: unknown;
+                            tableName?: string;
+                            kind?: string;
+                            status?: string;
+                            detail?: {
+                                pendientes?: {
+                                    name?: string;
+                                    quantity?: number;
+                                }[];
+                            };
+                            device?: string | null;
+                            occurredAt?: string;
+                            openedBy?: {
+                                user?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            } | null;
+                            resolvedBy?: unknown;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_order_incidents_incidentId_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incidentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "status": "discarded",
+                 *       "note": null,
+                 *       "authorizedBy": "Lucía"
+                 *     } */
+                "application/json": {
+                    status?: string;
+                    note?: unknown;
+                    authorizedBy?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string | null;
+                            orderId?: string | null;
+                            accountId?: unknown;
+                            tableName?: string;
+                            kind?: string;
+                            status?: string;
+                            detail?: {
+                                pendientes?: {
+                                    name?: string;
+                                    quantity?: number;
+                                }[];
+                            };
+                            device?: string | null;
+                            occurredAt?: string;
+                            openedBy?: {
+                                user?: string | null;
+                                device?: string | null;
+                                at?: string;
+                            } | null;
+                            resolvedBy?: {
+                                user?: string | null;
+                                authorizedBy?: string | null;
+                                at?: string;
+                                note?: unknown;
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INCIDENT_RESOLVED: La incidencia de mesa ya está resuelta de otra forma. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
             422: {
                 headers: {
                     [name: string]: unknown;

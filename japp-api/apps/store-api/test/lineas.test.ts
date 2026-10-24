@@ -39,14 +39,25 @@ describe("líneas", () => {
     expect(r.body.accounts[0].lines[0].quantity).toBe(3);
   });
 
-  it("duplicado de otra persona en < 3 min → 409 DUPLICATE_SUSPECTED; con force entra", async () => {
+  it("duplicado desde otro equipo en < 3 min → 409 DUPLICATE_SUSPECTED; con force entra", async () => {
+    // regla del 24/10/2026: solo avisa si lo marcó otro equipo (estación propia de esta prueba, sin UUID de equipo)
+    await t.sql.query(
+      `INSERT INTO station (id, store_id, name, kind, active) SELECT gen_random_uuid(), id, 'PDA-DUP', 'pda', TRUE FROM store ON CONFLICT DO NOTHING`,
+    );
+    const pda = await t.login(PIN.jeison, "PDA-DUP");
     const o = await newOrder();
-    await add(o.id, { plu: PLU.kaspirinha });
-    await t.call("POST", `/orders/${o.id}/send`, { token: mesero, body: {} });
+    await add(o.id, { plu: PLU.kaspirinha }, pda);
+    await t.call("POST", `/orders/${o.id}/send`, { token: pda, body: {} });
     const dup = await add(o.id, { plu: PLU.kaspirinha }, barra);
     expect([dup.status, dup.error.code]).toEqual([409, "DUPLICATE_SUSPECTED"]);
-    expect(dup.error.details.by).toBe("Mesero");
+    expect(dup.error.details.by).toBe("Jeison");
     expect((await add(o.id, { plu: PLU.kaspirinha, force: true }, barra)).status).toBe(201);
+  });
+
+  it("mismo equipo y otro usuario → no avisa de duplicado", async () => {
+    const o = await newOrder();
+    await add(o.id, { plu: PLU.kaspirinha });
+    expect((await add(o.id, { plu: PLU.kaspirinha }, barra)).status).toBe(201);
   });
 
   it("cambiar cantidad y quitar algo sin enviar no pide motivo ni permiso", async () => {

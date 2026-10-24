@@ -75,6 +75,9 @@ import { DevicesController } from "./Controllers/DevicesController.js";
 import { DevicesService } from "./Services/DevicesService.js";
 import { safeRequestLog } from "./Helpers/LogHelper.js";
 import { IncidentsController } from "./Controllers/IncidentsController.js";
+import { OrderIncidentsController } from "./Controllers/OrderIncidentsController.js";
+import { OrderIncidentsService } from "./Services/OrderIncidentsService.js";
+import { OrderIncidentsApplication } from "./Applications/OrderIncidentsApplication.js";
 import { IncidentsService } from "./Services/IncidentsService.js";
 import { IncidentsApplication } from "./Applications/IncidentsApplication.js";
 
@@ -112,6 +115,7 @@ class AppModule {
         OrderOnTablePublicController,
         DevicesController,
         IncidentsController,
+        OrderIncidentsController,
       ],
       providers: [
         { provide: CONFIG, useValue: d.config },
@@ -160,6 +164,8 @@ class AppModule {
         DevicesService,
         IncidentsService,
         IncidentsApplication,
+        OrderIncidentsService,
+        OrderIncidentsApplication,
         { provide: APP_FILTER, useClass: ErrorsFilter },
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_INTERCEPTOR, useClass: EnvelopeInterceptor },

@@ -1,10 +1,10 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0014, consultas de control · 65 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 97 endpoints · 251 pruebas de dominio + 258 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0015, consultas de control · 66 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 97 endpoints · 255 pruebas de dominio + 264 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.157. La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.160. La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -48,15 +48,15 @@ tienda **JC01 · Nueva Sucursal Japp**, empresa con NIF B12300141, salas BARRA (
 Usuarios de prueba: Sistemas, Jeison, Barra, Mesero y **Capitan Mesero (PIN 7070)**. **Cambia todos los PIN antes de producción.**
 Solo se aplica al crear la base desde cero; una base que ya existe (como la de LG01) no cambia.
 
-## Actualizar una tienda ya instalada a 1.2.157 (sin borrar la base)
+## Actualizar una tienda ya instalada a 1.2.160 (sin borrar la base)
 
-Esta versión trae **una migración nueva (0014)**: añade el id de integración a las formas de pago. No borra ni cambia datos y `npm run db:init` la aplica sola. No hagas `db:reset`.
+Esta versión trae **dos migraciones nuevas**: la 0014 (id de integración de las formas de pago) y la 0015 (tabla de incidencias de mesa). No borran ni cambian datos y `npm run db:init` las aplica solas. No hagas `db:reset`.
 
 1. Para la API (Ctrl+C en su ventana, o `docker compose stop api`).
 2. Haz copia de tu `.env` de `japp-api` y de `japp-db`. Descomprime el zip encima de la carpeta anterior (el zip no trae `.env`).
-3. En `japp-api`: `npm install` y después `npm run db:init` (aplica la migración 0014; no borra nada). Con Docker: `docker compose up --build -d`.
+3. En `japp-api`: `npm install` y después `npm run db:init` (aplica las migraciones 0014 y 0015; no borra nada). Con Docker: `docker compose up --build -d`.
 4. Para que la factura, la precuenta y la comanda salgan por papel, en el `.env` de `japp-api` pon `PRINTER_MODE=escpos`.
-5. Arranca la API (`npm start`) y en el TPV pulsa **Actualizar** (o Ctrl+F5): abajo debe poner **v157**.
+5. Arranca la API (`npm start`) y en el TPV pulsa **Actualizar** (o Ctrl+F5): abajo debe poner **v160**.
 6. Para que lleguen los datos al Manager, arranca también el agente (`npm start -w sync-agent` en otra ventana, o en Docker `--profile sync`).
 
 ## Seguir construyendo con Claude Code

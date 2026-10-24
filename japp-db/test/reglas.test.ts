@@ -38,6 +38,13 @@ describe("reglas en la base", () => {
     await c.query("UPDATE payment_method SET external_id='PAG-1' WHERE id=$1", [m1.id]);
     await fails("UPDATE payment_method SET external_id='PAG-1' WHERE id=$1", [m2.id], "23505");
   }));
+  it("una incidencia de mesa resuelta lleva fecha y una abierta no (23514, migración 0015)", () => rollback(c, async () => {
+    const ins = `INSERT INTO order_incident (id, store_id, table_name, kind, status, occurred_at, opened_by_user_name, resolved_by_at) VALUES ($1, $2, '12', 'offline', $3, now(), 'x', $4)`;
+    expect(await fails(ins, [uuid(), store, "open", null], "23514")).toBe("OK");
+    await fails(ins, [uuid(), store, "retried", null], "23514");
+    await fails(ins, [uuid(), store, "open", new Date()], "23514");
+    await fails(`INSERT INTO order_incident (id, store_id, table_name, kind, occurred_at, opened_by_user_name) VALUES ($1, $2, '1', 'otra', now(), 'x')`, [uuid(), store], "23514");
+  }));
   it("una orden tiene como mucho un token de Order on Table vigente (23505, migración 0012)", () => rollback(c, async () => {
     const o = uuid();
     await c.query(`INSERT INTO orders (id, store_id, table_name, opened_by_user_name, opened_by_at) VALUES ($1,$2,'1','x',now())`, [o, store]);

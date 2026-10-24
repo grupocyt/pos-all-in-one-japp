@@ -135,6 +135,23 @@ describe("aviso de duplicado (3 minutos, otra persona)", () => {
     });
     expect(code(() => addProduct(a, { product: CANA, area: SALA }, ctx()))).toBe("OK");
   });
+  it("mismo equipo, otro usuario → no avisa; otro equipo → avisa (aunque sea el mismo usuario)", () => {
+    const de = (user: string, device: string) =>
+      account({
+        lines: [
+          line({
+            productId: CANA.plu,
+            createdBy: { user, role: "waiter", device, at: minutesAgo(1) } as never,
+          }),
+        ],
+      });
+    expect(
+      findSuspectedDuplicate(de("Sistemas", "CAJA1"), CANA.plu, { user: "Barra", device: "CAJA1" }, T0),
+    ).toBeNull();
+    expect(
+      findSuspectedDuplicate(de("Sistemas", "PDA1"), CANA.plu, { user: "Sistemas", device: "CAJA1" }, T0),
+    ).not.toBeNull();
+  });
   it("respeta la ventana configurada (Parámetros › dupMin)", () => {
     expect(code(() => addProduct(otra(4), { product: CANA, area: SALA, dupWindowMin: 5 }, ctx()))).toBe(
       "DUPLICATE_SUSPECTED",
