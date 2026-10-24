@@ -4722,11 +4722,13 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-orders-orderid-presence-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/presence</code><span class="s">Entrar o salir de la mesa</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
-<p>Una persona por mesa. action: enter (entrar), renew (renovar; el equipo lo manda cada 10 s), leave (salir), charging (abro el cobro; renovar mandándolo otra vez) o chargingEnd (cierro el cobro sin cobrar). Quien entra tiene la mesa 30 s (holderUntil), renovables con renew o con cualquier comando suyo aceptado. Mesa con otra persona dentro: si se está cobrando (60 s, renovable) responde 409 TABLE_CHARGING «Se está cobrando esta mesa» (también a un administrador); si no, quien tiene mesas.entrarOcupada (ADMIN y ADMIN_LOCAL) entra y la otra persona pasa a solo guardar (queda en el historial); sin ese permiso responde 409 TABLE_TAKEN «Mesa ocupada por {nombre} · {estación}» con details.holder {userName, stationName, until}. Quien tiene la mesa es la pareja usuario + equipo: el mismo usuario desde otro equipo cuenta como otra persona (TABLE_TAKEN salvo mesas.entrarOcupada; TABLE_CHARGING mientras se cobra). Como hay una sola sesión por usuario, al entrar con la clave en otro equipo la mesa del equipo anterior queda libre. Mientras otra persona o equipo tiene la mesa, solo se admite Guardar (POST …/lines y POST …/send); el resto de comandos de la orden responde 409 TABLE_TAKEN. Un cobro que deja lo pendiente a 0, la factura o chargingEnd quitan el cobro abierto; leave quita la mesa y el cobro. Sin presencia (nadie la tiene o caducó) todo funciona como siempre.</p>
+<p>Una persona por mesa. action: enter (entrar), renew (renovar; el equipo lo manda cada 10 s), leave (salir), charging (abro el cobro; renovar mandándolo otra vez) o chargingEnd (cierro el cobro sin cobrar). Quien entra tiene la mesa 30 s (holderUntil), renovables con renew o con cualquier comando suyo aceptado. Mesa con otra persona dentro: si se está cobrando (60 s, renovable) responde 409 TABLE_CHARGING «Se está cobrando esta mesa» (también a un administrador); si no, responde 409 TABLE_TAKEN (a todos, para que el equipo pregunte «¿Quieres tomar el control?») y enter con takeOver = true toma el control: hace falta mesas.entrarOcupada (ADMIN y ADMIN_LOCAL) o authorization de un encargado con ese permiso (sin ella, 403 PERMISSION_REQUIRED); la otra persona sale de la mesa y queda en el historial con quién autorizó. El TABLE_TAKEN responde «Mesa ocupada por {nombre} · {estación}» con details.holder {userName, stationName, until}. Quien tiene la mesa es la pareja usuario + equipo: el mismo usuario desde otro equipo cuenta como otra persona (TABLE_TAKEN salvo mesas.entrarOcupada; TABLE_CHARGING mientras se cobra). Como hay una sola sesión por usuario, al entrar con la clave en otro equipo la mesa del equipo anterior queda libre. Mientras otra persona o equipo tiene la mesa, ningún comando de la orden se admite (ni añadir ni Guardar): responde 409 TABLE_TAKEN y hay que tomar el control. Solo los pedidos de fuera (Order on Table) entran igualmente. Un cobro que deja lo pendiente a 0, la factura o chargingEnd quitan el cobro abierto; leave quita la mesa y el cobro. Sin presencia (nadie la tiene o caducó) todo funciona como siempre.</p>
 <dl class="meta"><dt>En el TPV</dt><dd>Al entrar y salir de la mesa · Cobrar</dd><dt>Tablas</dt><dd><code>orders</code> <code>order_event</code></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
-  &quot;action&quot;: &quot;enter&quot;
+  &quot;action&quot;: &quot;enter&quot;,
+  &quot;takeOver&quot;: false,
+  &quot;authorization&quot;: null
 }</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
   &quot;title&quot;: &quot;Entrar o salir de la mesa&quot;,
   &quot;type&quot;: &quot;success&quot;,
@@ -4747,7 +4749,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
-<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>TABLE_TAKEN</code> <span class="pin">409</span> Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</li><li><code>TABLE_CHARGING</code> <span class="pin">409</span> Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador).</li><li><code>ORDER_CLOSED</code> <span class="pin">409</span> La mesa se cerró desde otro equipo.</li><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda.</li></ul>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>TABLE_TAKEN</code> <span class="pin">409</span> Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</li><li><code>TABLE_CHARGING</code> <span class="pin">409</span> Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador).</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li><li><code>ORDER_CLOSED</code> <span class="pin">409</span> La mesa se cerró desde otro equipo.</li><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda.</li></ul>
 </div></details><details class="ep" id="post-orders-orderid-accounts-accountid-transfer-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/accounts/{accountId}/transfer</code><span class="s">Pasar una cuenta a otra mesa</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
@@ -5454,7 +5456,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-orders-orderid-save-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/save</code><span class="s">Guardar y salir</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
-<p>El botón Guardar del TPV y la PDA: envía lo «Por enviar» (como POST …/send) y sale de la mesa (suelta la presencia). Si a la mesa no le queda nada vivo (sin productos ni cobros en cuentas sin facturar) la cierra sin venta y queda libre (released = true). Si una impresora falla, la mesa queda guardada y responde 503 PRINTER_OFFLINE como send. Si hay algo que enviar pide pedido.enviar (como send); salir o liberar una mesa vacía no pide permiso. Si otra persona tiene la mesa, solo guarda: ni la cierra ni le quita la presencia.</p>
+<p>El botón Guardar del TPV y la PDA: envía lo «Por enviar» (como POST …/send) y sale de la mesa (suelta la presencia). Si a la mesa no le queda nada vivo (sin productos ni cobros en cuentas sin facturar) la cierra sin venta y queda libre (released = true). Si una impresora falla, la mesa queda guardada y responde 503 PRINTER_OFFLINE como send. Si hay algo que enviar pide pedido.enviar (como send); salir o liberar una mesa vacía no pide permiso. Si otra persona tiene la mesa responde 409 TABLE_TAKEN (hay que tomar el control).</p>
 <dl class="meta"><dt>En el TPV</dt><dd>Guardar</dd><dt>Tablas</dt><dd><code>orders</code> <code>order_line</code> <code>order_line_printer</code> <code>account</code> <code>order_event</code> <code>sync_outbox</code></dd><dt>Notas</dt><dd><span class="flag">Con versión</span></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -6475,7 +6477,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-orders-orderid-send-tx">
 <summary><span class="m post">POST</span><code class="p">/orders/{orderId}/send</code><span class="s">Enviar comanda</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
-<p>«Guardar»: manda a cada impresora lo «Por enviar» según el canal del producto y la estación. Se guarda primero (las líneas quedan enviadas y se apunta a qué impresora va cada una en order_line_printer) y se imprime después, sin bloquear la mesa. Si una impresora falla responde 503 PRINTER_OFFLINE con details.printed (qué salió y qué no): lo que no salió queda pendiente de imprimir en esa impresora y el siguiente «Enviar» (aunque no haya nada nuevo) lo imprime solo ahí; lo que ya salió no se repite. Sin nada que enviar ni que reimprimir no cambia la versión. Se admite aunque otra persona tenga la mesa (solo guardar).</p>
+<p>«Guardar»: manda a cada impresora lo «Por enviar» según el canal del producto y la estación. Se guarda primero (las líneas quedan enviadas y se apunta a qué impresora va cada una en order_line_printer) y se imprime después, sin bloquear la mesa. Si una impresora falla responde 503 PRINTER_OFFLINE con details.printed (qué salió y qué no): lo que no salió queda pendiente de imprimir en esa impresora y el siguiente «Enviar» (aunque no haya nada nuevo) lo imprime solo ahí; lo que ya salió no se repite. Sin nada que enviar ni que reimprimir no cambia la versión. Si otra persona tiene la mesa responde 409 TABLE_TAKEN.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>pedido.enviar</code></dd><dt>En el TPV</dt><dd>Guardar (n) · Enviar comanda</dd><dt>Tablas</dt><dd><code>order_line</code> <code>order_line_printer</code> <code>order_event</code></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -13520,14 +13522,17 @@ paths:
         charging (abro el cobro; renovar mandándolo otra vez) o chargingEnd (cierro el cobro sin cobrar). Quien entra tiene
         la mesa 30 s (holderUntil), renovables con renew o con cualquier comando suyo aceptado. Mesa con otra persona dentro:
         si se está cobrando (60 s, renovable) responde 409 TABLE_CHARGING «Se está cobrando esta mesa» (también a un administrador);
-        si no, quien tiene mesas.entrarOcupada (ADMIN y ADMIN_LOCAL) entra y la otra persona pasa a solo guardar (queda en
-        el historial); sin ese permiso responde 409 TABLE_TAKEN «Mesa ocupada por {nombre} · {estación}» con details.holder
-        {userName, stationName, until}. Quien tiene la mesa es la pareja usuario + equipo: el mismo usuario desde otro equipo
-        cuenta como otra persona (TABLE_TAKEN salvo mesas.entrarOcupada; TABLE_CHARGING mientras se cobra). Como hay una sola
-        sesión por usuario, al entrar con la clave en otro equipo la mesa del equipo anterior queda libre. Mientras otra persona
-        o equipo tiene la mesa, solo se admite Guardar (POST …/lines y POST …/send); el resto de comandos de la orden responde
-        409 TABLE_TAKEN. Un cobro que deja lo pendiente a 0, la factura o chargingEnd quitan el cobro abierto; leave quita
-        la mesa y el cobro. Sin presencia (nadie la tiene o caducó) todo funciona como siempre.
+        si no, responde 409 TABLE_TAKEN (a todos, para que el equipo pregunte «¿Quieres tomar el control?») y enter con takeOver
+        = true toma el control: hace falta mesas.entrarOcupada (ADMIN y ADMIN_LOCAL) o authorization de un encargado con ese
+        permiso (sin ella, 403 PERMISSION_REQUIRED); la otra persona sale de la mesa y queda en el historial con quién autorizó.
+        El TABLE_TAKEN responde «Mesa ocupada por {nombre} · {estación}» con details.holder {userName, stationName, until}.
+        Quien tiene la mesa es la pareja usuario + equipo: el mismo usuario desde otro equipo cuenta como otra persona (TABLE_TAKEN
+        salvo mesas.entrarOcupada; TABLE_CHARGING mientras se cobra). Como hay una sola sesión por usuario, al entrar con
+        la clave en otro equipo la mesa del equipo anterior queda libre. Mientras otra persona o equipo tiene la mesa, ningún
+        comando de la orden se admite (ni añadir ni Guardar): responde 409 TABLE_TAKEN y hay que tomar el control. Solo los
+        pedidos de fuera (Order on Table) entran igualmente. Un cobro que deja lo pendiente a 0, la factura o chargingEnd
+        quitan el cobro abierto; leave quita la mesa y el cobro. Sin presencia (nadie la tiene o caducó) todo funciona como
+        siempre.
 
 
         Lo llama: TPV, PDA
@@ -13629,6 +13634,27 @@ paths:
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Entrar o salir de la mesa
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
         &#x27;404&#x27;:
           description: &#x27;NOT_FOUND: No existe o no es de esta tienda.&#x27;
           content:
@@ -13663,8 +13689,13 @@ paths:
               properties:
                 action:
                   type: string
+                takeOver:
+                  type: boolean
+                authorization: {}
             example:
               action: enter
+              takeOver: false
+              authorization: null
   /api/v2/orders/{orderId}/accounts/{accountId}/transfer:
     post:
       tags:
@@ -16695,8 +16726,8 @@ paths:
         primero (las líneas quedan enviadas y se apunta a qué impresora va cada una en order_line_printer) y se imprime después,
         sin bloquear la mesa. Si una impresora falla responde 503 PRINTER_OFFLINE con details.printed (qué salió y qué no):
         lo que no salió queda pendiente de imprimir en esa impresora y el siguiente «Enviar» (aunque no haya nada nuevo) lo
-        imprime solo ahí; lo que ya salió no se repite. Sin nada que enviar ni que reimprimir no cambia la versión. Se admite
-        aunque otra persona tenga la mesa (solo guardar).
+        imprime solo ahí; lo que ya salió no se repite. Sin nada que enviar ni que reimprimir no cambia la versión. Si otra
+        persona tiene la mesa responde 409 TABLE_TAKEN.
 
 
         Permiso: pedido.enviar
@@ -23613,7 +23644,7 @@ paths:
         la presencia). Si a la mesa no le queda nada vivo (sin productos ni cobros en cuentas sin facturar) la cierra sin
         venta y queda libre (released = true). Si una impresora falla, la mesa queda guardada y responde 503 PRINTER_OFFLINE
         como send. Si hay algo que enviar pide pedido.enviar (como send); salir o liberar una mesa vacía no pide permiso.
-        Si otra persona tiene la mesa, solo guarda: ni la cierra ni le quita la presencia.
+        Si otra persona tiene la mesa responde 409 TABLE_TAKEN (hay que tomar el control).
 
 
         Lo llama: TPV, PDA

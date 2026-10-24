@@ -101,9 +101,10 @@ describe("guardia de los comandos", () => {
     expect(assertCanCommand(FREE, ANA, "other", T0)).toEqual({ holds: false });
     expect(assertCanCommand(held(), ANA, "other", plus(31))).toEqual({ holds: false });
   });
-  it("quien tiene la mesa hace de todo; los demás solo Guardar (añadir y enviar)", () => {
+  it("quien tiene la mesa hace de todo; los demás nada, ni Guardar (25/10/2026); solo Order on Table entra", () => {
     expect(assertCanCommand(held(), PEDRO, "other", plus(1))).toEqual({ holds: true });
-    expect(assertCanCommand(held(), ANA, "save", plus(1))).toEqual({ holds: false });
+    expect(code(() => assertCanCommand(held(), ANA, "save", plus(1)))).toBe("TABLE_TAKEN");
+    expect(assertCanCommand(held(), ANA, "external", plus(1))).toEqual({ holds: false });
     expect(code(() => assertCanCommand(held(), ANA, "other", plus(1)))).toBe("TABLE_TAKEN");
     expect(code(() => assertCanCommand(held(), PEDRO_PDA2, "other", plus(1)))).toBe("TABLE_TAKEN"); // mismo usuario, otro equipo: tiene que volver a entrar
   });

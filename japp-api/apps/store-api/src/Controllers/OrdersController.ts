@@ -138,7 +138,7 @@ export class OrdersController {
     @Param("orderId") id: string,
     @Body() b: unknown,
   ) {
-    return this.svc.presence(se, parse(uuid, id), parse(Presence, b).action);
+    return this.svc.presence(se, parse(uuid, id), parse(Presence, b));
   }
 
   @Delete(":orderId/accounts/:accountId") @HttpCode(200) removeAccount(

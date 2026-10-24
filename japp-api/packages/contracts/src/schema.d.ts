@@ -607,7 +607,7 @@ export interface paths {
         put?: never;
         /**
          * Entrar o salir de la mesa
-         * @description Una persona por mesa. action: enter (entrar), renew (renovar; el equipo lo manda cada 10 s), leave (salir), charging (abro el cobro; renovar mandándolo otra vez) o chargingEnd (cierro el cobro sin cobrar). Quien entra tiene la mesa 30 s (holderUntil), renovables con renew o con cualquier comando suyo aceptado. Mesa con otra persona dentro: si se está cobrando (60 s, renovable) responde 409 TABLE_CHARGING «Se está cobrando esta mesa» (también a un administrador); si no, quien tiene mesas.entrarOcupada (ADMIN y ADMIN_LOCAL) entra y la otra persona pasa a solo guardar (queda en el historial); sin ese permiso responde 409 TABLE_TAKEN «Mesa ocupada por {nombre} · {estación}» con details.holder {userName, stationName, until}. Quien tiene la mesa es la pareja usuario + equipo: el mismo usuario desde otro equipo cuenta como otra persona (TABLE_TAKEN salvo mesas.entrarOcupada; TABLE_CHARGING mientras se cobra). Como hay una sola sesión por usuario, al entrar con la clave en otro equipo la mesa del equipo anterior queda libre. Mientras otra persona o equipo tiene la mesa, solo se admite Guardar (POST …/lines y POST …/send); el resto de comandos de la orden responde 409 TABLE_TAKEN. Un cobro que deja lo pendiente a 0, la factura o chargingEnd quitan el cobro abierto; leave quita la mesa y el cobro. Sin presencia (nadie la tiene o caducó) todo funciona como siempre.
+         * @description Una persona por mesa. action: enter (entrar), renew (renovar; el equipo lo manda cada 10 s), leave (salir), charging (abro el cobro; renovar mandándolo otra vez) o chargingEnd (cierro el cobro sin cobrar). Quien entra tiene la mesa 30 s (holderUntil), renovables con renew o con cualquier comando suyo aceptado. Mesa con otra persona dentro: si se está cobrando (60 s, renovable) responde 409 TABLE_CHARGING «Se está cobrando esta mesa» (también a un administrador); si no, responde 409 TABLE_TAKEN (a todos, para que el equipo pregunte «¿Quieres tomar el control?») y enter con takeOver = true toma el control: hace falta mesas.entrarOcupada (ADMIN y ADMIN_LOCAL) o authorization de un encargado con ese permiso (sin ella, 403 PERMISSION_REQUIRED); la otra persona sale de la mesa y queda en el historial con quién autorizó. El TABLE_TAKEN responde «Mesa ocupada por {nombre} · {estación}» con details.holder {userName, stationName, until}. Quien tiene la mesa es la pareja usuario + equipo: el mismo usuario desde otro equipo cuenta como otra persona (TABLE_TAKEN salvo mesas.entrarOcupada; TABLE_CHARGING mientras se cobra). Como hay una sola sesión por usuario, al entrar con la clave en otro equipo la mesa del equipo anterior queda libre. Mientras otra persona o equipo tiene la mesa, ningún comando de la orden se admite (ni añadir ni Guardar): responde 409 TABLE_TAKEN y hay que tomar el control. Solo los pedidos de fuera (Order on Table) entran igualmente. Un cobro que deja lo pendiente a 0, la factura o chargingEnd quitan el cobro abierto; leave quita la mesa y el cobro. Sin presencia (nadie la tiene o caducó) todo funciona como siempre.
          *
          *     Lo llama: TPV, PDA
          *
@@ -967,7 +967,7 @@ export interface paths {
         put?: never;
         /**
          * Enviar comanda
-         * @description «Guardar»: manda a cada impresora lo «Por enviar» según el canal del producto y la estación. Se guarda primero (las líneas quedan enviadas y se apunta a qué impresora va cada una en order_line_printer) y se imprime después, sin bloquear la mesa. Si una impresora falla responde 503 PRINTER_OFFLINE con details.printed (qué salió y qué no): lo que no salió queda pendiente de imprimir en esa impresora y el siguiente «Enviar» (aunque no haya nada nuevo) lo imprime solo ahí; lo que ya salió no se repite. Sin nada que enviar ni que reimprimir no cambia la versión. Se admite aunque otra persona tenga la mesa (solo guardar).
+         * @description «Guardar»: manda a cada impresora lo «Por enviar» según el canal del producto y la estación. Se guarda primero (las líneas quedan enviadas y se apunta a qué impresora va cada una en order_line_printer) y se imprime después, sin bloquear la mesa. Si una impresora falla responde 503 PRINTER_OFFLINE con details.printed (qué salió y qué no): lo que no salió queda pendiente de imprimir en esa impresora y el siguiente «Enviar» (aunque no haya nada nuevo) lo imprime solo ahí; lo que ya salió no se repite. Sin nada que enviar ni que reimprimir no cambia la versión. Si otra persona tiene la mesa responde 409 TABLE_TAKEN.
          *
          *     Permiso: pedido.enviar
          *
@@ -2281,7 +2281,7 @@ export interface paths {
         put?: never;
         /**
          * Guardar y salir
-         * @description El botón Guardar del TPV y la PDA: envía lo «Por enviar» (como POST …/send) y sale de la mesa (suelta la presencia). Si a la mesa no le queda nada vivo (sin productos ni cobros en cuentas sin facturar) la cierra sin venta y queda libre (released = true). Si una impresora falla, la mesa queda guardada y responde 503 PRINTER_OFFLINE como send. Si hay algo que enviar pide pedido.enviar (como send); salir o liberar una mesa vacía no pide permiso. Si otra persona tiene la mesa, solo guarda: ni la cierra ni le quita la presencia.
+         * @description El botón Guardar del TPV y la PDA: envía lo «Por enviar» (como POST …/send) y sale de la mesa (suelta la presencia). Si a la mesa no le queda nada vivo (sin productos ni cobros en cuentas sin facturar) la cierra sin venta y queda libre (released = true). Si una impresora falla, la mesa queda guardada y responde 503 PRINTER_OFFLINE como send. Si hay algo que enviar pide pedido.enviar (como send); salir o liberar una mesa vacía no pide permiso. Si otra persona tiene la mesa responde 409 TABLE_TAKEN (hay que tomar el control).
          *
          *     Lo llama: TPV, PDA
          *
@@ -5278,10 +5278,14 @@ export interface operations {
         requestBody: {
             content: {
                 /** @example {
-                 *       "action": "enter"
+                 *       "action": "enter",
+                 *       "takeOver": false,
+                 *       "authorization": null
                  *     } */
                 "application/json": {
                     action?: string;
+                    takeOver?: boolean;
+                    authorization?: unknown;
                 };
             };
         };
@@ -5307,6 +5311,15 @@ export interface operations {
                             youHold?: boolean;
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description NOT_FOUND: No existe o no es de esta tienda. */

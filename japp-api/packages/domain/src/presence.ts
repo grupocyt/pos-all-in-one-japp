@@ -4,7 +4,7 @@ import { fail } from "./errors.js";
  * Una persona por mesa (decidido 15/10/2026):
  * - Quien entra en la mesa la «tiene» 30 s (holder_until); el equipo lo renueva con «renew» y con cada comando aceptado.
  * - Mesa con otra persona dentro: si se está cobrando (charging_until) nadie entra, ni un administrador (TABLE_CHARGING);
- *   con el permiso mesas.entrarOcupada se entra y el anterior pasa a «solo guardar»; sin él, TABLE_TAKEN.
+ *   con el permiso mesas.entrarOcupada se toma el control y el anterior sale de la mesa (25/10/2026: ya no puede ni guardar); sin él, TABLE_TAKEN.
  * - Quien tiene la mesa es la pareja (usuario, equipo): el mismo usuario desde otro equipo cuenta como otra persona
  *   (TABLE_TAKEN salvo mesas.entrarOcupada; TABLE_CHARGING mientras se cobra). Cambiado el 15/10/2026 por el product owner.
  * - Quien no tiene la mesa (otra persona u otro equipo) solo puede «Guardar»: añadir líneas y enviar.
@@ -33,7 +33,8 @@ export interface PresenceCaller {
 export type PresenceAction = "enter" | "renew" | "leave" | "charging" | "chargingEnd";
 export const PRESENCE_ACTIONS: PresenceAction[] = ["enter", "renew", "leave", "charging", "chargingEnd"];
 /** Lo que se puede hacer sin tener la mesa: Guardar (añadir líneas y enviar). */
-export type CommandKind = "save" | "other";
+/** save = Guardar (añadir y enviar); external = pedidos de fuera (Order on Table); other = el resto. */
+export type CommandKind = "save" | "external" | "other";
 
 const at = (now: Date, s: number) => new Date(now.getTime() + s * 1000).toISOString();
 export const liveHolder = (s: PresenceState, now: Date): TableHolder | null =>
@@ -126,7 +127,11 @@ export function applyPresence(
   }
 }
 
-/** Guardia de los comandos de la orden: sin presencia viva, todo como siempre; con otra persona/equipo dentro, solo «Guardar». */
+/**
+ * Guardia de los comandos de la orden: sin presencia viva, todo como siempre. Con otra persona/equipo dentro (25/10/2026):
+ * nadie más toca la mesa, tampoco «Guardar»; hay que tomar el control (presence enter, con mesas.entrarOcupada).
+ * Solo entran los pedidos de fuera (Order on Table), que no tienen equipo.
+ */
 export function assertCanCommand(
   s: PresenceState,
   c: Pick<PresenceCaller, "userId" | "stationId">,
@@ -140,7 +145,7 @@ export function assertCanCommand(
   if (sameDevice(h, c)) {
     return { holds: true };
   }
-  if (kind === "save") {
+  if (kind === "external") {
     return { holds: false };
   }
   return taken(h);

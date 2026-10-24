@@ -100,6 +100,9 @@ export const Pay = z.object({
 });
 export const Presence = z.object({
   action: z.enum(PRESENCE_ACTIONS as [PresenceAction, ...PresenceAction[]]),
+  /** enter: tomar el control de una mesa que tiene otra persona (mesas.entrarOcupada o clave de encargado). */
+  takeOver: z.boolean().optional(),
+  authorization: auth,
 });
 export const ListQuery = z.object({
   status: z.enum(["open", "billing", "closed", "cancelled"]).optional(),

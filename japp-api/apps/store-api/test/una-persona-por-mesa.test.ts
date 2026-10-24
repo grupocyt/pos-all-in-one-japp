@@ -31,8 +31,8 @@ afterAll(async () => {
   await t.close();
 });
 
-const presence = (tok: string, orderId: string, action: string) =>
-  t.call("POST", `/orders/${orderId}/presence`, { token: tok, body: { action } });
+const presence = (tok: string, orderId: string, action: string, extra: Record<string, unknown> = {}) =>
+  t.call("POST", `/orders/${orderId}/presence`, { token: tok, body: { action, ...extra } });
 async function openTable(tok = mesero) {
   const o = await t.call("POST", "/orders", {
     token: tok,
@@ -80,12 +80,14 @@ describe("una persona por mesa", () => {
     });
   });
 
-  it("quien no tiene la mesa solo puede Guardar (añadir y enviar); el resto → 409 TABLE_TAKEN", async () => {
+  it("quien no tiene la mesa no puede tocarla, ni añadir ni enviar (25/10/2026) → 409 TABLE_TAKEN", async () => {
     expect(
       (await t.call("POST", `/orders/${o.orderId}/lines`, { token: barra, body: { plu: PLU.croquetas } }))
-        .status,
-    ).toBe(201);
-    expect((await t.call("POST", `/orders/${o.orderId}/send`, { token: barra, body: {} })).status).toBe(200);
+        .error.code,
+    ).toBe("TABLE_TAKEN");
+    expect((await t.call("POST", `/orders/${o.orderId}/send`, { token: barra, body: {} })).error.code).toBe(
+      "TABLE_TAKEN",
+    );
     const p = await t.call("PATCH", `/orders/${o.orderId}`, { token: barra, body: { guests: 4 } });
     expect([p.status, p.error.code]).toEqual([409, "TABLE_TAKEN"]);
     expect(
@@ -114,22 +116,48 @@ describe("una persona por mesa", () => {
     expect(new Date(until).getTime() - t.clock.now.getTime()).toBe(30_000);
   });
 
-  it("con mesas.entrarOcupada (Sistemas) se entra; el anterior pasa a solo guardar y queda en el historial", async () => {
-    const r = await presence(sis, o.orderId, "enter");
+  it("tomar el control sin permiso ni clave de encargado → 403 PERMISSION_REQUIRED", async () => {
+    const r = await presence(barra, o.orderId, "enter", { takeOver: true });
+    expect([r.status, r.error.code, r.error.details.permission]).toEqual([
+      403,
+      "PERMISSION_REQUIRED",
+      "mesas.entrarOcupada",
+    ]);
+  });
+
+  it("con mesas.entrarOcupada (Sistemas) primero se avisa (TABLE_TAKEN) y con takeOver se toma el control; el anterior sale y queda en el historial", async () => {
+    expect((await presence(sis, o.orderId, "enter")).error.code).toBe("TABLE_TAKEN"); // el equipo pregunta antes
+    const r = await presence(sis, o.orderId, "enter", { takeOver: true });
     expect(r.body).toMatchObject({ holder: { userName: "Sistemas" }, youHold: true });
     const ev = (await t.call("GET", `/orders/${o.orderId}/events`, { token: sis })).body.items;
     expect(ev.map((e: any) => e.description)).toContain(
-      "Sistemas entra en la mesa; Mesero pasa a solo guardar",
+      "Sistemas toma el control de la mesa; Mesero sale de ella",
     );
     expect(
       (await t.call("POST", `/orders/${o.orderId}/lines`, { token: mesero, body: { plu: PLU.redbull } }))
-        .status,
-    ).toBe(201);
+        .error.code,
+    ).toBe("TABLE_TAKEN");
     expect(
       (await t.call("PATCH", `/orders/${o.orderId}`, { token: mesero, body: { guests: 5 } })).error.code,
     ).toBe("TABLE_TAKEN");
     expect((await presence(mesero, o.orderId, "renew")).error.code).toBe("TABLE_TAKEN"); // renovando no se recupera
     expect((await presence(mesero, o.orderId, "enter")).error.code).toBe("TABLE_TAKEN");
+  });
+
+  it("sin el permiso, con la clave de un encargado también se toma el control (queda quién autorizó)", async () => {
+    const auth = (
+      await t.call("POST", "/sessions/authorize", {
+        token: barra,
+        body: { pin: PIN.sistemas, permission: "mesas.entrarOcupada" },
+      })
+    ).body.authorization.token;
+    const r = await presence(barra, o.orderId, "enter", { takeOver: true, authorization: auth });
+    expect(r.body).toMatchObject({ youHold: true });
+    const ev = (await t.call("GET", `/orders/${o.orderId}/events`, { token: sis })).body.items;
+    expect(ev.map((e: any) => e.description)).toContain(
+      "Barra toma el control de la mesa (autorizó Sistemas); Sistemas sale de ella",
+    );
+    expect((await presence(sis, o.orderId, "enter", { takeOver: true })).body.youHold).toBe(true);
   });
 
   it("mientras se cobra nadie entra, ni un administrador (409 TABLE_CHARGING); el cobro que deja la cuenta a 0 lo cierra", async () => {

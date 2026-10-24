@@ -228,17 +228,28 @@ export class OrdersService {
 
   /**
    * Una persona por mesa: entrar, renovar, salir, abrir y cerrar el cobro (regla en @japp/domain → applyPresence).
-   * No cambia la versión de la orden. Si alguien con mesas.entrarOcupada desplaza a otro, queda en el historial.
+   * No cambia la versión de la orden. Con otra persona dentro, enter responde TABLE_TAKEN (también a quien tiene
+   * mesas.entrarOcupada: el equipo pregunta antes); enter con takeOver = true toma el control si tiene el permiso o
+   * trae la autorización de un encargado, y queda en el historial (con quién autorizó).
    */
-  async presence(session: Session, orderId: string, action: PresenceAction) {
+  async presence(
+    session: Session,
+    orderId: string,
+    b: { action: PresenceAction; takeOver?: boolean; authorization?: string | null },
+  ) {
+    const action = b.action;
     const now = this.clock();
     const a = session.actor(now);
+    const grant =
+      action === "enter" && b.takeOver
+        ? await this.auth.require(session, "mesas.entrarOcupada", b.authorization, now)
+        : null;
     const me = {
       userId: session.user.id,
       userName: session.user.name,
       stationId: session.station.id,
       stationName: session.station.name,
-      canTakeOver: session.can("mesas.entrarOcupada"),
+      canTakeOver: !!grant,
     };
     return this.database.withTx(async (tx) => {
       const o = await this.repo.lockRow(tx, session.storeId, orderId);
@@ -256,7 +267,7 @@ export class OrdersService {
       if (r.displaced) {
         await this.repo.insertEvent(tx, session.storeId, orderId, {
           type: "tableTakenOver",
-          description: `${me.userName} entra en la mesa; ${r.displaced.userName} pasa a solo guardar`,
+          description: `${me.userName} toma el control de la mesa${grant?.authorizerActor ? ` (autorizó ${grant.authorizerActor.user})` : ""}; ${r.displaced.userName} sale de ella`,
           actor: a,
         });
       }
@@ -2239,7 +2250,7 @@ export class OrdersService {
           },
         };
       },
-      { kind: "save" },
+      { kind: "external" }, // Order on Table: el cliente pide aunque haya alguien en la mesa
     );
     if (r.extra.replay !== undefined) {
       return { replay: r.extra.replay };

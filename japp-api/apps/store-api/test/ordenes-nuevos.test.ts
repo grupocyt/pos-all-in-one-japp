@@ -117,12 +117,11 @@ describe("POST /orders/{id}/save · Guardar y salir", () => {
     );
   });
 
-  it("si otra persona tiene la mesa, quien solo guarda no se la cierra ni se la quita", async () => {
+  it("si otra persona tiene la mesa, no se puede guardar en ella (hay que tomar el control) y no se le quita", async () => {
     const o = await newOrder([]);
     await t.call("POST", `/orders/${o.id}/presence`, { token: jeison, body: { action: "enter" } });
     const r = await t.call("POST", `/orders/${o.id}/save`, { token: sis, body: {} });
-    expect(r.status).toBe(200);
-    expect(r.body.released).toBe(false);
+    expect([r.status, r.error.code]).toEqual([409, "TABLE_TAKEN"]);
     expect(await holderOf(o.id)).toBe("Jeison");
     await t.call("POST", `/orders/${o.id}/presence`, { token: jeison, body: { action: "leave" } });
   });
