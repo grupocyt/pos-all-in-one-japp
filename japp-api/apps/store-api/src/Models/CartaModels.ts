@@ -28,8 +28,12 @@ export type SyncCategory = z.infer<typeof SyncCategoryModel>;
 export const SyncProductModel = z.object({
   externalId,
   plu: z.number().int().positive().nullish(),
+  /** Nombre del PLU (el maestro). */
   name: str(80),
+  /** Nombre a imprimir (comanda, precuenta y factura); vacío = el del PLU. */
   ticketName: optStr(80),
+  /** Nombre en el TPV (texto de la tecla); vacío = el del PLU. */
+  buttonLabel: optStr(80),
   description: z.string().max(300).nullish(),
   categoryExternalId: ref.nullish(),
   categoryId: z.string().uuid().nullish(),

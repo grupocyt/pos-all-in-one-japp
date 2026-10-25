@@ -23,8 +23,12 @@ export interface ProductRow {
   id: string;
   externalId: string | null;
   plu: number;
+  /** Nombre del PLU (el maestro). */
   name: string;
+  /** Nombre a imprimir (comanda, precuenta y factura); null = el del PLU. */
   ticketName: string | null;
+  /** Nombre en el TPV (texto de la tecla, category_product.label); null = el del PLU. */
+  buttonLabel: string | null;
   description: string | null;
   categoryId: string | null;
   categoryExternalId: string | null;
@@ -87,6 +91,8 @@ export interface ProductValues {
   plu: number;
   name: string;
   ticketName: string | null;
+  /** No es columna de product: va a la tecla (category_product.label). */
+  buttonLabel: string | null;
   description: string | null;
   categoryId: string | null;
   price: number;
@@ -157,6 +163,16 @@ const optMoney = (v: number | null) => {
 };
 
 /** Agrupa filas por una clave (relaciones de cada registro). */
+/** Texto propio de la tecla o null si es el mismo que el nombre del PLU. */
+function buttonOf(rows: { categoryId: string; label: string | null }[], categoryId: string | null, name: string) {
+  const own = rows.find((r) => r.categoryId === categoryId) ?? rows[0];
+  const label = own?.label?.trim();
+  if (!label || label === name) {
+    return null;
+  }
+  return label;
+}
+
 function groupBy<T>(xs: T[], key: (x: T) => string) {
   const g = new Map<string, T[]>();
   for (const x of xs) {
@@ -236,6 +252,12 @@ export class CartaSyncApplication {
       .from(s.questionAnswer)
       .where(eq(s.questionAnswer.storeId, storeId))
       .orderBy(asc(s.questionAnswer.sortOrder));
+    // texto de la tecla: el de la categoría propia del producto si la tiene, si no el primero
+    const btn = await q
+      .select({ productId: s.categoryProduct.productId, categoryId: s.categoryProduct.categoryId, label: s.categoryProduct.label })
+      .from(s.categoryProduct)
+      .where(eq(s.categoryProduct.storeId, storeId));
+    const btnBy = groupBy(btn, (x) => x.productId);
     const catExt = new Map(cats.map((c) => [c.id, c.externalId]));
     const qExt = new Map(qs.map((x) => [x.id, x.externalId]));
     const prodKey = new Map(prods.map((p) => [p.id, { externalId: p.externalId, plu: p.plu }]));
@@ -268,6 +290,7 @@ export class CartaSyncApplication {
         plu: p.plu,
         name: p.name,
         ticketName: p.ticketName,
+        buttonLabel: buttonOf(btnBy.get(p.id) ?? [], p.categoryId, p.name),
         description: p.description,
         categoryId: p.categoryId,
         categoryExternalId,
@@ -336,7 +359,8 @@ export class CartaSyncApplication {
       .where(and(eq(s.category.storeId, storeId), eq(s.category.id, id)));
   }
 
-  async insertProduct(tx: Tx, storeId: string, id: string, v: ProductValues) {
+  async insertProduct(tx: Tx, storeId: string, id: string, values: ProductValues) {
+    const { buttonLabel: _b, ...v } = values;
     await tx.insert(s.product).values({
       id,
       storeId,
@@ -346,7 +370,19 @@ export class CartaSyncApplication {
     });
   }
 
-  async updateProduct(tx: Tx, storeId: string, id: string, v: ProductValues, version: number) {
+  /** Suelta el externalId de esos productos (pasa a otro producto con el mismo PLU en el sync). */
+  async clearProductExternalIds(tx: Tx, storeId: string, ids: string[]) {
+    if (!ids.length) {
+      return;
+    }
+    await tx
+      .update(s.product)
+      .set({ externalId: null })
+      .where(and(eq(s.product.storeId, storeId), inArray(s.product.id, ids)));
+  }
+
+  async updateProduct(tx: Tx, storeId: string, id: string, values: ProductValues, version: number) {
+    const { buttonLabel: _b, ...v } = values;
     await tx
       .update(s.product)
       .set({ ...v, price: money(v.price), priceTerrace: optMoney(v.priceTerrace), active: true, version })

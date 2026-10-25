@@ -113,7 +113,29 @@ describe("sync de la carta desde el App Manager", () => {
     const plan = planSync(existing, [{ externalId: "MGR-7", naturalKey: "CAFES" }]);
     expect(plan.items[0]!.action).toBe("created");
     expect(plan.deactivate.map((x) => x.id)).toContain("e");
-  });
+  })
+  it("keyFirst (productos): la clave natural manda sobre el externalId, primero todo lo que trae clave", () => {
+    const existing = [
+      { id: "p1", externalId: "MGR-A", naturalKey: "100", active: true },
+      { id: "p2", externalId: null, naturalKey: "200", active: true },
+    ];
+    // el Manager manda el PLU 200 con el id que tenía el 100, y el 100 con otro id
+    const plan = planSync(
+      existing,
+      [
+        { externalId: "MGR-A", naturalKey: "200" },
+        { externalId: "MGR-B", naturalKey: "100" },
+      ],
+      { keyFirst: true },
+    );
+    expect(plan.items.map((m) => [m.existing?.id, m.action])).toEqual([
+      ["p2", "updated"],
+      ["p1", "updated"],
+    ]);
+    expect(plan.deactivate).toEqual([]);
+    // sin keyFirst gana el externalId
+    expect(planSync(existing, [{ externalId: "MGR-A", naturalKey: "200" }]).items[0]!.existing?.id).toBe("p1");
+  });;
   it("producto nuevo sin PLU: solo por externalId", () => {
     const plan = planSync([E("p", "1042", "MGR-P-1")], [{ externalId: "MGR-P-2", naturalKey: null }]);
     expect(plan.items[0]!.action).toBe("created");

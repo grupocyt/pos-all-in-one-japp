@@ -13024,6 +13024,7 @@ paths:
                             name:
                               type: string
                             ticketName: {}
+                            buttonLabel: {}
                             description: {}
                             categoryId: {}
                             categoryExternalId: {}
@@ -13113,6 +13114,7 @@ paths:
                     plu: 1042
                     name: Caña
                     ticketName: null
+                    buttonLabel: null
                     description: null
                     categoryId: null
                     categoryExternalId: null
@@ -13188,9 +13190,12 @@ paths:
         el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda
         en el historial de Ajustes y avisa a los equipos (config.changed). Categorías + productos + preguntas juntos: los
         productos nombran categorías y preguntas por externalId, y las respuestas de las preguntas nombran productos (productExternalId
-        o plu). Lo que no viene se quita en cascada, sin IN_USE. Canales de impresión y agotado son de la tienda: se conservan.
-        Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian (cada línea
-        guarda su nombre y precio).
+        o plu). Lo que no viene se quita en cascada, sin IN_USE. Productos: el PLU nunca cambia y manda sobre el externalId
+        (si el Manager cambia el id, es el mismo producto con su id, sus canales de impresión y su historial). Tres nombres:
+        name = nombre del PLU, buttonLabel = nombre en el TPV (tecla) y ticketName = nombre a imprimir (comanda, precuenta
+        y factura); vacíos = el del PLU, y si no vienen se conservan. Canales de impresión y agotado son de la tienda: se
+        conservan. Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian
+        (cada línea guarda su nombre y precio).
 
 
         Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
@@ -13410,6 +13415,8 @@ paths:
                         - 'null'
                       name:
                         type: string
+                      buttonLabel:
+                        type: string
                       ticketName:
                         type:
                         - string
@@ -13487,7 +13494,8 @@ paths:
                 externalId: MGR-P-5543
                 plu: 5543
                 name: GRANIZADO DE LIMON
-                ticketName: GRANIZADO DE LIMON
+                buttonLabel: GRANIZADO LIMON
+                ticketName: GRANIZADO LIMON
                 description: 'Limón natural
 
                   Sin azúcar añadido'
@@ -13725,11 +13733,12 @@ paths:
       description: 'Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y,
         si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva
         el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda
-        en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el PLU (un producto nuevo sin plu
-        recibe el siguiente libre). Categoría por categoryExternalId (o categoryId), preguntas por questionExternalIds (o
-        questionIds) en orden, IVA por taxRate: si no existen → 422 REF_NOT_FOUND (sincroniza antes categorías y preguntas).
-        channels se ignora y soldOut, si no viene, se conserva. Un producto que hay que quitar en una mesa abierta → 409 IN_USE.
-        Máximo 2.000.
+        en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el PLU, que manda sobre el externalId
+        (un producto nuevo sin plu recibe el siguiente libre). Tres nombres: name (nombre del PLU), buttonLabel (nombre en
+        el TPV) y ticketName (nombre a imprimir); vacíos = el del PLU. Categoría por categoryExternalId (o categoryId), preguntas
+        por questionExternalIds (o questionIds) en orden, IVA por taxRate: si no existen → 422 REF_NOT_FOUND (sincroniza antes
+        categorías y preguntas). channels se ignora y soldOut, si no viene, se conserva. Un producto que hay que quitar en
+        una mesa abierta → 409 IN_USE. Máximo 2.000.
 
 
         Permiso: ajustes.productos
@@ -13907,6 +13916,8 @@ paths:
                         - integer
                         - 'null'
                       name:
+                        type: string
+                      buttonLabel:
                         type: string
                       ticketName:
                         type:
@@ -20546,8 +20557,10 @@ paths:
       description: 'Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de
         Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que
         pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado
-        a los 20 s, HTTP ≠ 2xx o SOAP Fault). Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin
-        URL configurada → 422 VALIDATION (field sirUrl).
+        a los 20 s, HTTP ≠ 2xx o SOAP Fault). sir = lo que el SIR contesta en <return> ({Respuesta, Mensaje}); accepted =
+        true si Respuesta es «1», false si es «0» (p. ej. «El Menu Mix ya se encuetra Asentado»), null si no se puede leer.
+        Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin URL configurada → 422 VALIDATION (field
+        sirUrl).
 
 
         Permiso: funciones.periodo
@@ -20584,6 +20597,25 @@ paths:
                         type: string
                       ok:
                         type: boolean
+                      sir:
+                        type:
+                        - object
+                        - 'null'
+                        properties:
+                          respuesta:
+                            type:
+                            - string
+                            - 'null'
+                          mensaje:
+                            type:
+                            - string
+                            - 'null'
+                          raw:
+                            type: string
+                      accepted:
+                        type:
+                        - boolean
+                        - 'null'
                       status:
                         type:
                         - integer
@@ -20602,6 +20634,11 @@ paths:
                   url: http://sir.grupocyt.com.es/serviciosweb/interface/servicio.php
                   request: <Envelope …>…</Envelope>
                   ok: true
+                  sir:
+                    respuesta: '0'
+                    mensaje: El Menu Mix ya se encuetra Asentado
+                    raw: '{"Respuesta":"0","Mensaje":"El Menu Mix ya se encuetra Asentado"}'
+                  accepted: false
                   status: 200
                   ms: 812
                   response: <SOAP-ENV:Envelope …>…</SOAP-ENV:Envelope>

@@ -1145,7 +1145,8 @@ footer{color:var(--muted);font-size:13px;text-align:center}
         &quot;kind&quot;: &quot;card&quot;,
         &quot;opensDrawer&quot;: false,
         &quot;allowsTip&quot;: true,
-        &quot;externalId&quot;: null
+        &quot;externalId&quot;: &quot;56&quot;,
+        &quot;showInTpv&quot;: true
       }
     ],
     &quot;next&quot;: null
@@ -1175,7 +1176,8 @@ footer{color:var(--muted);font-size:13px;text-align:center}
     &quot;kind&quot;: &quot;card&quot;,
     &quot;opensDrawer&quot;: false,
     &quot;allowsTip&quot;: true,
-    &quot;externalId&quot;: null
+    &quot;externalId&quot;: &quot;56&quot;,
+    &quot;showInTpv&quot;: true
   },
   &quot;errors&quot;: [],
   &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
@@ -1190,12 +1192,13 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <dl class="meta"><dt>Permiso</dt><dd><code>ajustes.facturacion</code></dd><dt>Tablas</dt><dd><code>payment_method</code> <code>config_change_log</code> <code>sync_outbox</code></dd><dt>Notas</dt><dd><span class="flag">Idempotente</span></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
-  &quot;code&quot;: &quot;bizum&quot;,
-  &quot;name&quot;: &quot;Bizum&quot;,
-  &quot;kind&quot;: &quot;platform&quot;,
+  &quot;code&quot;: &quot;descuentos&quot;,
+  &quot;name&quot;: &quot;Descuentos&quot;,
+  &quot;kind&quot;: &quot;discount&quot;,
   &quot;opensDrawer&quot;: false,
   &quot;allowsTip&quot;: false,
-  &quot;externalId&quot;: &quot;PAG-BIZUM&quot;
+  &quot;externalId&quot;: &quot;63&quot;,
+  &quot;showInTpv&quot;: false
 }</code></pre></div><div><h5>Responde 201</h5><pre class="ex"><code>{
   &quot;title&quot;: &quot;Formas de pago (dentro de Facturación) · crear&quot;,
   &quot;type&quot;: &quot;success&quot;,
@@ -1213,7 +1216,8 @@ footer{color:var(--muted);font-size:13px;text-align:center}
       &quot;kind&quot;: &quot;card&quot;,
       &quot;opensDrawer&quot;: false,
       &quot;allowsTip&quot;: true,
-      &quot;externalId&quot;: null
+      &quot;externalId&quot;: &quot;56&quot;,
+      &quot;showInTpv&quot;: true
     }
   },
   &quot;errors&quot;: [],
@@ -1248,7 +1252,8 @@ footer{color:var(--muted);font-size:13px;text-align:center}
       &quot;kind&quot;: &quot;card&quot;,
       &quot;opensDrawer&quot;: false,
       &quot;allowsTip&quot;: true,
-      &quot;externalId&quot;: null
+      &quot;externalId&quot;: &quot;56&quot;,
+      &quot;showInTpv&quot;: true
     }
   },
   &quot;errors&quot;: [],
@@ -1260,7 +1265,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-config-formas-pago-id-deactivate">
 <summary><span class="m post">POST</span><code class="p">/config/formas-pago/{id}/deactivate</code><span class="s">Formas de pago (dentro de Facturación) · desactivar</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
-<p>Nada se borra. No se desactiva si está en uso (efectivo y tarjeta no se desactivan): 409 IN_USE.</p>
+<p>Nada se borra. No se desactiva si está en uso (efectivo y tarjeta no se desactivan. kind: cash | card | platform | voucher | discount (descuentos para el SIR: no se cobra con ella). showInTpv = false: no sale en el cobro del TPV ni de la PDA (cobrar con ella → 409 METHOD_NOT_ALLOWED). externalId = id de integración (Cod_FormaPago en el SIR)): 409 IN_USE.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>ajustes.facturacion</code></dd><dt>Tablas</dt><dd><code>payment_method</code> <code>config_change_log</code> <code>sync_outbox</code></dd></dl>
 
 <div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
@@ -7873,7 +7878,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-interface-sir-sales-send-tx">
 <summary><span class="m post">POST</span><code class="p">/interface/sir/sales/send</code><span class="s">Enviar las ventas al SIR</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
-<p>Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado a los 20 s, HTTP ≠ 2xx o SOAP Fault). Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin URL configurada → 422 VALIDATION (field sirUrl).</p>
+<p>Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado a los 20 s, HTTP ≠ 2xx o SOAP Fault). sir = lo que el SIR contesta en &lt;return&gt; ({Respuesta, Mensaje}); accepted = true si Respuesta es «1», false si es «0» (p. ej. «El Menu Mix ya se encuetra Asentado»), null si no se puede leer. Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin URL configurada → 422 VALIDATION (field sirUrl).</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.periodo</code></dd><dt>En el TPV</dt><dd>Cierre de periodo › Enviar ventas al SIR › Enviar</dd><dt>Tablas</dt><dd><code>store</code></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -7887,6 +7892,12 @@ footer{color:var(--muted);font-size:13px;text-align:center}
     &quot;url&quot;: &quot;http://sir.grupocyt.com.es/serviciosweb/interface/servicio.php&quot;,
     &quot;request&quot;: &quot;&lt;Envelope …&gt;…&lt;/Envelope&gt;&quot;,
     &quot;ok&quot;: true,
+    &quot;sir&quot;: {
+      &quot;respuesta&quot;: &quot;0&quot;,
+      &quot;mensaje&quot;: &quot;El Menu Mix ya se encuetra Asentado&quot;,
+      &quot;raw&quot;: &quot;{\&quot;Respuesta\&quot;:\&quot;0\&quot;,\&quot;Mensaje\&quot;:\&quot;El Menu Mix ya se encuetra Asentado\&quot;}&quot;
+    },
+    &quot;accepted&quot;: false,
     &quot;status&quot;: 200,
     &quot;ms&quot;: 812,
     &quot;response&quot;: &quot;&lt;SOAP-ENV:Envelope …&gt;…&lt;/SOAP-ENV:Envelope&gt;&quot;,
@@ -22391,6 +22402,7 @@ paths:
                             name:
                               type: string
                             ticketName: {}
+                            buttonLabel: {}
                             description: {}
                             categoryId: {}
                             categoryExternalId: {}
@@ -22480,6 +22492,7 @@ paths:
                     plu: 1042
                     name: Caña
                     ticketName: null
+                    buttonLabel: null
                     description: null
                     categoryId: null
                     categoryExternalId: null
@@ -22555,9 +22568,12 @@ paths:
         el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda
         en el historial de Ajustes y avisa a los equipos (config.changed). Categorías + productos + preguntas juntos: los
         productos nombran categorías y preguntas por externalId, y las respuestas de las preguntas nombran productos (productExternalId
-        o plu). Lo que no viene se quita en cascada, sin IN_USE. Canales de impresión y agotado son de la tienda: se conservan.
-        Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian (cada línea
-        guarda su nombre y precio).
+        o plu). Lo que no viene se quita en cascada, sin IN_USE. Productos: el PLU nunca cambia y manda sobre el externalId
+        (si el Manager cambia el id, es el mismo producto con su id, sus canales de impresión y su historial). Tres nombres:
+        name = nombre del PLU, buttonLabel = nombre en el TPV (tecla) y ticketName = nombre a imprimir (comanda, precuenta
+        y factura); vacíos = el del PLU, y si no vienen se conservan. Canales de impresión y agotado son de la tienda: se
+        conservan. Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian
+        (cada línea guarda su nombre y precio).
 
 
         Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
@@ -22777,6 +22793,8 @@ paths:
                         - &#x27;null&#x27;
                       name:
                         type: string
+                      buttonLabel:
+                        type: string
                       ticketName:
                         type:
                         - string
@@ -22854,7 +22872,8 @@ paths:
                 externalId: MGR-P-5543
                 plu: 5543
                 name: GRANIZADO DE LIMON
-                ticketName: GRANIZADO DE LIMON
+                buttonLabel: GRANIZADO LIMON
+                ticketName: GRANIZADO LIMON
                 description: &#x27;Limón natural
 
                   Sin azúcar añadido&#x27;
@@ -23092,11 +23111,12 @@ paths:
       description: &#x27;Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y,
         si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva
         el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda
-        en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el PLU (un producto nuevo sin plu
-        recibe el siguiente libre). Categoría por categoryExternalId (o categoryId), preguntas por questionExternalIds (o
-        questionIds) en orden, IVA por taxRate: si no existen → 422 REF_NOT_FOUND (sincroniza antes categorías y preguntas).
-        channels se ignora y soldOut, si no viene, se conserva. Un producto que hay que quitar en una mesa abierta → 409 IN_USE.
-        Máximo 2.000.
+        en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el PLU, que manda sobre el externalId
+        (un producto nuevo sin plu recibe el siguiente libre). Tres nombres: name (nombre del PLU), buttonLabel (nombre en
+        el TPV) y ticketName (nombre a imprimir); vacíos = el del PLU. Categoría por categoryExternalId (o categoryId), preguntas
+        por questionExternalIds (o questionIds) en orden, IVA por taxRate: si no existen → 422 REF_NOT_FOUND (sincroniza antes
+        categorías y preguntas). channels se ignora y soldOut, si no viene, se conserva. Un producto que hay que quitar en
+        una mesa abierta → 409 IN_USE. Máximo 2.000.
 
 
         Permiso: ajustes.productos
@@ -23274,6 +23294,8 @@ paths:
                         - integer
                         - &#x27;null&#x27;
                       name:
+                        type: string
+                      buttonLabel:
                         type: string
                       ticketName:
                         type:
@@ -29913,8 +29935,10 @@ paths:
       description: &#x27;Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de
         Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que
         pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado
-        a los 20 s, HTTP ≠ 2xx o SOAP Fault). Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin
-        URL configurada → 422 VALIDATION (field sirUrl).
+        a los 20 s, HTTP ≠ 2xx o SOAP Fault). sir = lo que el SIR contesta en &lt;return&gt; ({Respuesta, Mensaje}); accepted =
+        true si Respuesta es «1», false si es «0» (p. ej. «El Menu Mix ya se encuetra Asentado»), null si no se puede leer.
+        Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin URL configurada → 422 VALIDATION (field
+        sirUrl).
 
 
         Permiso: funciones.periodo
@@ -29951,6 +29975,25 @@ paths:
                         type: string
                       ok:
                         type: boolean
+                      sir:
+                        type:
+                        - object
+                        - &#x27;null&#x27;
+                        properties:
+                          respuesta:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          mensaje:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          raw:
+                            type: string
+                      accepted:
+                        type:
+                        - boolean
+                        - &#x27;null&#x27;
                       status:
                         type:
                         - integer
@@ -29969,6 +30012,11 @@ paths:
                   url: http://sir.grupocyt.com.es/serviciosweb/interface/servicio.php
                   request: &lt;Envelope …&gt;…&lt;/Envelope&gt;
                   ok: true
+                  sir:
+                    respuesta: &#x27;0&#x27;
+                    mensaje: El Menu Mix ya se encuetra Asentado
+                    raw: &#x27;{&quot;Respuesta&quot;:&quot;0&quot;,&quot;Mensaje&quot;:&quot;El Menu Mix ya se encuetra Asentado&quot;}&#x27;
+                  accepted: false
                   status: 200
                   ms: 812
                   response: &lt;SOAP-ENV:Envelope …&gt;…&lt;/SOAP-ENV:Envelope&gt;

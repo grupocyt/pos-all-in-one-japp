@@ -476,6 +476,69 @@ describe("POST /config/carta/sync", () => {
     ).toBe(ch0);
     await t.sql.query("UPDATE product SET sold_out = false WHERE id=$1", [tosta.id]);
   });
+  it("tres nombres (PLU, TPV e impresión) y el PLU manda: aunque cambie el externalId, mismo producto y mismos canales", async () => {
+    const now = await getCarta();
+    const tosta = now.products.find((p: any) => p.plu === PLU.tosta);
+    const chans = async () =>
+      (await t.sql.query("SELECT channel_id FROM product_channel WHERE product_id=$1 ORDER BY 1", [tosta.id])).rows;
+    const ch0 = await chans();
+    expect(ch0.length).toBeGreaterThan(0);
+    const send = async (patch: Record<string, unknown>) => {
+      const r = await post("/config/carta/sync", {
+        ...resend(now),
+        products: now.products.map((p: any) => (p.plu === PLU.tosta ? { ...p, ...patch } : p)),
+      });
+      expect(r.status, JSON.stringify(r.error)).toBe(200);
+      return r.body;
+    };
+    let b = await send({ externalId: "MGR-T-NOMBRES-1", name: "TOSTA PLU", buttonLabel: "TOSTA TECLA", ticketName: "TOSTA TICKET" });
+    expect(b.products).toMatchObject({ created: 0, updated: 1, deactivated: 0 });
+    const row = async () =>
+      (
+        await t.sql.query(
+          "SELECT p.id, p.name, p.ticket_name, p.external_id, (SELECT label FROM category_product cp WHERE cp.product_id=p.id AND cp.category_id=p.category_id) label FROM product p WHERE p.plu=$1",
+          [PLU.tosta],
+        )
+      ).rows;
+    expect(await row()).toEqual([
+      { id: tosta.id, name: "TOSTA PLU", ticket_name: "TOSTA TICKET", external_id: "MGR-T-NOMBRES-1", label: "TOSTA TECLA" },
+    ]);
+    expect(await chans()).toEqual(ch0);
+    const back = (await getCarta()).products.find((p: any) => p.plu === PLU.tosta);
+    expect(back).toMatchObject({ id: tosta.id, name: "TOSTA PLU", buttonLabel: "TOSTA TECLA", ticketName: "TOSTA TICKET" });
+    // el Manager le cambia el id: sigue siendo el mismo producto (por PLU), con sus canales; sin buttonLabel la tecla se conserva
+    b = await send({ externalId: "MGR-T-NOMBRES-2", name: "TOSTA PLU", buttonLabel: undefined, ticketName: "TOSTA TICKET" });
+    expect(b.products).toMatchObject({ created: 0, updated: 1, deactivated: 0 });
+    expect((await row())[0]).toMatchObject({ id: tosta.id, external_id: "MGR-T-NOMBRES-2", label: "TOSTA TECLA" });
+    expect(await chans()).toEqual(ch0);
+    // buttonLabel vacío = la tecla vuelve al nombre del PLU
+    await send({ externalId: "MGR-T-NOMBRES-2", name: "TOSTA PLU", buttonLabel: "", ticketName: "TOSTA TICKET" });
+    expect((await row())[0].label).toBe("TOSTA PLU");
+    // como estaba
+    await send({ ...tosta });
+    await t.sql.query("UPDATE product SET external_id = NULL WHERE id=$1", [tosta.id]);
+    expect(await chans()).toEqual(ch0);
+  });
+  it("un externalId que pasa a otro PLU se suelta del producto que lo tenía (sin DUPLICATE)", async () => {
+    const now = await getCarta();
+    const [a, c] = now.products.filter((p: any) => p.plu !== PLU.tosta).slice(0, 2);
+    let r = await post("/config/carta/sync", {
+      ...resend(now),
+      products: now.products.map((p: any) => (p.id === a.id ? { ...p, externalId: "MGR-T-MUEVE" } : p)),
+    });
+    expect(r.status, JSON.stringify(r.error)).toBe(200);
+    // ahora el Manager manda ese id con el PLU de c, y a sin id
+    r = await post("/config/carta/sync", {
+      ...resend(now),
+      products: now.products.map((p: any) =>
+        p.id === c.id ? { ...p, externalId: "MGR-T-MUEVE" } : p.id === a.id ? { ...p, externalId: undefined } : p,
+      ),
+    });
+    expect(r.status, JSON.stringify(r.error)).toBe(200);
+    const ids = (await t.sql.query("SELECT id, external_id FROM product WHERE id = ANY($1)", [[a.id, c.id]])).rows;
+    expect(Object.fromEntries(ids.map((x) => [x.id, x.external_id]))).toEqual({ [a.id]: null, [c.id]: "MGR-T-MUEVE" });
+    await t.sql.query("UPDATE product SET external_id = NULL WHERE id = ANY($1)", [[a.id, c.id]]);
+  });
   it("todo o nada: una referencia mala al final deja la tienda como estaba (422 REF_NOT_FOUND)", async () => {
     const v0 = await cv();
     const b = body();

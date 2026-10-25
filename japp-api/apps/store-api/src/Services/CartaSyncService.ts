@@ -129,6 +129,15 @@ function keepNullable<T>(sent: T | null | undefined, current: T | null): T | nul
   return sent ?? null;
 }
 
+/** Nombre en el TPV: vacío o igual al nombre del PLU = null (la tecla sigue al nombre del PLU). */
+function sameAsName(label: string | null, name: string): string | null {
+  const l = label?.trim();
+  if (!l || l === name.trim()) {
+    return null;
+  }
+  return l;
+}
+
 /** Ruta de zod → campo del contrato: ["items", 3, "name"] → items[3].name. */
 function fieldOf(path: (string | number)[]) {
   let out = "";
@@ -253,7 +262,7 @@ export class CartaSyncService {
       );
       await this.assignPlus(tx, se, plan.ops, now.products);
       const out: Change[] = [];
-      await this.applyProducts(tx, se, plan.ops, out);
+      await this.applyProducts(tx, se, plan.ops, out, now.products);
       await this.deactivateAll(tx, se, "productos", plan.deactivate, out);
       const configVersion = await this.finish(tx, se, "productos", out);
       return this.listResult("productos", plan.ops, plan.deactivate, configVersion, out, (op) => ({
@@ -338,7 +347,7 @@ export class CartaSyncService {
       const out: Change[] = [];
       await this.applyCategories(tx, se, cats.ops, out);
       await this.applyQuestions(tx, se, qs.ops, out);
-      await this.applyProducts(tx, se, prods.ops, out);
+      await this.applyProducts(tx, se, prods.ops, out, now.products);
       await this.applyAnswers(tx, se, qs.ops);
       await this.deactivateAll(tx, se, "productos", prods.deactivate, out);
       await this.deactivateAll(tx, se, "preguntas", qs.deactivate, out);
@@ -448,9 +457,11 @@ export class CartaSyncService {
       "plu",
       path,
     );
+    // el PLU nunca cambia: manda sobre el externalId (el producto conserva su id, sus canales y su historial)
     const plan = planSync(
       existing.map((e) => ({ ...e, naturalKey: String(e.plu) })),
       items.map((p) => ({ externalId: p.externalId ?? null, naturalKey: key(p) })),
+      { keyFirst: true },
     );
     const ops: ProductOp[] = plan.items.map((m) => {
       const inc = items[m.index]!;
@@ -477,6 +488,7 @@ export class CartaSyncService {
         plu,
         name: inc.name,
         ticketName: keepNullable(inc.ticketName, before?.ticketName ?? null),
+        buttonLabel: sameAsName(keepNullable(inc.buttonLabel, before?.buttonLabel ?? null), inc.name),
         description: keepNullable(inc.description, before?.description ?? null),
         categoryId: this.categoryOf(inc, row, refs, before),
         price: inc.price,
@@ -498,6 +510,19 @@ export class CartaSyncService {
         questions: this.questionsOf(inc, row, refs),
       };
     });
+    // un externalId que manda el Manager para otro PLU deja de ser del producto que solo lo conservaba
+    const sent = new Map<string, number>();
+    items.forEach((p, i) => {
+      if (p.externalId) {
+        sent.set(p.externalId.trim(), i);
+      }
+    });
+    for (const op of ops) {
+      const ext = op.values.externalId;
+      if (ext && !items[op.index]!.externalId && sent.has(ext)) {
+        op.values.externalId = null;
+      }
+    }
     return { ops, deactivate: plan.deactivate };
   }
 
@@ -672,7 +697,19 @@ export class CartaSyncService {
     }
   }
 
-  private async applyProducts(tx: Tx, se: Session, ops: ProductOp[], out: Change[]) {
+  private async applyProducts(tx: Tx, se: Session, ops: ProductOp[], out: Change[], existing: ProductRow[]) {
+    // Al casar por PLU, un externalId puede pasar de un producto a otro: se suelta antes en el que lo tenía
+    // (el índice único uq_product_external_id no deja dos iguales ni un instante).
+    const claimed = new Map<string, string>();
+    for (const op of ops) {
+      if (op.values.externalId) {
+        claimed.set(op.values.externalId, op.id);
+      }
+    }
+    const free = existing
+      .filter((e) => e.externalId && claimed.has(e.externalId) && claimed.get(e.externalId) !== e.id)
+      .map((e) => e.id);
+    await this.carta.clearProductExternalIds(tx, se.storeId, free);
     for (const op of ops) {
       const values = op.values as ProductValues;
       const questions = op.questions ?? op.before?.questionIds ?? [];
@@ -711,16 +748,15 @@ export class CartaSyncService {
       !before ||
       before.categoryId !== v.categoryId ||
       before.name !== v.name ||
+      before.buttonLabel !== v.buttonLabel ||
       before.bgColor !== v.bgColor ||
       before.fgColor !== v.fgColor;
     if (!changed) {
       return;
     }
     const { current: cur } = await this.config.productButton(tx, se.storeId, id);
-    let label = v.name;
-    if (cur[0]?.label && cur[0].label !== before?.name) {
-      label = cur[0].label;
-    }
+    // la tecla enseña el nombre en el TPV si lo hay; si no, el nombre del PLU
+    const label = v.buttonLabel ?? v.name;
     if (v.categoryId && !cur.some((x) => x.category_id === v.categoryId)) {
       await this.config.moveProductButton(tx, se.storeId, id, {
         categoryId: v.categoryId,
@@ -914,6 +950,7 @@ export class CartaSyncService {
       plu: p.plu,
       name: p.name,
       ticketName: p.ticketName,
+      buttonLabel: p.buttonLabel,
       description: p.description,
       categoryId: p.categoryId,
       price: p.price,

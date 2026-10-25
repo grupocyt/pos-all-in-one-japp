@@ -68,7 +68,11 @@ export function assertNoRepeats(incoming: SyncIncoming[], keyField: string, path
 }
 
 /** Casa lo que llega con lo que hay. No decide «sin cambios»: eso lo sabe quien compara los campos. */
-export function planSync<E extends SyncExisting>(existing: E[], incoming: SyncIncoming[]): SyncPlan<E> {
+export function planSync<E extends SyncExisting>(
+  existing: E[],
+  incoming: SyncIncoming[],
+  o: { keyFirst?: boolean } = {},
+): SyncPlan<E> {
   const byExt = new Map<string, E>();
   for (const e of existing) {
     if (e.externalId) {
@@ -76,16 +80,38 @@ export function planSync<E extends SyncExisting>(existing: E[], incoming: SyncIn
     }
   }
   const used = new Set<string>();
+  const found: (E | null)[] = new Array(incoming.length).fill(null);
+  // keyFirst (productos: el PLU nunca cambia): primero se casa todo lo que trae clave natural por esa clave,
+  // tenga el registro el externalId que tenga; así el producto conserva su id (y sus canales de impresión)
+  // aunque el Manager le cambie el id. Después, el resto como siempre.
+  if (o.keyFirst) {
+    incoming.forEach((x, i) => {
+      if (x.naturalKey === null) {
+        return;
+      }
+      const key = norm(x.naturalKey);
+      const hit = existing.find((e) => !used.has(e.id) && norm(e.naturalKey) === key);
+      if (hit) {
+        used.add(hit.id);
+        found[i] = hit;
+      }
+    });
+  }
   const items: SyncMatch<E>[] = incoming.map((x, index) => {
-    const found = findMatch(existing, byExt, used, x);
-    if (!found) {
+    let hit = found[index] ?? null;
+    if (!hit) {
+      hit = findMatch(existing, byExt, used, x);
+      if (hit) {
+        used.add(hit.id);
+      }
+    }
+    if (!hit) {
       return { index, existing: null, action: "created" };
     }
-    used.add(found.id);
-    if (!found.active) {
-      return { index, existing: found, action: "reactivated" };
+    if (!hit.active) {
+      return { index, existing: hit, action: "reactivated" };
     }
-    return { index, existing: found, action: "updated" };
+    return { index, existing: hit, action: "updated" };
   });
   const deactivate = existing.filter((e) => e.active && !used.has(e.id));
   return { items, deactivate };

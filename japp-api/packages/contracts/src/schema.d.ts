@@ -2003,7 +2003,7 @@ export interface paths {
         put?: never;
         /**
          * Reemplazar la carta completa
-         * @description Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Categorías + productos + preguntas juntos: los productos nombran categorías y preguntas por externalId, y las respuestas de las preguntas nombran productos (productExternalId o plu). Lo que no viene se quita en cascada, sin IN_USE. Canales de impresión y agotado son de la tienda: se conservan. Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian (cada línea guarda su nombre y precio).
+         * @description Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Categorías + productos + preguntas juntos: los productos nombran categorías y preguntas por externalId, y las respuestas de las preguntas nombran productos (productExternalId o plu). Lo que no viene se quita en cascada, sin IN_USE. Productos: el PLU nunca cambia y manda sobre el externalId (si el Manager cambia el id, es el mismo producto con su id, sus canales de impresión y su historial). Tres nombres: name = nombre del PLU, buttonLabel = nombre en el TPV (tecla) y ticketName = nombre a imprimir (comanda, precuenta y factura); vacíos = el del PLU, y si no vienen se conservan. Canales de impresión y agotado son de la tienda: se conservan. Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian (cada línea guarda su nombre y precio).
          *
          *     Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
          *
@@ -2055,7 +2055,7 @@ export interface paths {
         put?: never;
         /**
          * Reemplazar todos los productos
-         * @description Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el PLU (un producto nuevo sin plu recibe el siguiente libre). Categoría por categoryExternalId (o categoryId), preguntas por questionExternalIds (o questionIds) en orden, IVA por taxRate: si no existen → 422 REF_NOT_FOUND (sincroniza antes categorías y preguntas). channels se ignora y soldOut, si no viene, se conserva. Un producto que hay que quitar en una mesa abierta → 409 IN_USE. Máximo 2.000.
+         * @description Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el PLU, que manda sobre el externalId (un producto nuevo sin plu recibe el siguiente libre). Tres nombres: name (nombre del PLU), buttonLabel (nombre en el TPV) y ticketName (nombre a imprimir); vacíos = el del PLU. Categoría por categoryExternalId (o categoryId), preguntas por questionExternalIds (o questionIds) en orden, IVA por taxRate: si no existen → 422 REF_NOT_FOUND (sincroniza antes categorías y preguntas). channels se ignora y soldOut, si no viene, se conserva. Un producto que hay que quitar en una mesa abierta → 409 IN_USE. Máximo 2.000.
          *
          *     Permiso: ajustes.productos
          *
@@ -3025,7 +3025,7 @@ export interface paths {
         put?: never;
         /**
          * Enviar las ventas al SIR
-         * @description Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado a los 20 s, HTTP ≠ 2xx o SOAP Fault). Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin URL configurada → 422 VALIDATION (field sirUrl).
+         * @description Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado a los 20 s, HTTP ≠ 2xx o SOAP Fault). sir = lo que el SIR contesta en <return> ({Respuesta, Mensaje}); accepted = true si Respuesta es «1», false si es «0» (p. ej. «El Menu Mix ya se encuetra Asentado»), null si no se puede leer. Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin URL configurada → 422 VALIDATION (field sirUrl).
          *
          *     Permiso: funciones.periodo
          *
@@ -9623,6 +9623,7 @@ export interface operations {
                                 plu?: number | null;
                                 name?: string;
                                 ticketName?: unknown;
+                                buttonLabel?: unknown;
                                 description?: unknown;
                                 categoryId?: unknown;
                                 categoryExternalId?: unknown;
@@ -9701,7 +9702,8 @@ export interface operations {
                  *           "externalId": "MGR-P-5543",
                  *           "plu": 5543,
                  *           "name": "GRANIZADO DE LIMON",
-                 *           "ticketName": "GRANIZADO DE LIMON",
+                 *           "buttonLabel": "GRANIZADO LIMON",
+                 *           "ticketName": "GRANIZADO LIMON",
                  *           "description": "Limón natural\nSin azúcar añadido",
                  *           "categoryExternalId": "MGR-CAT-01",
                  *           "price": 3.95,
@@ -9745,6 +9747,7 @@ export interface operations {
                         externalId?: string;
                         plu?: number | null;
                         name?: string;
+                        buttonLabel?: string;
                         ticketName?: string | null;
                         description?: string | null;
                         categoryExternalId?: string;
@@ -9968,7 +9971,8 @@ export interface operations {
                  *           "externalId": "MGR-P-5543",
                  *           "plu": 5543,
                  *           "name": "GRANIZADO DE LIMON",
-                 *           "ticketName": "GRANIZADO DE LIMON",
+                 *           "buttonLabel": "GRANIZADO LIMON",
+                 *           "ticketName": "GRANIZADO LIMON",
                  *           "description": "Limón natural\nSin azúcar añadido",
                  *           "categoryExternalId": "MGR-CAT-01",
                  *           "price": 3.95,
@@ -9987,6 +9991,7 @@ export interface operations {
                         externalId?: string;
                         plu?: number | null;
                         name?: string;
+                        buttonLabel?: string;
                         ticketName?: string | null;
                         description?: string | null;
                         categoryExternalId?: string;
@@ -13173,6 +13178,12 @@ export interface operations {
                             url?: string;
                             request?: string;
                             ok?: boolean;
+                            sir?: {
+                                respuesta?: string | null;
+                                mensaje?: string | null;
+                                raw?: string;
+                            } | null;
+                            accepted?: boolean | null;
                             status?: number | null;
                             ms?: number;
                             response?: string;

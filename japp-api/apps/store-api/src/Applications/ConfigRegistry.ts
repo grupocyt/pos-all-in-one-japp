@@ -250,8 +250,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
     search: ["name", "ticket_name", "plu::text"],
     fields: {
       plu: F("plu", "i", z.number().int(), "PLU"),
-      name: F("name", "s", str(80), "Nombre (tecla)", { required: true }),
-      ticketName: F("ticket_name", "s", optStr(80), "Nombre en ticket"),
+      name: F("name", "s", str(80), "Nombre del PLU", { required: true }),
+      ticketName: F("ticket_name", "s", optStr(80), "Nombre a imprimir"),
       categoryId: F("category_id", "u", z.string().uuid().nullish(), "Categoría"),
       price: F("price", "n", z.number().max(100000), "PVP", { required: true }),
       priceTerrace: F("price_terrace", "n", z.number().max(100000).nullish(), "PVP terraza"),
@@ -266,7 +266,7 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
     },
     extra: {
       taxRate: { z: z.number().min(0).max(100), label: "IVA (%)" },
-      buttonLabel: { z: z.string().trim().min(1).max(80), label: "Texto de la tecla" },
+      buttonLabel: { z: z.string().trim().min(1).max(80), label: "Nombre en el TPV (tecla)" },
       channels: { z: z.array(z.string().max(40)).max(20), label: "Canales" },
       questions: { z: z.array(z.string().uuid()).max(30), label: "Preguntas" },
     },

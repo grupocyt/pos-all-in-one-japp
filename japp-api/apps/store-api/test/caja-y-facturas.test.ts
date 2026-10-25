@@ -186,9 +186,11 @@ describe("caja y periodo", () => {
     expect((await t.call("GET", "/incidents", { token: sistemas })).body.items).toEqual([]);
     const closedList = (await t.call("GET", "/orders?status=closed", { token: sistemas })).body.items;
     expect(closedList.length).toBeGreaterThan(0);
-    expect(closedList[0]).toMatchObject({ periodId: p, status: "closed" });
-    expect(closedList[0].waiter).toBeTruthy();
-    expect(closedList[0].closedAt).toBeTruthy();
+    // la base es compartida: la primera de la lista puede ser de otro periodo; se busca una de este
+    const mine = closedList.find((o: any) => o.periodId === p);
+    expect(mine).toMatchObject({ periodId: p, status: "closed" });
+    expect(mine.waiter).toBeTruthy();
+    expect(mine.closedAt).toBeTruthy();
     // interfaz de ventas al SIR del periodo recién cerrado (sin periodId = el último cerrado)
     const sir = await t.call("GET", "/interface/sir/sales", { token: sistemas });
     expect(sir.status, JSON.stringify(sir.error)).toBe(200);
