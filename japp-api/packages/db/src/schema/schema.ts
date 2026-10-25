@@ -126,12 +126,14 @@ export const billingSettings = pgTable("billing_settings", {
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
+	batchSendSeconds: smallint("batch_send_seconds").default(5).notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],
 			foreignColumns: [store.id],
 			name: "billing_settings_store_id_fkey"
 		}).onDelete("cascade"),
+	check("ck_billing_settings_batch_send_seconds", sql`(batch_send_seconds >= 2) AND (batch_send_seconds <= 30)`),
 ]);
 
 export const cashClosing = pgTable("cash_closing", {

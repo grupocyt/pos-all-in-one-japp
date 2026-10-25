@@ -38,6 +38,12 @@ describe("reglas en la base", () => {
     await c.query("UPDATE payment_method SET external_id='PAG-1' WHERE id=$1", [m1.id]);
     await fails("UPDATE payment_method SET external_id='PAG-1' WHERE id=$1", [m2.id], "23505");
   }));
+  it("el tiempo de la tanda va de 2 a 30 s y por defecto 5 (23514, migración 0016)", () => rollback(c, async () => {
+    expect((await c.query("SELECT batch_send_seconds FROM billing_settings WHERE store_id=$1", [store])).rows[0].batch_send_seconds).toBe(5);
+    await c.query("UPDATE billing_settings SET batch_send_seconds=10 WHERE store_id=$1", [store]);
+    await fails("UPDATE billing_settings SET batch_send_seconds=1 WHERE store_id=$1", [store], "23514");
+    await fails("UPDATE billing_settings SET batch_send_seconds=31 WHERE store_id=$1", [store], "23514");
+  }));
   it("una incidencia de mesa resuelta lleva fecha y una abierta no (23514, migración 0015)", () => rollback(c, async () => {
     const ins = `INSERT INTO order_incident (id, store_id, table_name, kind, status, occurred_at, opened_by_user_name, resolved_by_at) VALUES ($1, $2, '12', 'offline', $3, now(), 'x', $4)`;
     expect(await fails(ins, [uuid(), store, "open", null], "23514")).toBe("OK");

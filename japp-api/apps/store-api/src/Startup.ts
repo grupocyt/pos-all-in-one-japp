@@ -75,6 +75,8 @@ import { DevicesController } from "./Controllers/DevicesController.js";
 import { DevicesService } from "./Services/DevicesService.js";
 import { safeRequestLog } from "./Helpers/LogHelper.js";
 import { IncidentsController } from "./Controllers/IncidentsController.js";
+import { OrdersBatchController } from "./Controllers/OrdersBatchController.js";
+import { OrdersBatchService } from "./Services/OrdersBatchService.js";
 import { OrderIncidentsController } from "./Controllers/OrderIncidentsController.js";
 import { OrderIncidentsService } from "./Services/OrderIncidentsService.js";
 import { OrderIncidentsApplication } from "./Applications/OrderIncidentsApplication.js";
@@ -116,6 +118,7 @@ class AppModule {
         DevicesController,
         IncidentsController,
         OrderIncidentsController,
+        OrdersBatchController,
       ],
       providers: [
         { provide: CONFIG, useValue: d.config },
@@ -133,6 +136,7 @@ class AppModule {
         AuthorizationService,
         SessionsApplication,
         OrdersService,
+        OrdersBatchService,
         TablesService,
         PrintersService,
         ClosingsService,

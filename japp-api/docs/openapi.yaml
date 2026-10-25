@@ -18660,6 +18660,215 @@ paths:
               status: discarded
               note: null
               authorizedBy: Lucía
+  /api/v2/orders/{orderId}/batch:
+    post:
+      tags:
+      - API de tienda v2 · Órdenes y cuentas
+      summary: Mandar una tanda de cambios de la mesa
+      description: 'El TPV y la PDA juntan lo que se marca (5 s sin tocar, o antes de precuenta, cobro, separar, transferir,
+        guardar…) y lo mandan en UNA petición. Cada comando es el mismo que iría suelto (method, path relativo a /api/v2,
+        body e idempotencyKey) y pasa por su ruta con sus permisos, presencia, versión e idempotencia, pero todos van en UNA
+        transacción: se aplica todo o nada. Si un comando falla no queda ninguno y se responde SU error (mismo código y estado)
+        con details.batchIndex, method y path. Solo entran comandos de esta mesa que se quedan en la base: abrir esta misma
+        mesa (POST /orders con body.id = orderId), comensales (PATCH /orders/{orderId}), cuentas (nueva, renombrar, borrar
+        vacía), líneas (añadir, cambiar, quitar o eliminar, pasar a otra cuenta, ordenar, incluir en el menú) y elegir un
+        pase sin marchar. Lo que imprime (enviar, guardar, marchar, precuenta, cambiar un pase marchado), mueve dinero (cobros,
+        descuentos, facturas) o toca la presencia va suelto: 422 VALIDATION con field commands[i].path. Hasta 100 comandos.
+        results = la respuesta de cada comando (status y data) en orden.
+
+
+        Lo llama: TPV, PDA
+
+
+        Tablas: orders, order_line, account, order_event, sync_outbox'
+      operationId: store_POST_orders_orderId_batch
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      applied:
+                        type: number
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: integer
+                            data: {}
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: success
+                status: 200
+                data:
+                  applied: 2
+                  results:
+                  - status: 201
+                    data: null
+                  - status: 200
+                    data: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el
+            permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · VERSION_CONFLICT: Otro equipo cambió la
+            orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · PERIOD_CLOSED: No hay
+            periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado
+            desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: TABLE_TAKEN
+                  message: 'Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada
+                    solo se puede Guardar (añadir y enviar).'
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe o no es de esta tienda.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: UUID del intento; un reintento con la misma clave no repite la acción
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                commands:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      method:
+                        type: string
+                      path:
+                        type: string
+                      body:
+                        type: object
+                        properties:
+                          id:
+                            type:
+                            - string
+                            - 'null'
+                          accountId:
+                            type:
+                            - string
+                            - 'null'
+                          plu:
+                            type:
+                            - integer
+                            - 'null'
+                          quantity:
+                            type: integer
+                      idempotencyKey:
+                        type: string
+            example:
+              commands:
+              - method: POST
+                path: /orders/3f9c…/lines
+                body:
+                  id: l1…
+                  accountId: a1…
+                  plu: 1101
+                  quantity: 2
+                idempotencyKey: l1…
+              - method: PATCH
+                path: /orders/3f9c…/lines/l0…
+                body:
+                  quantity: 3
+                idempotencyKey: null
 components:
   securitySchemes:
     session:

@@ -2848,6 +2848,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/orders/{orderId}/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mandar una tanda de cambios de la mesa
+         * @description El TPV y la PDA juntan lo que se marca (5 s sin tocar, o antes de precuenta, cobro, separar, transferir, guardar…) y lo mandan en UNA petición. Cada comando es el mismo que iría suelto (method, path relativo a /api/v2, body e idempotencyKey) y pasa por su ruta con sus permisos, presencia, versión e idempotencia, pero todos van en UNA transacción: se aplica todo o nada. Si un comando falla no queda ninguno y se responde SU error (mismo código y estado) con details.batchIndex, method y path. Solo entran comandos de esta mesa que se quedan en la base: abrir esta misma mesa (POST /orders con body.id = orderId), comensales (PATCH /orders/{orderId}), cuentas (nueva, renombrar, borrar vacía), líneas (añadir, cambiar, quitar o eliminar, pasar a otra cuenta, ordenar, incluir en el menú) y elegir un pase sin marchar. Lo que imprime (enviar, guardar, marchar, precuenta, cambiar un pase marchado), mueve dinero (cobros, descuentos, facturas) o toca la presencia va suelto: 422 VALIDATION con field commands[i].path. Hasta 100 comandos. results = la respuesta de cada comando (status y data) en orden.
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: orders, order_line, account, order_event, sync_outbox
+         */
+        post: operations["store_POST_orders_orderId_batch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12177,6 +12201,116 @@ export interface operations {
                 };
             };
             /** @description INCIDENT_RESOLVED: La incidencia de mesa ya está resuelta de otra forma. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_orders_orderId_batch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "commands": [
+                 *         {
+                 *           "method": "POST",
+                 *           "path": "/orders/3f9c…/lines",
+                 *           "body": {
+                 *             "id": "l1…",
+                 *             "accountId": "a1…",
+                 *             "plu": 1101,
+                 *             "quantity": 2
+                 *           },
+                 *           "idempotencyKey": "l1…"
+                 *         },
+                 *         {
+                 *           "method": "PATCH",
+                 *           "path": "/orders/3f9c…/lines/l0…",
+                 *           "body": {
+                 *             "quantity": 3
+                 *           },
+                 *           "idempotencyKey": null
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    commands?: {
+                        method?: string;
+                        path?: string;
+                        body?: {
+                            id?: string | null;
+                            accountId?: string | null;
+                            plu?: number | null;
+                            quantity?: number;
+                        };
+                        idempotencyKey?: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            applied?: number;
+                            results?: {
+                                status?: number;
+                                data?: unknown;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · PERIOD_CLOSED: No hay periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. */
             409: {
                 headers: {
                     [name: string]: unknown;

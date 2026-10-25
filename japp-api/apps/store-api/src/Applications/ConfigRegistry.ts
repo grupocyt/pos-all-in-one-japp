@@ -92,6 +92,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       seriesSimplified: F("series_simplified", "s", str(20), "Serie simplificada"),
       seriesFull: F("series_full", "s", str(20), "Serie completa"),
       seriesCredit: F("series_credit", "s", str(20), "Serie rectificativa"),
+      // segundos sin tocar tras los que el TPV y la PDA mandan la tanda de la mesa (migración 0016)
+      batchSendSeconds: F("batch_send_seconds", "i", z.number().int().min(2).max(30), "Envío de lo marcado (s)"),
     },
   },
   parametros: {

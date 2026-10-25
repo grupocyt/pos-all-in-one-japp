@@ -84,7 +84,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <div class="wrap">
 <header class="hero"><div><div class="eyebrow">Japp · contrato de integración · v0.1</div><h1>API Japp</h1>
 <p class="lead">Los endpoints que conectan la caja, las PDA, el servidor de cada tienda, Japp Manager y el backoffice. Cada endpoint dice quién lo llama, qué permiso pide, qué envía, qué responde y qué tablas toca. La transacción es la estructura acordada en vista-orden.</p></div>
-<div class="stats"><div><b>122</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>41</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
+<div class="stats"><div><b>123</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>41</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
 <section class="card"><h2>Quién llama a quién</h2><svg viewBox="0 0 760 330" role="img" aria-label="Quién llama a quién en Japp" class="arch">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
 <rect x="8" y="8" width="360" height="314" rx="14" class="zone"/><text x="22" y="30" class="zt">TIENDA</text>
@@ -116,7 +116,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></section>
 <section class="card"><h2>Una mesa de principio a fin</h2><ol class="flow"><li><span>Abrir mesa</span><code>POST /orders</code></li><li><span>Entrar y avisar a los demás equipos</span><code>POST /orders/{orderId}/presence</code></li><li><span>Marcar productos (precio según el área)</span><code>POST /orders/{orderId}/lines</code></li><li><span>Enviar a cocina o barra</span><code>POST /orders/{orderId}/send</code></li><li><span>Precuenta</span><code>POST /orders/{orderId}/accounts/{accountId}/prebill</code></li><li><span>Separar si hace falta</span><code>POST /orders/{orderId}/lines/move</code></li><li><span>Cobrar (uno o varios pagos)</span><code>POST /orders/{orderId}/accounts/{accountId}/payments</code></li><li><span>Emitir la factura VeriFactu y cerrar la mesa</span><code>POST /orders/{orderId}/accounts/{accountId}/invoice</code></li><li><span>El agente envía la transacción, la factura y el registro VeriFactu al Manager</span><code>POST /stores/{storeId}/outbox</code></li></ol></section>
 <nav class="toc"><a href="#sec-ajustes">1 · Ajustes</a><a href="#sec-tx">2 · Transaccional</a><a href="#sec-rep">3 · Reportes y sincronización</a><a href="#api-manager">Manager</a><a href="#api-gateway">Gateway</a><a href="#errores">Errores</a><a href="#openapi">OpenAPI</a></nav>
-<section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 100 de 100 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
+<section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 101 de 101 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
 <summary><span class="m get">GET</span><code class="p">/config</code><span class="s">Paquete de configuración</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
 <p>Todo lo que el equipo necesita para trabajar sin más llamadas: restaurante, empresa, facturación, parámetros, áreas con sus mesas, carta (categorías, productos con canales y preguntas, preguntas con respuestas), impuestos, formas de pago, descuentos, motivos, canales, impresoras y estaciones. Solo lo activo. Cabecera ETag = versión de configuración; con If-None-Match igual responde 304 sin cuerpo.</p>
@@ -762,7 +762,8 @@ footer{color:var(--muted);font-size:13px;text-align:center}
     &quot;emissionPoint&quot;: &quot;050&quot;,
     &quot;seriesSimplified&quot;: &quot;T2026&quot;,
     &quot;seriesFull&quot;: &quot;F2026&quot;,
-    &quot;seriesCredit&quot;: &quot;AB2026&quot;
+    &quot;seriesCredit&quot;: &quot;AB2026&quot;,
+    &quot;batchSendSeconds&quot;: 5
   },
   &quot;errors&quot;: [],
   &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
@@ -795,7 +796,8 @@ footer{color:var(--muted);font-size:13px;text-align:center}
       &quot;emissionPoint&quot;: &quot;050&quot;,
       &quot;seriesSimplified&quot;: &quot;T2026&quot;,
       &quot;seriesFull&quot;: &quot;F2026&quot;,
-      &quot;seriesCredit&quot;: &quot;AB2026&quot;
+      &quot;seriesCredit&quot;: &quot;AB2026&quot;,
+      &quot;batchSendSeconds&quot;: 5
     }
   },
   &quot;errors&quot;: [],
@@ -5944,6 +5946,57 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda.</li><li><code>INCIDENT_RESOLVED</code> <span class="pin">409</span> La incidencia de mesa ya está resuelta de otra forma.</li></ul>
+</div></details><details class="ep" id="post-orders-orderid-batch-tx">
+<summary><span class="m post">POST</span><code class="p">/orders/{orderId}/batch</code><span class="s">Mandar una tanda de cambios de la mesa</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
+<div class="eb">
+<p>El TPV y la PDA juntan lo que se marca (5 s sin tocar, o antes de precuenta, cobro, separar, transferir, guardar…) y lo mandan en UNA petición. Cada comando es el mismo que iría suelto (method, path relativo a /api/v2, body e idempotencyKey) y pasa por su ruta con sus permisos, presencia, versión e idempotencia, pero todos van en UNA transacción: se aplica todo o nada. Si un comando falla no queda ninguno y se responde SU error (mismo código y estado) con details.batchIndex, method y path. Solo entran comandos de esta mesa que se quedan en la base: abrir esta misma mesa (POST /orders con body.id = orderId), comensales (PATCH /orders/{orderId}), cuentas (nueva, renombrar, borrar vacía), líneas (añadir, cambiar, quitar o eliminar, pasar a otra cuenta, ordenar, incluir en el menú) y elegir un pase sin marchar. Lo que imprime (enviar, guardar, marchar, precuenta, cambiar un pase marchado), mueve dinero (cobros, descuentos, facturas) o toca la presencia va suelto: 422 VALIDATION con field commands[i].path. Hasta 100 comandos. results = la respuesta de cada comando (status y data) en orden.</p>
+<dl class="meta"><dt>En el TPV</dt><dd>Al marcar (tanda cada 5 s sin tocar) y antes de cada acción</dd><dt>Tablas</dt><dd><code>orders</code> <code>order_line</code> <code>account</code> <code>order_event</code> <code>sync_outbox</code></dd><dt>Notas</dt><dd><span class="flag">Idempotente</span></dd></dl>
+
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;commands&quot;: [
+    {
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;path&quot;: &quot;/orders/3f9c…/lines&quot;,
+      &quot;body&quot;: {
+        &quot;id&quot;: &quot;l1…&quot;,
+        &quot;accountId&quot;: &quot;a1…&quot;,
+        &quot;plu&quot;: 1101,
+        &quot;quantity&quot;: 2
+      },
+      &quot;idempotencyKey&quot;: &quot;l1…&quot;
+    },
+    {
+      &quot;method&quot;: &quot;PATCH&quot;,
+      &quot;path&quot;: &quot;/orders/3f9c…/lines/l0…&quot;,
+      &quot;body&quot;: {
+        &quot;quantity&quot;: 3
+      },
+      &quot;idempotencyKey&quot;: null
+    }
+  ]
+}</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Mandar una tanda de cambios de la mesa&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;applied&quot;: 2,
+    &quot;results&quot;: [
+      {
+        &quot;status&quot;: 201,
+        &quot;data&quot;: null
+      },
+      {
+        &quot;status&quot;: 200,
+        &quot;data&quot;: null
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>TABLE_TAKEN</code> <span class="pin">409</span> Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li><li><code>PERIOD_CLOSED</code> <span class="pin">409</span> No hay periodo abierto.</li><li><code>ORDER_CLOSED</code> <span class="pin">409</span> La mesa se cerró desde otro equipo.</li><li><code>DUPLICATE_SUSPECTED</code> <span class="pin">409</span> Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.</li><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda.</li></ul>
 </div></details><details class="ep" id="get-order-incidents-tx">
 <summary><span class="m get">GET</span><code class="p">/order-incidents</code><span class="s">Incidencias de mesa</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>Manager</i></span></summary>
 <div class="eb">
@@ -27409,6 +27462,215 @@ paths:
               status: discarded
               note: null
               authorizedBy: Lucía
+  /api/v2/orders/{orderId}/batch:
+    post:
+      tags:
+      - API de tienda v2 · Órdenes y cuentas
+      summary: Mandar una tanda de cambios de la mesa
+      description: &#x27;El TPV y la PDA juntan lo que se marca (5 s sin tocar, o antes de precuenta, cobro, separar, transferir,
+        guardar…) y lo mandan en UNA petición. Cada comando es el mismo que iría suelto (method, path relativo a /api/v2,
+        body e idempotencyKey) y pasa por su ruta con sus permisos, presencia, versión e idempotencia, pero todos van en UNA
+        transacción: se aplica todo o nada. Si un comando falla no queda ninguno y se responde SU error (mismo código y estado)
+        con details.batchIndex, method y path. Solo entran comandos de esta mesa que se quedan en la base: abrir esta misma
+        mesa (POST /orders con body.id = orderId), comensales (PATCH /orders/{orderId}), cuentas (nueva, renombrar, borrar
+        vacía), líneas (añadir, cambiar, quitar o eliminar, pasar a otra cuenta, ordenar, incluir en el menú) y elegir un
+        pase sin marchar. Lo que imprime (enviar, guardar, marchar, precuenta, cambiar un pase marchado), mueve dinero (cobros,
+        descuentos, facturas) o toca la presencia va suelto: 422 VALIDATION con field commands[i].path. Hasta 100 comandos.
+        results = la respuesta de cada comando (status y data) en orden.
+
+
+        Lo llama: TPV, PDA
+
+
+        Tablas: orders, order_line, account, order_event, sync_outbox&#x27;
+      operationId: store_POST_orders_orderId_batch
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      applied:
+                        type: number
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: integer
+                            data: {}
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: success
+                status: 200
+                data:
+                  applied: 2
+                  results:
+                  - status: 201
+                    data: null
+                  - status: 200
+                    data: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el
+            permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · VERSION_CONFLICT: Otro equipo cambió la
+            orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · PERIOD_CLOSED: No hay
+            periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado
+            desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: TABLE_TAKEN
+                  message: &#x27;Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada
+                    solo se puede Guardar (añadir y enviar).&#x27;
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: No existe o no es de esta tienda.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mandar una tanda de cambios de la mesa
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: UUID del intento; un reintento con la misma clave no repite la acción
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                commands:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      method:
+                        type: string
+                      path:
+                        type: string
+                      body:
+                        type: object
+                        properties:
+                          id:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          accountId:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          plu:
+                            type:
+                            - integer
+                            - &#x27;null&#x27;
+                          quantity:
+                            type: integer
+                      idempotencyKey:
+                        type: string
+            example:
+              commands:
+              - method: POST
+                path: /orders/3f9c…/lines
+                body:
+                  id: l1…
+                  accountId: a1…
+                  plu: 1101
+                  quantity: 2
+                idempotencyKey: l1…
+              - method: PATCH
+                path: /orders/3f9c…/lines/l0…
+                body:
+                  quantity: 3
+                idempotencyKey: null
 components:
   securitySchemes:
     session:
