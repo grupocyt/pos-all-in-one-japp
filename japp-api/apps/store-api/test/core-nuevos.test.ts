@@ -504,6 +504,25 @@ describe("informes de ventas y camareros", () => {
     );
   });
 
+  it("ventas: lo que ya tiene precuenta va aparte en open.preBill (también por hora) y sigue dentro de open.amount", async () => {
+    const before = (await t.call("GET", "/reports/sales", { token: sistemas })).body;
+    expect(before.open.preBill).toBeTruthy();
+    const o = await t.call("POST", "/orders", { token: sistemas, body: { tableId: await freeTable(t, "BARRA"), guests: 2 } });
+    const l = await t.call("POST", `/orders/${o.body._id}/lines`, { token: sistemas, body: { plu: PLU.croquetas, quantity: 1 } });
+    const acc = l.body.accounts[0];
+    let r = (await t.call("GET", "/reports/sales", { token: sistemas })).body;
+    expect(r.open.preBill.amount).toBeCloseTo(before.open.preBill.amount, 2); // aún sin precuenta
+    await t.call("POST", `/orders/${o.body._id}/send`, { token: sistemas, body: {} });
+    const pb = await t.call("POST", `/orders/${o.body._id}/accounts/${acc.id}/prebill`, { token: sistemas, body: {} });
+    expect(pb.status, JSON.stringify(pb.error)).toBeLessThan(300);
+    r = (await t.call("GET", "/reports/sales", { token: sistemas })).body;
+    expect(r.open.preBill.tables).toBe(before.open.preBill.tables + 1);
+    expect(r.open.preBill.amount).toBeCloseTo(before.open.preBill.amount + acc.totals.total, 2);
+    expect(r.open.amount).toBeCloseTo(before.open.amount + acc.totals.total, 2);
+    const hp = r.open.byHour.reduce((a: number, h: { preBill: number }) => a + h.preBill, 0);
+    expect(hp).toBeGreaterThanOrEqual(acc.totals.total - 0.01);
+  });
+
   it("camareros: por quien abrió la mesa, con sus anulaciones; permiso funciones.kpi", async () => {
     // Sistemas abre una mesa, envía y borra una línea enviada (anulación) y factura otra
     const o = await t.call("POST", "/orders", {

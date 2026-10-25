@@ -8512,7 +8512,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="get-reports-sales-rp">
 <summary><span class="m get">GET</span><code class="p">/reports/sales</code><span class="s">Resumen de ventas</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
-<p>Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA, tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos (lo facturado y lo marcado en mesas abiertas). open = lo marcado en mesas abiertas sin facturar (total con IVA, cobrado a cuenta, por hora en que se marcó y por camarero). outlook (regla salesOutlook): venta real = facturado + open; proyección = venta real / parte del día que suele estar hecha a esta hora (reparto por hora de los últimos 8 cierres del mismo día de la semana; sin historia, curva por defecto: method default). invoiced = facturado sin restar abonos; credits = facturas rectificativas del periodo (ya restan en sold).</p>
+<p>Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA, tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos (lo facturado y lo marcado en mesas abiertas). open = lo marcado en mesas abiertas sin facturar (total con IVA, cobrado a cuenta, por hora en que se marcó y por camarero); open.preBill = la parte que ya tiene precuenta (cuentas con todas sus líneas en precuenta: mesas e importe; también por hora), ya incluida en open.amount. outlook (regla salesOutlook): venta real = facturado + open; proyección = venta real / parte del día que suele estar hecha a esta hora (reparto por hora de los últimos 8 cierres del mismo día de la semana; sin historia, curva por defecto: method default). invoiced = facturado sin restar abonos; credits = facturas rectificativas del periodo (ya restan en sold).</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.informes</code></dd><dt>En el TPV</dt><dd>Gestiones › Venta del día</dd><dt>Tablas</dt><dd><code>invoice</code> <code>order_line</code> <code>payment</code> <code>orders</code> <code>account</code> <code>period_summary</code></dd></dl>
 <h5>Parámetros</h5><ul class="pl"><li><code>periodId</code> <span class="pin">query</span> Periodo (UUID); vacío = el abierto</li></ul>
 <div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
@@ -8556,10 +8556,15 @@ footer{color:var(--muted);font-size:13px;text-align:center}
       &quot;paid&quot;: 20.0,
       &quot;pending&quot;: 166.4,
       &quot;guests&quot;: 11,
+      &quot;preBill&quot;: {
+        &quot;tables&quot;: 1,
+        &quot;amount&quot;: 48.6
+      },
       &quot;byHour&quot;: [
         {
           &quot;hour&quot;: 14,
-          &quot;amount&quot;: 120.5
+          &quot;amount&quot;: 120.5,
+          &quot;preBill&quot;: 48.6
         }
       ],
       &quot;byWaiter&quot;: [
@@ -26525,10 +26530,11 @@ paths:
       description: &#x27;Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA,
         tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos (lo facturado y lo
         marcado en mesas abiertas). open = lo marcado en mesas abiertas sin facturar (total con IVA, cobrado a cuenta, por
-        hora en que se marcó y por camarero). outlook (regla salesOutlook): venta real = facturado + open; proyección = venta
-        real / parte del día que suele estar hecha a esta hora (reparto por hora de los últimos 8 cierres del mismo día de
-        la semana; sin historia, curva por defecto: method default). invoiced = facturado sin restar abonos; credits = facturas
-        rectificativas del periodo (ya restan en sold).
+        hora en que se marcó y por camarero); open.preBill = la parte que ya tiene precuenta (cuentas con todas sus líneas
+        en precuenta: mesas e importe; también por hora), ya incluida en open.amount. outlook (regla salesOutlook): venta
+        real = facturado + open; proyección = venta real / parte del día que suele estar hecha a esta hora (reparto por hora
+        de los últimos 8 cierres del mismo día de la semana; sin historia, curva por defecto: method default). invoiced =
+        facturado sin restar abonos; credits = facturas rectificativas del periodo (ya restan en sold).
 
 
         Permiso: funciones.informes
@@ -26634,6 +26640,15 @@ paths:
                             type: number
                           guests:
                             type: integer
+                          preBill:
+                            type: object
+                            properties:
+                              tables:
+                                type: integer
+                              amount:
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                           byHour:
                             type: array
                             items:
@@ -26645,6 +26660,8 @@ paths:
                                   type:
                                   - number
                                   - &#x27;null&#x27;
+                                preBill:
+                                  type: number
                           byWaiter:
                             type: array
                             items:
@@ -26723,9 +26740,13 @@ paths:
                     paid: 20.0
                     pending: 166.4
                     guests: 11
+                    preBill:
+                      tables: 1
+                      amount: 48.6
                     byHour:
                     - hour: 14
                       amount: 120.5
+                      preBill: 48.6
                     byWaiter:
                     - user: Pedro
                       tables: 3

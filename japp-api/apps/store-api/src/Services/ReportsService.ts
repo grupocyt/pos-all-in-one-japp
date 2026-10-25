@@ -184,7 +184,16 @@ export class ReportsService {
         paid: openPaid,
         pending: r2(D(openAmount).minus(openPaid)),
         guests: openRows.reduce((acc, o) => acc + (o.guests || 0), 0),
-        byHour: openHours.map((h) => ({ hour: Number(h.hour), amount: r2(Number(h.amount)) })),
+        // ya con precuenta (incluido en amount): el TPV lo pinta en rojo
+        preBill: {
+          tables: openRows.filter((o) => Number(o.pre_bill) > 0).length,
+          amount: r2(sum(openRows.map((o) => Number(o.pre_bill)))),
+        },
+        byHour: openHours.map((h) => ({
+          hour: Number(h.hour),
+          amount: r2(Number(h.amount)),
+          preBill: r2(Number(h.pre_bill)),
+        })),
         byWaiter: [...byWaiterOpen.entries()]
           .map(([user, w]) => ({ user, tables: w.tables, amount: w.amount }))
           .sort((a, b) => b.amount - a.amount || a.user.localeCompare(b.user)),

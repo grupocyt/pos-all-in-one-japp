@@ -16803,10 +16803,11 @@ paths:
       description: 'Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA,
         tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos (lo facturado y lo
         marcado en mesas abiertas). open = lo marcado en mesas abiertas sin facturar (total con IVA, cobrado a cuenta, por
-        hora en que se marcó y por camarero). outlook (regla salesOutlook): venta real = facturado + open; proyección = venta
-        real / parte del día que suele estar hecha a esta hora (reparto por hora de los últimos 8 cierres del mismo día de
-        la semana; sin historia, curva por defecto: method default). invoiced = facturado sin restar abonos; credits = facturas
-        rectificativas del periodo (ya restan en sold).
+        hora en que se marcó y por camarero); open.preBill = la parte que ya tiene precuenta (cuentas con todas sus líneas
+        en precuenta: mesas e importe; también por hora), ya incluida en open.amount. outlook (regla salesOutlook): venta
+        real = facturado + open; proyección = venta real / parte del día que suele estar hecha a esta hora (reparto por hora
+        de los últimos 8 cierres del mismo día de la semana; sin historia, curva por defecto: method default). invoiced =
+        facturado sin restar abonos; credits = facturas rectificativas del periodo (ya restan en sold).
 
 
         Permiso: funciones.informes
@@ -16912,6 +16913,15 @@ paths:
                             type: number
                           guests:
                             type: integer
+                          preBill:
+                            type: object
+                            properties:
+                              tables:
+                                type: integer
+                              amount:
+                                type:
+                                - number
+                                - 'null'
                           byHour:
                             type: array
                             items:
@@ -16923,6 +16933,8 @@ paths:
                                   type:
                                   - number
                                   - 'null'
+                                preBill:
+                                  type: number
                           byWaiter:
                             type: array
                             items:
@@ -17001,9 +17013,13 @@ paths:
                     paid: 20.0
                     pending: 166.4
                     guests: 11
+                    preBill:
+                      tables: 1
+                      amount: 48.6
                     byHour:
                     - hour: 14
                       amount: 120.5
+                      preBill: 48.6
                     byWaiter:
                     - user: Pedro
                       tables: 3

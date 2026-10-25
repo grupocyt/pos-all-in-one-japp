@@ -2485,7 +2485,7 @@ export interface paths {
         };
         /**
          * Resumen de ventas
-         * @description Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA, tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos (lo facturado y lo marcado en mesas abiertas). open = lo marcado en mesas abiertas sin facturar (total con IVA, cobrado a cuenta, por hora en que se marcó y por camarero). outlook (regla salesOutlook): venta real = facturado + open; proyección = venta real / parte del día que suele estar hecha a esta hora (reparto por hora de los últimos 8 cierres del mismo día de la semana; sin historia, curva por defecto: method default). invoiced = facturado sin restar abonos; credits = facturas rectificativas del periodo (ya restan en sold).
+         * @description Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA, tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos (lo facturado y lo marcado en mesas abiertas). open = lo marcado en mesas abiertas sin facturar (total con IVA, cobrado a cuenta, por hora en que se marcó y por camarero); open.preBill = la parte que ya tiene precuenta (cuentas con todas sus líneas en precuenta: mesas e importe; también por hora), ya incluida en open.amount. outlook (regla salesOutlook): venta real = facturado + open; proyección = venta real / parte del día que suele estar hecha a esta hora (reparto por hora de los últimos 8 cierres del mismo día de la semana; sin historia, curva por defecto: method default). invoiced = facturado sin restar abonos; credits = facturas rectificativas del periodo (ya restan en sold).
          *
          *     Permiso: funciones.informes
          *
@@ -11609,9 +11609,14 @@ export interface operations {
                                 paid?: number;
                                 pending?: number;
                                 guests?: number;
+                                preBill?: {
+                                    tables?: number;
+                                    amount?: number | null;
+                                };
                                 byHour?: {
                                     hour?: number;
                                     amount?: number | null;
+                                    preBill?: number;
                                 }[];
                                 byWaiter?: {
                                     user?: string | null;

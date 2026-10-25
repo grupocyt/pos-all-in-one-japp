@@ -19,6 +19,10 @@ export interface PeriodData {
  * Gestor de cierres en la base: period_summary (resumen guardado al cerrar), sales_target (objetivos),
  * sync_outbox y sync_state (estado de la sincronización). SQL crudo; q es la transacción o la base.
  */
+/** Cuenta en precuenta: tiene líneas vivas y todas están en precuenta (la misma regla que GET /tables → bill). */
+const PRE_BILL = sql`EXISTS (SELECT 1 FROM order_line x WHERE x.account_id = a.id AND x.store_id = a.store_id AND NOT x.deleted)
+  AND NOT EXISTS (SELECT 1 FROM order_line x WHERE x.account_id = a.id AND x.store_id = a.store_id AND NOT x.deleted AND x.status <> 'preBill')`;
+
 @Injectable()
 export class ClosingsApplication {
   constructor(@Inject(DATABASE) private readonly database: Database) {}
@@ -36,10 +40,12 @@ export class ClosingsApplication {
    * comensales, total con IVA y lo cobrado a cuenta. Cuentas anuladas o facturadas fuera (lo facturado ya está en el resumen).
    */
   async openOrders(storeId: string, periodId: string) {
-    return rows<{ order_id: string; waiter: string; guests: number; total: number; paid: number }>(
+    // pre_bill: lo de las cuentas en precuenta (todas sus líneas vivas en precuenta), como GET /tables → bill
+    return rows<{ order_id: string; waiter: string; guests: number; total: number; paid: number; pre_bill: number }>(
       this.db,
       sql`SELECT o.id::text order_id, o.opened_by_user_name waiter, o.guests::int guests,
-          coalesce(sum(a.total), 0)::float8 total, coalesce(sum(a.paid), 0)::float8 paid
+          coalesce(sum(a.total), 0)::float8 total, coalesce(sum(a.paid), 0)::float8 paid,
+          coalesce(sum(a.total) FILTER (WHERE ${PRE_BILL}), 0)::float8 pre_bill
         FROM orders o JOIN account a ON a.order_id = o.id AND a.store_id = o.store_id
         WHERE o.store_id = ${storeId} AND o.period_id = ${periodId} AND o.status IN ('open','billing')
           AND a.status NOT IN ('cancelled','invoiced')
@@ -59,9 +65,10 @@ export class ClosingsApplication {
 
   /** Lo marcado en mesas abiertas del periodo por hora (Madrid) en que se marcó, con IVA y antes de descuentos. */
   async openByHour(storeId: string, periodId: string) {
-    return rows<{ hour: number; amount: number }>(
+    return rows<{ hour: number; amount: number; pre_bill: number }>(
       this.db,
-      sql`SELECT extract(hour FROM l.created_by_at AT TIME ZONE 'Europe/Madrid')::int AS hour, sum(l.net_amount)::float8 AS amount
+      sql`SELECT extract(hour FROM l.created_by_at AT TIME ZONE 'Europe/Madrid')::int AS hour, sum(l.net_amount)::float8 AS amount,
+          coalesce(sum(l.net_amount) FILTER (WHERE ${PRE_BILL}), 0)::float8 AS pre_bill
         FROM order_line l JOIN account a ON a.id = l.account_id AND a.store_id = l.store_id
         JOIN orders o ON o.id = l.order_id AND o.store_id = l.store_id
         WHERE l.store_id = ${storeId} AND o.period_id = ${periodId} AND o.status IN ('open','billing')
