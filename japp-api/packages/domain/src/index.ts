@@ -47,3 +47,4 @@ export * from "./batch.js";
 export * from "./logo.js";
 export * from "./kitchenNotices.js";
 export * from "./sla.js";
+export * from "./display.js";

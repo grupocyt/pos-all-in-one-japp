@@ -46,6 +46,9 @@ import { CashService } from "./Services/CashService.js";
 import { InvoicesService } from "./Services/InvoicesService.js";
 import { ReportsService } from "./Services/ReportsService.js";
 import { SirService } from "./Services/SirService.js";
+import { DisplayService } from "./Services/DisplayService.js";
+import { DisplayApplication } from "./Applications/DisplayApplication.js";
+import { DisplayController } from "./Controllers/DisplayController.js";
 import { SirApplication } from "./Applications/SirApplication.js";
 import { SystemApplication } from "./Applications/SystemApplication.js";
 import { DevicesApplication } from "./Applications/DevicesApplication.js";
@@ -114,6 +117,7 @@ class AppModule {
         SyncController,
         // antes que ConfigController: sus rutas concretas (/config/carta, …/sync, …/order) y las genéricas /config/{module}
         CartaController,
+        DisplayController,
         ConfigController,
         PrintersController,
         TransactionsController,
@@ -155,6 +159,8 @@ class AppModule {
         InvoicesService,
         ReportsService,
         SirService,
+        DisplayService,
+        DisplayApplication,
         SystemApplication,
         DevicesApplication,
         PeriodsApplication,
@@ -226,6 +232,15 @@ export async function buildApp(deps: AppDeps) {
     { logger: deps.logger === false ? false : undefined },
   );
   app.setGlobalPrefix("api/v2");
+  // segunda pantalla: los vídeos e imágenes llegan tal cual (video/*, image/*); el servicio los lee como flujo hacia el disco
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addContentTypeParser(
+      // también text/* y octet-stream: así un archivo que no vale responde 422 en content-type con el formato común (no un 415 suelto)
+      /^((video|image|text)\/[\w.+-]+|application\/octet-stream)$/,
+      (_req: any, payload: any, done: any) => done(null, payload),
+    );
   const origins = deps.config.corsOrigins ?? [];
   if (origins.length) {
     app.enableCors({

@@ -18,6 +18,8 @@ export interface Config {
   storeKey?: string;
   /** Order on Table: clave que manda el sistema externo en X-Integration-Key. Vacía = /oot/* cerrado (403). */
   ootIntegrationKey?: string;
+  /** Carpeta de los vídeos e imágenes de la segunda pantalla (MEDIA_DIR). Sin ella, una carpeta temporal (pruebas). */
+  mediaDir?: string;
 }
 export const API_AUTHOR = "Api Japp Grupo Cañas y Tapas";
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -49,5 +51,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     managerUrl: env.MANAGER_URL?.trim() || undefined,
     storeKey: env.STORE_KEY?.trim() || undefined,
     ootIntegrationKey: env.OOT_INTEGRATION_KEY?.trim() || undefined,
+    mediaDir: env.MEDIA_DIR?.trim() || "./data/media",
   };
 }

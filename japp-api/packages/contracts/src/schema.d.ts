@@ -3040,6 +3040,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/config/pantalla-cliente": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Segunda pantalla del cliente
+         * @description Ajustes › Restaurante › Banners: lo que enseña la segunda pantalla de la caja. mode: off (apagada), billing (solo facturación: bienvenida, pedido en vivo, pagado con «¿Cómo quieres tu ticket?», email y gracias), billing_banner (facturación + banner: el banner a pantalla completa en espera y en una columna mientras se cobra) o banner (solo vídeo / banner, en bucle). Los banners son solo para fast food: allowedModes según store.service_type, y effectiveMode es el tipo con el que funciona (un banner guardado en una tienda de mesas funciona como billing). theme = los colores de cada elemento (fondo, texto, texto secundario, texto sobre el color principal, pagado y su texto, botones: fondo, texto y borde, lo recién añadido y su texto), todos #RRGGBB; color = el principal. items = la lista de vídeos e imágenes en su orden, con su horario (days 1 = lunes … 7 = domingo, vacío = todos; from/to HH:MM en hora de Madrid, cruza la medianoche) y su url. Lo puede leer cualquier sesión: el TPV lo necesita para pintar la pantalla.
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: customer_display, display_media, store
+         */
+        get: operations["store_GET_config_pantalla_cliente"];
+        /**
+         * Guardar la segunda pantalla
+         * @description La configuración entera con la version leída (otra → 409 VERSION_CONFLICT). items, si viene, es la lista completa en el orden nuevo con el horario de cada archivo (que falte o sobre alguno → 422 en items). Un banner en una tienda que no es fast food → 422 VALIDATION en config.mode. Sube la versión de la pantalla y la de configuración, deja su fila en el historial de Ajustes y avisa a los equipos (config.changed).
+         *
+         *     Permiso: ajustes.restaurante
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: customer_display, display_media, config_change_log, store
+         */
+        put: operations["store_PUT_config_pantalla_cliente"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/pantalla-cliente/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subir un vídeo o una imagen
+         * @description El cuerpo es el archivo tal cual, con Content-Type video/mp4, video/webm, image/jpeg, image/png, image/webp o image/gif (otro → 422 en content-type), hasta 300 MB (413 TOO_LARGE). Cabeceras: X-File-Name (nombre, codificado como URI) y X-Duration (segundos del vídeo, opcional). El archivo se guarda en el disco del servidor de la tienda (MEDIA_DIR/<id>, con su sha256) y entra al final de la lista, activo y todo el día.
+         *
+         *     Permiso: ajustes.restaurante
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: display_media, customer_display, config_change_log
+         */
+        post: operations["store_POST_config_pantalla_cliente_media"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/pantalla-cliente/media/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Quitar un vídeo o una imagen
+         * @description Lo quita de la lista (display_media.deleted_at; la fila queda) y borra el archivo del disco. Responde la pantalla como GET.
+         *
+         *     Permiso: ajustes.restaurante
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: display_media, config_change_log
+         */
+        delete: operations["store_DELETE_config_pantalla_cliente_media_id"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/media/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Archivo de la segunda pantalla
+         * @description El vídeo o la imagen (no es JSON: el archivo con su Content-Type). Sin sesión, porque lo pide la etiqueta <video> o <img> de la pantalla del cliente; solo archivos vivos de esta tienda (si no, 404). Admite Range (206 Partial Content) para adelantar el vídeo, y se puede guardar en caché para siempre (el id no cambia de contenido).
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: display_media
+         */
+        get: operations["store_GET_media_id"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -13221,6 +13331,475 @@ export interface operations {
             };
             /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_config_pantalla_cliente: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            config?: {
+                                mode?: string;
+                                greeting?: string;
+                                name?: string;
+                                color?: string | null;
+                                farewell?: string;
+                                reviewUrl?: string;
+                                sideTitle?: string;
+                                tickets?: {
+                                    email?: boolean | null;
+                                    print?: boolean;
+                                    invoice?: boolean | null;
+                                    none?: boolean;
+                                } | null;
+                                loop?: boolean;
+                                muted?: boolean;
+                                imageSeconds?: number;
+                                theme?: {
+                                    background?: string;
+                                    text?: string;
+                                    muted?: string;
+                                    accentText?: string;
+                                    success?: string;
+                                    successText?: string;
+                                    buttonBg?: string;
+                                    buttonText?: string;
+                                    buttonBorder?: string;
+                                    highlight?: string;
+                                    highlightText?: string;
+                                };
+                            };
+                            effectiveMode?: string;
+                            allowedModes?: string[];
+                            serviceType?: string;
+                            version?: number;
+                            configVersion?: number | null;
+                            items?: {
+                                id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                duration?: number | null;
+                                days?: number[];
+                                from?: string | null;
+                                to?: string | null;
+                                active?: boolean;
+                                sortOrder?: number;
+                                url?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    store_PUT_config_pantalla_cliente: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "version": 4,
+                 *       "config": {
+                 *         "mode": "billing_banner",
+                 *         "greeting": "Le damos la bienvenida a",
+                 *         "name": "Cañas y Tapas",
+                 *         "color": "#155f6b",
+                 *         "farewell": "¡Gracias por tu visita!",
+                 *         "reviewUrl": "https://g.page/r/ejemplo/review",
+                 *         "sideTitle": "Hoy recomendamos",
+                 *         "tickets": {
+                 *           "email": true,
+                 *           "print": true,
+                 *           "invoice": true,
+                 *           "none": true
+                 *         },
+                 *         "loop": true,
+                 *         "muted": true,
+                 *         "imageSeconds": 8,
+                 *         "theme": {
+                 *           "background": "#f4f7f8",
+                 *           "text": "#17262b",
+                 *           "muted": "#5b6b70",
+                 *           "accentText": "#ffffff",
+                 *           "success": "#1c7a4a",
+                 *           "successText": "#ffffff",
+                 *           "buttonBg": "#ffffff",
+                 *           "buttonText": "#17262b",
+                 *           "buttonBorder": "#c9d5d8",
+                 *           "highlight": "#fff7e8",
+                 *           "highlightText": "#7a4a10"
+                 *         }
+                 *       },
+                 *       "items": [
+                 *         {
+                 *           "id": "5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+                 *           "days": [
+                 *             1,
+                 *             2,
+                 *             3,
+                 *             4,
+                 *             5
+                 *           ],
+                 *           "from": "17:00",
+                 *           "to": "20:00",
+                 *           "active": true
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    version?: number;
+                    config?: {
+                        mode?: string;
+                        greeting?: string;
+                        name?: string;
+                        color?: string | null;
+                        farewell?: string;
+                        reviewUrl?: string;
+                        sideTitle?: string;
+                        tickets?: {
+                            email?: boolean | null;
+                            print?: boolean;
+                            invoice?: boolean | null;
+                            none?: boolean;
+                        } | null;
+                        loop?: boolean;
+                        muted?: boolean;
+                        imageSeconds?: number;
+                        theme?: {
+                            background?: string;
+                            text?: string;
+                            muted?: string;
+                            accentText?: string;
+                            success?: string;
+                            successText?: string;
+                            buttonBg?: string;
+                            buttonText?: string;
+                            buttonBorder?: string;
+                            highlight?: string;
+                            highlightText?: string;
+                        };
+                    };
+                    items?: {
+                        id?: string | null;
+                        days?: number[];
+                        from?: string | null;
+                        to?: string | null;
+                        active?: boolean;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            config?: {
+                                mode?: string;
+                                greeting?: string;
+                                name?: string;
+                                color?: string | null;
+                                farewell?: string;
+                                reviewUrl?: string;
+                                sideTitle?: string;
+                                tickets?: {
+                                    email?: boolean | null;
+                                    print?: boolean;
+                                    invoice?: boolean | null;
+                                    none?: boolean;
+                                } | null;
+                                loop?: boolean;
+                                muted?: boolean;
+                                imageSeconds?: number;
+                                theme?: {
+                                    background?: string;
+                                    text?: string;
+                                    muted?: string;
+                                    accentText?: string;
+                                    success?: string;
+                                    successText?: string;
+                                    buttonBg?: string;
+                                    buttonText?: string;
+                                    buttonBorder?: string;
+                                    highlight?: string;
+                                    highlightText?: string;
+                                };
+                            };
+                            effectiveMode?: string;
+                            allowedModes?: string[];
+                            serviceType?: string;
+                            version?: number;
+                            configVersion?: number | null;
+                            items?: {
+                                id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                duration?: number | null;
+                                days?: number[];
+                                from?: string | null;
+                                to?: string | null;
+                                active?: boolean;
+                                sortOrder?: number;
+                                url?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_config_pantalla_cliente_media: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string | null;
+                            kind?: string;
+                            name?: string;
+                            mime?: string;
+                            size?: number;
+                            duration?: number | null;
+                            days?: number[];
+                            from?: string | null;
+                            to?: string | null;
+                            active?: boolean;
+                            sortOrder?: number;
+                            url?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TOO_LARGE: Demasiadas filas en una carga (details.max). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_DELETE_config_pantalla_cliente_media_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description id del archivo */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            config?: {
+                                mode?: string;
+                                greeting?: string;
+                                name?: string;
+                                color?: string | null;
+                                farewell?: string;
+                                reviewUrl?: string;
+                                sideTitle?: string;
+                                tickets?: {
+                                    email?: boolean | null;
+                                    print?: boolean;
+                                    invoice?: boolean | null;
+                                    none?: boolean;
+                                } | null;
+                                loop?: boolean;
+                                muted?: boolean;
+                                imageSeconds?: number;
+                                theme?: {
+                                    background?: string;
+                                    text?: string;
+                                    muted?: string;
+                                    accentText?: string;
+                                    success?: string;
+                                    successText?: string;
+                                    buttonBg?: string;
+                                    buttonText?: string;
+                                    buttonBorder?: string;
+                                    highlight?: string;
+                                    highlightText?: string;
+                                };
+                            };
+                            effectiveMode?: string;
+                            allowedModes?: string[];
+                            serviceType?: string;
+                            version?: number;
+                            configVersion?: number | null;
+                            items?: {
+                                id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                duration?: number | null;
+                                days?: number[];
+                                from?: string | null;
+                                to?: string | null;
+                                active?: boolean;
+                                sortOrder?: number;
+                                url?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_media_id: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description bytes=inicio-fin (opcional) */
+                Range?: string;
+            };
+            path: {
+                /** @description id del archivo */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto (data: null) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: null;
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

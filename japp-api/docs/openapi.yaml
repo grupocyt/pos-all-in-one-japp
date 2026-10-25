@@ -20735,6 +20735,982 @@ paths:
                 periodId: {}
             example:
               periodId: null
+  /api/v2/config/pantalla-cliente:
+    get:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Segunda pantalla del cliente
+      description: 'Ajustes › Restaurante › Banners: lo que enseña la segunda pantalla de la caja. mode: off (apagada), billing
+        (solo facturación: bienvenida, pedido en vivo, pagado con «¿Cómo quieres tu ticket?», email y gracias), billing_banner
+        (facturación + banner: el banner a pantalla completa en espera y en una columna mientras se cobra) o banner (solo
+        vídeo / banner, en bucle). Los banners son solo para fast food: allowedModes según store.service_type, y effectiveMode
+        es el tipo con el que funciona (un banner guardado en una tienda de mesas funciona como billing). theme = los colores
+        de cada elemento (fondo, texto, texto secundario, texto sobre el color principal, pagado y su texto, botones: fondo,
+        texto y borde, lo recién añadido y su texto), todos #RRGGBB; color = el principal. items = la lista de vídeos e imágenes
+        en su orden, con su horario (days 1 = lunes … 7 = domingo, vacío = todos; from/to HH:MM en hora de Madrid, cruza la
+        medianoche) y su url. Lo puede leer cualquier sesión: el TPV lo necesita para pintar la pantalla.
+
+
+        Lo llama: TPV
+
+
+        Tablas: customer_display, display_media, store'
+      operationId: store_GET_config_pantalla_cliente
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        type: object
+                        properties:
+                          mode:
+                            type: string
+                          greeting:
+                            type: string
+                          name:
+                            type: string
+                          color:
+                            type:
+                            - string
+                            - 'null'
+                          farewell:
+                            type: string
+                          reviewUrl:
+                            type: string
+                          sideTitle:
+                            type: string
+                          tickets:
+                            type:
+                            - object
+                            - 'null'
+                            properties:
+                              email:
+                                type:
+                                - boolean
+                                - 'null'
+                              print:
+                                type: boolean
+                              invoice:
+                                type:
+                                - boolean
+                                - 'null'
+                              none:
+                                type: boolean
+                          loop:
+                            type: boolean
+                          muted:
+                            type: boolean
+                          imageSeconds:
+                            type: number
+                          theme:
+                            type: object
+                            properties:
+                              background:
+                                type: string
+                              text:
+                                type: string
+                              muted:
+                                type: string
+                              accentText:
+                                type: string
+                              success:
+                                type: string
+                              successText:
+                                type: string
+                              buttonBg:
+                                type: string
+                              buttonText:
+                                type: string
+                              buttonBorder:
+                                type: string
+                              highlight:
+                                type: string
+                              highlightText:
+                                type: string
+                      effectiveMode:
+                        type: string
+                      allowedModes:
+                        type: array
+                        items:
+                          type: string
+                      serviceType:
+                        type: string
+                      version:
+                        type: integer
+                      configVersion:
+                        type:
+                        - integer
+                        - 'null'
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            mime:
+                              type: string
+                            size:
+                              type: number
+                            duration:
+                              type:
+                              - number
+                              - 'null'
+                            days:
+                              type: array
+                              items:
+                                type: number
+                            from:
+                              type:
+                              - string
+                              - 'null'
+                            to:
+                              type:
+                              - string
+                              - 'null'
+                            active:
+                              type: boolean
+                            sortOrder:
+                              type: integer
+                            url:
+                              type: string
+              example:
+                title: Segunda pantalla del cliente
+                type: success
+                status: 200
+                data: &id016
+                  config: &id017
+                    mode: billing_banner
+                    greeting: Le damos la bienvenida a
+                    name: Cañas y Tapas
+                    color: '#155f6b'
+                    farewell: ¡Gracias por tu visita!
+                    reviewUrl: https://g.page/r/ejemplo/review
+                    sideTitle: Hoy recomendamos
+                    tickets:
+                      email: true
+                      print: true
+                      invoice: true
+                      none: true
+                    loop: true
+                    muted: true
+                    imageSeconds: 8
+                    theme:
+                      background: '#f4f7f8'
+                      text: '#17262b'
+                      muted: '#5b6b70'
+                      accentText: '#ffffff'
+                      success: '#1c7a4a'
+                      successText: '#ffffff'
+                      buttonBg: '#ffffff'
+                      buttonText: '#17262b'
+                      buttonBorder: '#c9d5d8'
+                      highlight: '#fff7e8'
+                      highlightText: '#7a4a10'
+                  effectiveMode: billing_banner
+                  allowedModes:
+                  - 'off'
+                  - billing
+                  - billing_banner
+                  - banner
+                  serviceType: fastfood
+                  version: 4
+                  configVersion: 212
+                  items:
+                  - &id018
+                    id: 5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                    kind: video
+                    name: promo-verano.mp4
+                    mime: video/mp4
+                    size: 18874368
+                    duration: 30
+                    days:
+                    - 1
+                    - 2
+                    - 3
+                    - 4
+                    - 5
+                    from: '17:00'
+                    to: '20:00'
+                    active: true
+                    sortOrder: 1
+                    url: /api/v2/media/5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+    put:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Guardar la segunda pantalla
+      description: 'La configuración entera con la version leída (otra → 409 VERSION_CONFLICT). items, si viene, es la lista
+        completa en el orden nuevo con el horario de cada archivo (que falte o sobre alguno → 422 en items). Un banner en
+        una tienda que no es fast food → 422 VALIDATION en config.mode. Sube la versión de la pantalla y la de configuración,
+        deja su fila en el historial de Ajustes y avisa a los equipos (config.changed).
+
+
+        Permiso: ajustes.restaurante
+
+
+        Lo llama: TPV
+
+
+        Tablas: customer_display, display_media, config_change_log, store'
+      operationId: store_PUT_config_pantalla_cliente
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        type: object
+                        properties:
+                          mode:
+                            type: string
+                          greeting:
+                            type: string
+                          name:
+                            type: string
+                          color:
+                            type:
+                            - string
+                            - 'null'
+                          farewell:
+                            type: string
+                          reviewUrl:
+                            type: string
+                          sideTitle:
+                            type: string
+                          tickets:
+                            type:
+                            - object
+                            - 'null'
+                            properties:
+                              email:
+                                type:
+                                - boolean
+                                - 'null'
+                              print:
+                                type: boolean
+                              invoice:
+                                type:
+                                - boolean
+                                - 'null'
+                              none:
+                                type: boolean
+                          loop:
+                            type: boolean
+                          muted:
+                            type: boolean
+                          imageSeconds:
+                            type: number
+                          theme:
+                            type: object
+                            properties:
+                              background:
+                                type: string
+                              text:
+                                type: string
+                              muted:
+                                type: string
+                              accentText:
+                                type: string
+                              success:
+                                type: string
+                              successText:
+                                type: string
+                              buttonBg:
+                                type: string
+                              buttonText:
+                                type: string
+                              buttonBorder:
+                                type: string
+                              highlight:
+                                type: string
+                              highlightText:
+                                type: string
+                      effectiveMode:
+                        type: string
+                      allowedModes:
+                        type: array
+                        items:
+                          type: string
+                      serviceType:
+                        type: string
+                      version:
+                        type: integer
+                      configVersion:
+                        type:
+                        - integer
+                        - 'null'
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            mime:
+                              type: string
+                            size:
+                              type: number
+                            duration:
+                              type:
+                              - number
+                              - 'null'
+                            days:
+                              type: array
+                              items:
+                                type: number
+                            from:
+                              type:
+                              - string
+                              - 'null'
+                            to:
+                              type:
+                              - string
+                              - 'null'
+                            active:
+                              type: boolean
+                            sortOrder:
+                              type: integer
+                            url:
+                              type: string
+              example:
+                title: Guardar la segunda pantalla
+                type: success
+                status: 200
+                data: *id016
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar la segunda pantalla
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo
+            la pinta y reintenta.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar la segunda pantalla
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: VERSION_CONFLICT
+                  message: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta
+                    y reintenta.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar la segunda pantalla
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                config:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                    greeting:
+                      type: string
+                    name:
+                      type: string
+                    color:
+                      type:
+                      - string
+                      - 'null'
+                    farewell:
+                      type: string
+                    reviewUrl:
+                      type: string
+                    sideTitle:
+                      type: string
+                    tickets:
+                      type:
+                      - object
+                      - 'null'
+                      properties:
+                        email:
+                          type:
+                          - boolean
+                          - 'null'
+                        print:
+                          type: boolean
+                        invoice:
+                          type:
+                          - boolean
+                          - 'null'
+                        none:
+                          type: boolean
+                    loop:
+                      type: boolean
+                    muted:
+                      type: boolean
+                    imageSeconds:
+                      type: number
+                    theme:
+                      type: object
+                      properties:
+                        background:
+                          type: string
+                        text:
+                          type: string
+                        muted:
+                          type: string
+                        accentText:
+                          type: string
+                        success:
+                          type: string
+                        successText:
+                          type: string
+                        buttonBg:
+                          type: string
+                        buttonText:
+                          type: string
+                        buttonBorder:
+                          type: string
+                        highlight:
+                          type: string
+                        highlightText:
+                          type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - 'null'
+                      days:
+                        type: array
+                        items:
+                          type: number
+                      from:
+                        type:
+                        - string
+                        - 'null'
+                      to:
+                        type:
+                        - string
+                        - 'null'
+                      active:
+                        type: boolean
+            example:
+              version: 4
+              config: *id017
+              items:
+              - id: 5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                days:
+                - 1
+                - 2
+                - 3
+                - 4
+                - 5
+                from: '17:00'
+                to: '20:00'
+                active: true
+  /api/v2/config/pantalla-cliente/media:
+    post:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Subir un vídeo o una imagen
+      description: 'El cuerpo es el archivo tal cual, con Content-Type video/mp4, video/webm, image/jpeg, image/png, image/webp
+        o image/gif (otro → 422 en content-type), hasta 300 MB (413 TOO_LARGE). Cabeceras: X-File-Name (nombre, codificado
+        como URI) y X-Duration (segundos del vídeo, opcional). El archivo se guarda en el disco del servidor de la tienda
+        (MEDIA_DIR/<id>, con su sha256) y entra al final de la lista, activo y todo el día.
+
+
+        Permiso: ajustes.restaurante
+
+
+        Lo llama: TPV
+
+
+        Tablas: display_media, customer_display, config_change_log'
+      operationId: store_POST_config_pantalla_cliente_media
+      security:
+      - session: []
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - 'null'
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      mime:
+                        type: string
+                      size:
+                        type: number
+                      duration:
+                        type:
+                        - number
+                        - 'null'
+                      days:
+                        type: array
+                        items:
+                          type: number
+                      from:
+                        type:
+                        - string
+                        - 'null'
+                      to:
+                        type:
+                        - string
+                        - 'null'
+                      active:
+                        type: boolean
+                      sortOrder:
+                        type: integer
+                      url:
+                        type: string
+              example:
+                title: Subir un vídeo o una imagen
+                type: success
+                status: 201
+                data: *id018
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Subir un vídeo o una imagen
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '413':
+          description: 'TOO_LARGE: Demasiadas filas en una carga (details.max).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Subir un vídeo o una imagen
+                type: error
+                status: 413
+                data: null
+                errors:
+                - code: TOO_LARGE
+                  message: Demasiadas filas en una carga (details.max).
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Subir un vídeo o una imagen
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+  /api/v2/config/pantalla-cliente/media/{id}:
+    delete:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Quitar un vídeo o una imagen
+      description: 'Lo quita de la lista (display_media.deleted_at; la fila queda) y borra el archivo del disco. Responde
+        la pantalla como GET.
+
+
+        Permiso: ajustes.restaurante
+
+
+        Lo llama: TPV
+
+
+        Tablas: display_media, config_change_log'
+      operationId: store_DELETE_config_pantalla_cliente_media_id
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        type: object
+                        properties:
+                          mode:
+                            type: string
+                          greeting:
+                            type: string
+                          name:
+                            type: string
+                          color:
+                            type:
+                            - string
+                            - 'null'
+                          farewell:
+                            type: string
+                          reviewUrl:
+                            type: string
+                          sideTitle:
+                            type: string
+                          tickets:
+                            type:
+                            - object
+                            - 'null'
+                            properties:
+                              email:
+                                type:
+                                - boolean
+                                - 'null'
+                              print:
+                                type: boolean
+                              invoice:
+                                type:
+                                - boolean
+                                - 'null'
+                              none:
+                                type: boolean
+                          loop:
+                            type: boolean
+                          muted:
+                            type: boolean
+                          imageSeconds:
+                            type: number
+                          theme:
+                            type: object
+                            properties:
+                              background:
+                                type: string
+                              text:
+                                type: string
+                              muted:
+                                type: string
+                              accentText:
+                                type: string
+                              success:
+                                type: string
+                              successText:
+                                type: string
+                              buttonBg:
+                                type: string
+                              buttonText:
+                                type: string
+                              buttonBorder:
+                                type: string
+                              highlight:
+                                type: string
+                              highlightText:
+                                type: string
+                      effectiveMode:
+                        type: string
+                      allowedModes:
+                        type: array
+                        items:
+                          type: string
+                      serviceType:
+                        type: string
+                      version:
+                        type: integer
+                      configVersion:
+                        type:
+                        - integer
+                        - 'null'
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            mime:
+                              type: string
+                            size:
+                              type: number
+                            duration:
+                              type:
+                              - number
+                              - 'null'
+                            days:
+                              type: array
+                              items:
+                                type: number
+                            from:
+                              type:
+                              - string
+                              - 'null'
+                            to:
+                              type:
+                              - string
+                              - 'null'
+                            active:
+                              type: boolean
+                            sortOrder:
+                              type: integer
+                            url:
+                              type: string
+              example:
+                title: Quitar un vídeo o una imagen
+                type: success
+                status: 200
+                data: *id016
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe o no es de esta tienda.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Quitar un vídeo o una imagen
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Quitar un vídeo o una imagen
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: id del archivo
+  /api/v2/media/{id}:
+    get:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Archivo de la segunda pantalla
+      description: 'El vídeo o la imagen (no es JSON: el archivo con su Content-Type). Sin sesión, porque lo pide la etiqueta
+        <video> o <img> de la pantalla del cliente; solo archivos vivos de esta tienda (si no, 404). Admite Range (206 Partial
+        Content) para adelantar el vídeo, y se puede guardar en caché para siempre (el id no cambia de contenido).
+
+
+        Lo llama: TPV
+
+
+        Tablas: display_media'
+      operationId: store_GET_media_id
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 'Correcto (data: null)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: 'null'
+              example:
+                title: Archivo de la segunda pantalla
+                type: success
+                status: 200
+                data: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe o no es de esta tienda.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Archivo de la segunda pantalla
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: id del archivo
+      - name: Range
+        in: header
+        required: false
+        description: bytes=inicio-fin (opcional)
+        schema:
+          type: string
 components:
   securitySchemes:
     session:

@@ -50,6 +50,18 @@ describe("reglas en la base", () => {
     expect(await fails("UPDATE app_user SET color=NULL WHERE id=$1", [u], "23514")).toBe("OK");
     await fails("UPDATE app_user SET color='rojo' WHERE id=$1", [u], "23514");
   }));
+  it("segunda pantalla: config objeto, media con tipo, mime, tamaño, huella y días 1–7 (migración 0021)", () => rollback(c, async () => {
+    expect(await fails("INSERT INTO customer_display (store_id, config) VALUES ($1, '{\"mode\":\"billing\"}')", [store], "23514")).toBe("OK");
+    await fails("UPDATE customer_display SET config='[]' WHERE store_id=$1", [store], "23514");
+    const ins = "INSERT INTO display_media (id, store_id, kind, name, mime, size_bytes, sha256, days) VALUES ($1,$2,$3,'a.mp4',$4,$5,$6,$7)";
+    const sha = "a".repeat(64);
+    expect(await fails(ins, [uuid(), store, "video", "video/mp4", 1000, sha, [1, 5]], "23514")).toBe("OK");
+    await fails(ins, [uuid(), store, "audio", "video/mp4", 1000, sha, []], "23514");
+    await fails(ins, [uuid(), store, "video", "text/html", 1000, sha, []], "23514");
+    await fails(ins, [uuid(), store, "video", "video/mp4", 0, sha, []], "23514");
+    await fails(ins, [uuid(), store, "video", "video/mp4", 1000, "xyz", []], "23514");
+    await fails(ins, [uuid(), store, "video", "video/mp4", 1000, sha, [8]], "23514");
+  }));
   it("forma de pago de tipo descuento y sin mostrar en el TPV (migración 0020)", () => rollback(c, async () => {
     const pm = (await one(c, "SELECT id FROM payment_method WHERE store_id=$1 LIMIT 1", [store])).id;
     expect(await fails("UPDATE payment_method SET kind='discount', show_in_tpv=false WHERE id=$1", [pm], "23514")).toBe("OK");

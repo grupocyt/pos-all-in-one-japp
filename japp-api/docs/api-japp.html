@@ -84,7 +84,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <div class="wrap">
 <header class="hero"><div><div class="eyebrow">Japp · contrato de integración · v0.1</div><h1>API Japp</h1>
 <p class="lead">Los endpoints que conectan la caja, las PDA, el servidor de cada tienda, Japp Manager y el backoffice. Cada endpoint dice quién lo llama, qué permiso pide, qué envía, qué responde y qué tablas toca. La transacción es la estructura acordada en vista-orden.</p></div>
-<div class="stats"><div><b>130</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>41</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
+<div class="stats"><div><b>135</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>41</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
 <section class="card"><h2>Quién llama a quién</h2><svg viewBox="0 0 760 330" role="img" aria-label="Quién llama a quién en Japp" class="arch">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
 <rect x="8" y="8" width="360" height="314" rx="14" class="zone"/><text x="22" y="30" class="zt">TIENDA</text>
@@ -116,7 +116,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></section>
 <section class="card"><h2>Una mesa de principio a fin</h2><ol class="flow"><li><span>Abrir mesa</span><code>POST /orders</code></li><li><span>Entrar y avisar a los demás equipos</span><code>POST /orders/{orderId}/presence</code></li><li><span>Marcar productos (precio según el área)</span><code>POST /orders/{orderId}/lines</code></li><li><span>Enviar a cocina o barra</span><code>POST /orders/{orderId}/send</code></li><li><span>Precuenta</span><code>POST /orders/{orderId}/accounts/{accountId}/prebill</code></li><li><span>Separar si hace falta</span><code>POST /orders/{orderId}/lines/move</code></li><li><span>Cobrar (uno o varios pagos)</span><code>POST /orders/{orderId}/accounts/{accountId}/payments</code></li><li><span>Emitir la factura VeriFactu y cerrar la mesa</span><code>POST /orders/{orderId}/accounts/{accountId}/invoice</code></li><li><span>El agente envía la transacción, la factura y el registro VeriFactu al Manager</span><code>POST /stores/{storeId}/outbox</code></li></ol></section>
 <nav class="toc"><a href="#sec-ajustes">1 · Ajustes</a><a href="#sec-tx">2 · Transaccional</a><a href="#sec-rep">3 · Reportes y sincronización</a><a href="#api-manager">Manager</a><a href="#api-gateway">Gateway</a><a href="#errores">Errores</a><a href="#openapi">OpenAPI</a></nav>
-<section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 108 de 108 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
+<section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 113 de 113 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
 <summary><span class="m get">GET</span><code class="p">/config</code><span class="s">Paquete de configuración</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
 <p>Todo lo que el equipo necesita para trabajar sin más llamadas: restaurante, empresa, facturación, parámetros, áreas con sus mesas, carta (categorías, productos con canales y preguntas, preguntas con respuestas), impuestos, formas de pago, descuentos, motivos, canales, impresoras y estaciones. Solo lo activo. Cabecera ETag = versión de configuración; con If-None-Match igual responde 304 sin cuerpo.</p>
@@ -796,6 +796,350 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="get-config-pantalla-cliente-gen">
+<summary><span class="m get">GET</span><code class="p">/config/pantalla-cliente</code><span class="s">Segunda pantalla del cliente</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Ajustes › Restaurante › Banners: lo que enseña la segunda pantalla de la caja. mode: off (apagada), billing (solo facturación: bienvenida, pedido en vivo, pagado con «¿Cómo quieres tu ticket?», email y gracias), billing_banner (facturación + banner: el banner a pantalla completa en espera y en una columna mientras se cobra) o banner (solo vídeo / banner, en bucle). Los banners son solo para fast food: allowedModes según store.service_type, y effectiveMode es el tipo con el que funciona (un banner guardado en una tienda de mesas funciona como billing). theme = los colores de cada elemento (fondo, texto, texto secundario, texto sobre el color principal, pagado y su texto, botones: fondo, texto y borde, lo recién añadido y su texto), todos #RRGGBB; color = el principal. items = la lista de vídeos e imágenes en su orden, con su horario (days 1 = lunes … 7 = domingo, vacío = todos; from/to HH:MM en hora de Madrid, cruza la medianoche) y su url. Lo puede leer cualquier sesión: el TPV lo necesita para pintar la pantalla.</p>
+<dl class="meta"><dt>En el TPV</dt><dd>Ajustes › Restaurante › Banners</dd><dt>Tablas</dt><dd><code>customer_display</code> <code>display_media</code> <code>store</code></dd></dl>
+
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Segunda pantalla del cliente&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;config&quot;: {
+      &quot;mode&quot;: &quot;billing_banner&quot;,
+      &quot;greeting&quot;: &quot;Le damos la bienvenida a&quot;,
+      &quot;name&quot;: &quot;Cañas y Tapas&quot;,
+      &quot;color&quot;: &quot;#155f6b&quot;,
+      &quot;farewell&quot;: &quot;¡Gracias por tu visita!&quot;,
+      &quot;reviewUrl&quot;: &quot;https://g.page/r/ejemplo/review&quot;,
+      &quot;sideTitle&quot;: &quot;Hoy recomendamos&quot;,
+      &quot;tickets&quot;: {
+        &quot;email&quot;: true,
+        &quot;print&quot;: true,
+        &quot;invoice&quot;: true,
+        &quot;none&quot;: true
+      },
+      &quot;loop&quot;: true,
+      &quot;muted&quot;: true,
+      &quot;imageSeconds&quot;: 8,
+      &quot;theme&quot;: {
+        &quot;background&quot;: &quot;#f4f7f8&quot;,
+        &quot;text&quot;: &quot;#17262b&quot;,
+        &quot;muted&quot;: &quot;#5b6b70&quot;,
+        &quot;accentText&quot;: &quot;#ffffff&quot;,
+        &quot;success&quot;: &quot;#1c7a4a&quot;,
+        &quot;successText&quot;: &quot;#ffffff&quot;,
+        &quot;buttonBg&quot;: &quot;#ffffff&quot;,
+        &quot;buttonText&quot;: &quot;#17262b&quot;,
+        &quot;buttonBorder&quot;: &quot;#c9d5d8&quot;,
+        &quot;highlight&quot;: &quot;#fff7e8&quot;,
+        &quot;highlightText&quot;: &quot;#7a4a10&quot;
+      }
+    },
+    &quot;effectiveMode&quot;: &quot;billing_banner&quot;,
+    &quot;allowedModes&quot;: [
+      &quot;off&quot;,
+      &quot;billing&quot;,
+      &quot;billing_banner&quot;,
+      &quot;banner&quot;
+    ],
+    &quot;serviceType&quot;: &quot;fastfood&quot;,
+    &quot;version&quot;: 4,
+    &quot;configVersion&quot;: 212,
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;,
+        &quot;kind&quot;: &quot;video&quot;,
+        &quot;name&quot;: &quot;promo-verano.mp4&quot;,
+        &quot;mime&quot;: &quot;video/mp4&quot;,
+        &quot;size&quot;: 18874368,
+        &quot;duration&quot;: 30,
+        &quot;days&quot;: [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        &quot;from&quot;: &quot;17:00&quot;,
+        &quot;to&quot;: &quot;20:00&quot;,
+        &quot;active&quot;: true,
+        &quot;sortOrder&quot;: 1,
+        &quot;url&quot;: &quot;/api/v2/media/5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+
+</div></details><details class="ep" id="put-config-pantalla-cliente-gen">
+<summary><span class="m put">PUT</span><code class="p">/config/pantalla-cliente</code><span class="s">Guardar la segunda pantalla</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>La configuración entera con la version leída (otra → 409 VERSION_CONFLICT). items, si viene, es la lista completa en el orden nuevo con el horario de cada archivo (que falte o sobre alguno → 422 en items). Un banner en una tienda que no es fast food → 422 VALIDATION en config.mode. Sube la versión de la pantalla y la de configuración, deja su fila en el historial de Ajustes y avisa a los equipos (config.changed).</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>ajustes.restaurante</code></dd><dt>En el TPV</dt><dd>Ajustes › Restaurante › Banners</dd><dt>Tablas</dt><dd><code>customer_display</code> <code>display_media</code> <code>config_change_log</code> <code>store</code></dd></dl>
+
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;version&quot;: 4,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;billing_banner&quot;,
+    &quot;greeting&quot;: &quot;Le damos la bienvenida a&quot;,
+    &quot;name&quot;: &quot;Cañas y Tapas&quot;,
+    &quot;color&quot;: &quot;#155f6b&quot;,
+    &quot;farewell&quot;: &quot;¡Gracias por tu visita!&quot;,
+    &quot;reviewUrl&quot;: &quot;https://g.page/r/ejemplo/review&quot;,
+    &quot;sideTitle&quot;: &quot;Hoy recomendamos&quot;,
+    &quot;tickets&quot;: {
+      &quot;email&quot;: true,
+      &quot;print&quot;: true,
+      &quot;invoice&quot;: true,
+      &quot;none&quot;: true
+    },
+    &quot;loop&quot;: true,
+    &quot;muted&quot;: true,
+    &quot;imageSeconds&quot;: 8,
+    &quot;theme&quot;: {
+      &quot;background&quot;: &quot;#f4f7f8&quot;,
+      &quot;text&quot;: &quot;#17262b&quot;,
+      &quot;muted&quot;: &quot;#5b6b70&quot;,
+      &quot;accentText&quot;: &quot;#ffffff&quot;,
+      &quot;success&quot;: &quot;#1c7a4a&quot;,
+      &quot;successText&quot;: &quot;#ffffff&quot;,
+      &quot;buttonBg&quot;: &quot;#ffffff&quot;,
+      &quot;buttonText&quot;: &quot;#17262b&quot;,
+      &quot;buttonBorder&quot;: &quot;#c9d5d8&quot;,
+      &quot;highlight&quot;: &quot;#fff7e8&quot;,
+      &quot;highlightText&quot;: &quot;#7a4a10&quot;
+    }
+  },
+  &quot;items&quot;: [
+    {
+      &quot;id&quot;: &quot;5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;,
+      &quot;days&quot;: [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      &quot;from&quot;: &quot;17:00&quot;,
+      &quot;to&quot;: &quot;20:00&quot;,
+      &quot;active&quot;: true
+    }
+  ]
+}</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Guardar la segunda pantalla&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;config&quot;: {
+      &quot;mode&quot;: &quot;billing_banner&quot;,
+      &quot;greeting&quot;: &quot;Le damos la bienvenida a&quot;,
+      &quot;name&quot;: &quot;Cañas y Tapas&quot;,
+      &quot;color&quot;: &quot;#155f6b&quot;,
+      &quot;farewell&quot;: &quot;¡Gracias por tu visita!&quot;,
+      &quot;reviewUrl&quot;: &quot;https://g.page/r/ejemplo/review&quot;,
+      &quot;sideTitle&quot;: &quot;Hoy recomendamos&quot;,
+      &quot;tickets&quot;: {
+        &quot;email&quot;: true,
+        &quot;print&quot;: true,
+        &quot;invoice&quot;: true,
+        &quot;none&quot;: true
+      },
+      &quot;loop&quot;: true,
+      &quot;muted&quot;: true,
+      &quot;imageSeconds&quot;: 8,
+      &quot;theme&quot;: {
+        &quot;background&quot;: &quot;#f4f7f8&quot;,
+        &quot;text&quot;: &quot;#17262b&quot;,
+        &quot;muted&quot;: &quot;#5b6b70&quot;,
+        &quot;accentText&quot;: &quot;#ffffff&quot;,
+        &quot;success&quot;: &quot;#1c7a4a&quot;,
+        &quot;successText&quot;: &quot;#ffffff&quot;,
+        &quot;buttonBg&quot;: &quot;#ffffff&quot;,
+        &quot;buttonText&quot;: &quot;#17262b&quot;,
+        &quot;buttonBorder&quot;: &quot;#c9d5d8&quot;,
+        &quot;highlight&quot;: &quot;#fff7e8&quot;,
+        &quot;highlightText&quot;: &quot;#7a4a10&quot;
+      }
+    },
+    &quot;effectiveMode&quot;: &quot;billing_banner&quot;,
+    &quot;allowedModes&quot;: [
+      &quot;off&quot;,
+      &quot;billing&quot;,
+      &quot;billing_banner&quot;,
+      &quot;banner&quot;
+    ],
+    &quot;serviceType&quot;: &quot;fastfood&quot;,
+    &quot;version&quot;: 4,
+    &quot;configVersion&quot;: 212,
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;,
+        &quot;kind&quot;: &quot;video&quot;,
+        &quot;name&quot;: &quot;promo-verano.mp4&quot;,
+        &quot;mime&quot;: &quot;video/mp4&quot;,
+        &quot;size&quot;: 18874368,
+        &quot;duration&quot;: 30,
+        &quot;days&quot;: [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        &quot;from&quot;: &quot;17:00&quot;,
+        &quot;to&quot;: &quot;20:00&quot;,
+        &quot;active&quot;: true,
+        &quot;sortOrder&quot;: 1,
+        &quot;url&quot;: &quot;/api/v2/media/5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="post-config-pantalla-cliente-media-gen">
+<summary><span class="m post">POST</span><code class="p">/config/pantalla-cliente/media</code><span class="s">Subir un vídeo o una imagen</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>El cuerpo es el archivo tal cual, con Content-Type video/mp4, video/webm, image/jpeg, image/png, image/webp o image/gif (otro → 422 en content-type), hasta 300 MB (413 TOO_LARGE). Cabeceras: X-File-Name (nombre, codificado como URI) y X-Duration (segundos del vídeo, opcional). El archivo se guarda en el disco del servidor de la tienda (MEDIA_DIR/&lt;id&gt;, con su sha256) y entra al final de la lista, activo y todo el día.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>ajustes.restaurante</code></dd><dt>En el TPV</dt><dd>Ajustes › Restaurante › Banners › Subir vídeo o imagen</dd><dt>Tablas</dt><dd><code>display_media</code> <code>customer_display</code> <code>config_change_log</code></dd></dl>
+
+<div class="io"><div><h5>Responde 201</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Subir un vídeo o una imagen&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 201,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;,
+    &quot;kind&quot;: &quot;video&quot;,
+    &quot;name&quot;: &quot;promo-verano.mp4&quot;,
+    &quot;mime&quot;: &quot;video/mp4&quot;,
+    &quot;size&quot;: 18874368,
+    &quot;duration&quot;: 30,
+    &quot;days&quot;: [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    &quot;from&quot;: &quot;17:00&quot;,
+    &quot;to&quot;: &quot;20:00&quot;,
+    &quot;active&quot;: true,
+    &quot;sortOrder&quot;: 1,
+    &quot;url&quot;: &quot;/api/v2/media/5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>TOO_LARGE</code> <span class="pin">413</span> Demasiadas filas en una carga (details.max).</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="delete-config-pantalla-cliente-media-id-gen">
+<summary><span class="m del">DELETE</span><code class="p">/config/pantalla-cliente/media/{id}</code><span class="s">Quitar un vídeo o una imagen</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Lo quita de la lista (display_media.deleted_at; la fila queda) y borra el archivo del disco. Responde la pantalla como GET.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>ajustes.restaurante</code></dd><dt>En el TPV</dt><dd>Ajustes › Restaurante › Banners › Quitar</dd><dt>Tablas</dt><dd><code>display_media</code> <code>config_change_log</code></dd></dl>
+<h5>Parámetros</h5><ul class="pl"><li><code>id</code> <span class="pin">path</span> id del archivo</li></ul>
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Quitar un vídeo o una imagen&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;config&quot;: {
+      &quot;mode&quot;: &quot;billing_banner&quot;,
+      &quot;greeting&quot;: &quot;Le damos la bienvenida a&quot;,
+      &quot;name&quot;: &quot;Cañas y Tapas&quot;,
+      &quot;color&quot;: &quot;#155f6b&quot;,
+      &quot;farewell&quot;: &quot;¡Gracias por tu visita!&quot;,
+      &quot;reviewUrl&quot;: &quot;https://g.page/r/ejemplo/review&quot;,
+      &quot;sideTitle&quot;: &quot;Hoy recomendamos&quot;,
+      &quot;tickets&quot;: {
+        &quot;email&quot;: true,
+        &quot;print&quot;: true,
+        &quot;invoice&quot;: true,
+        &quot;none&quot;: true
+      },
+      &quot;loop&quot;: true,
+      &quot;muted&quot;: true,
+      &quot;imageSeconds&quot;: 8,
+      &quot;theme&quot;: {
+        &quot;background&quot;: &quot;#f4f7f8&quot;,
+        &quot;text&quot;: &quot;#17262b&quot;,
+        &quot;muted&quot;: &quot;#5b6b70&quot;,
+        &quot;accentText&quot;: &quot;#ffffff&quot;,
+        &quot;success&quot;: &quot;#1c7a4a&quot;,
+        &quot;successText&quot;: &quot;#ffffff&quot;,
+        &quot;buttonBg&quot;: &quot;#ffffff&quot;,
+        &quot;buttonText&quot;: &quot;#17262b&quot;,
+        &quot;buttonBorder&quot;: &quot;#c9d5d8&quot;,
+        &quot;highlight&quot;: &quot;#fff7e8&quot;,
+        &quot;highlightText&quot;: &quot;#7a4a10&quot;
+      }
+    },
+    &quot;effectiveMode&quot;: &quot;billing_banner&quot;,
+    &quot;allowedModes&quot;: [
+      &quot;off&quot;,
+      &quot;billing&quot;,
+      &quot;billing_banner&quot;,
+      &quot;banner&quot;
+    ],
+    &quot;serviceType&quot;: &quot;fastfood&quot;,
+    &quot;version&quot;: 4,
+    &quot;configVersion&quot;: 212,
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;,
+        &quot;kind&quot;: &quot;video&quot;,
+        &quot;name&quot;: &quot;promo-verano.mp4&quot;,
+        &quot;mime&quot;: &quot;video/mp4&quot;,
+        &quot;size&quot;: 18874368,
+        &quot;duration&quot;: 30,
+        &quot;days&quot;: [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        &quot;from&quot;: &quot;17:00&quot;,
+        &quot;to&quot;: &quot;20:00&quot;,
+        &quot;active&quot;: true,
+        &quot;sortOrder&quot;: 1,
+        &quot;url&quot;: &quot;/api/v2/media/5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda.</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="get-media-id-gen">
+<summary><span class="m get">GET</span><code class="p">/media/{id}</code><span class="s">Archivo de la segunda pantalla</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>El vídeo o la imagen (no es JSON: el archivo con su Content-Type). Sin sesión, porque lo pide la etiqueta &lt;video&gt; o &lt;img&gt; de la pantalla del cliente; solo archivos vivos de esta tienda (si no, 404). Admite Range (206 Partial Content) para adelantar el vídeo, y se puede guardar en caché para siempre (el id no cambia de contenido).</p>
+<dl class="meta"><dt>En el TPV</dt><dd>Pantalla del cliente</dd><dt>Tablas</dt><dd><code>display_media</code></dd></dl>
+<h5>Parámetros</h5><ul class="pl"><li><code>id</code> <span class="pin">path</span> id del archivo</li><li><code>Range</code> <span class="pin">header</span> bytes=inicio-fin (opcional)</li></ul>
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Archivo de la segunda pantalla&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: null,
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda.</li></ul>
 </div></details></section><section class="grp" id="aj-negocio"><h3>Negocio</h3><div class="mi" id="aj-negocio-restaurante"><h4>Restaurante</h4><details class="ep" id="get-config-restaurante-current">
 <summary><span class="m get">GET</span><code class="p">/config/restaurante/current</code><span class="s">Restaurante · ver</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
@@ -30113,6 +30457,982 @@ paths:
                 periodId: {}
             example:
               periodId: null
+  /api/v2/config/pantalla-cliente:
+    get:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Segunda pantalla del cliente
+      description: &#x27;Ajustes › Restaurante › Banners: lo que enseña la segunda pantalla de la caja. mode: off (apagada), billing
+        (solo facturación: bienvenida, pedido en vivo, pagado con «¿Cómo quieres tu ticket?», email y gracias), billing_banner
+        (facturación + banner: el banner a pantalla completa en espera y en una columna mientras se cobra) o banner (solo
+        vídeo / banner, en bucle). Los banners son solo para fast food: allowedModes según store.service_type, y effectiveMode
+        es el tipo con el que funciona (un banner guardado en una tienda de mesas funciona como billing). theme = los colores
+        de cada elemento (fondo, texto, texto secundario, texto sobre el color principal, pagado y su texto, botones: fondo,
+        texto y borde, lo recién añadido y su texto), todos #RRGGBB; color = el principal. items = la lista de vídeos e imágenes
+        en su orden, con su horario (days 1 = lunes … 7 = domingo, vacío = todos; from/to HH:MM en hora de Madrid, cruza la
+        medianoche) y su url. Lo puede leer cualquier sesión: el TPV lo necesita para pintar la pantalla.
+
+
+        Lo llama: TPV
+
+
+        Tablas: customer_display, display_media, store&#x27;
+      operationId: store_GET_config_pantalla_cliente
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        type: object
+                        properties:
+                          mode:
+                            type: string
+                          greeting:
+                            type: string
+                          name:
+                            type: string
+                          color:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          farewell:
+                            type: string
+                          reviewUrl:
+                            type: string
+                          sideTitle:
+                            type: string
+                          tickets:
+                            type:
+                            - object
+                            - &#x27;null&#x27;
+                            properties:
+                              email:
+                                type:
+                                - boolean
+                                - &#x27;null&#x27;
+                              print:
+                                type: boolean
+                              invoice:
+                                type:
+                                - boolean
+                                - &#x27;null&#x27;
+                              none:
+                                type: boolean
+                          loop:
+                            type: boolean
+                          muted:
+                            type: boolean
+                          imageSeconds:
+                            type: number
+                          theme:
+                            type: object
+                            properties:
+                              background:
+                                type: string
+                              text:
+                                type: string
+                              muted:
+                                type: string
+                              accentText:
+                                type: string
+                              success:
+                                type: string
+                              successText:
+                                type: string
+                              buttonBg:
+                                type: string
+                              buttonText:
+                                type: string
+                              buttonBorder:
+                                type: string
+                              highlight:
+                                type: string
+                              highlightText:
+                                type: string
+                      effectiveMode:
+                        type: string
+                      allowedModes:
+                        type: array
+                        items:
+                          type: string
+                      serviceType:
+                        type: string
+                      version:
+                        type: integer
+                      configVersion:
+                        type:
+                        - integer
+                        - &#x27;null&#x27;
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            mime:
+                              type: string
+                            size:
+                              type: number
+                            duration:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            days:
+                              type: array
+                              items:
+                                type: number
+                            from:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            to:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            active:
+                              type: boolean
+                            sortOrder:
+                              type: integer
+                            url:
+                              type: string
+              example:
+                title: Segunda pantalla del cliente
+                type: success
+                status: 200
+                data: &amp;id016
+                  config: &amp;id017
+                    mode: billing_banner
+                    greeting: Le damos la bienvenida a
+                    name: Cañas y Tapas
+                    color: &#x27;#155f6b&#x27;
+                    farewell: ¡Gracias por tu visita!
+                    reviewUrl: https://g.page/r/ejemplo/review
+                    sideTitle: Hoy recomendamos
+                    tickets:
+                      email: true
+                      print: true
+                      invoice: true
+                      none: true
+                    loop: true
+                    muted: true
+                    imageSeconds: 8
+                    theme:
+                      background: &#x27;#f4f7f8&#x27;
+                      text: &#x27;#17262b&#x27;
+                      muted: &#x27;#5b6b70&#x27;
+                      accentText: &#x27;#ffffff&#x27;
+                      success: &#x27;#1c7a4a&#x27;
+                      successText: &#x27;#ffffff&#x27;
+                      buttonBg: &#x27;#ffffff&#x27;
+                      buttonText: &#x27;#17262b&#x27;
+                      buttonBorder: &#x27;#c9d5d8&#x27;
+                      highlight: &#x27;#fff7e8&#x27;
+                      highlightText: &#x27;#7a4a10&#x27;
+                  effectiveMode: billing_banner
+                  allowedModes:
+                  - &#x27;off&#x27;
+                  - billing
+                  - billing_banner
+                  - banner
+                  serviceType: fastfood
+                  version: 4
+                  configVersion: 212
+                  items:
+                  - &amp;id018
+                    id: 5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                    kind: video
+                    name: promo-verano.mp4
+                    mime: video/mp4
+                    size: 18874368
+                    duration: 30
+                    days:
+                    - 1
+                    - 2
+                    - 3
+                    - 4
+                    - 5
+                    from: &#x27;17:00&#x27;
+                    to: &#x27;20:00&#x27;
+                    active: true
+                    sortOrder: 1
+                    url: /api/v2/media/5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+    put:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Guardar la segunda pantalla
+      description: &#x27;La configuración entera con la version leída (otra → 409 VERSION_CONFLICT). items, si viene, es la lista
+        completa en el orden nuevo con el horario de cada archivo (que falte o sobre alguno → 422 en items). Un banner en
+        una tienda que no es fast food → 422 VALIDATION en config.mode. Sube la versión de la pantalla y la de configuración,
+        deja su fila en el historial de Ajustes y avisa a los equipos (config.changed).
+
+
+        Permiso: ajustes.restaurante
+
+
+        Lo llama: TPV
+
+
+        Tablas: customer_display, display_media, config_change_log, store&#x27;
+      operationId: store_PUT_config_pantalla_cliente
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        type: object
+                        properties:
+                          mode:
+                            type: string
+                          greeting:
+                            type: string
+                          name:
+                            type: string
+                          color:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          farewell:
+                            type: string
+                          reviewUrl:
+                            type: string
+                          sideTitle:
+                            type: string
+                          tickets:
+                            type:
+                            - object
+                            - &#x27;null&#x27;
+                            properties:
+                              email:
+                                type:
+                                - boolean
+                                - &#x27;null&#x27;
+                              print:
+                                type: boolean
+                              invoice:
+                                type:
+                                - boolean
+                                - &#x27;null&#x27;
+                              none:
+                                type: boolean
+                          loop:
+                            type: boolean
+                          muted:
+                            type: boolean
+                          imageSeconds:
+                            type: number
+                          theme:
+                            type: object
+                            properties:
+                              background:
+                                type: string
+                              text:
+                                type: string
+                              muted:
+                                type: string
+                              accentText:
+                                type: string
+                              success:
+                                type: string
+                              successText:
+                                type: string
+                              buttonBg:
+                                type: string
+                              buttonText:
+                                type: string
+                              buttonBorder:
+                                type: string
+                              highlight:
+                                type: string
+                              highlightText:
+                                type: string
+                      effectiveMode:
+                        type: string
+                      allowedModes:
+                        type: array
+                        items:
+                          type: string
+                      serviceType:
+                        type: string
+                      version:
+                        type: integer
+                      configVersion:
+                        type:
+                        - integer
+                        - &#x27;null&#x27;
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            mime:
+                              type: string
+                            size:
+                              type: number
+                            duration:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            days:
+                              type: array
+                              items:
+                                type: number
+                            from:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            to:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            active:
+                              type: boolean
+                            sortOrder:
+                              type: integer
+                            url:
+                              type: string
+              example:
+                title: Guardar la segunda pantalla
+                type: success
+                status: 200
+                data: *id016
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar la segunda pantalla
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo
+            la pinta y reintenta.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar la segunda pantalla
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: VERSION_CONFLICT
+                  message: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta
+                    y reintenta.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar la segunda pantalla
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                config:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                    greeting:
+                      type: string
+                    name:
+                      type: string
+                    color:
+                      type:
+                      - string
+                      - &#x27;null&#x27;
+                    farewell:
+                      type: string
+                    reviewUrl:
+                      type: string
+                    sideTitle:
+                      type: string
+                    tickets:
+                      type:
+                      - object
+                      - &#x27;null&#x27;
+                      properties:
+                        email:
+                          type:
+                          - boolean
+                          - &#x27;null&#x27;
+                        print:
+                          type: boolean
+                        invoice:
+                          type:
+                          - boolean
+                          - &#x27;null&#x27;
+                        none:
+                          type: boolean
+                    loop:
+                      type: boolean
+                    muted:
+                      type: boolean
+                    imageSeconds:
+                      type: number
+                    theme:
+                      type: object
+                      properties:
+                        background:
+                          type: string
+                        text:
+                          type: string
+                        muted:
+                          type: string
+                        accentText:
+                          type: string
+                        success:
+                          type: string
+                        successText:
+                          type: string
+                        buttonBg:
+                          type: string
+                        buttonText:
+                          type: string
+                        buttonBorder:
+                          type: string
+                        highlight:
+                          type: string
+                        highlightText:
+                          type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      days:
+                        type: array
+                        items:
+                          type: number
+                      from:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      to:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      active:
+                        type: boolean
+            example:
+              version: 4
+              config: *id017
+              items:
+              - id: 5d1c2a3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                days:
+                - 1
+                - 2
+                - 3
+                - 4
+                - 5
+                from: &#x27;17:00&#x27;
+                to: &#x27;20:00&#x27;
+                active: true
+  /api/v2/config/pantalla-cliente/media:
+    post:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Subir un vídeo o una imagen
+      description: &#x27;El cuerpo es el archivo tal cual, con Content-Type video/mp4, video/webm, image/jpeg, image/png, image/webp
+        o image/gif (otro → 422 en content-type), hasta 300 MB (413 TOO_LARGE). Cabeceras: X-File-Name (nombre, codificado
+        como URI) y X-Duration (segundos del vídeo, opcional). El archivo se guarda en el disco del servidor de la tienda
+        (MEDIA_DIR/&lt;id&gt;, con su sha256) y entra al final de la lista, activo y todo el día.
+
+
+        Permiso: ajustes.restaurante
+
+
+        Lo llama: TPV
+
+
+        Tablas: display_media, customer_display, config_change_log&#x27;
+      operationId: store_POST_config_pantalla_cliente_media
+      security:
+      - session: []
+      responses:
+        &#x27;201&#x27;:
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      mime:
+                        type: string
+                      size:
+                        type: number
+                      duration:
+                        type:
+                        - number
+                        - &#x27;null&#x27;
+                      days:
+                        type: array
+                        items:
+                          type: number
+                      from:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      to:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      active:
+                        type: boolean
+                      sortOrder:
+                        type: integer
+                      url:
+                        type: string
+              example:
+                title: Subir un vídeo o una imagen
+                type: success
+                status: 201
+                data: *id018
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Subir un vídeo o una imagen
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;413&#x27;:
+          description: &#x27;TOO_LARGE: Demasiadas filas en una carga (details.max).&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Subir un vídeo o una imagen
+                type: error
+                status: 413
+                data: null
+                errors:
+                - code: TOO_LARGE
+                  message: Demasiadas filas en una carga (details.max).
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Subir un vídeo o una imagen
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+  /api/v2/config/pantalla-cliente/media/{id}:
+    delete:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Quitar un vídeo o una imagen
+      description: &#x27;Lo quita de la lista (display_media.deleted_at; la fila queda) y borra el archivo del disco. Responde
+        la pantalla como GET.
+
+
+        Permiso: ajustes.restaurante
+
+
+        Lo llama: TPV
+
+
+        Tablas: display_media, config_change_log&#x27;
+      operationId: store_DELETE_config_pantalla_cliente_media_id
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        type: object
+                        properties:
+                          mode:
+                            type: string
+                          greeting:
+                            type: string
+                          name:
+                            type: string
+                          color:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          farewell:
+                            type: string
+                          reviewUrl:
+                            type: string
+                          sideTitle:
+                            type: string
+                          tickets:
+                            type:
+                            - object
+                            - &#x27;null&#x27;
+                            properties:
+                              email:
+                                type:
+                                - boolean
+                                - &#x27;null&#x27;
+                              print:
+                                type: boolean
+                              invoice:
+                                type:
+                                - boolean
+                                - &#x27;null&#x27;
+                              none:
+                                type: boolean
+                          loop:
+                            type: boolean
+                          muted:
+                            type: boolean
+                          imageSeconds:
+                            type: number
+                          theme:
+                            type: object
+                            properties:
+                              background:
+                                type: string
+                              text:
+                                type: string
+                              muted:
+                                type: string
+                              accentText:
+                                type: string
+                              success:
+                                type: string
+                              successText:
+                                type: string
+                              buttonBg:
+                                type: string
+                              buttonText:
+                                type: string
+                              buttonBorder:
+                                type: string
+                              highlight:
+                                type: string
+                              highlightText:
+                                type: string
+                      effectiveMode:
+                        type: string
+                      allowedModes:
+                        type: array
+                        items:
+                          type: string
+                      serviceType:
+                        type: string
+                      version:
+                        type: integer
+                      configVersion:
+                        type:
+                        - integer
+                        - &#x27;null&#x27;
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            mime:
+                              type: string
+                            size:
+                              type: number
+                            duration:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            days:
+                              type: array
+                              items:
+                                type: number
+                            from:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            to:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            active:
+                              type: boolean
+                            sortOrder:
+                              type: integer
+                            url:
+                              type: string
+              example:
+                title: Quitar un vídeo o una imagen
+                type: success
+                status: 200
+                data: *id016
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: No existe o no es de esta tienda.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Quitar un vídeo o una imagen
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Quitar un vídeo o una imagen
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: id del archivo
+  /api/v2/media/{id}:
+    get:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Archivo de la segunda pantalla
+      description: &#x27;El vídeo o la imagen (no es JSON: el archivo con su Content-Type). Sin sesión, porque lo pide la etiqueta
+        &lt;video&gt; o &lt;img&gt; de la pantalla del cliente; solo archivos vivos de esta tienda (si no, 404). Admite Range (206 Partial
+        Content) para adelantar el vídeo, y se puede guardar en caché para siempre (el id no cambia de contenido).
+
+
+        Lo llama: TPV
+
+
+        Tablas: display_media&#x27;
+      operationId: store_GET_media_id
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: &#x27;Correcto (data: null)&#x27;
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: &#x27;null&#x27;
+              example:
+                title: Archivo de la segunda pantalla
+                type: success
+                status: 200
+                data: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: No existe o no es de esta tienda.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Archivo de la segunda pantalla
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: id del archivo
+      - name: Range
+        in: header
+        required: false
+        description: bytes=inicio-fin (opcional)
+        schema:
+          type: string
 components:
   securitySchemes:
     session:

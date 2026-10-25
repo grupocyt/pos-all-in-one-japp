@@ -21,7 +21,9 @@ services:
       API_MODE: "${API_MODE:-developer}"   # va en el campo mode de cada respuesta
       CORS_ORIGINS: "${CORS_ORIGINS:-}"   # vacío = solo mismo origen. Ver .env.example
       OOT_INTEGRATION_KEY: "${OOT_INTEGRATION_KEY:-}"   # Order on Table; vacía = /api/v2/oot/* cerrado
+      MEDIA_DIR: /data/media           # vídeos e imágenes de la segunda pantalla (Ajustes › Restaurante › Banners)
       PORT: 8080
+    volumes: [media:/data/media]
     ports: ["8080:8080"]               # abierto a la red local: TPV y PDA entran por http://<IP del Mac>:8080
     restart: unless-stopped
   # Envía las transacciones (abiertas y cerradas) a Japp Manager. Arranca con: docker compose --profile sync up -d
@@ -40,4 +42,5 @@ services:
       SYNC_INSTANT: "${SYNC_INSTANT:-true}"
     restart: unless-stopped
 volumes:
+  media:
   pgdata:
