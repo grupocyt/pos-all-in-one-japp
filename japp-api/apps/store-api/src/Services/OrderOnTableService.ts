@@ -60,7 +60,7 @@ export class OrderOnTableService {
    * Generar el QR: un token por orden abierta (si ya hay uno vigente se devuelve, reused = true).
    * Con print, el ticket sale por la impresora de tickets del área DESPUÉS del COMMIT (printed false si falla).
    */
-  async create(session: Session, orderId: string, b: { print: boolean }) {
+  async create(session: Session, orderId: string, b: { print: boolean; copies?: number }) {
     await this.auth.require(session, "mesas.orderOnTable");
     const S = session.storeId;
     const now = this.clock();
@@ -100,10 +100,15 @@ export class OrderOnTableService {
     });
     let printed = false;
     if (b.print) {
-      printed = await this.printQr(session, orderId, r.url, {
-        name: r.o.tableName,
-        area: r.o.zone ?? "",
-      }).catch(() => false);
+      // uno o varios tickets (p. ej. uno por cada lado de una mesa grande)
+      printed = true;
+      for (let i = 0; i < (b.copies ?? 1); i++) {
+        const ok = await this.printQr(session, orderId, r.url, r.token, {
+          name: r.o.tableName,
+          area: r.o.zone ?? "",
+        }).catch(() => false);
+        printed = printed && ok;
+      }
     }
     return { token: r.token, url: r.url, createdAt: r.createdAt, reused: r.reused, printed };
   }
@@ -113,6 +118,7 @@ export class OrderOnTableService {
     session: Session,
     orderId: string,
     url: string,
+    token: string,
     table: { name: string; area: string },
   ) {
     const p = await this.database.withTx((tx) => this.orders.ticketPrinter(tx, session, orderId));
@@ -124,9 +130,11 @@ export class OrderOnTableService {
       connection: p.connection,
       title: `QR mesa ${table.name}`,
       ticket: ootQrTicket({
-        store: { tradeName: st.name, legalName: st.issuerName },
+        store: { chain: st.chainName, name: st.name, legalName: st.issuerName },
         table,
         url,
+        token,
+        waiter: session.user.name,
         at: this.clock(),
       }),
     });

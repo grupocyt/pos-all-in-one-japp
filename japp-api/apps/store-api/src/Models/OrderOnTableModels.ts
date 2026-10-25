@@ -3,8 +3,10 @@ import { z } from "zod";
 /** Modelos de entrada de Order on Table: QR de la mesa (TPV/PDA) y pedido del cliente (sistema externo). */
 export { Uuid } from "./OrdersModels.js";
 
-/** POST /orders/{orderId}/oot: print = imprimir el ticket con el QR en la impresora de tickets del área. */
-export const CreateOot = z.object({ print: z.boolean().default(false) }).strict();
+/** POST /orders/{orderId}/oot: print = imprimir el ticket con el QR en la impresora de tickets del área; copies = cuántos (1–10). */
+export const CreateOot = z
+  .object({ print: z.boolean().default(false), copies: z.number().int().min(1).max(10).default(1) })
+  .strict();
 
 /** Una línea del pedido del cliente: como POST …/lines, sin cuenta, sin force y sin version. */
 const OotItem = z

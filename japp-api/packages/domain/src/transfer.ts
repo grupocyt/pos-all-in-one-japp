@@ -134,3 +134,20 @@ export function mergeOrders(
     note: joinNotes(opts.toNote, opts.fromNote),
   };
 }
+
+/**
+ * Cambio de mesa (25/10/2026): solo entre zonas con el MISMO precio. Una mesa con precio de terraza no pasa a una con
+ * precio general (ni al revés): los productos llevan el precio de su zona. → 422 VALIDATION en toTableId.
+ */
+export function assertSamePriceList(from: string | null | undefined, to: string | null | undefined): void {
+  const f = from === "terrace" ? "terrace" : "general";
+  const t = to === "terrace" ? "terrace" : "general";
+  if (f !== t) {
+    const n = (x: string) => (x === "terrace" ? "precio de terraza" : "precio general");
+    fail("VALIDATION", `No se puede pasar de una zona con ${n(f)} a una con ${n(t)}`, {
+      field: "toTableId",
+      fromPriceList: f,
+      toPriceList: t,
+    });
+  }
+}

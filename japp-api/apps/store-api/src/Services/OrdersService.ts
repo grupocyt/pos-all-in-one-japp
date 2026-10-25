@@ -18,6 +18,9 @@ import {
   registerPayment,
   accountTotals,
   kitchenTicket,
+  kitchenVoidTicket,
+  assertSamePriceList,
+  tableChangeTicket,
   preBillTicket,
   invoiceTicket,
   type TicketContext,
@@ -122,6 +125,21 @@ function deletePermission(status: string): string | null {
 type Printed = { channel: string; printer: string; lines: number; ok: boolean };
 /** Un intento de impresión en curso «reserva» sus filas este tiempo (printed_at con printed = false); pasado, otro envío las reintenta. */
 const PRINT_CLAIM_SECONDS = 60;
+
+/** Comanda de anulación pendiente de imprimir tras el COMMIT. */
+interface VoidJob {
+  stage: "printed" | "preBill";
+  printers: {
+    channel_name: string;
+    printer_id: string | null;
+    printer_name: string | null;
+    interface: string | null;
+  }[];
+  reason: string;
+  authorizedBy: string | null;
+  table: { name: string; area: string };
+  item: { quantity: number; name: string; modifiers: { name: string; quantity?: number }[] };
+}
 
 /**
  * Casos de uso de la orden. Todos siguen el mismo patrón (ver CLAUDE.md):
@@ -634,57 +652,148 @@ export class OrdersService {
     },
   ) {
     const profiles = await this.stores.profiles(session.storeId);
-    return (
-      await this.command(session, orderId, b.version, async (l, ctx, tx) => {
-        const acc =
-          l.order.accounts.find((a) => a.lines.some((x) => x.id === lineId)) ??
-          fail("NOT_FOUND", "La línea no existe", { lineId });
-        const line = acc.lines.find((x) => x.id === lineId)!;
-        let reason = b.reason ?? undefined;
-        if (b.reasonId) {
-          const r = await this.carta.reason(tx, session.storeId, b.reasonId);
-          if (!r) {
-            fail("VALIDATION", "Ese motivo no existe", { field: "reasonId" });
-          }
-          reason = r!.name;
+    const r = await this.command<VoidJob | null>(session, orderId, b.version, async (l, ctx, tx) => {
+      const acc =
+        l.order.accounts.find((a) => a.lines.some((x) => x.id === lineId)) ??
+        fail("NOT_FOUND", "La línea no existe", { lineId });
+      const line = acc.lines.find((x) => x.id === lineId)!;
+      let reason = b.reason ?? undefined;
+      if (b.reasonId) {
+        const r = await this.carta.reason(tx, session.storeId, b.reasonId);
+        if (!r) {
+          fail("VALIDATION", "Ese motivo no existe", { field: "reasonId" });
         }
-        const perm = deletePermission(line.status);
-        const g =
-          perm && reason?.trim()
-            ? await this.auth.require(session, perm, b.authorization, ctx.now)
-            : { authorizer: null, authorizerActor: null };
-        const me = {
-          id: session.user.id,
-          profileId: session.user.profileId,
-          overrides: session.user.overrides,
-        };
-        // si autorizó un encargado, el dominio lo comprueba con su perfil; si no, con el de quien pulsa
-        const next = deleteLine(
-          acc,
-          {
-            lineId,
-            reason,
-            quantity: b.quantity,
-            actor: me,
-            authorizer: g.authorizer,
-            authorizerActor: g.authorizerActor,
-            profiles,
-          },
-          ctx,
-        );
+        reason = r!.name;
+      }
+      const perm = deletePermission(line.status);
+      const g =
+        perm && reason?.trim()
+          ? await this.auth.require(session, perm, b.authorization, ctx.now)
+          : { authorizer: null, authorizerActor: null };
+      const me = {
+        id: session.user.id,
+        profileId: session.user.profileId,
+        overrides: session.user.overrides,
+      };
+      // si autorizó un encargado, el dominio lo comprueba con su perfil; si no, con el de quien pulsa
+      const next = deleteLine(
+        acc,
+        {
+          lineId,
+          reason,
+          quantity: b.quantity,
+          actor: me,
+          authorizer: g.authorizer,
+          authorizerActor: g.authorizerActor,
+          profiles,
+        },
+        ctx,
+      );
+      // enviada o en precuenta: comanda de anulación a las impresoras por las que salió (después del COMMIT)
+      const stage = line.status === "preBill" ? "preBill" : line.status === "printed" ? "printed" : null;
+      const printers =
+        stage && reason
+          ? await this.printers.printedPrinters(tx, session.storeId, { lineIds: [lineId] })
+          : [];
+      return {
+        next: this.replace(l.order, next),
+        events: [
+          this.ev(
+            "lineDeleted",
+            `Se elimina ${line.name} x${b.quantity ?? line.quantity}${reason ? ` · ${reason}` : " (sin enviar)"}`,
+            ctx,
+            acc.id,
+          ),
+        ],
+        extra:
+          stage && printers.length
+            ? {
+                stage,
+                printers,
+                reason: reason ?? "",
+                authorizedBy: g.authorizerActor?.user ?? null,
+                table: { name: l.header.tableName, area: l.header.zone ?? "" },
+                item: { quantity: b.quantity ?? line.quantity, name: line.name, modifiers: line.modifiers },
+              }
+            : null,
+      };
+    });
+    if (r.extra) {
+      await this.printVoid(session, r.extra).catch(() => undefined); // un fallo de impresora nunca deshace la eliminación
+    }
+    return r.transaction;
+  }
+
+  /** Comanda de anulación (25/10/2026) por cada impresora y canal por los que salió la línea. */
+  private async printVoid(session: Session, v: VoidJob) {
+    for (const p of v.printers) {
+      await this.printer
+        .print({
+          kind: "kitchen",
+          channel: p.channel_name,
+          printer: p.printer_name ?? p.channel_name,
+          connection: p.interface ?? "",
+          title: `Anulación · Mesa ${v.table.name}`,
+          ticket: kitchenVoidTicket([v.item], {
+            channel: p.channel_name,
+            waiter: session.user.name,
+            table: v.table,
+            at: this.clock(),
+            stage: v.stage,
+            reason: v.reason,
+            authorizedBy: v.authorizedBy,
+          }),
+        })
+        .catch(() => ({ ok: false }));
+    }
+  }
+
+  /**
+   * Cambio de mesa (25/10/2026): aviso «CAMBIO DE MESA» a las impresoras por las que ya salió algo de esa mesa (o de esa
+   * cuenta), para que cocina y barra lleven lo pendiente a la nueva. Se mira ANTES de mover y se imprime DESPUÉS del COMMIT.
+   */
+  private async withTableNotice<R>(
+    session: Session,
+    orderId: string,
+    accountId: string | null,
+    run: () => Promise<R>,
+    toOf: (r: R) => { tableData?: { name?: string; zone?: string | null } } | null | undefined,
+  ): Promise<R> {
+    const before = await this.database
+      .withTx(async (tx) => {
+        const l = await this.repo.load(tx, session.storeId, orderId);
+        const acc = accountId ? l.order.accounts.find((a) => a.id === accountId) : null;
         return {
-          next: this.replace(l.order, next),
-          events: [
-            this.ev(
-              "lineDeleted",
-              `Se elimina ${line.name} x${b.quantity ?? line.quantity}${reason ? ` · ${reason}` : " (sin enviar)"}`,
-              ctx,
-              acc.id,
-            ),
-          ],
+          from: { name: l.header.tableName, area: l.header.zone ?? "" },
+          account: acc?.name ?? null,
+          printers: await this.printers.printedPrinters(tx, session.storeId, { orderId, accountId }),
         };
       })
-    ).transaction;
+      .catch(() => null);
+    const r = await run();
+    const to = toOf(r)?.tableData;
+    if (before?.printers.length && to?.name && to.name !== before.from.name) {
+      for (const p of before.printers) {
+        await this.printer
+          .print({
+            kind: "kitchen",
+            channel: p.channel_name,
+            printer: p.printer_name ?? p.channel_name,
+            connection: p.interface ?? "",
+            title: `Cambio de mesa ${before.from.name} → ${to.name}`,
+            ticket: tableChangeTicket({
+              channel: p.channel_name,
+              waiter: session.user.name,
+              from: before.from,
+              to: { name: to.name, area: to.zone ?? "" },
+              account: before.account,
+              at: this.clock(),
+            }),
+          })
+          .catch(() => ({ ok: false }));
+      }
+    }
+    return r;
   }
 
   async moveLines(
@@ -1888,6 +1997,7 @@ export class OrdersService {
           if (busy) {
             fail("TABLE_BUSY", "La mesa de destino está ocupada", { orderId: busy.id });
           }
+          assertSamePriceList(l.header.priceList, t!.a.priceList); // terraza con terraza, general con general
           const from = l.header.tableName;
           const dest = {
             tableId: t!.t.id,
@@ -1945,6 +2055,7 @@ export class OrdersService {
     }
     assertCanCommand(src.header.presence, me, "other", ctx.now);
     const dst = await this.repo.load(tx, S, destId, { lock: true });
+    assertSamePriceList(src.header.priceList, dst.header.priceList);
     // cobro abierto → TABLE_CHARGING; otra persona dentro → TABLE_TAKEN (salvo mesas.entrarOcupada)
     canEnterTable(dst.header.presence, me, ctx.now);
     const names = await this.repo.accountNames(tx, S, destId);
@@ -2011,6 +2122,42 @@ export class OrdersService {
       authorization?: string | null;
     },
   ) {
+    return this.withTableNotice(
+      session,
+      orderId,
+      b.scope === "account" ? (b.accountId ?? null) : null,
+      () => this.changeTable0(session, orderId, b),
+      (r: any) => r,
+    );
+  }
+
+  /** Pasar una cuenta a otra mesa desde POST …/accounts/{accountId}/transfer, con el aviso a cocina y barra. */
+  async transferAccountWithNotice(
+    session: Session,
+    orderId: string,
+    accountId: string,
+    b: { toTableId: string; version: number; authorization?: string | null },
+  ) {
+    return this.withTableNotice(
+      session,
+      orderId,
+      accountId,
+      () => this.transferAccount(session, orderId, accountId, b),
+      (r: any) => r?.to,
+    );
+  }
+
+  private async changeTable0(
+    session: Session,
+    orderId: string,
+    b: {
+      scope: "table" | "account";
+      accountId?: string | null;
+      toTableId: string;
+      version?: number;
+      authorization?: string | null;
+    },
+  ) {
     if (b.scope === "table") {
       return this.transfer(session, orderId, b);
     }
@@ -2066,6 +2213,7 @@ export class OrdersService {
         fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
       }
       assertVersion(src.header.version, b.version);
+      assertSamePriceList(src.header.priceList, t!.a.priceList);
       assertCanCommand(src.header.presence, me, "other", ctx.now);
       if (busy?.id === orderId || src.header.tableId === b.toTableId) {
         fail("VALIDATION", "La cuenta ya está en esa mesa", { field: "toTableId" });

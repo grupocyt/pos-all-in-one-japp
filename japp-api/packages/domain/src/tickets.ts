@@ -1,3 +1,4 @@
+import { chainLogoRaster } from "./logo.js";
 import { accountTotals, discountAmount, lineAmount } from "./totals.js";
 import { r2, sum } from "./money.js";
 import type { Account, Line, Payment } from "./types.js";
@@ -629,7 +630,10 @@ const LF = 0x0a;
 export interface EscPosOptions {
   width?: number;
   openDrawer?: boolean;
+  /** false = sin logo. Por defecto se imprime el logo de la cadena en imagen. */
   logoFromPrinter?: boolean;
+  /** Otro logo ya en «GS v 0» (por defecto, el de la cadena). */
+  logoRaster?: Uint8Array;
   qrSize?: number;
 }
 
@@ -653,12 +657,12 @@ export function renderEscPos(lines: TicketLine[], o: EscPosOptions = {}): Uint8A
     } else if (l.k === "feed") {
       b.push(ESC, 0x64, l.n ?? 1);
     } else if (l.k === "logo") {
+      // logo de la cadena en imagen (GS v 0), igual que la vista previa; logoFromPrinter=false → sin logo
       if (o.logoFromPrinter !== false) {
         align("center");
-        b.push(0x1c, 0x70, 1, 0);
+        b.push(...(o.logoRaster ?? chainLogoRaster()), LF);
       }
-    } // logo guardado en la impresora (NV)
-    else if (l.k === "qr") {
+    } else if (l.k === "qr") {
       const d = encodeCp858(l.data);
       const n = d.length + 3;
       align("center");

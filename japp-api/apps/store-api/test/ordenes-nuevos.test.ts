@@ -177,7 +177,7 @@ describe("POST /orders/{id}/transfer · scope", () => {
   it("scope=account: pasa la cuenta y responde solo la transacción de destino", async () => {
     const o = await twoAccounts();
     const v = (await get(o.id)).version;
-    const dest = await freeTable(t, "TERRAZA");
+    const dest = await freeTable(t, "BARRA");
     const r = await t.call("POST", `/orders/${o.id}/transfer`, {
       token: sis,
       body: { scope: "account", accountId: o.a2, toTableId: dest, version: v },
@@ -193,7 +193,7 @@ describe("POST /orders/{id}/transfer · scope", () => {
 
   it("scope=table (o sin scope): la mesa entera, como siempre", async () => {
     const o = await newOrder();
-    const dest = await freeTable(t, "TERRAZA");
+    const dest = await freeTable(t, "BARRA");
     const r = await t.call("POST", `/orders/${o.id}/transfer`, {
       token: sis,
       body: { scope: "table", toTableId: dest },

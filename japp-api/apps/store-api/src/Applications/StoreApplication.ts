@@ -25,6 +25,8 @@ export interface StoreInfo {
   serviceType: "table" | "fastfood";
   nif: string;
   issuerName: string;
+  /** Nombre comercial de la cadena (Ajustes › Empresa), p. ej. «Cañas y Tapas». */
+  chainName: string | null;
   serieT: string;
   serieF: string;
   duplicateMinutes: number;
@@ -103,6 +105,7 @@ export class StoreApplication {
       serviceType: r.st.serviceType === "fastfood" ? "fastfood" : "table",
       nif: r.c.taxId,
       issuerName: r.c.legalName,
+      chainName: r.c.tradeName ?? null,
       serieT: r.b.seriesSimplified,
       serieF: r.b.seriesFull,
       duplicateMinutes: r.p.duplicateMinutes,

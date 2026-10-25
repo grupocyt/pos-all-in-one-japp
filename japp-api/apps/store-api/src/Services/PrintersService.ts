@@ -201,9 +201,11 @@ export class PrintersService {
     }
     if (b.kind === "oot") {
       return ootQrTicket({
-        store: { tradeName: st.name, legalName: st.issuerName },
+        store: { chain: st.chainName, name: st.name, legalName: st.issuerName },
         table: tctx.table,
-        url: ootUrl("https://japp.grupocyt.com.es/", "PRUEBA"),
+        url: ootUrl("https://japp.grupocyt.com.es/", "PRUEBAxTOKENxDExMESA"),
+        token: "PRUEBAxTOKENxDExMESA",
+        waiter: b.waiter,
         at: now,
       });
     }

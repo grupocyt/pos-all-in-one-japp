@@ -230,7 +230,12 @@ export class OrdersController {
     @Param("accountId") aid: string,
     @Body() b: unknown,
   ) {
-    return this.svc.transferAccount(se, parse(uuid, id), parse(uuid, aid), parse(TransferAccount, b));
+    return this.svc.transferAccountWithNotice(
+      se,
+      parse(uuid, id),
+      parse(uuid, aid),
+      parse(TransferAccount, b),
+    );
   }
   @Post(":orderId/save") @HttpCode(200) save(
     @CurrentSession() se: Session,

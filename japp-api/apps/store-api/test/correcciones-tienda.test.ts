@@ -297,7 +297,7 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
 
   it("destino libre: como siempre (la orden cambia de mesa)", async () => {
     const s = await source();
-    const to = await freeTable(t, "TERRAZA");
+    const to = await freeTable(t, "BARRA");
     const r = await transfer(sis, s.id, { toTableId: to });
     expect(r.status, JSON.stringify(r.env)).toBe(200);
     expect([r.body._id, r.body.tableData.tableId, r.body.accounts.length]).toEqual([s.id, to, 2]);

@@ -100,6 +100,41 @@ export class PrintersApplication {
     ).rows as unknown as PendingLinePrinter[];
   }
 
+  /**
+   * Impresoras por las que YA salió algo (printed = true), una vez por impresora y canal: para la comanda de anulación de
+   * esas líneas o para el aviso de cambio de mesa (25/10/2026). Por líneas, por cuenta o por la orden entera.
+   */
+  async printedPrinters(
+    tx: Tx,
+    storeId: string,
+    f: { orderId?: string; accountId?: string | null; lineIds?: string[] },
+  ): Promise<
+    {
+      channel_name: string;
+      printer_id: string | null;
+      printer_name: string | null;
+      interface: string | null;
+    }[]
+  > {
+    const S = storeId;
+    const byLines = f.lineIds?.length
+      ? sql` AND olp.line_id = ANY(${"{" + f.lineIds.join(",") + "}"}::uuid[])`
+      : sql``;
+    const byOrder = f.orderId ? sql` AND ol.order_id = ${f.orderId}` : sql``;
+    const byAcc = f.accountId ? sql` AND ol.account_id = ${f.accountId}` : sql``;
+    return (
+      await tx.execute(sql`SELECT DISTINCT split_part(olp.channel_name, '|', 1) channel_name, olp.printer_id::text printer_id, olp.printer_name, olp.interface
+      FROM order_line_printer olp JOIN order_line ol ON ol.id = olp.line_id AND ol.store_id = ${S}
+      WHERE olp.store_id = ${S} AND olp.printed${byLines}${byOrder}${byAcc}
+      ORDER BY 1, 3`)
+    ).rows as unknown as {
+      channel_name: string;
+      printer_id: string | null;
+      printer_name: string | null;
+      interface: string | null;
+    }[];
+  }
+
   /** Reserva las filas para este intento (printed_at = ahora, sigue printed = false). */
   async claimLinePrinters(tx: Tx, storeId: string, ids: string[], at: Date) {
     await tx.execute(

@@ -631,7 +631,7 @@ export interface paths {
         put?: never;
         /**
          * Pasar una cuenta a otra mesa
-         * @description Mueve UNA cuenta a otra mesa, entera: líneas (con su estado y su historia de eliminadas), descuentos, cobros parciales, cliente y pases del menú; los precios no cambian aunque la mesa de destino tenga otra tarifa. version = la de la orden de origen (409 VERSION_CONFLICT). Mesa de destino libre → se abre con 1 comensal (la abre quien llama) y la cuenta conserva su id; ocupada → es una cuenta más de esa orden (nunca se juntan líneas) y, si su nombre ya existe allí, pasa a «Cuenta N» (el primer número libre). La cuenta tiene que estar sin facturar y con productos (si no, 422 NOTHING_TO_TRANSFER); a la misma mesa → 422 VALIDATION. Destino cobrándose → 409 TABLE_CHARGING; destino con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; origen con otra persona dentro → 409 TABLE_TAKEN. Si al origen no le queda ninguna cuenta viva, se cierra (cancelled, o closed si tenía cuentas facturadas) y la mesa queda libre. Las dos órdenes suben de versión, van a la cola y quedan en su historial («Cuenta 2 pasa a la mesa 8» / «Llega Cuenta 2 desde la mesa 7»). Responde las dos transacciones.
+         * @description Mueve UNA cuenta a otra mesa, entera: líneas (con su estado y su historia de eliminadas), descuentos, cobros parciales, cliente y pases del menú; los precios no cambian. version = la de la orden de origen (409 VERSION_CONFLICT). Mesa de destino libre → se abre con 1 comensal (la abre quien llama) y la cuenta conserva su id; ocupada → es una cuenta más de esa orden (nunca se juntan líneas) y, si su nombre ya existe allí, pasa a «Cuenta N» (el primer número libre). La cuenta tiene que estar sin facturar y con productos (si no, 422 NOTHING_TO_TRANSFER); a la misma mesa → 422 VALIDATION. Destino cobrándose → 409 TABLE_CHARGING; destino con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; origen con otra persona dentro → 409 TABLE_TAKEN. Si al origen no le queda ninguna cuenta viva, se cierra (cancelled, o closed si tenía cuentas facturadas) y la mesa queda libre. Las dos órdenes suben de versión, van a la cola y quedan en su historial («Cuenta 2 pasa a la mesa 8» / «Llega Cuenta 2 desde la mesa 7»). Responde las dos transacciones. Solo entre zonas con el mismo precio (terraza con terraza, general con general): si no, 422 VALIDATION en toTableId.
          *
          *     Permiso: mesas.transferir
          *
@@ -2255,7 +2255,7 @@ export interface paths {
         put?: never;
         /**
          * Cambiar de mesa (mesa entera o una cuenta)
-         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId; si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan.
+         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId; si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan. Solo entre zonas con el mismo precio (terraza con terraza, general con general): si no, 422 VALIDATION en toTableId.
          *
          *     Permiso: mesas.transferir
          *
@@ -2719,7 +2719,7 @@ export interface paths {
         put?: never;
         /**
          * Order on Table: generar el QR de la mesa
-         * @description Un token por orden abierta: si ya tiene uno vigente lo devuelve (reused = true). url = URL de Order on Table de Ajustes › Restaurante + /t/ + token (sin URL → 409 OOT_NOT_CONFIGURED). Caduca al cerrar la mesa (facturada o sin venta) o al anularlo; no caduca por tiempo. print = imprime el ticket con el QR en la impresora de tickets del área (después del COMMIT; printed false si falla).
+         * @description Un token por orden abierta: si ya tiene uno vigente lo devuelve (reused = true). url = URL de Order on Table de Ajustes › Restaurante + /t/ + token (sin URL → 409 OOT_NOT_CONFIGURED). Caduca al cerrar la mesa (facturada o sin venta) o al anularlo; no caduca por tiempo. print = imprime el ticket con el QR en la impresora de tickets del área (después del COMMIT; printed false si falla); copies = cuántos tickets (1–10, uno por defecto), p. ej. uno por cada lado de una mesa grande.
          *
          *     Permiso: mesas.orderOnTable
          *
@@ -11706,10 +11706,12 @@ export interface operations {
         requestBody: {
             content: {
                 /** @example {
-                 *       "print": true
+                 *       "print": true,
+                 *       "copies": 1
                  *     } */
                 "application/json": {
                     print?: boolean;
+                    copies?: number;
                 };
             };
         };

@@ -61,7 +61,7 @@ describe("pasar una cuenta a otra mesa", () => {
     });
     const before = await get(o.orderId);
     const acc = before.accounts.find((a: any) => a.id === o.a2);
-    const dest = await freeTable(t, "TERRAZA"); // otra tarifa: los precios no cambian
+    const dest = await freeTable(t, "BARRA"); // misma tarifa (25/10/2026: entre tarifas distintas no se puede)
     const r = await move(sis, o, o.a2, { version: before.version, toTableId: dest });
     expect(r.status).toBe(200);
     expect(r.body.from.accounts.map((a: any) => a.id)).toEqual([o.a1]);

@@ -120,10 +120,10 @@ describe("mesa", () => {
   // a una mesa ocupada ya no es TABLE_BUSY: se juntan (23/10/2026, pruebas en correcciones-tienda.test.ts)
   it("transferir a una mesa libre y queda en el historial", async () => {
     const o = await newOrder();
-    const to = await freeTable(t, "TERRAZA");
+    const to = await freeTable(t, "BARRA");
     const r = await t.call("POST", `/orders/${o.id}/transfer`, { token: mesero, body: { toTableId: to } });
     expect(r.status, JSON.stringify(r.body)).toBe(200);
-    expect(r.body.tableData).toMatchObject({ tableId: to, zone: "TERRAZA" });
+    expect(r.body.tableData).toMatchObject({ tableId: to, zone: "BARRA" });
     expect(r.body.accounts[0].lines[0].unitPrice).toBe(8.5); // lo ya marcado conserva su precio
     const ev = await t.call("GET", `/orders/${o.id}/events`, { token: mesero });
     expect(ev.body.items.map((e: any) => e.type)).toEqual(
