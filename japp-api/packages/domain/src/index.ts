@@ -39,6 +39,8 @@ export * from "./checkout.js";
 export * from "./reopen.js";
 export * from "./orderState.js";
 export * from "./staff.js";
+export * from "./outlook.js";
+export * from "./sir.js";
 export * from "./stores.js";
 export * from "./orderIncidents.js";
 export * from "./batch.js";

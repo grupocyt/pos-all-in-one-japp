@@ -31,6 +31,55 @@ export class ClosingsApplication {
    * Productos más vendidos del periodo: líneas vivas de cuentas facturadas menos lo abonado de ellas (invoice_credit_line).
    * amount = importe de las líneas (sin el descuento de la cuenta) menos el importe abonado.
    */
+  /**
+   * Venta del día (v186): mesas abiertas del periodo con lo ya marcado sin facturar, por mesa: camarero (quien abrió),
+   * comensales, total con IVA y lo cobrado a cuenta. Cuentas anuladas o facturadas fuera (lo facturado ya está en el resumen).
+   */
+  async openOrders(storeId: string, periodId: string) {
+    return rows<{ order_id: string; waiter: string; guests: number; total: number; paid: number }>(
+      this.db,
+      sql`SELECT o.id::text order_id, o.opened_by_user_name waiter, o.guests::int guests,
+          coalesce(sum(a.total), 0)::float8 total, coalesce(sum(a.paid), 0)::float8 paid
+        FROM orders o JOIN account a ON a.order_id = o.id AND a.store_id = o.store_id
+        WHERE o.store_id = ${storeId} AND o.period_id = ${periodId} AND o.status IN ('open','billing')
+          AND a.status NOT IN ('cancelled','invoiced')
+        GROUP BY o.id, o.opened_by_user_name, o.guests`,
+    );
+  }
+
+  /** Facturas rectificativas (R1–R5) del periodo: cuántas y su importe (negativo o positivo según se guarde; se usa en valor absoluto). */
+  async creditsOf(storeId: string, periodId: string) {
+    const [r] = await rows<{ n: number; amount: number }>(
+      this.db,
+      sql`SELECT count(*)::int n, coalesce(sum(i.total), 0)::float8 amount FROM invoice i JOIN orders o ON o.id = i.order_id AND o.store_id = i.store_id
+        WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.status <> 'cancelled' AND i.type LIKE 'R%'`,
+    );
+    return r ?? { n: 0, amount: 0 };
+  }
+
+  /** Lo marcado en mesas abiertas del periodo por hora (Madrid) en que se marcó, con IVA y antes de descuentos. */
+  async openByHour(storeId: string, periodId: string) {
+    return rows<{ hour: number; amount: number }>(
+      this.db,
+      sql`SELECT extract(hour FROM l.created_by_at AT TIME ZONE 'Europe/Madrid')::int AS hour, sum(l.net_amount)::float8 AS amount
+        FROM order_line l JOIN account a ON a.id = l.account_id AND a.store_id = l.store_id
+        JOIN orders o ON o.id = l.order_id AND o.store_id = l.store_id
+        WHERE l.store_id = ${storeId} AND o.period_id = ${periodId} AND o.status IN ('open','billing')
+          AND a.status NOT IN ('cancelled','invoiced') AND NOT l.deleted
+        GROUP BY 1 ORDER BY 1`,
+    );
+  }
+
+  /** Venta por hora de los últimos cierres del mismo día de la semana (ISO, 1 = lunes) antes de una fecha. */
+  async historyByHour(storeId: string, isoDow: number, before: string, limit = 8) {
+    return rows<{ by_hour: Record<string, number> | null }>(
+      this.db,
+      sql`SELECT by_hour FROM period_summary WHERE store_id = ${storeId} AND extract(isodow FROM business_date)::int = ${isoDow}
+        AND business_date < ${before}::date AND gross_sales > 0 ORDER BY business_date DESC LIMIT ${sql.raw(String(Math.trunc(limit)))}`,
+    );
+  }
+
+  /** Productos más vendidos del periodo: lo facturado (menos lo abonado) y lo marcado en mesas abiertas (v186). */
   async topProducts(storeId: string, periodId: string, limit: number) {
     return rows<{ plu: number | null; name: string; quantity: number; amount: number }>(
       this.db,
@@ -38,7 +87,8 @@ export class ClosingsApplication {
           SELECT l.plu, l.name, sum(l.quantity) qty, sum(l.net_amount) amount FROM order_line l
           JOIN account a ON a.id = l.account_id AND a.store_id = l.store_id
           JOIN orders o ON o.id = l.order_id AND o.store_id = l.store_id
-          WHERE l.store_id = ${storeId} AND o.period_id = ${periodId} AND NOT l.deleted AND a.status = 'invoiced'
+          WHERE l.store_id = ${storeId} AND o.period_id = ${periodId} AND NOT l.deleted
+            AND (a.status = 'invoiced' OR (o.status IN ('open','billing') AND a.status NOT IN ('cancelled','invoiced')))
           GROUP BY l.plu, l.name
         ), cred AS (
           SELECT l.plu, l.name, sum(c.quantity) qty, sum(c.amount) amount FROM invoice_credit_line c

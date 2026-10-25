@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { D, fail, r2, voidsOf } from "@japp/domain";
+import { D, fail, r2, salesOutlook, sum, voidsOf } from "@japp/domain";
 import { CLOCK, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { AuthorizationService } from "./AuthorizationService.js";
@@ -9,6 +9,9 @@ import { ClosingsApplication } from "../Applications/ClosingsApplication.js";
 import { SystemApplication } from "../Applications/SystemApplication.js";
 import { parse } from "../Helpers/ValidationHelper.js";
 import { PeriodQueryModel } from "../Models/ReportsModels.js";
+
+/** Día de la semana ISO (1 = lunes) de una fecha AAAA-MM-DD. */
+const isoDow = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay() || 7;
 
 /** Informes de Funciones y Developer, y el Gestor de cierres (con su permiso). Solo lectura. */
 @Injectable()
@@ -128,7 +131,35 @@ export class ReportsService {
     await this.auth.require(se, "funciones.informes");
     const pid = await this.periodOf(se, periodId);
     const s = await this.closings.summarize(null, se.storeId, pid);
-    const top = await this.closingsData.topProducts(se.storeId, pid, 10);
+    const top = await this.closingsData.topProducts(se.storeId, pid, 20);
+    // v186 · lo marcado en mesas abiertas sin cobrar también cuenta en Venta del día
+    const [openRows, openHours, cred] = await Promise.all([
+      this.closingsData.openOrders(se.storeId, pid),
+      this.closingsData.openByHour(se.storeId, pid),
+      this.closingsData.creditsOf(se.storeId, pid),
+    ]);
+    const openAmount = r2(sum(openRows.map((o) => o.total)));
+    const openPaid = r2(sum(openRows.map((o) => o.paid)));
+    const byWaiterOpen = new Map<string, { amount: number; tables: number }>();
+    for (const o of openRows) {
+      const w = byWaiterOpen.get(o.waiter) ?? { amount: 0, tables: 0 };
+      w.amount = r2(sum([w.amount, o.total]));
+      w.tables++;
+      byWaiterOpen.set(o.waiter, w);
+    }
+    const isOpenPeriod = (await this.closingsData.openPeriodId(se.storeId)) === pid;
+    const bd = s.businessDate;
+    const history = isOpenPeriod
+      ? (await this.closingsData.historyByHour(se.storeId, isoDow(bd), bd)).map((h) => h.by_hour ?? {})
+      : [];
+    const outlook = salesOutlook({
+      invoiced: s.grossSales,
+      open: { amount: openAmount, tables: openRows.length },
+      history,
+      openedAt: new Date(s.openedAt),
+      // periodo ya cerrado: el día entero está hecho (proyección = venta)
+      now: isOpenPeriod ? this.clock() : new Date(new Date(s.openedAt).getTime() + 23.9 * 3600_000),
+    });
     let avgTicket = 0;
     if (s.tickets) {
       avgTicket = r2(D(s.grossSales).div(s.tickets));
@@ -144,6 +175,21 @@ export class ReportsService {
         .map(([hour, amount]) => ({ hour: Number(hour), amount }))
         .sort((a, b) => a.hour - b.hour),
       byMethod: { cash: s.cashAmount, card: s.cardAmount, other: s.otherAmount },
+      // facturas rectificativas (abonos) del periodo: ya restan en sold; aquí van aparte para enseñarlas
+      credits: { count: cred.n, amount: r2(Math.abs(cred.amount)) },
+      invoiced: r2(D(s.grossSales).plus(Math.abs(cred.amount))),
+      open: {
+        tables: openRows.length,
+        amount: openAmount,
+        paid: openPaid,
+        pending: r2(D(openAmount).minus(openPaid)),
+        guests: openRows.reduce((acc, o) => acc + (o.guests || 0), 0),
+        byHour: openHours.map((h) => ({ hour: Number(h.hour), amount: r2(Number(h.amount)) })),
+        byWaiter: [...byWaiterOpen.entries()]
+          .map(([user, w]) => ({ user, tables: w.tables, amount: w.amount }))
+          .sort((a, b) => b.amount - a.amount || a.user.localeCompare(b.user)),
+      },
+      outlook,
       topProducts: top.map((p) => ({
         plu: p.plu == null ? null : Number(p.plu),
         name: p.name,

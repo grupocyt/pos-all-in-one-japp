@@ -16790,7 +16790,12 @@ paths:
       - API de tienda v2 · Facturas, caja e informes
       summary: Resumen de ventas
       description: 'Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA,
-        tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos.
+        tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos (lo facturado y lo
+        marcado en mesas abiertas). open = lo marcado en mesas abiertas sin facturar (total con IVA, cobrado a cuenta, por
+        hora en que se marcó y por camarero). outlook (regla salesOutlook): venta real = facturado + open; proyección = venta
+        real / parte del día que suele estar hecha a esta hora (reparto por hora de los últimos 8 cierres del mismo día de
+        la semana; sin historia, curva por defecto: method default). invoiced = facturado sin restar abonos; credits = facturas
+        rectificativas del periodo (ya restan en sold).
 
 
         Permiso: funciones.informes
@@ -16799,7 +16804,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: invoice, order_line, payment'
+        Tablas: invoice, order_line, payment, orders, account, period_summary'
       operationId: store_GET_reports_sales
       security:
       - session: []
@@ -16870,6 +16875,88 @@ paths:
                               type:
                               - number
                               - 'null'
+                      invoiced:
+                        type: number
+                      credits:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                          amount:
+                            type:
+                            - number
+                            - 'null'
+                      open:
+                        type: object
+                        properties:
+                          tables:
+                            type: integer
+                          amount:
+                            type:
+                            - number
+                            - 'null'
+                          paid:
+                            type: number
+                          pending:
+                            type: number
+                          guests:
+                            type: integer
+                          byHour:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                hour:
+                                  type: number
+                                amount:
+                                  type:
+                                  - number
+                                  - 'null'
+                          byWaiter:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                user:
+                                  type:
+                                  - string
+                                  - 'null'
+                                tables:
+                                  type: integer
+                                amount:
+                                  type:
+                                  - number
+                                  - 'null'
+                      outlook:
+                        type: object
+                        properties:
+                          current:
+                            type: number
+                          invoiced:
+                            type: number
+                          open:
+                            type: number
+                          openTables:
+                            type: number
+                          method:
+                            type: string
+                          historyDays:
+                            type: number
+                          doneShare:
+                            type: number
+                          projection:
+                            type: number
+                          expectedByHour:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                hour:
+                                  type: number
+                                amount:
+                                  type:
+                                  - number
+                                  - 'null'
               example:
                 title: Resumen de ventas
                 type: success
@@ -16893,6 +16980,35 @@ paths:
                     name: Caña
                     quantity: 54
                     amount: 159.84
+                  invoiced: 646.7
+                  credits:
+                    count: 1
+                    amount: 15.0
+                  open:
+                    tables: 4
+                    amount: 186.4
+                    paid: 20.0
+                    pending: 166.4
+                    guests: 11
+                    byHour:
+                    - hour: 14
+                      amount: 120.5
+                    byWaiter:
+                    - user: Pedro
+                      tables: 3
+                      amount: 140.2
+                  outlook:
+                    current: 818.1
+                    invoiced: 631.7
+                    open: 186.4
+                    openTables: 4
+                    method: history
+                    historyDays: 8
+                    doneShare: 0.42
+                    projection: 1947.86
+                    expectedByHour:
+                    - hour: 13
+                      amount: 210.4
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -20187,6 +20303,401 @@ paths:
         required: true
         schema:
           type: string
+  /api/v2/interface/sir/sales:
+    get:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Interfaz de ventas al SIR
+      description: 'Lo que MaxPoint mandaba al SIR al cerrar el periodo (interface.USP_InterfaceSistemaGerente, rama NORMAL),
+        para probar el fin de periodo: el último periodo cerrado si no viene periodId. Cada bloque es un XML (FOR XML RAW)
+        en UTF-16LE con BOM FFFE, en hexadecimal «0x…»: CierreCajas (TOTAL y canal 1: venta bruta/neta/IVA de facturas menos
+        rectificativas, base al 0 %, descuentos, transacciones, comensales; los campos reservados 1…7 como en MaxPoint), DinTrans
+        (por cajero y forma de pago —id de integración de la forma de pago o su código— y la fila -1 con lo facturado por
+        cajero), VentaHora (por hora de Madrid), PlusTrans (por PLU, producto y respuestas, menos lo abonado y con su parte
+        del descuento) y HorasCajero (horas de sesión por usuario y día). Lo que la tienda aún no tiene va como 0x00000000
+        (Depositos, CajaChica, CxCEmpleado, ConsumoRecarga, CreditoAutoconsumo, Agregadores, AnulacionBoletas, Cortesias).
+        cod_restaurante = Ajustes › Restaurante › sirCode (si no, el código de la tienda); lc_fecha = día de negocio dd/mm/aaaa.
+        xml = los mismos bloques sin codificar (null = vacío), para revisarlos.
+
+
+        Permiso: funciones.periodo
+
+
+        Lo llama: TPV
+
+
+        Tablas: invoice, invoice_tax, payment, order_line, order_line_modifier, invoice_credit_line, app_session'
+      operationId: store_GET_interface_sir_sales
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      periodId:
+                        type:
+                        - string
+                        - 'null'
+                      periodStatus:
+                        type: string
+                      sirUrl:
+                        type:
+                        - string
+                        - 'null'
+                      cod_restaurante:
+                        type: string
+                      lc_fecha:
+                        type: string
+                      CierreCajas:
+                        type:
+                        - string
+                        - 'null'
+                      DinTrans:
+                        type:
+                        - string
+                        - 'null'
+                      VentaHora:
+                        type:
+                        - string
+                        - 'null'
+                      PlusTrans:
+                        type:
+                        - string
+                        - 'null'
+                      HorasCajero:
+                        type:
+                        - string
+                        - 'null'
+                      Depositos:
+                        type: string
+                      CajaChica:
+                        type: string
+                      CxCEmpleado:
+                        type: string
+                      ConsumoRecarga:
+                        type: string
+                      CreditoAutoconsumo:
+                        type: string
+                      Agregadores:
+                        type: string
+                      AnulacionBoletas:
+                        type: string
+                      Cortesias:
+                        type: string
+                      xml:
+                        type: object
+                        properties:
+                          CierreCajas:
+                            type:
+                            - string
+                            - 'null'
+                          DinTrans:
+                            type:
+                            - string
+                            - 'null'
+                          VentaHora:
+                            type:
+                            - string
+                            - 'null'
+                          PlusTrans:
+                            type:
+                            - string
+                            - 'null'
+                          HorasCajero:
+                            type:
+                            - string
+                            - 'null'
+                      soap:
+                        type: string
+              example:
+                title: Interfaz de ventas al SIR
+                type: success
+                status: 200
+                data:
+                  periodId: …
+                  periodStatus: closed
+                  sirUrl: http://sir.grupocyt.com.es/serviciosweb/interface/servicio.php
+                  cod_restaurante: '41'
+                  lc_fecha: 13/05/2026
+                  CierreCajas: 0xFFFE3C00430069006500720072006500430061006A00610073003E00…
+                  DinTrans: 0xFFFE3C00430069006500720072006500430061006A00610073003E00…
+                  VentaHora: 0xFFFE3C00430069006500720072006500430061006A00610073003E00…
+                  PlusTrans: 0xFFFE3C00430069006500720072006500430061006A00610073003E00…
+                  HorasCajero: 0xFFFE3C00430069006500720072006500430061006A00610073003E00…
+                  Depositos: '0x00000000'
+                  CajaChica: '0x00000000'
+                  CxCEmpleado: '0x00000000'
+                  ConsumoRecarga: '0x00000000'
+                  CreditoAutoconsumo: '0x00000000'
+                  Agregadores: '0x00000000'
+                  AnulacionBoletas: '0x00000000'
+                  Cortesias: '0x00000000'
+                  xml:
+                    CierreCajas: <CierreCajas>…</CierreCajas>
+                    DinTrans: <DinTrans>…</DinTrans>
+                    VentaHora: <VentasHora>…</VentasHora>
+                    PlusTrans: <PlusTrans>…</PlusTrans>
+                    HorasCajero: <HorasCajero>…</HorasCajero>
+                  soap: <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">…</Envelope>
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Interfaz de ventas al SIR
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'PERIOD_CLOSED: No hay periodo abierto.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Interfaz de ventas al SIR
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: PERIOD_CLOSED
+                  message: No hay periodo abierto.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe o no es de esta tienda.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Interfaz de ventas al SIR
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Interfaz de ventas al SIR
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: periodId
+        in: query
+        required: false
+        description: Periodo (UUID); vacío = el último cerrado
+        schema:
+          type: string
+  /api/v2/interface/sir/sales/send:
+    post:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Enviar las ventas al SIR
+      description: 'Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de
+        Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que
+        pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado
+        a los 20 s, HTTP ≠ 2xx o SOAP Fault). Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin
+        URL configurada → 422 VALIDATION (field sirUrl).
+
+
+        Permiso: funciones.periodo
+
+
+        Lo llama: TPV
+
+
+        Tablas: store'
+      operationId: store_POST_interface_sir_sales_send
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      periodId:
+                        type:
+                        - string
+                        - 'null'
+                      url:
+                        type: string
+                      request:
+                        type: string
+                      ok:
+                        type: boolean
+                      status:
+                        type:
+                        - integer
+                        - 'null'
+                      ms:
+                        type: integer
+                      response:
+                        type: string
+                      error: {}
+              example:
+                title: Enviar las ventas al SIR
+                type: success
+                status: 200
+                data:
+                  periodId: …
+                  url: http://sir.grupocyt.com.es/serviciosweb/interface/servicio.php
+                  request: <Envelope …>…</Envelope>
+                  ok: true
+                  status: 200
+                  ms: 812
+                  response: <SOAP-ENV:Envelope …>…</SOAP-ENV:Envelope>
+                  error: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Enviar las ventas al SIR
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'PERIOD_CLOSED: No hay periodo abierto.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Enviar las ventas al SIR
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: PERIOD_CLOSED
+                  message: No hay periodo abierto.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe o no es de esta tienda.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Enviar las ventas al SIR
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Enviar las ventas al SIR
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                periodId: {}
+            example:
+              periodId: null
 components:
   securitySchemes:
     session:

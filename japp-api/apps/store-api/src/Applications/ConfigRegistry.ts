@@ -65,6 +65,25 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       webOrderUrl: F("web_order_url", "s", optStr(300), "URL de Order on Table"),
       ticketHeader: F("ticket_header", "s", z.string().max(2000).nullish(), "Cabecera del ticket"),
       ticketFooter: F("ticket_footer", "s", z.string().max(2000).nullish(), "Pie del ticket"),
+      // código del restaurante en el SIR (cod_restaurante; en MaxPoint rst_id)
+      sirCode: F(
+        "maxpoint_rst_id",
+        "i",
+        z.number().int().positive().nullish(),
+        "Código de restaurante en el SIR",
+      ),
+      sirUrl: F(
+        "sir_url",
+        "s",
+        z
+          .string()
+          .trim()
+          .max(300)
+          .regex(/^https?:\/\//i, "http:// o https://")
+          .nullish()
+          .or(z.literal("").transform(() => null)),
+        "URL de la interfaz del SIR",
+      ),
     },
   },
   empresa: {

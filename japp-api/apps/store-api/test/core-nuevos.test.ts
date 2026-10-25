@@ -461,6 +461,49 @@ describe("informes de ventas y camareros", () => {
     expect((await t.call("GET", "/reports/sales", { token: mesero })).error.code).toBe("PERMISSION_REQUIRED");
   });
 
+  it("ventas: las mesas abiertas sin cobrar también cuentan (open) y la proyección parte de esa venta real (outlook)", async () => {
+    const before = (await t.call("GET", "/reports/sales", { token: sistemas })).body;
+    const o = await t.call("POST", "/orders", {
+      token: sistemas,
+      body: { tableId: await freeTable(t, "BARRA"), guests: 3 },
+    });
+    const l = await t.call("POST", `/orders/${o.body._id}/lines`, {
+      token: sistemas,
+      body: { plu: PLU.croquetas, quantity: 2 },
+    });
+    const total = l.body.accounts[0].totals.total;
+    const r = await t.call("GET", "/reports/sales", { token: sistemas });
+    expect(r.status, JSON.stringify(r.error)).toBe(200);
+    expect(r.body.sold).toBe(before.sold); // lo facturado no cambia
+    expect(r.body.open.tables).toBe(before.open.tables + 1);
+    expect(r.body.open.amount).toBeCloseTo(before.open.amount + total, 2);
+    expect(r.body.open.guests).toBe(before.open.guests + 3);
+    expect(r.body.open.byWaiter.find((w: { user: string }) => w.user === "Sistemas").tables).toBeGreaterThan(
+      0,
+    );
+    const oh = r.body.open.byHour.reduce((acc: number, h: { amount: number }) => acc + h.amount, 0);
+    expect(oh).toBeGreaterThanOrEqual(total - 0.01);
+    expect(r.body.outlook.current).toBeCloseTo(r.body.sold + r.body.open.amount, 2);
+    expect(r.body.outlook.projection).toBeGreaterThanOrEqual(r.body.outlook.current);
+    expect(r.body.invoiced).toBeCloseTo(r.body.sold + r.body.credits.amount, 2);
+    expect(["history", "default"]).toContain(r.body.outlook.method);
+    // lo marcado en la mesa abierta sale en productos
+    expect(r.body.topProducts.some((p: { plu: number }) => p.plu === PLU.croquetas)).toBe(true);
+    // se cierra sin venta: deja de contar
+    await t.call("POST", `/orders/${o.body._id}/lines/${l.body.accounts[0].lines[0].id}/delete`, {
+      token: sistemas,
+      body: {},
+    });
+    const g = (await t.call("GET", `/orders/${o.body._id}`, { token: sistemas })).body;
+    expect(
+      (await t.call("POST", `/orders/${o.body._id}/close`, { token: sistemas, body: { version: g.version } }))
+        .status,
+    ).toBe(200);
+    expect((await t.call("GET", "/reports/sales", { token: sistemas })).body.open.tables).toBe(
+      before.open.tables,
+    );
+  });
+
   it("camareros: por quien abrió la mesa, con sus anulaciones; permiso funciones.kpi", async () => {
     // Sistemas abre una mesa, envía y borra una línea enviada (anulación) y factura otra
     const o = await t.call("POST", "/orders", {

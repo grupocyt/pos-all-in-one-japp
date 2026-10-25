@@ -50,6 +50,11 @@ describe("reglas en la base", () => {
     expect(await fails("UPDATE app_user SET color=NULL WHERE id=$1", [u], "23514")).toBe("OK");
     await fails("UPDATE app_user SET color='rojo' WHERE id=$1", [u], "23514");
   }));
+  it("la URL del SIR es http(s) o vacía (23514, migración 0019)", () => rollback(c, async () => {
+    expect(await fails("UPDATE store SET sir_url='http://sir.example.com/servicio.php' WHERE id=$1", [store], "23514")).toBe("OK");
+    expect(await fails("UPDATE store SET sir_url=NULL WHERE id=$1", [store], "23514")).toBe("OK");
+    await fails("UPDATE store SET sir_url='ftp://x' WHERE id=$1", [store], "23514");
+  }));
   it("SLA de atención: la regla de la tienda trae todos los límites, el resto puede heredar, sin repetir ámbito ni pasar de 600 min (migración 0017)", () => rollback(c, async () => {
     const d = (await c.query("SELECT * FROM service_sla WHERE store_id=$1 AND area_id IS NULL AND table_id IS NULL AND shift_id IS NULL", [store])).rows;
     expect(d).toHaveLength(1);

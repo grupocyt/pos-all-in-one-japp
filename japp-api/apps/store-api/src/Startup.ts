@@ -45,6 +45,8 @@ import { PeriodsService } from "./Services/PeriodsService.js";
 import { CashService } from "./Services/CashService.js";
 import { InvoicesService } from "./Services/InvoicesService.js";
 import { ReportsService } from "./Services/ReportsService.js";
+import { SirService } from "./Services/SirService.js";
+import { SirApplication } from "./Applications/SirApplication.js";
 import { SystemApplication } from "./Applications/SystemApplication.js";
 import { DevicesApplication } from "./Applications/DevicesApplication.js";
 import { PeriodsApplication } from "./Applications/PeriodsApplication.js";
@@ -152,6 +154,7 @@ class AppModule {
         CashService,
         InvoicesService,
         ReportsService,
+        SirService,
         SystemApplication,
         DevicesApplication,
         PeriodsApplication,
@@ -159,6 +162,7 @@ class AppModule {
         InvoicesApplication,
         ReportsApplication,
         ClosingsApplication,
+        SirApplication,
         TransactionsApplication,
         IdempotencyApplication,
         CustomersService,

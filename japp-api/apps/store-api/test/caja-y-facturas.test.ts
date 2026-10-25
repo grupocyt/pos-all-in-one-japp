@@ -1,3 +1,4 @@
+import http from "node:http";
 import { setup, ensurePeriod, freeTable, PIN, PLU, type T } from "./helpers.js";
 // @ts-ignore
 import { verificationQueries } from "../../../../japp-db/scripts/db.mjs";
@@ -188,6 +189,70 @@ describe("caja y periodo", () => {
     expect(closedList[0]).toMatchObject({ periodId: p, status: "closed" });
     expect(closedList[0].waiter).toBeTruthy();
     expect(closedList[0].closedAt).toBeTruthy();
+    // interfaz de ventas al SIR del periodo recién cerrado (sin periodId = el último cerrado)
+    const sir = await t.call("GET", "/interface/sir/sales", { token: sistemas });
+    expect(sir.status, JSON.stringify(sir.error)).toBe(200);
+    expect(sir.body.periodId).toBe(p);
+    expect(sir.body.lc_fecha).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    expect(sir.body.CierreCajas).toMatch(/^0xFFFE3C00/);
+    expect(sir.body.xml.CierreCajas).toContain(`Venta_Bruta="${sum.totalSales.toFixed(4)}"`);
+    expect(sir.body.xml.CierreCajas).toContain('tipo_medio="TOTAL"');
+    expect(sir.body.xml.DinTrans).toContain('Cod_FormaPago="-1"');
+    expect(sir.body.xml.PlusTrans).toContain('agregador="LOCAL"');
+    // las sesiones se fechan con la hora de la base (now()) y el periodo con el reloj de la prueba: aquí puede no haber horas
+    expect(sir.body.HorasCajero === "0x00000000" || /Horas_Conectado=/.test(sir.body.xml.HorasCajero)).toBe(
+      true,
+    );
+    expect(sir.body.Depositos).toBe("0x00000000");
+    expect(sir.body.Cortesias).toBe("0x00000000");
+    const same = await t.call("GET", `/interface/sir/sales?periodId=${p}`, { token: sistemas });
+    expect(same.body.CierreCajas).toBe(sir.body.CierreCajas);
+    expect((await t.call("GET", "/interface/sir/sales?periodId=x", { token: sistemas })).status).toBe(422);
+    expect(
+      (await t.call("GET", `/interface/sir/sales?periodId=${crypto.randomUUID()}`, { token: sistemas }))
+        .status,
+    ).toBe(404);
+    expect((await t.call("GET", "/interface/sir/sales", { token: mesero })).error.code).toBe(
+      "PERMISSION_REQUIRED",
+    );
+    expect(sir.body.soap).toContain(`<CierreCajas>${sir.body.CierreCajas}</CierreCajas>`);
+    // enviar: sin URL → 422; con URL, el SOAP llega tal cual al SIR (servidor de prueba) y se ve su respuesta
+    expect(
+      (await t.call("POST", "/interface/sir/sales/send", { token: sistemas, body: {} })).error.field,
+    ).toBe("sirUrl");
+    let got = "";
+    const srv = http.createServer((req, res) => {
+      let b = "";
+      req.on("data", (c) => (b += c));
+      req.on("end", () => {
+        got = b;
+        res.writeHead(200, { "content-type": "text/xml" });
+        res.end(
+          '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Body><interfaceVentasAgregadoresResponse><return xsi:type="xsd:string">{"Respuesta":"0","Mensaje":"El Menu Mix ya se encuetra Asentado"}</return></interfaceVentasAgregadoresResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>',
+        );
+      });
+    });
+    await new Promise<void>((r) => srv.listen(0, "127.0.0.1", () => r()));
+    try {
+      const rest = (await t.call("GET", "/config/restaurante", { token: sistemas })).body;
+      const cur = rest.items?.[0] ?? rest;
+      const url = `http://127.0.0.1:${(srv.address() as { port: number }).port}/servicio.php`;
+      const pa = await t.call("PATCH", `/config/restaurante/${cur.id}`, {
+        token: sistemas,
+        body: { sirUrl: url, sirCode: 41, version: cur.version },
+      });
+      expect(pa.status, JSON.stringify(pa.error)).toBe(200);
+      const sent = await t.call("POST", "/interface/sir/sales/send", { token: sistemas, body: {} });
+      expect(sent.status, JSON.stringify(sent.error)).toBe(200);
+      expect(sent.body).toMatchObject({ ok: true, status: 200, url, error: null });
+      expect(sent.body.response).toContain("interfaceVentasAgregadoresResponse");
+      expect(sent.body.sir).toMatchObject({ respuesta: "0", mensaje: "El Menu Mix ya se encuetra Asentado" });
+      expect(sent.body.accepted).toBe(false);
+      expect(got).toBe(sent.body.request);
+      expect(got).toContain("<cod_restaurante>41</cod_restaurante>");
+    } finally {
+      srv.close();
+    }
     expect(t.printer.jobs.some((j) => j.kind === "cutz" && /CORTE Z/.test(j.text))).toBe(true);
     expect(ok.body.closing).toMatchObject({
       expectedCash: sum.expectedCash,

@@ -2485,13 +2485,13 @@ export interface paths {
         };
         /**
          * Resumen de ventas
-         * @description Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA, tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos.
+         * @description Venta del periodo (el abierto si no viene periodId): facturado con IVA (los abonos restan), base sin IVA, tickets, ticket medio, comensales, por hora (Madrid), por forma de pago y productos más vendidos (lo facturado y lo marcado en mesas abiertas). open = lo marcado en mesas abiertas sin facturar (total con IVA, cobrado a cuenta, por hora en que se marcó y por camarero). outlook (regla salesOutlook): venta real = facturado + open; proyección = venta real / parte del día que suele estar hecha a esta hora (reparto por hora de los últimos 8 cierres del mismo día de la semana; sin historia, curva por defecto: method default). invoiced = facturado sin restar abonos; credits = facturas rectificativas del periodo (ya restan en sold).
          *
          *     Permiso: funciones.informes
          *
          *     Lo llama: TPV
          *
-         *     Tablas: invoice, order_line, payment
+         *     Tablas: invoice, order_line, payment, orders, account, period_summary
          */
         get: operations["store_GET_reports_sales"];
         put?: never;
@@ -2982,6 +2982,58 @@ export interface paths {
          *     Tablas: invoice, payment, cash_movement
          */
         post: operations["store_POST_periods_periodId_z_report_print"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/interface/sir/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Interfaz de ventas al SIR
+         * @description Lo que MaxPoint mandaba al SIR al cerrar el periodo (interface.USP_InterfaceSistemaGerente, rama NORMAL), para probar el fin de periodo: el último periodo cerrado si no viene periodId. Cada bloque es un XML (FOR XML RAW) en UTF-16LE con BOM FFFE, en hexadecimal «0x…»: CierreCajas (TOTAL y canal 1: venta bruta/neta/IVA de facturas menos rectificativas, base al 0 %, descuentos, transacciones, comensales; los campos reservados 1…7 como en MaxPoint), DinTrans (por cajero y forma de pago —id de integración de la forma de pago o su código— y la fila -1 con lo facturado por cajero), VentaHora (por hora de Madrid), PlusTrans (por PLU, producto y respuestas, menos lo abonado y con su parte del descuento) y HorasCajero (horas de sesión por usuario y día). Lo que la tienda aún no tiene va como 0x00000000 (Depositos, CajaChica, CxCEmpleado, ConsumoRecarga, CreditoAutoconsumo, Agregadores, AnulacionBoletas, Cortesias). cod_restaurante = Ajustes › Restaurante › sirCode (si no, el código de la tienda); lc_fecha = día de negocio dd/mm/aaaa. xml = los mismos bloques sin codificar (null = vacío), para revisarlos.
+         *
+         *     Permiso: funciones.periodo
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: invoice, invoice_tax, payment, order_line, order_line_modifier, invoice_credit_line, app_session
+         */
+        get: operations["store_GET_interface_sir_sales"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/interface/sir/sales/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enviar las ventas al SIR
+         * @description Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado a los 20 s, HTTP ≠ 2xx o SOAP Fault). Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin URL configurada → 422 VALIDATION (field sirUrl).
+         *
+         *     Permiso: funciones.periodo
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: store
+         */
+        post: operations["store_POST_interface_sir_sales_send"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11431,6 +11483,41 @@ export interface operations {
                                 quantity?: number;
                                 amount?: number | null;
                             }[];
+                            invoiced?: number;
+                            credits?: {
+                                count?: number;
+                                amount?: number | null;
+                            };
+                            open?: {
+                                tables?: number;
+                                amount?: number | null;
+                                paid?: number;
+                                pending?: number;
+                                guests?: number;
+                                byHour?: {
+                                    hour?: number;
+                                    amount?: number | null;
+                                }[];
+                                byWaiter?: {
+                                    user?: string | null;
+                                    tables?: number;
+                                    amount?: number | null;
+                                }[];
+                            };
+                            outlook?: {
+                                current?: number;
+                                invoiced?: number;
+                                open?: number;
+                                openTables?: number;
+                                method?: string;
+                                historyDays?: number;
+                                doneShare?: number;
+                                projection?: number;
+                                expectedByHour?: {
+                                    hour?: number;
+                                    amount?: number | null;
+                                }[];
+                            };
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -12946,6 +13033,174 @@ export interface operations {
             };
             /** @description NOT_FOUND: No existe o no es de esta tienda. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_interface_sir_sales: {
+        parameters: {
+            query?: {
+                /** @description Periodo (UUID); vacío = el último cerrado */
+                periodId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            periodId?: string | null;
+                            periodStatus?: string;
+                            sirUrl?: string | null;
+                            cod_restaurante?: string;
+                            lc_fecha?: string;
+                            CierreCajas?: string | null;
+                            DinTrans?: string | null;
+                            VentaHora?: string | null;
+                            PlusTrans?: string | null;
+                            HorasCajero?: string | null;
+                            Depositos?: string;
+                            CajaChica?: string;
+                            CxCEmpleado?: string;
+                            ConsumoRecarga?: string;
+                            CreditoAutoconsumo?: string;
+                            Agregadores?: string;
+                            AnulacionBoletas?: string;
+                            Cortesias?: string;
+                            xml?: {
+                                CierreCajas?: string | null;
+                                DinTrans?: string | null;
+                                VentaHora?: string | null;
+                                PlusTrans?: string | null;
+                                HorasCajero?: string | null;
+                            };
+                            soap?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_interface_sir_sales_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "periodId": null
+                 *     } */
+                "application/json": {
+                    periodId?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            periodId?: string | null;
+                            url?: string;
+                            request?: string;
+                            ok?: boolean;
+                            status?: number | null;
+                            ms?: number;
+                            response?: string;
+                            error?: unknown;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
