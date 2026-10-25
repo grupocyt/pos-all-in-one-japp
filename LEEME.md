@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0015, consultas de control · 66 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 97 endpoints · 255 pruebas de dominio + 264 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.173. La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.174. La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -48,17 +48,17 @@ tienda **JC01 · Nueva Sucursal Japp**, empresa con NIF B12300141, salas BARRA (
 Usuarios de prueba: Sistemas, Jeison, Barra, Mesero y **Capitan Mesero (PIN 7070)**. **Cambia todos los PIN antes de producción.**
 Solo se aplica al crear la base desde cero; una base que ya existe (como la de LG01) no cambia.
 
-## Actualizar una tienda ya instalada a 1.2.173 (sin borrar la base)
+## Actualizar una tienda ya instalada a 1.2.174 (sin borrar la base)
 
 En la 1.2.170 hay **una migración nueva, la 0017**: los SLA de atención (dos tablas nuevas, turnos y límites; la regla de la tienda se crea sola con los tiempos de Parámetros). Si vienes de antes de la 1.2.164, también la **0016** (tiempo de la tanda en Ajustes › Facturación). No borran ni cambian datos y `npm run db:init` las aplica solas. Si vienes de una versión anterior a la 1.2.160, aplica también la 0014 (id de integración de las formas de pago) y la 0015 (incidencias de mesa). No hagas `db:reset`.
 
-**Importante:** la API y el TPV de la 1.2.173 van juntos. Actualiza todos los equipos (cajas y PDA) a la vez: con la API nueva, un TPV antiguo ya no puede añadir ni guardar en una mesa que tiene otro equipo.
+**Importante:** la API y el TPV de la 1.2.174 van juntos. Actualiza todos los equipos (cajas y PDA) a la vez: con la API nueva, un TPV antiguo ya no puede añadir ni guardar en una mesa que tiene otro equipo.
 
 1. Para la API (Ctrl+C en su ventana, o `docker compose stop api`).
 2. Haz copia de tu `.env` de `japp-api` y de `japp-db`. Descomprime el zip encima de la carpeta anterior (el zip no trae `.env`).
 3. En `japp-api`: `npm install` y después `npm run db:init` (aplica las migraciones pendientes: la 0017 y, si faltan, la 0014, 0015 y 0016; no borra nada). Con Docker: `docker compose up --build -d`.
 4. Para que la factura, la precuenta y la comanda salgan por papel, en el `.env` de `japp-api` pon `PRINTER_MODE=escpos`.
-5. Arranca la API (`npm start`) y en el TPV pulsa **Actualizar** (o Ctrl+F5): abajo debe poner **v173**.
+5. Arranca la API (`npm start`) y en el TPV pulsa **Actualizar** (o Ctrl+F5): abajo debe poner **v174**.
 6. Para que lleguen los datos al Manager, arranca también el agente (`npm start -w sync-agent` en otra ventana, o en Docker `--profile sync`).
 
 ## Git: un solo repositorio en la carpeta principal
