@@ -20,6 +20,7 @@ import {
   type Modifier,
   type Order,
   type Payment,
+  isMovedOrAbsorbed,
 } from "@japp/domain";
 import { DATABASE } from "../Constants/Injection.js";
 import { OrderOnTableApplication } from "./OrderOnTableApplication.js";
@@ -252,7 +253,10 @@ export class OrdersApplication {
           status: a.status === "invoiced" ? "invoiced" : "open",
           lines: lines.filter((l) => l.accountId === a.id && !l.deleted).map(toLine),
           deletedLines: lines
-            .filter((l) => l.accountId === a.id && l.deleted && l.printed)
+            // lo pasado a otra cuenta o incluido en un menú no es una eliminación: su copia vive en otra línea
+            .filter(
+              (l) => l.accountId === a.id && l.deleted && l.printed && !isMovedOrAbsorbed(l.deleteReason),
+            )
             .map(
               (l) =>
                 ({
@@ -998,6 +1002,22 @@ export class OrdersApplication {
       .from(s.account)
       .where(and(eq(s.account.orderId, orderId), eq(s.account.storeId, storeId)));
     return rows.map((r) => r.name);
+  }
+
+  /** ¿Esa cuenta de la orden ya se quitó (status cancelled)? Para que repetir «quitar cuenta vacía» no falle. */
+  async isCancelledAccount(storeId: string, orderId: string, accountId: string): Promise<boolean> {
+    const r = await this.database.db
+      .select({ id: s.account.id })
+      .from(s.account)
+      .where(
+        and(
+          eq(s.account.storeId, storeId),
+          eq(s.account.orderId, orderId),
+          eq(s.account.id, accountId),
+          eq(s.account.status, "cancelled"),
+        ),
+      );
+    return r.length > 0;
   }
 
   /** Reabrir mesa: las cuentas anuladas indicadas vuelven a open (sin quién la cerró). */

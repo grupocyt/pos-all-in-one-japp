@@ -58,6 +58,16 @@ async function invoiced(token = barra) {
 }
 
 describe("equipos", () => {
+  it("poner en una estación el UUID que ya tiene otra activa → 409 DUPLICATE con field deviceUuid y un mensaje claro", async () => {
+    await t.sql.query("UPDATE station SET device_uuid=$1 WHERE name='PDA1'", [U1]);
+    const caja = (await t.sql.query("SELECT id::text, version FROM station WHERE name='CAJA1'")).rows[0];
+    const r = await t.call("PATCH", `/config/estaciones/${caja.id}`, {
+      token: sistemas,
+      body: { deviceUuid: U1, version: caja.version },
+    });
+    expect([r.status, r.error.code, r.error.field]).toEqual([409, "DUPLICATE", "deviceUuid"]);
+    expect(r.error.message).toMatch(/otra estación activa/);
+  });
   it("identify: reconoce el equipo por su UUID (sin sesión); otro tipo → 409; sin estación → 404; UUID mal → 422", async () => {
     await t.sql.query("UPDATE station SET device_uuid=$1 WHERE name='PDA1'", [U1]);
     const ok = await t.call("POST", "/devices/identify", {

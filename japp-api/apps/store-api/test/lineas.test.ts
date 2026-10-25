@@ -209,6 +209,35 @@ describe("separar cuenta", () => {
     expect(rows[0].status).toBe("closed");
   });
 
+  it("pasar todo a otra cuenta deja la de origen vacía (sin «eliminadas») y se puede quitar", async () => {
+    const o = await newOrder();
+    await add(o.id, { plu: PLU.tosta, quantity: 2 });
+    const r = await add(o.id, { plu: PLU.croquetas });
+    await t.call("POST", `/orders/${o.id}/send`, { token: mesero, body: {} });
+    const src = r.body.accounts[0];
+    const m = await t.call("POST", `/orders/${o.id}/lines/move`, {
+      token: mesero,
+      body: {
+        lines: src.lines.map((l: any) => ({ lineId: l.id, quantity: l.quantity })),
+        newAccountName: "Cuenta 2",
+      },
+    });
+    expect(m.status, JSON.stringify(m.body)).toBe(200);
+    const g = (await t.call("GET", `/orders/${o.id}`, { token: mesero })).body;
+    const left = g.accounts.find((a: any) => a.id === src.id);
+    if (left) {
+      expect([left.lines.length, left.deletedLines.length]).toEqual([0, 0]);
+      const d = await t.call("DELETE", `/orders/${o.id}/accounts/${src.id}`, { token: mesero });
+      expect(d.status, JSON.stringify(d.body ?? d.error)).toBe(200);
+    }
+    const after = (await t.call("GET", `/orders/${o.id}`, { token: mesero })).body;
+    expect(after.accounts.map((a: any) => [a.name, a.lines.length])).toEqual([["Cuenta 2", 2]]);
+    // quitarla otra vez (el TPV también la quita en su tanda) no es un error
+    const again = await t.call("DELETE", `/orders/${o.id}/accounts/${src.id}`, { token: mesero });
+    expect(again.status).toBe(200);
+    expect(again.body.accounts).toHaveLength(1);
+  });
+
   it("pasar la línea entera deja la original marcada «Pasada a …» y no descuadra", async () => {
     const o = await newOrder();
     const r = await add(o.id, { plu: PLU.tosta });

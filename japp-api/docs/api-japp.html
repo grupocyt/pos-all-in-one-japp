@@ -84,7 +84,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <div class="wrap">
 <header class="hero"><div><div class="eyebrow">Japp · contrato de integración · v0.1</div><h1>API Japp</h1>
 <p class="lead">Los endpoints que conectan la caja, las PDA, el servidor de cada tienda, Japp Manager y el backoffice. Cada endpoint dice quién lo llama, qué permiso pide, qué envía, qué responde y qué tablas toca. La transacción es la estructura acordada en vista-orden.</p></div>
-<div class="stats"><div><b>123</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>41</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
+<div class="stats"><div><b>126</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>41</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
 <section class="card"><h2>Quién llama a quién</h2><svg viewBox="0 0 760 330" role="img" aria-label="Quién llama a quién en Japp" class="arch">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
 <rect x="8" y="8" width="360" height="314" rx="14" class="zone"/><text x="22" y="30" class="zt">TIENDA</text>
@@ -116,7 +116,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></section>
 <section class="card"><h2>Una mesa de principio a fin</h2><ol class="flow"><li><span>Abrir mesa</span><code>POST /orders</code></li><li><span>Entrar y avisar a los demás equipos</span><code>POST /orders/{orderId}/presence</code></li><li><span>Marcar productos (precio según el área)</span><code>POST /orders/{orderId}/lines</code></li><li><span>Enviar a cocina o barra</span><code>POST /orders/{orderId}/send</code></li><li><span>Precuenta</span><code>POST /orders/{orderId}/accounts/{accountId}/prebill</code></li><li><span>Separar si hace falta</span><code>POST /orders/{orderId}/lines/move</code></li><li><span>Cobrar (uno o varios pagos)</span><code>POST /orders/{orderId}/accounts/{accountId}/payments</code></li><li><span>Emitir la factura VeriFactu y cerrar la mesa</span><code>POST /orders/{orderId}/accounts/{accountId}/invoice</code></li><li><span>El agente envía la transacción, la factura y el registro VeriFactu al Manager</span><code>POST /stores/{storeId}/outbox</code></li></ol></section>
 <nav class="toc"><a href="#sec-ajustes">1 · Ajustes</a><a href="#sec-tx">2 · Transaccional</a><a href="#sec-rep">3 · Reportes y sincronización</a><a href="#api-manager">Manager</a><a href="#api-gateway">Gateway</a><a href="#errores">Errores</a><a href="#openapi">OpenAPI</a></nav>
-<section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 101 de 101 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
+<section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 104 de 104 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
 <summary><span class="m get">GET</span><code class="p">/config</code><span class="s">Paquete de configuración</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
 <p>Todo lo que el equipo necesita para trabajar sin más llamadas: restaurante, empresa, facturación, parámetros, áreas con sus mesas, carta (categorías, productos con canales y preguntas, preguntas con respuestas), impuestos, formas de pago, descuentos, motivos, canales, impresoras y estaciones. Solo lo activo. Cabecera ETag = versión de configuración; con If-None-Match igual responde 304 sin cuerpo.</p>
@@ -616,6 +616,159 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li></ul>
+</div></details><details class="ep" id="get-service-sla-gen">
+<summary><span class="m get">GET</span><code class="p">/service/sla</code><span class="s">SLA de atención</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Turnos (hora de Madrid; si end &lt; start pasa de medianoche) y reglas. La regla de la tienda (sin areaId, tableId ni shiftId) lleva todos los límites; las demás solo lo que cambian (null = hereda). Vale también con funciones.kpi (para enseñar los límites en Mesas en servicio). version = la que hay que mandar en el PUT.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>ajustes.parametros</code></dd><dt>En el TPV</dt><dd>Ajustes › SLA de atención</dd><dt>Tablas</dt><dd><code>service_sla</code> <code>service_shift</code></dd></dl>
+
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;SLA de atención&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;version&quot;: 3,
+    &quot;shifts&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;name&quot;: &quot;Comida&quot;,
+        &quot;start&quot;: &quot;12:00&quot;,
+        &quot;end&quot;: &quot;16:30&quot;
+      },
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;name&quot;: &quot;Cena&quot;,
+        &quot;start&quot;: &quot;19:30&quot;,
+        &quot;end&quot;: &quot;00:30&quot;
+      }
+    ],
+    &quot;rules&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;areaId&quot;: null,
+        &quot;tableId&quot;: null,
+        &quot;shiftId&quot;: null,
+        &quot;firstOrder&quot;: 10,
+        &quot;unsent&quot;: 3,
+        &quot;idle&quot;: 30,
+        &quot;prebillPay&quot;: 6,
+        &quot;total&quot;: 120,
+        &quot;warnPercent&quot;: 80
+      },
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;areaId&quot;: &quot;…&quot;,
+        &quot;tableId&quot;: null,
+        &quot;shiftId&quot;: null,
+        &quot;firstOrder&quot;: 12,
+        &quot;unsent&quot;: null,
+        &quot;idle&quot;: 40,
+        &quot;prebillPay&quot;: null,
+        &quot;total&quot;: null,
+        &quot;warnPercent&quot;: null
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="put-service-sla-gen">
+<summary><span class="m put">PUT</span><code class="p">/service/sla</code><span class="s">Guardar los SLA de atención</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Sustituye la configuración entera: turnos (hasta 8, sin pisarse, nombre único) y reglas por tienda, zona o mesa, cada una para todos los turnos o para uno (una regla por sitio y turno; zona o mesa, no las dos). Minutos de 1 a 600; warnPercent de 50 a 99. Los ids de turno los genera el equipo para que las reglas los puedan citar. Con otra version → 409 VERSION_CONFLICT. Devuelve la configuración nueva.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>ajustes.parametros</code></dd><dt>En el TPV</dt><dd>Ajustes › SLA de atención › Guardar</dd><dt>Tablas</dt><dd><code>service_sla</code> <code>service_shift</code></dd></dl>
+
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;version&quot;: 3,
+  &quot;shifts&quot;: [
+    {
+      &quot;id&quot;: &quot;…&quot;,
+      &quot;name&quot;: &quot;Comida&quot;,
+      &quot;start&quot;: &quot;12:00&quot;,
+      &quot;end&quot;: &quot;16:30&quot;
+    },
+    {
+      &quot;id&quot;: &quot;…&quot;,
+      &quot;name&quot;: &quot;Cena&quot;,
+      &quot;start&quot;: &quot;19:30&quot;,
+      &quot;end&quot;: &quot;00:30&quot;
+    }
+  ],
+  &quot;rules&quot;: [
+    {
+      &quot;id&quot;: null,
+      &quot;areaId&quot;: null,
+      &quot;tableId&quot;: null,
+      &quot;shiftId&quot;: null,
+      &quot;firstOrder&quot;: 10,
+      &quot;unsent&quot;: 3,
+      &quot;idle&quot;: 30,
+      &quot;prebillPay&quot;: 6,
+      &quot;total&quot;: 120,
+      &quot;warnPercent&quot;: 80
+    },
+    {
+      &quot;areaId&quot;: &quot;…&quot;,
+      &quot;shiftId&quot;: &quot;…&quot;,
+      &quot;firstOrder&quot;: 15
+    }
+  ]
+}</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Guardar los SLA de atención&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;version&quot;: 3,
+    &quot;shifts&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;name&quot;: &quot;Comida&quot;,
+        &quot;start&quot;: &quot;12:00&quot;,
+        &quot;end&quot;: &quot;16:30&quot;
+      },
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;name&quot;: &quot;Cena&quot;,
+        &quot;start&quot;: &quot;19:30&quot;,
+        &quot;end&quot;: &quot;00:30&quot;
+      }
+    ],
+    &quot;rules&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;areaId&quot;: null,
+        &quot;tableId&quot;: null,
+        &quot;shiftId&quot;: null,
+        &quot;firstOrder&quot;: 10,
+        &quot;unsent&quot;: 3,
+        &quot;idle&quot;: 30,
+        &quot;prebillPay&quot;: 6,
+        &quot;total&quot;: 120,
+        &quot;warnPercent&quot;: 80
+      },
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;areaId&quot;: &quot;…&quot;,
+        &quot;tableId&quot;: null,
+        &quot;shiftId&quot;: null,
+        &quot;firstOrder&quot;: 12,
+        &quot;unsent&quot;: null,
+        &quot;idle&quot;: 40,
+        &quot;prebillPay&quot;: null,
+        &quot;total&quot;: null,
+        &quot;warnPercent&quot;: null
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
 </div></details></section><section class="grp" id="aj-negocio"><h3>Negocio</h3><div class="mi" id="aj-negocio-restaurante"><h4>Restaurante</h4><details class="ep" id="get-config-restaurante-current">
 <summary><span class="m get">GET</span><code class="p">/config/restaurante/current</code><span class="s">Restaurante · ver</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
@@ -7375,6 +7528,122 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>PERIOD_CLOSED</code> <span class="pin">409</span> No hay periodo abierto.</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="get-service-live-tx">
+<summary><span class="m get">GET</span><code class="p">/service/live</code><span class="s">Mesas en servicio (SLA en vivo)</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Gestiones › Mesas en servicio. Cada mesa abierta medida con lo que ya guarda la base, contra los límites de Ajustes › SLA de atención que le tocan (tienda, zona o mesa y el turno en que se abrió; manda lo más concreto y lo vacío se hereda; source dice de dónde sale cada límite). metrics: firstOrder (de abrir a marcar lo primero; done=true cuando ya se marcó), unsent (lo marcado más antiguo sin enviar a cocina), idle (desde el último envío, sin nada pendiente ni precuenta), prebillPay (de la precuenta al cobro) y total; null si ese paso no aplica todavía. status = ok, warn (desde warnPercent del límite) o late (pasado). stage = waiting (nada marcado), ordering (marcado sin enviar), service (todo enviado) o billing (precuenta). Lo peor primero. today = medias y % dentro del SLA de las mesas cerradas del periodo abierto (y la toma de las abiertas); staff = por camarero (quien abrió la mesa).</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.kpi</code></dd><dt>En el TPV</dt><dd>Gestiones › Mesas en servicio</dd><dt>Tablas</dt><dd><code>orders</code> <code>order_line</code> <code>order_event</code> <code>account</code> <code>service_sla</code> <code>service_shift</code></dd></dl>
+
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Mesas en servicio (SLA en vivo)&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;at&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+    &quot;shift&quot;: &quot;Comida&quot;,
+    &quot;summary&quot;: {
+      &quot;open&quot;: 9,
+      &quot;late&quot;: 2,
+      &quot;warn&quot;: 3,
+      &quot;ok&quot;: 4,
+      &quot;stages&quot;: {
+        &quot;waiting&quot;: 1,
+        &quot;ordering&quot;: 2,
+        &quot;service&quot;: 4,
+        &quot;billing&quot;: 2
+      }
+    },
+    &quot;today&quot;: {
+      &quot;closed&quot;: 31,
+      &quot;firstOrder&quot;: {
+        &quot;avg&quot;: 4.2,
+        &quot;onTimePct&quot;: 88,
+        &quot;n&quot;: 36
+      },
+      &quot;prebillPay&quot;: {
+        &quot;avg&quot;: 5.1,
+        &quot;onTimePct&quot;: 74,
+        &quot;n&quot;: 28
+      },
+      &quot;total&quot;: {
+        &quot;avg&quot;: 63.5,
+        &quot;onTimePct&quot;: 97,
+        &quot;n&quot;: 31
+      }
+    },
+    &quot;staff&quot;: [
+      {
+        &quot;name&quot;: &quot;Pedro&quot;,
+        &quot;open&quot;: 3,
+        &quot;late&quot;: 1,
+        &quot;warn&quot;: 1,
+        &quot;closed&quot;: 9,
+        &quot;firstOrderAvg&quot;: 3.8,
+        &quot;onTimePct&quot;: 85
+      }
+    ],
+    &quot;items&quot;: [
+      {
+        &quot;orderId&quot;: &quot;…&quot;,
+        &quot;tableId&quot;: &quot;…&quot;,
+        &quot;tableName&quot;: &quot;12&quot;,
+        &quot;areaId&quot;: &quot;…&quot;,
+        &quot;areaName&quot;: &quot;BARRA&quot;,
+        &quot;guests&quot;: 2,
+        &quot;waiter&quot;: &quot;Pedro&quot;,
+        &quot;lastUser&quot;: &quot;Pedro&quot;,
+        &quot;total&quot;: 18.5,
+        &quot;openedAt&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+        &quot;shift&quot;: &quot;Comida&quot;,
+        &quot;stage&quot;: &quot;billing&quot;,
+        &quot;status&quot;: &quot;late&quot;,
+        &quot;metrics&quot;: {
+          &quot;firstOrder&quot;: {
+            &quot;minutes&quot;: 6.5,
+            &quot;limit&quot;: 5,
+            &quot;status&quot;: &quot;late&quot;,
+            &quot;done&quot;: true
+          },
+          &quot;unsent&quot;: null,
+          &quot;idle&quot;: null,
+          &quot;prebillPay&quot;: {
+            &quot;minutes&quot;: 7,
+            &quot;limit&quot;: 6,
+            &quot;status&quot;: &quot;late&quot;,
+            &quot;done&quot;: false
+          },
+          &quot;total&quot;: {
+            &quot;minutes&quot;: 42,
+            &quot;limit&quot;: 120,
+            &quot;status&quot;: &quot;ok&quot;,
+            &quot;done&quot;: false
+          }
+        },
+        &quot;limits&quot;: {
+          &quot;firstOrder&quot;: 5,
+          &quot;unsent&quot;: 3,
+          &quot;idle&quot;: 30,
+          &quot;prebillPay&quot;: 6,
+          &quot;total&quot;: 120,
+          &quot;warnPercent&quot;: 80
+        },
+        &quot;source&quot;: {
+          &quot;firstOrder&quot;: &quot;zona&quot;,
+          &quot;unsent&quot;: &quot;tienda&quot;,
+          &quot;idle&quot;: &quot;tienda&quot;,
+          &quot;prebillPay&quot;: &quot;mesa+turno&quot;,
+          &quot;total&quot;: &quot;tienda&quot;,
+          &quot;warnPercent&quot;: &quot;tienda&quot;
+        }
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
 </div></details></section></section><section class="api" id="sec-rep"><header class="ah"><h2>3 · Reportes y sincronización</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Lo que se consulta (informes, cierres, transacciones del día) y lo que se envía al Manager; al final, las APIs del Manager y del Gateway.</p></header><section class="grp"><h3>Reportes de la tienda</h3><p class="gd">Cierres, 52 semanas, venta en vivo, ventas, eliminaciones y KPI del personal.</p><details class="ep" id="get-reports-closings-rp">
 <summary><span class="m get">GET</span><code class="p">/reports/closings</code><span class="s">Cierres de un rango de fechas</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
@@ -27677,6 +27946,760 @@ paths:
                 body:
                   quantity: 3
                 idempotencyKey: null
+  /api/v2/service/live:
+    get:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Mesas en servicio (SLA en vivo)
+      description: &#x27;Gestiones › Mesas en servicio. Cada mesa abierta medida con lo que ya guarda la base, contra los límites
+        de Ajustes › SLA de atención que le tocan (tienda, zona o mesa y el turno en que se abrió; manda lo más concreto y
+        lo vacío se hereda; source dice de dónde sale cada límite). metrics: firstOrder (de abrir a marcar lo primero; done=true
+        cuando ya se marcó), unsent (lo marcado más antiguo sin enviar a cocina), idle (desde el último envío, sin nada pendiente
+        ni precuenta), prebillPay (de la precuenta al cobro) y total; null si ese paso no aplica todavía. status = ok, warn
+        (desde warnPercent del límite) o late (pasado). stage = waiting (nada marcado), ordering (marcado sin enviar), service
+        (todo enviado) o billing (precuenta). Lo peor primero. today = medias y % dentro del SLA de las mesas cerradas del
+        periodo abierto (y la toma de las abiertas); staff = por camarero (quien abrió la mesa).
+
+
+        Permiso: funciones.kpi
+
+
+        Lo llama: TPV
+
+
+        Tablas: orders, order_line, order_event, account, service_sla, service_shift&#x27;
+      operationId: store_GET_service_live
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      at:
+                        type: string
+                      shift:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      summary:
+                        type: object
+                        properties:
+                          open:
+                            type: integer
+                          late:
+                            type: number
+                          warn:
+                            type: number
+                          ok:
+                            type: number
+                          stages:
+                            type: object
+                            properties:
+                              waiting:
+                                type: number
+                              ordering:
+                                type: number
+                              service:
+                                type: number
+                              billing:
+                                type: number
+                      today:
+                        type: object
+                        properties:
+                          closed:
+                            type: number
+                          firstOrder:
+                            type:
+                            - object
+                            - &#x27;null&#x27;
+                            properties:
+                              avg:
+                                type:
+                                - number
+                                - &#x27;null&#x27;
+                              onTimePct:
+                                type:
+                                - number
+                                - &#x27;null&#x27;
+                              n:
+                                type: number
+                          prebillPay:
+                            type:
+                            - object
+                            - &#x27;null&#x27;
+                            properties:
+                              avg:
+                                type:
+                                - number
+                                - &#x27;null&#x27;
+                              onTimePct:
+                                type:
+                                - number
+                                - &#x27;null&#x27;
+                              n:
+                                type: number
+                          total:
+                            type: object
+                            properties:
+                              avg:
+                                type:
+                                - number
+                                - &#x27;null&#x27;
+                              onTimePct:
+                                type:
+                                - number
+                                - &#x27;null&#x27;
+                              n:
+                                type: number
+                      staff:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            open:
+                              type: integer
+                            late:
+                              type: number
+                            warn:
+                              type: number
+                            closed:
+                              type: number
+                            firstOrderAvg:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            onTimePct:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            orderId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            tableId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            tableName:
+                              type: string
+                            areaId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            areaName:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            guests:
+                              type: integer
+                            waiter:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            lastUser:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            total:
+                              type: number
+                            openedAt:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            shift:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            stage:
+                              type: string
+                            status:
+                              type: string
+                            metrics:
+                              type: object
+                              properties:
+                                firstOrder:
+                                  type:
+                                  - object
+                                  - &#x27;null&#x27;
+                                  properties:
+                                    minutes:
+                                      type: number
+                                    limit:
+                                      type: number
+                                    status:
+                                      type: string
+                                    done:
+                                      type: boolean
+                                unsent: {}
+                                idle: {}
+                                prebillPay:
+                                  type:
+                                  - object
+                                  - &#x27;null&#x27;
+                                  properties:
+                                    minutes:
+                                      type: number
+                                    limit:
+                                      type: number
+                                    status:
+                                      type: string
+                                    done:
+                                      type: boolean
+                                total:
+                                  type: object
+                                  properties:
+                                    minutes:
+                                      type: number
+                                    limit:
+                                      type: number
+                                    status:
+                                      type: string
+                                    done:
+                                      type: boolean
+                            limits:
+                              type: object
+                              properties:
+                                firstOrder:
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
+                                unsent:
+                                  type: number
+                                idle:
+                                  type: number
+                                prebillPay:
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
+                                total:
+                                  type: number
+                                warnPercent:
+                                  type: number
+                            source:
+                              type: object
+                              properties:
+                                firstOrder:
+                                  type:
+                                  - string
+                                  - &#x27;null&#x27;
+                                unsent:
+                                  type: string
+                                idle:
+                                  type: string
+                                prebillPay:
+                                  type:
+                                  - string
+                                  - &#x27;null&#x27;
+                                total:
+                                  type: string
+                                warnPercent:
+                                  type: string
+              example:
+                title: Mesas en servicio (SLA en vivo)
+                type: success
+                status: 200
+                data:
+                  at: &#x27;2026-10-13T16:40:00.000Z&#x27;
+                  shift: Comida
+                  summary:
+                    open: 9
+                    late: 2
+                    warn: 3
+                    ok: 4
+                    stages:
+                      waiting: 1
+                      ordering: 2
+                      service: 4
+                      billing: 2
+                  today:
+                    closed: 31
+                    firstOrder:
+                      avg: 4.2
+                      onTimePct: 88
+                      n: 36
+                    prebillPay:
+                      avg: 5.1
+                      onTimePct: 74
+                      n: 28
+                    total:
+                      avg: 63.5
+                      onTimePct: 97
+                      n: 31
+                  staff:
+                  - name: Pedro
+                    open: 3
+                    late: 1
+                    warn: 1
+                    closed: 9
+                    firstOrderAvg: 3.8
+                    onTimePct: 85
+                  items:
+                  - orderId: …
+                    tableId: …
+                    tableName: &#x27;12&#x27;
+                    areaId: …
+                    areaName: BARRA
+                    guests: 2
+                    waiter: Pedro
+                    lastUser: Pedro
+                    total: 18.5
+                    openedAt: &#x27;2026-10-13T16:40:00.000Z&#x27;
+                    shift: Comida
+                    stage: billing
+                    status: late
+                    metrics:
+                      firstOrder:
+                        minutes: 6.5
+                        limit: 5
+                        status: late
+                        done: true
+                      unsent: null
+                      idle: null
+                      prebillPay:
+                        minutes: 7
+                        limit: 6
+                        status: late
+                        done: false
+                      total:
+                        minutes: 42
+                        limit: 120
+                        status: ok
+                        done: false
+                    limits:
+                      firstOrder: 5
+                      unsent: 3
+                      idle: 30
+                      prebillPay: 6
+                      total: 120
+                      warnPercent: 80
+                    source:
+                      firstOrder: zona
+                      unsent: tienda
+                      idle: tienda
+                      prebillPay: mesa+turno
+                      total: tienda
+                      warnPercent: tienda
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mesas en servicio (SLA en vivo)
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+  /api/v2/service/sla:
+    get:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: SLA de atención
+      description: &#x27;Turnos (hora de Madrid; si end &lt; start pasa de medianoche) y reglas. La regla de la tienda (sin areaId,
+        tableId ni shiftId) lleva todos los límites; las demás solo lo que cambian (null = hereda). Vale también con funciones.kpi
+        (para enseñar los límites en Mesas en servicio). version = la que hay que mandar en el PUT.
+
+
+        Permiso: ajustes.parametros
+
+
+        Lo llama: TPV
+
+
+        Tablas: service_sla, service_shift&#x27;
+      operationId: store_GET_service_sla
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      version:
+                        type: integer
+                      shifts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            name:
+                              type: string
+                            start:
+                              type: string
+                            end:
+                              type: string
+                      rules:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            areaId: {}
+                            tableId: {}
+                            shiftId: {}
+                            firstOrder:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            unsent:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            idle:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            prebillPay:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            total:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            warnPercent:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+              example:
+                title: SLA de atención
+                type: success
+                status: 200
+                data: &amp;id013
+                  version: 3
+                  shifts: &amp;id014
+                  - id: …
+                    name: Comida
+                    start: &#x27;12:00&#x27;
+                    end: &#x27;16:30&#x27;
+                  - id: …
+                    name: Cena
+                    start: &#x27;19:30&#x27;
+                    end: 00:30
+                  rules:
+                  - id: …
+                    areaId: null
+                    tableId: null
+                    shiftId: null
+                    firstOrder: 10
+                    unsent: 3
+                    idle: 30
+                    prebillPay: 6
+                    total: 120
+                    warnPercent: 80
+                  - id: …
+                    areaId: …
+                    tableId: null
+                    shiftId: null
+                    firstOrder: 12
+                    unsent: null
+                    idle: 40
+                    prebillPay: null
+                    total: null
+                    warnPercent: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: SLA de atención
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+    put:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Guardar los SLA de atención
+      description: &#x27;Sustituye la configuración entera: turnos (hasta 8, sin pisarse, nombre único) y reglas por tienda, zona
+        o mesa, cada una para todos los turnos o para uno (una regla por sitio y turno; zona o mesa, no las dos). Minutos
+        de 1 a 600; warnPercent de 50 a 99. Los ids de turno los genera el equipo para que las reglas los puedan citar. Con
+        otra version → 409 VERSION_CONFLICT. Devuelve la configuración nueva.
+
+
+        Permiso: ajustes.parametros
+
+
+        Lo llama: TPV
+
+
+        Tablas: service_sla, service_shift&#x27;
+      operationId: store_PUT_service_sla
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      version:
+                        type: integer
+                      shifts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            name:
+                              type: string
+                            start:
+                              type: string
+                            end:
+                              type: string
+                      rules:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            areaId: {}
+                            tableId: {}
+                            shiftId: {}
+                            firstOrder:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            unsent:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            idle:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            prebillPay:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            total:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            warnPercent:
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+              example:
+                title: Guardar los SLA de atención
+                type: success
+                status: 200
+                data: *id013
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar los SLA de atención
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo
+            la pinta y reintenta.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar los SLA de atención
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: VERSION_CONFLICT
+                  message: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta
+                    y reintenta.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar los SLA de atención
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                shifts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      name:
+                        type: string
+                      start:
+                        type: string
+                      end:
+                        type: string
+                rules:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id: {}
+                      areaId: {}
+                      tableId: {}
+                      shiftId: {}
+                      firstOrder:
+                        type:
+                        - number
+                        - &#x27;null&#x27;
+                      unsent:
+                        type:
+                        - number
+                        - &#x27;null&#x27;
+                      idle:
+                        type:
+                        - number
+                        - &#x27;null&#x27;
+                      prebillPay:
+                        type:
+                        - number
+                        - &#x27;null&#x27;
+                      total:
+                        type:
+                        - number
+                        - &#x27;null&#x27;
+                      warnPercent:
+                        type:
+                        - number
+                        - &#x27;null&#x27;
+            example:
+              version: 3
+              shifts: *id014
+              rules:
+              - id: null
+                areaId: null
+                tableId: null
+                shiftId: null
+                firstOrder: 10
+                unsent: 3
+                idle: 30
+                prebillPay: 6
+                total: 120
+                warnPercent: 80
+              - areaId: …
+                shiftId: …
+                firstOrder: 15
 components:
   securitySchemes:
     session:

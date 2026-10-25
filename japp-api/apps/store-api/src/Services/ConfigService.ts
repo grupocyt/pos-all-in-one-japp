@@ -91,6 +91,12 @@ export class ConfigService {
     if (!e || !PG_MAPPED.has(e.code)) {
       return ex;
     }
+    if (e.code === PG_UNIQUE && e.constraint === "uq_station_device_uuid") {
+      return this.mk("DUPLICATE", "Ese UUID de equipo ya lo tiene otra estación activa: quítaselo primero", {
+        field: "deviceUuid",
+        constraint: e.constraint,
+      });
+    }
     if (e.code === PG_UNIQUE) {
       return this.mk("DUPLICATE", "Ya existe un registro con ese nombre o código", {
         constraint: e.constraint,

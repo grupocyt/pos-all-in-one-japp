@@ -128,7 +128,9 @@ describe("cambio de mesa entre tarifas", () => {
       body: { scope: "table", toTableId: await freeTable(t, "TERRAZA"), version: v },
     });
     expect([r.status, r.error.code, r.error.field]).toEqual([422, "VALIDATION", "toTableId"]);
-    expect(r.error.message).toBe("No se puede pasar de una zona con precio general a una con precio de terraza");
+    expect(r.error.message).toBe(
+      "No se puede pasar de una zona con precio general a una con precio de terraza",
+    );
     const a = await t.call("POST", `/orders/${o.id}/accounts/${o.acc}/transfer`, {
       token: sis,
       body: { toTableId: await freeTable(t, "TERRAZA"), version: v },

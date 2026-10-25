@@ -44,3 +44,4 @@ export * from "./orderIncidents.js";
 export * from "./batch.js";
 export * from "./logo.js";
 export * from "./kitchenNotices.js";
+export * from "./sla.js";

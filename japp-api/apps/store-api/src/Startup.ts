@@ -80,6 +80,9 @@ import { OrdersBatchService } from "./Services/OrdersBatchService.js";
 import { OrderIncidentsController } from "./Controllers/OrderIncidentsController.js";
 import { OrderIncidentsService } from "./Services/OrderIncidentsService.js";
 import { OrderIncidentsApplication } from "./Applications/OrderIncidentsApplication.js";
+import { ServiceSlaController } from "./Controllers/ServiceSlaController.js";
+import { ServiceSlaService } from "./Services/ServiceSlaService.js";
+import { ServiceSlaApplication } from "./Applications/ServiceSlaApplication.js";
 import { IncidentsService } from "./Services/IncidentsService.js";
 import { IncidentsApplication } from "./Applications/IncidentsApplication.js";
 
@@ -118,6 +121,7 @@ class AppModule {
         DevicesController,
         IncidentsController,
         OrderIncidentsController,
+        ServiceSlaController,
         OrdersBatchController,
       ],
       providers: [
@@ -170,6 +174,8 @@ class AppModule {
         IncidentsApplication,
         OrderIncidentsService,
         OrderIncidentsApplication,
+        ServiceSlaService,
+        ServiceSlaApplication,
         { provide: APP_FILTER, useClass: ErrorsFilter },
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_INTERCEPTOR, useClass: EnvelopeInterceptor },

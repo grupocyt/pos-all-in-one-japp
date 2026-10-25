@@ -18874,6 +18874,760 @@ paths:
                 body:
                   quantity: 3
                 idempotencyKey: null
+  /api/v2/service/live:
+    get:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Mesas en servicio (SLA en vivo)
+      description: 'Gestiones › Mesas en servicio. Cada mesa abierta medida con lo que ya guarda la base, contra los límites
+        de Ajustes › SLA de atención que le tocan (tienda, zona o mesa y el turno en que se abrió; manda lo más concreto y
+        lo vacío se hereda; source dice de dónde sale cada límite). metrics: firstOrder (de abrir a marcar lo primero; done=true
+        cuando ya se marcó), unsent (lo marcado más antiguo sin enviar a cocina), idle (desde el último envío, sin nada pendiente
+        ni precuenta), prebillPay (de la precuenta al cobro) y total; null si ese paso no aplica todavía. status = ok, warn
+        (desde warnPercent del límite) o late (pasado). stage = waiting (nada marcado), ordering (marcado sin enviar), service
+        (todo enviado) o billing (precuenta). Lo peor primero. today = medias y % dentro del SLA de las mesas cerradas del
+        periodo abierto (y la toma de las abiertas); staff = por camarero (quien abrió la mesa).
+
+
+        Permiso: funciones.kpi
+
+
+        Lo llama: TPV
+
+
+        Tablas: orders, order_line, order_event, account, service_sla, service_shift'
+      operationId: store_GET_service_live
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      at:
+                        type: string
+                      shift:
+                        type:
+                        - string
+                        - 'null'
+                      summary:
+                        type: object
+                        properties:
+                          open:
+                            type: integer
+                          late:
+                            type: number
+                          warn:
+                            type: number
+                          ok:
+                            type: number
+                          stages:
+                            type: object
+                            properties:
+                              waiting:
+                                type: number
+                              ordering:
+                                type: number
+                              service:
+                                type: number
+                              billing:
+                                type: number
+                      today:
+                        type: object
+                        properties:
+                          closed:
+                            type: number
+                          firstOrder:
+                            type:
+                            - object
+                            - 'null'
+                            properties:
+                              avg:
+                                type:
+                                - number
+                                - 'null'
+                              onTimePct:
+                                type:
+                                - number
+                                - 'null'
+                              n:
+                                type: number
+                          prebillPay:
+                            type:
+                            - object
+                            - 'null'
+                            properties:
+                              avg:
+                                type:
+                                - number
+                                - 'null'
+                              onTimePct:
+                                type:
+                                - number
+                                - 'null'
+                              n:
+                                type: number
+                          total:
+                            type: object
+                            properties:
+                              avg:
+                                type:
+                                - number
+                                - 'null'
+                              onTimePct:
+                                type:
+                                - number
+                                - 'null'
+                              n:
+                                type: number
+                      staff:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            open:
+                              type: integer
+                            late:
+                              type: number
+                            warn:
+                              type: number
+                            closed:
+                              type: number
+                            firstOrderAvg:
+                              type:
+                              - number
+                              - 'null'
+                            onTimePct:
+                              type:
+                              - number
+                              - 'null'
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            orderId:
+                              type:
+                              - string
+                              - 'null'
+                            tableId:
+                              type:
+                              - string
+                              - 'null'
+                            tableName:
+                              type: string
+                            areaId:
+                              type:
+                              - string
+                              - 'null'
+                            areaName:
+                              type:
+                              - string
+                              - 'null'
+                            guests:
+                              type: integer
+                            waiter:
+                              type:
+                              - string
+                              - 'null'
+                            lastUser:
+                              type:
+                              - string
+                              - 'null'
+                            total:
+                              type: number
+                            openedAt:
+                              type:
+                              - string
+                              - 'null'
+                            shift:
+                              type:
+                              - string
+                              - 'null'
+                            stage:
+                              type: string
+                            status:
+                              type: string
+                            metrics:
+                              type: object
+                              properties:
+                                firstOrder:
+                                  type:
+                                  - object
+                                  - 'null'
+                                  properties:
+                                    minutes:
+                                      type: number
+                                    limit:
+                                      type: number
+                                    status:
+                                      type: string
+                                    done:
+                                      type: boolean
+                                unsent: {}
+                                idle: {}
+                                prebillPay:
+                                  type:
+                                  - object
+                                  - 'null'
+                                  properties:
+                                    minutes:
+                                      type: number
+                                    limit:
+                                      type: number
+                                    status:
+                                      type: string
+                                    done:
+                                      type: boolean
+                                total:
+                                  type: object
+                                  properties:
+                                    minutes:
+                                      type: number
+                                    limit:
+                                      type: number
+                                    status:
+                                      type: string
+                                    done:
+                                      type: boolean
+                            limits:
+                              type: object
+                              properties:
+                                firstOrder:
+                                  type:
+                                  - number
+                                  - 'null'
+                                unsent:
+                                  type: number
+                                idle:
+                                  type: number
+                                prebillPay:
+                                  type:
+                                  - number
+                                  - 'null'
+                                total:
+                                  type: number
+                                warnPercent:
+                                  type: number
+                            source:
+                              type: object
+                              properties:
+                                firstOrder:
+                                  type:
+                                  - string
+                                  - 'null'
+                                unsent:
+                                  type: string
+                                idle:
+                                  type: string
+                                prebillPay:
+                                  type:
+                                  - string
+                                  - 'null'
+                                total:
+                                  type: string
+                                warnPercent:
+                                  type: string
+              example:
+                title: Mesas en servicio (SLA en vivo)
+                type: success
+                status: 200
+                data:
+                  at: '2026-10-13T16:40:00.000Z'
+                  shift: Comida
+                  summary:
+                    open: 9
+                    late: 2
+                    warn: 3
+                    ok: 4
+                    stages:
+                      waiting: 1
+                      ordering: 2
+                      service: 4
+                      billing: 2
+                  today:
+                    closed: 31
+                    firstOrder:
+                      avg: 4.2
+                      onTimePct: 88
+                      n: 36
+                    prebillPay:
+                      avg: 5.1
+                      onTimePct: 74
+                      n: 28
+                    total:
+                      avg: 63.5
+                      onTimePct: 97
+                      n: 31
+                  staff:
+                  - name: Pedro
+                    open: 3
+                    late: 1
+                    warn: 1
+                    closed: 9
+                    firstOrderAvg: 3.8
+                    onTimePct: 85
+                  items:
+                  - orderId: …
+                    tableId: …
+                    tableName: '12'
+                    areaId: …
+                    areaName: BARRA
+                    guests: 2
+                    waiter: Pedro
+                    lastUser: Pedro
+                    total: 18.5
+                    openedAt: '2026-10-13T16:40:00.000Z'
+                    shift: Comida
+                    stage: billing
+                    status: late
+                    metrics:
+                      firstOrder:
+                        minutes: 6.5
+                        limit: 5
+                        status: late
+                        done: true
+                      unsent: null
+                      idle: null
+                      prebillPay:
+                        minutes: 7
+                        limit: 6
+                        status: late
+                        done: false
+                      total:
+                        minutes: 42
+                        limit: 120
+                        status: ok
+                        done: false
+                    limits:
+                      firstOrder: 5
+                      unsent: 3
+                      idle: 30
+                      prebillPay: 6
+                      total: 120
+                      warnPercent: 80
+                    source:
+                      firstOrder: zona
+                      unsent: tienda
+                      idle: tienda
+                      prebillPay: mesa+turno
+                      total: tienda
+                      warnPercent: tienda
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Mesas en servicio (SLA en vivo)
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+  /api/v2/service/sla:
+    get:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: SLA de atención
+      description: 'Turnos (hora de Madrid; si end < start pasa de medianoche) y reglas. La regla de la tienda (sin areaId,
+        tableId ni shiftId) lleva todos los límites; las demás solo lo que cambian (null = hereda). Vale también con funciones.kpi
+        (para enseñar los límites en Mesas en servicio). version = la que hay que mandar en el PUT.
+
+
+        Permiso: ajustes.parametros
+
+
+        Lo llama: TPV
+
+
+        Tablas: service_sla, service_shift'
+      operationId: store_GET_service_sla
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      version:
+                        type: integer
+                      shifts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            name:
+                              type: string
+                            start:
+                              type: string
+                            end:
+                              type: string
+                      rules:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            areaId: {}
+                            tableId: {}
+                            shiftId: {}
+                            firstOrder:
+                              type:
+                              - number
+                              - 'null'
+                            unsent:
+                              type:
+                              - number
+                              - 'null'
+                            idle:
+                              type:
+                              - number
+                              - 'null'
+                            prebillPay:
+                              type:
+                              - number
+                              - 'null'
+                            total:
+                              type:
+                              - number
+                              - 'null'
+                            warnPercent:
+                              type:
+                              - number
+                              - 'null'
+              example:
+                title: SLA de atención
+                type: success
+                status: 200
+                data: &id013
+                  version: 3
+                  shifts: &id014
+                  - id: …
+                    name: Comida
+                    start: '12:00'
+                    end: '16:30'
+                  - id: …
+                    name: Cena
+                    start: '19:30'
+                    end: 00:30
+                  rules:
+                  - id: …
+                    areaId: null
+                    tableId: null
+                    shiftId: null
+                    firstOrder: 10
+                    unsent: 3
+                    idle: 30
+                    prebillPay: 6
+                    total: 120
+                    warnPercent: 80
+                  - id: …
+                    areaId: …
+                    tableId: null
+                    shiftId: null
+                    firstOrder: 12
+                    unsent: null
+                    idle: 40
+                    prebillPay: null
+                    total: null
+                    warnPercent: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: SLA de atención
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+    put:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Guardar los SLA de atención
+      description: 'Sustituye la configuración entera: turnos (hasta 8, sin pisarse, nombre único) y reglas por tienda, zona
+        o mesa, cada una para todos los turnos o para uno (una regla por sitio y turno; zona o mesa, no las dos). Minutos
+        de 1 a 600; warnPercent de 50 a 99. Los ids de turno los genera el equipo para que las reglas los puedan citar. Con
+        otra version → 409 VERSION_CONFLICT. Devuelve la configuración nueva.
+
+
+        Permiso: ajustes.parametros
+
+
+        Lo llama: TPV
+
+
+        Tablas: service_sla, service_shift'
+      operationId: store_PUT_service_sla
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      version:
+                        type: integer
+                      shifts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            name:
+                              type: string
+                            start:
+                              type: string
+                            end:
+                              type: string
+                      rules:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            areaId: {}
+                            tableId: {}
+                            shiftId: {}
+                            firstOrder:
+                              type:
+                              - number
+                              - 'null'
+                            unsent:
+                              type:
+                              - number
+                              - 'null'
+                            idle:
+                              type:
+                              - number
+                              - 'null'
+                            prebillPay:
+                              type:
+                              - number
+                              - 'null'
+                            total:
+                              type:
+                              - number
+                              - 'null'
+                            warnPercent:
+                              type:
+                              - number
+                              - 'null'
+              example:
+                title: Guardar los SLA de atención
+                type: success
+                status: 200
+                data: *id013
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar los SLA de atención
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo
+            la pinta y reintenta.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar los SLA de atención
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: VERSION_CONFLICT
+                  message: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta
+                    y reintenta.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar los SLA de atención
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                shifts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type:
+                        - string
+                        - 'null'
+                      name:
+                        type: string
+                      start:
+                        type: string
+                      end:
+                        type: string
+                rules:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id: {}
+                      areaId: {}
+                      tableId: {}
+                      shiftId: {}
+                      firstOrder:
+                        type:
+                        - number
+                        - 'null'
+                      unsent:
+                        type:
+                        - number
+                        - 'null'
+                      idle:
+                        type:
+                        - number
+                        - 'null'
+                      prebillPay:
+                        type:
+                        - number
+                        - 'null'
+                      total:
+                        type:
+                        - number
+                        - 'null'
+                      warnPercent:
+                        type:
+                        - number
+                        - 'null'
+            example:
+              version: 3
+              shifts: *id014
+              rules:
+              - id: null
+                areaId: null
+                tableId: null
+                shiftId: null
+                firstOrder: 10
+                unsent: 3
+                idle: 30
+                prebillPay: 6
+                total: 120
+                warnPercent: 80
+              - areaId: …
+                shiftId: …
+                firstOrder: 15
 components:
   securitySchemes:
     session:

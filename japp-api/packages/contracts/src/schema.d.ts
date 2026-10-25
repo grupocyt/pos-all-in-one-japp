@@ -2872,6 +2872,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/service/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mesas en servicio (SLA en vivo)
+         * @description Gestiones › Mesas en servicio. Cada mesa abierta medida con lo que ya guarda la base, contra los límites de Ajustes › SLA de atención que le tocan (tienda, zona o mesa y el turno en que se abrió; manda lo más concreto y lo vacío se hereda; source dice de dónde sale cada límite). metrics: firstOrder (de abrir a marcar lo primero; done=true cuando ya se marcó), unsent (lo marcado más antiguo sin enviar a cocina), idle (desde el último envío, sin nada pendiente ni precuenta), prebillPay (de la precuenta al cobro) y total; null si ese paso no aplica todavía. status = ok, warn (desde warnPercent del límite) o late (pasado). stage = waiting (nada marcado), ordering (marcado sin enviar), service (todo enviado) o billing (precuenta). Lo peor primero. today = medias y % dentro del SLA de las mesas cerradas del periodo abierto (y la toma de las abiertas); staff = por camarero (quien abrió la mesa).
+         *
+         *     Permiso: funciones.kpi
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: orders, order_line, order_event, account, service_sla, service_shift
+         */
+        get: operations["store_GET_service_live"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/service/sla": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SLA de atención
+         * @description Turnos (hora de Madrid; si end < start pasa de medianoche) y reglas. La regla de la tienda (sin areaId, tableId ni shiftId) lleva todos los límites; las demás solo lo que cambian (null = hereda). Vale también con funciones.kpi (para enseñar los límites en Mesas en servicio). version = la que hay que mandar en el PUT.
+         *
+         *     Permiso: ajustes.parametros
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: service_sla, service_shift
+         */
+        get: operations["store_GET_service_sla"];
+        /**
+         * Guardar los SLA de atención
+         * @description Sustituye la configuración entera: turnos (hasta 8, sin pisarse, nombre único) y reglas por tienda, zona o mesa, cada una para todos los turnos o para uno (una regla por sitio y turno; zona o mesa, no las dos). Minutos de 1 a 600; warnPercent de 50 a 99. Los ids de turno los genera el equipo para que las reglas los puedan citar. Con otra version → 409 VERSION_CONFLICT. Devuelve la configuración nueva.
+         *
+         *     Permiso: ajustes.parametros
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: service_sla, service_shift
+         */
+        put: operations["store_PUT_service_sla"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12313,6 +12375,318 @@ export interface operations {
                 };
             };
             /** @description TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · PERIOD_CLOSED: No hay periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_service_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            at?: string;
+                            shift?: string | null;
+                            summary?: {
+                                open?: number;
+                                late?: number;
+                                warn?: number;
+                                ok?: number;
+                                stages?: {
+                                    waiting?: number;
+                                    ordering?: number;
+                                    service?: number;
+                                    billing?: number;
+                                };
+                            };
+                            today?: {
+                                closed?: number;
+                                firstOrder?: {
+                                    avg?: number | null;
+                                    onTimePct?: number | null;
+                                    n?: number;
+                                } | null;
+                                prebillPay?: {
+                                    avg?: number | null;
+                                    onTimePct?: number | null;
+                                    n?: number;
+                                } | null;
+                                total?: {
+                                    avg?: number | null;
+                                    onTimePct?: number | null;
+                                    n?: number;
+                                };
+                            };
+                            staff?: {
+                                name?: string;
+                                open?: number;
+                                late?: number;
+                                warn?: number;
+                                closed?: number;
+                                firstOrderAvg?: number | null;
+                                onTimePct?: number | null;
+                            }[];
+                            items?: {
+                                orderId?: string | null;
+                                tableId?: string | null;
+                                tableName?: string;
+                                areaId?: string | null;
+                                areaName?: string | null;
+                                guests?: number;
+                                waiter?: string | null;
+                                lastUser?: string | null;
+                                total?: number;
+                                openedAt?: string | null;
+                                shift?: string | null;
+                                stage?: string;
+                                status?: string;
+                                metrics?: {
+                                    firstOrder?: {
+                                        minutes?: number;
+                                        limit?: number;
+                                        status?: string;
+                                        done?: boolean;
+                                    } | null;
+                                    unsent?: unknown;
+                                    idle?: unknown;
+                                    prebillPay?: {
+                                        minutes?: number;
+                                        limit?: number;
+                                        status?: string;
+                                        done?: boolean;
+                                    } | null;
+                                    total?: {
+                                        minutes?: number;
+                                        limit?: number;
+                                        status?: string;
+                                        done?: boolean;
+                                    };
+                                };
+                                limits?: {
+                                    firstOrder?: number | null;
+                                    unsent?: number;
+                                    idle?: number;
+                                    prebillPay?: number | null;
+                                    total?: number;
+                                    warnPercent?: number;
+                                };
+                                source?: {
+                                    firstOrder?: string | null;
+                                    unsent?: string;
+                                    idle?: string;
+                                    prebillPay?: string | null;
+                                    total?: string;
+                                    warnPercent?: string;
+                                };
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_service_sla: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            version?: number;
+                            shifts?: {
+                                id?: string | null;
+                                name?: string;
+                                start?: string;
+                                end?: string;
+                            }[];
+                            rules?: {
+                                id?: string | null;
+                                areaId?: unknown;
+                                tableId?: unknown;
+                                shiftId?: unknown;
+                                firstOrder?: number | null;
+                                unsent?: number | null;
+                                idle?: number | null;
+                                prebillPay?: number | null;
+                                total?: number | null;
+                                warnPercent?: number | null;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_PUT_service_sla: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "version": 3,
+                 *       "shifts": [
+                 *         {
+                 *           "id": "…",
+                 *           "name": "Comida",
+                 *           "start": "12:00",
+                 *           "end": "16:30"
+                 *         },
+                 *         {
+                 *           "id": "…",
+                 *           "name": "Cena",
+                 *           "start": "19:30",
+                 *           "end": "00:30"
+                 *         }
+                 *       ],
+                 *       "rules": [
+                 *         {
+                 *           "id": null,
+                 *           "areaId": null,
+                 *           "tableId": null,
+                 *           "shiftId": null,
+                 *           "firstOrder": 10,
+                 *           "unsent": 3,
+                 *           "idle": 30,
+                 *           "prebillPay": 6,
+                 *           "total": 120,
+                 *           "warnPercent": 80
+                 *         },
+                 *         {
+                 *           "areaId": "…",
+                 *           "shiftId": "…",
+                 *           "firstOrder": 15
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    version?: number;
+                    shifts?: {
+                        id?: string | null;
+                        name?: string;
+                        start?: string;
+                        end?: string;
+                    }[];
+                    rules?: {
+                        id?: unknown;
+                        areaId?: unknown;
+                        tableId?: unknown;
+                        shiftId?: unknown;
+                        firstOrder?: number | null;
+                        unsent?: number | null;
+                        idle?: number | null;
+                        prebillPay?: number | null;
+                        total?: number | null;
+                        warnPercent?: number | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            version?: number;
+                            shifts?: {
+                                id?: string | null;
+                                name?: string;
+                                start?: string;
+                                end?: string;
+                            }[];
+                            rules?: {
+                                id?: string | null;
+                                areaId?: unknown;
+                                tableId?: unknown;
+                                shiftId?: unknown;
+                                firstOrder?: number | null;
+                                unsent?: number | null;
+                                idle?: number | null;
+                                prebillPay?: number | null;
+                                total?: number | null;
+                                warnPercent?: number | null;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
             409: {
                 headers: {
                     [name: string]: unknown;

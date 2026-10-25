@@ -1822,6 +1822,11 @@ export class OrdersService {
 
   async removeAccount(session: Session, orderId: string, accountId: string) {
     await this.auth.require(session, "pedido.cuentas");
+    // ya quitada (p. ej. al pasar todo a otra cuenta la de origen desaparece sola): repetirlo no es un error,
+    // así una tanda del TPV que también la quita no se deshace entera por un 404
+    if (await this.repo.isCancelledAccount(session.storeId, orderId, accountId)) {
+      return this.get(session, orderId);
+    }
     return (
       await this.command(session, orderId, null, (l, ctx) => {
         const name = l.order.accounts.find((a) => a.id === accountId)?.name ?? "";

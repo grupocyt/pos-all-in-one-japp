@@ -44,6 +44,24 @@ describe("reglas en la base", () => {
     await fails("UPDATE billing_settings SET batch_send_seconds=1 WHERE store_id=$1", [store], "23514");
     await fails("UPDATE billing_settings SET batch_send_seconds=31 WHERE store_id=$1", [store], "23514");
   }));
+  it("SLA de atención: la regla de la tienda trae todos los límites, el resto puede heredar, sin repetir ámbito ni pasar de 600 min (migración 0017)", () => rollback(c, async () => {
+    const d = (await c.query("SELECT * FROM service_sla WHERE store_id=$1 AND area_id IS NULL AND table_id IS NULL AND shift_id IS NULL", [store])).rows;
+    expect(d).toHaveLength(1);
+    expect(d[0].first_order_minutes).toBeGreaterThan(0);
+    const area = (await one(c, "SELECT id FROM area WHERE store_id=$1 LIMIT 1", [store])).id;
+    const sh = uuid();
+    await c.query("INSERT INTO service_shift (id, store_id, name, starts_at, ends_at) VALUES ($1,$2,'Cena','19:30','00:30')", [sh, store]);
+    await fails("INSERT INTO service_shift (id, store_id, name, starts_at, ends_at) VALUES ($1,$2,'Mal','10:00','10:00')", [uuid(), store], "23514");
+    const ins = "INSERT INTO service_sla (id, store_id, area_id, table_id, shift_id, first_order_minutes) VALUES ($1,$2,$3,$4,$5,$6)";
+    expect(await fails(ins, [uuid(), store, area, null, sh, 5], "23514")).toBe("OK");
+    await fails(ins, [uuid(), store, area, null, sh, 7], "23505");
+    expect(await fails(ins, [uuid(), store, null, null, sh, 5], "23505")).toBe("OK");
+    await fails(ins, [uuid(), store, null, null, sh, 6], "23505");
+    await fails("UPDATE service_sla SET total_minutes = NULL WHERE store_id=$1 AND area_id IS NULL AND table_id IS NULL AND shift_id IS NULL", [store], "23514");
+    await fails(ins, [uuid(), store, area, null, null, 601], "23514");
+    const tbl = (await one(c, "SELECT id FROM dining_table WHERE store_id=$1 LIMIT 1", [store])).id;
+    await fails(ins, [uuid(), store, area, tbl, null, 5], "23514");
+  }));
   it("una incidencia de mesa resuelta lleva fecha y una abierta no (23514, migración 0015)", () => rollback(c, async () => {
     const ins = `INSERT INTO order_incident (id, store_id, table_name, kind, status, occurred_at, opened_by_user_name, resolved_by_at) VALUES ($1, $2, '12', 'offline', $3, now(), 'x', $4)`;
     expect(await fails(ins, [uuid(), store, "open", null], "23514")).toBe("OK");
