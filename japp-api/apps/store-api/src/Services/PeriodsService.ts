@@ -7,6 +7,7 @@ import { AuthorizationService } from "./AuthorizationService.js";
 import { ClosingsService } from "./ClosingsService.js";
 import { StoreApplication } from "../Applications/StoreApplication.js";
 import { PeriodsApplication, type PeriodRow } from "../Applications/PeriodsApplication.js";
+import { CashService } from "./CashService.js";
 import { CashApplication } from "../Applications/CashApplication.js";
 import type { ClosePeriodInput, OpenPeriodInput } from "../Models/PeriodsModels.js";
 
@@ -21,6 +22,7 @@ export class PeriodsService {
     @Inject(ClosingsService) private readonly closings: ClosingsService,
     @Inject(PeriodsApplication) private readonly periods: PeriodsApplication,
     @Inject(CashApplication) private readonly cash: CashApplication,
+    @Inject(CashService) private readonly cashSvc: CashService,
   ) {}
 
   private view(p: PeriodRow) {
@@ -79,7 +81,7 @@ export class PeriodsService {
     const store = await this.stores.store();
     const now = this.clock();
     const a = session.actor(now);
-    return this.database.withTx(async (tx) => {
+    const res = await this.database.withTx(async (tx) => {
       const p = await this.periods.lockForUpdate(tx, session.storeId, periodId);
       if (!p || p.status !== "open") {
         fail("PERIOD_CLOSED", "Ese periodo no está abierto", { periodId });
@@ -133,5 +135,13 @@ export class PeriodsService {
         incidentRequest: null,
       };
     });
+    // Corte Z por la impresora de tickets, después del COMMIT: si la impresora falla el periodo queda cerrado igual
+    const z = await this.cashSvc.cutReport(session, "Z", periodId, true, true).catch((e: any) => ({
+      printed: false,
+      printer: null,
+      error: e?.message ?? "No se pudo imprimir el corte Z",
+      ticket: [],
+    }));
+    return { ...res, zReport: { printed: z.printed, printer: z.printer, error: z.error, ticket: z.ticket } };
   }
 }

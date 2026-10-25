@@ -6,6 +6,7 @@ import {
   creditTypeFor,
   fail,
   formatInvoiceNumber,
+  lineAmount,
   planCredit,
   r2,
   sum,
@@ -87,6 +88,9 @@ export class InvoicesService {
         invoiceNumber: r.i.invoiceNumber,
         type: r.i.type,
         table: r.table ?? "",
+        waiter: r.waiter ?? "",
+        rectifiedInvoiceId: r.i.rectifiedInvoiceId ?? null,
+        status: r.i.status,
         issuedAt: new Date(r.i.issuedAt).toISOString(),
         total: Number(r.i.total),
         customer: r.i.customerName,
@@ -115,6 +119,86 @@ export class InvoicesService {
       taxes: taxes
         .map((t) => ({ rate: Number(t.rate), base: Number(t.base), tax: Number(t.tax) }))
         .sort((a, b) => a.rate - b.rate),
+      ...(await this.detail(se, i!)),
+    };
+  }
+
+  /**
+   * Lo que el TPV enseña de una factura (Gestiones › Facturas): mesa, camarero, líneas (con lo ya abonado de cada una,
+   * para abonar por líneas), descuentos, cobros y abonos. Un abono trae sus líneas abonadas y la factura que rectifica.
+   */
+  private async detail(
+    se: Session,
+    i: { id: string; orderId: string | null; accountId: string | null; rectifiedInvoiceId: string | null },
+  ) {
+    const empty = {
+      table: "",
+      waiter: "",
+      lines: [] as unknown[],
+      discounts: [] as unknown[],
+      payments: [] as unknown[],
+      rectifies: null as string | null,
+      credits: [] as unknown[],
+      creditable: 0,
+    };
+    if (!i.orderId || !i.accountId) {
+      return empty;
+    }
+    const { l, done } = await this.database.withTx(async (tx) => ({
+      l: await this.repo.load(tx, se.storeId, i.orderId!),
+      done: i.rectifiedInvoiceId ? null : await this.invoices.creditedSoFar(tx, se.storeId, i.id),
+    }));
+    const acc = l.order.accounts.find((a) => a.id === i.accountId);
+    const base = { ...empty, table: l.header.tableName, waiter: l.header.openedBy.user };
+    if (i.rectifiedInvoiceId) {
+      return {
+        ...base,
+        rectifies: await this.invoices.numberOf(se.storeId, i.rectifiedInvoiceId),
+        lines: (await this.invoices.creditLines(se.storeId, i.id)).map((x) => ({
+          ...x,
+          lineId: null,
+          unitPrice: x.quantity ? r2(x.amount / x.quantity) : x.amount,
+          modifiers: [],
+          credited: 0,
+        })),
+      };
+    }
+    if (!acc) {
+      return base;
+    }
+    const T = accountTotals(acc);
+    const credits = await this.invoices.creditsOf(se.storeId, i.id);
+    return {
+      ...base,
+      lines: acc.lines.map((x) => ({
+        lineId: x.id,
+        name: x.name,
+        quantity: x.quantity,
+        unitPrice: x.unitPrice,
+        amount: lineAmount(x),
+        modifiers: x.modifiers.map((m) => ({
+          name: m.name,
+          unitPrice: m.unitPrice,
+          quantity: m.quantity ?? 1,
+        })),
+        credited: done?.qty[x.id] ?? 0,
+      })),
+      discounts: acc.discounts
+        .filter((d) => d.status === "applied")
+        .map((d) => ({ reason: d.reason, type: d.type, value: d.value })),
+      discountTotal: r2(T.disc),
+      payments: acc.payments
+        .filter((p) => p.status === "confirmed")
+        .map((p) => ({
+          method: p.method,
+          kind: p.kind,
+          amount: p.amount,
+          tip: p.tip,
+          change: p.change,
+          cashGiven: p.cashGiven,
+        })),
+      credits,
+      creditable: r2(T.total - (done?.total ?? 0)),
     };
   }
 

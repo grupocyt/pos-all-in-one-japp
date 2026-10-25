@@ -34,7 +34,7 @@ export class InvoicesApplication {
       );
     }
     return this.database.db
-      .select({ i: s.invoice, table: s.orders.tableName })
+      .select({ i: s.invoice, table: s.orders.tableName, waiter: s.orders.openedByUserName })
       .from(s.invoice)
       .leftJoin(s.orders, eq(s.orders.id, s.invoice.orderId))
       .where(and(...conds))
@@ -103,6 +103,31 @@ export class InvoicesApplication {
       quantity: Number(l.quantity),
       amount: Number(l.amount),
     }));
+  }
+
+  /** Abonos (rectificativas) de una factura: número, total, fecha y motivo. */
+  async creditsOf(storeId: string, invoiceId: string) {
+    const r = (
+      await this.database.db
+        .execute(sql`SELECT id::text, invoice_number, total::text total, issued_at, rectification_reason
+        FROM invoice WHERE store_id = ${storeId} AND rectified_invoice_id = ${invoiceId} AND status <> 'cancelled' ORDER BY issued_at`)
+    ).rows as Row[];
+    return r.map((x) => ({
+      id: x.id as string,
+      invoiceNumber: x.invoice_number as string,
+      total: Number(x.total),
+      issuedAt: new Date(x.issued_at as string).toISOString(),
+      reason: (x.rectification_reason as string) ?? null,
+    }));
+  }
+
+  /** Número de la factura que rectifica un abono. */
+  async numberOf(storeId: string, invoiceId: string): Promise<string | null> {
+    const [i] = await this.database.db
+      .select({ n: s.invoice.invoiceNumber })
+      .from(s.invoice)
+      .where(and(eq(s.invoice.storeId, storeId), eq(s.invoice.id, invoiceId)));
+    return i?.n ?? null;
   }
 
   /** Evento «invoiceReprinted» en el historial de la mesa (description: qué se reimprimió). */

@@ -950,6 +950,25 @@ paths:
                         type:
                         - string
                         - 'null'
+                      zReport:
+                        type: object
+                        properties:
+                          printed:
+                            type: boolean
+                          printer:
+                            type:
+                            - string
+                            - 'null'
+                          error: {}
+                          ticket:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                k:
+                                  type: string
+                                text:
+                                  type: string
               example:
                 title: Cerrar periodo con arqueo
                 type: success
@@ -961,6 +980,13 @@ paths:
                     grossSales: 631.7
                     guests: 39
                   incidentRequest: REQ-0007
+                  zReport:
+                    printed: true
+                    printer: TICKETS
+                    error: null
+                    ticket:
+                    - k: text
+                      text: CORTE Z
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -9342,30 +9368,50 @@ paths:
                         items:
                           type: object
                           properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
                             invoiceNumber:
+                              type: string
+                            type:
                               type: string
                             table:
                               type: string
+                            waiter:
+                              type:
+                              - string
+                              - 'null'
                             issuedAt:
                               type: string
                             total:
                               type: number
+                            customer: {}
                             methods:
                               type: array
                               items:
                                 type: string
+                            rectifiedInvoiceId: {}
+                            status:
+                              type: string
               example:
                 title: Facturas del periodo
                 type: success
                 status: 200
                 data:
                   items:
-                  - invoiceNumber: T2026-001426
+                  - id: …
+                    invoiceNumber: T2026-001426
+                    type: F2
                     table: '1'
+                    waiter: Pedro
                     issuedAt: '2026-10-13T16:40:00.000Z'
                     total: 19.3
+                    customer: null
                     methods:
                     - cash
+                    rectifiedInvoiceId: null
+                    status: issued
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -9413,13 +9459,18 @@ paths:
       tags:
       - API de tienda v2 · Facturas, caja e informes
       summary: Una factura
-      description: 'Permiso: funciones.facturas
+      description: 'Cabecera, IVA y lo que enseña Gestiones › Facturas: mesa, camarero, líneas (credited = unidades ya abonadas
+        de cada una, para abonar por líneas), descuentos, cobros, abonos hechos y creditable (lo que queda por abonar). Un
+        abono trae sus líneas abonadas y rectifies (la factura que rectifica).
+
+
+        Permiso: funciones.facturas
 
 
         Lo llama: TPV
 
 
-        Tablas: invoice, invoice_tax'
+        Tablas: invoice, invoice_tax, order_line, payment, invoice_credit_line'
       operationId: store_GET_invoices_invoiceId
       security:
       - session: []
@@ -9437,8 +9488,24 @@ paths:
                   data:
                     type: object
                     properties:
+                      id:
+                        type:
+                        - string
+                        - 'null'
                       invoiceNumber:
                         type: string
+                      type:
+                        type: string
+                      issuedAt:
+                        type: string
+                      total:
+                        type: number
+                      taxBase:
+                        type: number
+                      taxTotal:
+                        type: number
+                      customer: {}
+                      verifactuQr: {}
                       taxes:
                         type: array
                         items:
@@ -9450,16 +9517,131 @@ paths:
                               type: number
                             tax:
                               type: number
+                      table:
+                        type: string
+                      waiter:
+                        type:
+                        - string
+                        - 'null'
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineId:
+                              type:
+                              - string
+                              - 'null'
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type:
+                              - number
+                              - 'null'
+                            modifiers:
+                              type: array
+                              items: {}
+                            credited:
+                              type: number
+                      discounts:
+                        type: array
+                        items: {}
+                      discountTotal:
+                        type: number
+                      payments:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            method:
+                              type: string
+                            kind:
+                              type: string
+                            amount:
+                              type:
+                              - number
+                              - 'null'
+                            tip:
+                              type: number
+                            change:
+                              type:
+                              - number
+                              - 'null'
+                            cashGiven:
+                              type:
+                              - number
+                              - 'null'
+                      credits:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            invoiceNumber:
+                              type: string
+                            total:
+                              type: number
+                            issuedAt:
+                              type: string
+                            reason:
+                              type:
+                              - string
+                              - 'null'
+                      rectifies: {}
+                      creditable:
+                        type: number
               example:
                 title: Una factura
                 type: success
                 status: 200
                 data:
+                  id: …
                   invoiceNumber: T2026-001426
+                  type: F2
+                  issuedAt: '2026-10-13T16:40:00.000Z'
+                  total: 19.3
+                  taxBase: 17.55
+                  taxTotal: 1.75
+                  customer: null
+                  verifactuQr: null
                   taxes:
                   - rate: 10
                     base: 17.55
                     tax: 1.75
+                  table: '1'
+                  waiter: Pedro
+                  lines:
+                  - lineId: …
+                    name: Caña
+                    quantity: 2
+                    unitPrice: 2.8
+                    amount: 5.6
+                    modifiers: []
+                    credited: 0
+                  discounts: []
+                  discountTotal: 0
+                  payments:
+                  - method: cash
+                    kind: cash
+                    amount: 19.3
+                    tip: 0
+                    change: 0.7
+                    cashGiven: 20
+                  credits:
+                  - id: …
+                    invoiceNumber: AB2026-000012
+                    total: -2.8
+                    issuedAt: '2026-10-13T16:40:00.000Z'
+                    reason: Error al cobrar
+                  rectifies: null
+                  creditable: 16.5
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -19256,7 +19438,8 @@ paths:
       summary: SLA de atención
       description: 'Turnos (hora de Madrid; si end < start pasa de medianoche) y reglas. La regla de la tienda (sin areaId,
         tableId ni shiftId) lleva todos los límites; las demás solo lo que cambian (null = hereda). Vale también con funciones.kpi
-        (para enseñar los límites en Mesas en servicio). version = la que hay que mandar en el PUT.
+        (para enseñar los límites en Mesas en servicio). version = la que hay que mandar en el PUT. areas y tables = las zonas
+        y mesas activas, para elegir dónde va cada regla.
 
 
         Permiso: ajustes.parametros
@@ -19336,6 +19519,34 @@ paths:
                               type:
                               - number
                               - 'null'
+                      areas:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            name:
+                              type: string
+                      tables:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            number:
+                              type:
+                              - string
+                              - 'null'
+                            areaId:
+                              type:
+                              - string
+                              - 'null'
               example:
                 title: SLA de atención
                 type: success
@@ -19372,6 +19583,13 @@ paths:
                     prebillPay: null
                     total: null
                     warnPercent: null
+                  areas:
+                  - id: …
+                    name: TERRAZA
+                  tables:
+                  - id: …
+                    number: '201'
+                    areaId: …
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -19483,6 +19701,34 @@ paths:
                             warnPercent:
                               type:
                               - number
+                              - 'null'
+                      areas:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            name:
+                              type: string
+                      tables:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type:
+                              - string
+                              - 'null'
+                            number:
+                              type:
+                              - string
+                              - 'null'
+                            areaId:
+                              type:
+                              - string
                               - 'null'
               example:
                 title: Guardar los SLA de atención
@@ -19628,6 +19874,294 @@ paths:
               - areaId: …
                 shiftId: …
                 firstOrder: 15
+  /api/v2/cash/x-report/print:
+    post:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Imprimir el corte X
+      description: 'El corte X del periodo abierto con los datos del servidor (ventas por forma de pago de todos los equipos,
+        tickets, efectivo esperado), por la impresora de tickets de la estación. Si la impresora no responde no falla: printed=false
+        con error, y ticket para enseñarlo en pantalla.
+
+
+        Permiso: funciones.caja
+
+
+        Lo llama: TPV
+
+
+        Tablas: invoice, payment, cash_movement'
+      operationId: store_POST_cash_x_report_print
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      kind:
+                        type: string
+                      periodId:
+                        type:
+                        - string
+                        - 'null'
+                      sales:
+                        type: number
+                      tickets:
+                        type:
+                        - integer
+                        - 'null'
+                      expectedCash:
+                        type: number
+                      printed:
+                        type: boolean
+                      printer:
+                        type:
+                        - string
+                        - 'null'
+                      error: {}
+                      ticket:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            k:
+                              type: string
+                            text:
+                              type: string
+                            align:
+                              type: string
+                            size:
+                              type: string
+                            bold:
+                              type: boolean
+              example:
+                title: Imprimir el corte X
+                type: success
+                status: 200
+                data:
+                  kind: X
+                  periodId: …
+                  sales: 631.7
+                  tickets: 15
+                  expectedCash: 258.92
+                  printed: true
+                  printer: TICKETS
+                  error: null
+                  ticket: &id015
+                  - k: text
+                    text: CORTE X
+                    align: center
+                    size: wh
+                    bold: true
+                  - k: rule
+                    ch: '='
+                  - k: cut
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'PERIOD_CLOSED: No hay periodo abierto.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Imprimir el corte X
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: PERIOD_CLOSED
+                  message: No hay periodo abierto.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Imprimir el corte X
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+  /api/v2/periods/{periodId}/z-report/print:
+    post:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Reimprimir el corte Z
+      description: 'El corte Z de un periodo (normalmente ya cerrado: el cierre lo imprime solo y lo devuelve en zReport).
+        Misma impresora y misma respuesta que el corte X.
+
+
+        Permiso: funciones.periodo
+
+
+        Lo llama: TPV
+
+
+        Tablas: invoice, payment, cash_movement'
+      operationId: store_POST_periods_periodId_z_report_print
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      kind:
+                        type: string
+                      periodId:
+                        type:
+                        - string
+                        - 'null'
+                      sales:
+                        type: number
+                      tickets:
+                        type:
+                        - integer
+                        - 'null'
+                      expectedCash:
+                        type: number
+                      printed:
+                        type: boolean
+                      printer:
+                        type:
+                        - string
+                        - 'null'
+                      error: {}
+                      ticket:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            k:
+                              type: string
+                            text:
+                              type: string
+                            align:
+                              type: string
+                            size:
+                              type: string
+                            bold:
+                              type: boolean
+              example:
+                title: Reimprimir el corte Z
+                type: success
+                status: 200
+                data:
+                  kind: Z
+                  periodId: …
+                  sales: 631.7
+                  tickets: 15
+                  expectedCash: 258.92
+                  printed: true
+                  printer: TICKETS
+                  error: null
+                  ticket: *id015
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe o no es de esta tienda.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Reimprimir el corte Z
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un
+            encargado (POST /sessions/authorize) y reenvía con authorization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Reimprimir el corte Z
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize)
+                    y reenvía con authorization.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Reimprimir el corte Z
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: periodId
+        in: path
+        required: true
+        schema:
+          type: string
 components:
   securitySchemes:
     session:

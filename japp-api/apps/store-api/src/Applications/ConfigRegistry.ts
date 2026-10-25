@@ -127,6 +127,16 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
     fields: {
       name: F("name", "s", str(60), "Nombre", { required: true }),
       initials: F("initials", "s", optStr(4), "Iniciales"),
+      // color de la persona en el TPV (etiqueta de lo que marcó); vacío = automático (migración 0018)
+      color: F(
+        "color",
+        "s",
+        z
+          .string()
+          .regex(/^#[0-9A-Fa-f]{6}$/, "Color #RRGGBB")
+          .nullish(),
+        "Color",
+      ),
       profileId: F("profile_id", "u", z.string().uuid(), "Perfil", { required: true }),
       canCharge: F("can_charge", "b", z.boolean().nullish(), "Cobra"),
       canDeletePrinted: F("can_delete_printed", "b", z.boolean().nullish(), "Elimina enviado"),

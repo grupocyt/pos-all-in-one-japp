@@ -6,6 +6,7 @@ const TS = (name: string) => timestamp(name, { precision: 3, withTimezone: true,
 
 
 export const appUser = pgTable("app_user", {
+	color: varchar({ length: 7 }),
 	id: uuid().primaryKey().notNull(),
 	storeId: uuid("store_id").notNull(),
 	name: varchar({ length: 60 }).notNull(),

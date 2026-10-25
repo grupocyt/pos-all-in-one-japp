@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, Inject, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, Post } from "@nestjs/common";
 import { CurrentSession, type Session } from "../Helpers/AuthGuard.js";
 import { parse } from "../Helpers/ValidationHelper.js";
 import { CashCountModel, CashMovementModel, DrawerOpenModel } from "../Models/CashModels.js";
+import { PeriodIdModel } from "../Models/PeriodsModels.js";
 import { CashService } from "../Services/CashService.js";
 
 /** Caja del periodo abierto (Funciones › Caja). */
@@ -39,6 +40,21 @@ export class CashController {
   }
 
   /** Corte X: el cierre (Z) sin cerrar. */
+  /** Corte X impreso: el ticket con los datos del servidor por la impresora de tickets de la estación. */
+  @Post("cash/x-report/print")
+  @HttpCode(200)
+  async printX(@CurrentSession() se: Session) {
+    return this.cash.cutReport(se, "X");
+  }
+
+  /** Corte Z de un periodo cerrado (reimprimir). */
+  @Post("periods/:periodId/z-report/print")
+  @HttpCode(200)
+  async printZ(@CurrentSession() se: Session, @Param("periodId") periodId: string) {
+    parse(PeriodIdModel, periodId);
+    return this.cash.cutReport(se, "Z", periodId);
+  }
+
   @Get("cash/x-report")
   async xReport(@CurrentSession() se: Session) {
     return this.cash.xReport(se);

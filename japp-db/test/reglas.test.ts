@@ -44,6 +44,12 @@ describe("reglas en la base", () => {
     await fails("UPDATE billing_settings SET batch_send_seconds=1 WHERE store_id=$1", [store], "23514");
     await fails("UPDATE billing_settings SET batch_send_seconds=31 WHERE store_id=$1", [store], "23514");
   }));
+  it("el color de un usuario es #RRGGBB o vacío (23514, migración 0018)", () => rollback(c, async () => {
+    const u = (await one(c, "SELECT id FROM app_user WHERE store_id=$1 LIMIT 1", [store])).id;
+    expect(await fails("UPDATE app_user SET color='#2E7D8A' WHERE id=$1", [u], "23514")).toBe("OK");
+    expect(await fails("UPDATE app_user SET color=NULL WHERE id=$1", [u], "23514")).toBe("OK");
+    await fails("UPDATE app_user SET color='rojo' WHERE id=$1", [u], "23514");
+  }));
   it("SLA de atención: la regla de la tienda trae todos los límites, el resto puede heredar, sin repetir ámbito ni pasar de 600 min (migración 0017)", () => rollback(c, async () => {
     const d = (await c.query("SELECT * FROM service_sla WHERE store_id=$1 AND area_id IS NULL AND table_id IS NULL AND shift_id IS NULL", [store])).rows;
     expect(d).toHaveLength(1);

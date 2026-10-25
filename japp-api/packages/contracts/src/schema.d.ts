@@ -1169,11 +1169,13 @@ export interface paths {
         };
         /**
          * Una factura
-         * @description Permiso: funciones.facturas
+         * @description Cabecera, IVA y lo que enseña Gestiones › Facturas: mesa, camarero, líneas (credited = unidades ya abonadas de cada una, para abonar por líneas), descuentos, cobros, abonos hechos y creditable (lo que queda por abonar). Un abono trae sus líneas abonadas y rectifies (la factura que rectifica).
+         *
+         *     Permiso: funciones.facturas
          *
          *     Lo llama: TPV
          *
-         *     Tablas: invoice, invoice_tax
+         *     Tablas: invoice, invoice_tax, order_line, payment, invoice_credit_line
          */
         get: operations["store_GET_invoices_invoiceId"];
         put?: never;
@@ -2907,7 +2909,7 @@ export interface paths {
         };
         /**
          * SLA de atención
-         * @description Turnos (hora de Madrid; si end < start pasa de medianoche) y reglas. La regla de la tienda (sin areaId, tableId ni shiftId) lleva todos los límites; las demás solo lo que cambian (null = hereda). Vale también con funciones.kpi (para enseñar los límites en Mesas en servicio). version = la que hay que mandar en el PUT.
+         * @description Turnos (hora de Madrid; si end < start pasa de medianoche) y reglas. La regla de la tienda (sin areaId, tableId ni shiftId) lleva todos los límites; las demás solo lo que cambian (null = hereda). Vale también con funciones.kpi (para enseñar los límites en Mesas en servicio). version = la que hay que mandar en el PUT. areas y tables = las zonas y mesas activas, para elegir dónde va cada regla.
          *
          *     Permiso: ajustes.parametros
          *
@@ -2928,6 +2930,58 @@ export interface paths {
          */
         put: operations["store_PUT_service_sla"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/cash/x-report/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Imprimir el corte X
+         * @description El corte X del periodo abierto con los datos del servidor (ventas por forma de pago de todos los equipos, tickets, efectivo esperado), por la impresora de tickets de la estación. Si la impresora no responde no falla: printed=false con error, y ticket para enseñarlo en pantalla.
+         *
+         *     Permiso: funciones.caja
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: invoice, payment, cash_movement
+         */
+        post: operations["store_POST_cash_x_report_print"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/periods/{periodId}/z-report/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reimprimir el corte Z
+         * @description El corte Z de un periodo (normalmente ya cerrado: el cierre lo imprime solo y lo devuelve en zReport). Misma impresora y misma respuesta que el corte X.
+         *
+         *     Permiso: funciones.periodo
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: invoice, payment, cash_movement
+         */
+        post: operations["store_POST_periods_periodId_z_report_print"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3901,6 +3955,15 @@ export interface operations {
                                 guests?: number;
                             };
                             incidentRequest?: string | null;
+                            zReport?: {
+                                printed?: boolean;
+                                printer?: string | null;
+                                error?: unknown;
+                                ticket?: {
+                                    k?: string;
+                                    text?: string;
+                                }[];
+                            };
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -7513,11 +7576,17 @@ export interface operations {
                         type?: "success";
                         data?: {
                             items?: {
+                                id?: string | null;
                                 invoiceNumber?: string;
+                                type?: string;
                                 table?: string;
+                                waiter?: string | null;
                                 issuedAt?: string;
                                 total?: number;
+                                customer?: unknown;
                                 methods?: string[];
+                                rectifiedInvoiceId?: unknown;
+                                status?: string;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -7555,12 +7624,50 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
+                            id?: string | null;
                             invoiceNumber?: string;
+                            type?: string;
+                            issuedAt?: string;
+                            total?: number;
+                            taxBase?: number;
+                            taxTotal?: number;
+                            customer?: unknown;
+                            verifactuQr?: unknown;
                             taxes?: {
                                 rate?: number;
                                 base?: number;
                                 tax?: number;
                             }[];
+                            table?: string;
+                            waiter?: string | null;
+                            lines?: {
+                                lineId?: string | null;
+                                name?: string;
+                                quantity?: number;
+                                unitPrice?: number;
+                                amount?: number | null;
+                                modifiers?: unknown[];
+                                credited?: number;
+                            }[];
+                            discounts?: unknown[];
+                            discountTotal?: number;
+                            payments?: {
+                                method?: string;
+                                kind?: string;
+                                amount?: number | null;
+                                tip?: number;
+                                change?: number | null;
+                                cashGiven?: number | null;
+                            }[];
+                            credits?: {
+                                id?: string | null;
+                                invoiceNumber?: string;
+                                total?: number;
+                                issuedAt?: string;
+                                reason?: string | null;
+                            }[];
+                            rectifies?: unknown;
+                            creditable?: number;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -12560,6 +12667,15 @@ export interface operations {
                                 total?: number | null;
                                 warnPercent?: number | null;
                             }[];
+                            areas?: {
+                                id?: string | null;
+                                name?: string;
+                            }[];
+                            tables?: {
+                                id?: string | null;
+                                number?: string | null;
+                                areaId?: string | null;
+                            }[];
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -12673,6 +12789,15 @@ export interface operations {
                                 total?: number | null;
                                 warnPercent?: number | null;
                             }[];
+                            areas?: {
+                                id?: string | null;
+                                name?: string;
+                            }[];
+                            tables?: {
+                                id?: string | null;
+                                number?: string | null;
+                                areaId?: string | null;
+                            }[];
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -12688,6 +12813,133 @@ export interface operations {
             };
             /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_cash_x_report_print: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            kind?: string;
+                            periodId?: string | null;
+                            sales?: number;
+                            tickets?: number | null;
+                            expectedCash?: number;
+                            printed?: boolean;
+                            printer?: string | null;
+                            error?: unknown;
+                            ticket?: {
+                                k?: string;
+                                text?: string;
+                                align?: string;
+                                size?: string;
+                                bold?: boolean;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_periods_periodId_z_report_print: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                periodId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            kind?: string;
+                            periodId?: string | null;
+                            sales?: number;
+                            tickets?: number | null;
+                            expectedCash?: number;
+                            printed?: boolean;
+                            printer?: string | null;
+                            error?: unknown;
+                            ticket?: {
+                                k?: string;
+                                text?: string;
+                                align?: string;
+                                size?: string;
+                                bold?: boolean;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

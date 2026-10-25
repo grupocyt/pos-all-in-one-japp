@@ -1,6 +1,14 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database } from "@japp/db";
-import { assertDetailMatches, assertMainStation, cashDifference, fail, r2 } from "@japp/domain";
+import {
+  assertDetailMatches,
+  assertMainStation,
+  cashDifference,
+  cutTicket,
+  fail,
+  r2,
+  type TicketLine,
+} from "@japp/domain";
 import { CLOCK, DATABASE, PRINTER, type Clock } from "../Constants/Injection.js";
 import type { PrinterPort } from "../Clases/Printers.js";
 import { OrdersService } from "./OrdersService.js";
@@ -190,5 +198,79 @@ export class CashService {
       expectedCash: c.expected,
       openTables: { count: open?.tables ?? 0, amount: r2(open?.amount ?? 0) },
     };
+  }
+  /**
+   * Corte X (periodo abierto, no cierra nada) o Z (un periodo ya cerrado): el ticket con los datos del servidor
+   * (summarizePeriod + cashState, lo de todos los equipos) por la impresora de tickets de la estación.
+   * Si la impresora no responde no falla: devuelve printed=false y el ticket, para que el TPV lo enseñe.
+   */
+  async cutReport(se: Session, kind: "X" | "Z", periodId?: string | null, print = true, authorized = false) {
+    if (!authorized) {
+      // el Z del cierre ya pasó por el permiso del cierre (puede que con la clave de un encargado)
+      await this.auth.require(se, kind === "X" ? "funciones.caja" : "funciones.periodo");
+    }
+    const store = await this.stores.store();
+    let pid = periodId ?? null;
+    if (!pid) {
+      const p = await this.periods.current(null, se.storeId);
+      if (!p) {
+        fail("PERIOD_CLOSED", "No hay periodo abierto");
+      }
+      pid = p!.id;
+    }
+    const s = await this.closings.summarize(null, se.storeId, pid!);
+    const c = await this.periods.cashState(null, se.storeId, pid!, store.cashFloat);
+    const NAMES: Record<string, string> = { cash: "Efectivo", card: "Tarjeta", other: "Otros" };
+    const byMethod = (s.byPayment ?? []).length
+      ? s.byPayment.map((m) => ({ name: NAMES[m.method] ?? m.method, amount: r2(m.amount), count: m.count }))
+      : [
+          { name: "Efectivo", amount: r2(s.cashAmount) },
+          { name: "Tarjeta", amount: r2(s.cardAmount) },
+          ...(s.otherAmount ? [{ name: "Otros", amount: r2(s.otherAmount) }] : []),
+        ];
+    const now = this.clock();
+    const ticket: TicketLine[] = cutTicket({
+      kind,
+      store: { tradeName: store.name, legalName: store.issuerName, taxId: store.nif },
+      station: se.station.name,
+      from: new Date(s.openedAt),
+      to: now,
+      byMethod,
+      tickets: s.tickets,
+      expectedCash: c.expected,
+      closingNumber: null,
+      user: se.user.name,
+    });
+    const out = {
+      kind,
+      periodId: pid!,
+      sales: r2(s.grossSales),
+      tickets: s.tickets,
+      expectedCash: c.expected,
+      printed: false,
+      printer: null as string | null,
+      error: null as string | null,
+      ticket,
+    };
+    if (!print) {
+      return out;
+    }
+    try {
+      const printer = await this.database.withTx((tx) => this.orders.ticketPrinter(tx, se));
+      const res = await this.printer.print({
+        kind: kind === "X" ? "cutx" : "cutz",
+        channel: printer.channel,
+        printer: printer.name,
+        connection: printer.connection,
+        title: `Corte ${kind}`,
+        ticket,
+      });
+      out.printer = printer.name;
+      out.printed = !!res.ok;
+      out.error = res.ok ? null : `La impresora ${printer.name} no responde`;
+    } catch (e: any) {
+      out.error = e?.message ?? "No hay impresora de tickets para esta estación";
+    }
+    return out;
   }
 }

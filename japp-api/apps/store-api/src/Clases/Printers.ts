@@ -8,7 +8,7 @@ import { renderEscPos, renderText, type TicketLine } from "@japp/domain";
  */
 export interface PrintJob {
   /** drawer = solo el pulso de apertura del cajón (ticket vacío, sin cortar papel). */
-  kind: "kitchen" | "prebill" | "invoice" | "test" | "oot" | "drawer";
+  kind: "kitchen" | "prebill" | "invoice" | "test" | "oot" | "drawer" | "cutx" | "cutz" | "void" | "notice";
   channel: string;
   printer: string;
   connection: string;
