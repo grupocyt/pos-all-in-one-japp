@@ -123,8 +123,12 @@ describe("caja y periodo", () => {
   it("cerrar periodo: con mesas abiertas no deja; con descuadre grande pide motivo; luego cierra y no se vende", async () => {
     // cobrar y facturar lo que quede abierto
     const { rows: open } = await t.sql.query("SELECT id FROM orders WHERE status IN ('open','billing')");
+    // otra prueba puede dejar mesas abiertas en un periodo ya cerrado: el cierre solo cuenta las de este periodo
+    const { rows: inPeriod } = await t.sql.query(
+      "SELECT id FROM orders WHERE status IN ('open','billing') AND period_id IN (SELECT id FROM sales_period WHERE status = 'open')",
+    );
     const p = (await t.call("GET", "/periods/current", { token: sistemas })).body.id;
-    if (open.length) {
+    if (inPeriod.length) {
       expect(
         (
           await t.call("POST", `/periods/${p}/close`, {
@@ -132,7 +136,7 @@ describe("caja y periodo", () => {
             body: { countedCash: 0, nextFloat: 150 },
           })
         ).error.details.openOrders,
-      ).toBe(open.length);
+      ).toBe(inPeriod.length);
     }
     for (const o of open) {
       const tx = (await t.call("GET", `/orders/${o.id}`, { token: sistemas })).body;
@@ -155,6 +159,16 @@ describe("caja y periodo", () => {
         await t.call("POST", `/orders/${o.id}/accounts/${a.id}/invoice`, { token: sistemas });
       }
     }
+    // una incidencia de producto pendiente: al cerrar se envía sola a Marketing (v185)
+    const prods = (await t.call("GET", "/config/productos", { token: sistemas })).body.items;
+    const pr = await t.call("PATCH", `/config/productos/${prods[0].id}`, {
+      token: sistemas,
+      body: { description: "Cambio antes del cierre", version: prods[0].version },
+    });
+    expect(pr.status, JSON.stringify(pr.error)).toBe(200);
+    const pend = (await t.call("GET", "/incidents", { token: sistemas })).body.items;
+    expect(pend.length).toBeGreaterThan(0);
+    expect(pend[0].code).toMatch(/^INC-/);
     const sum = (await t.call("GET", "/cash/summary", { token: sistemas })).body;
     const bad = await t.call("POST", `/periods/${p}/close`, {
       token: sistemas,
@@ -167,6 +181,13 @@ describe("caja y periodo", () => {
     });
     expect(ok.status, JSON.stringify(ok.body)).toBe(200);
     expect(ok.body.zReport).toMatchObject({ printed: true });
+    expect(ok.body.incidentRequest).toMatch(/^REQ-\d{4}$/);
+    expect((await t.call("GET", "/incidents", { token: sistemas })).body.items).toEqual([]);
+    const closedList = (await t.call("GET", "/orders?status=closed", { token: sistemas })).body.items;
+    expect(closedList.length).toBeGreaterThan(0);
+    expect(closedList[0]).toMatchObject({ periodId: p, status: "closed" });
+    expect(closedList[0].waiter).toBeTruthy();
+    expect(closedList[0].closedAt).toBeTruthy();
     expect(t.printer.jobs.some((j) => j.kind === "cutz" && /CORTE Z/.test(j.text))).toBe(true);
     expect(ok.body.closing).toMatchObject({
       expectedCash: sum.expectedCash,

@@ -905,6 +905,11 @@ export class OrdersApplication {
         tableName: s.orders.tableName,
         status: s.orders.status,
         version: s.orders.version,
+        zone: s.orders.zone,
+        waiter: s.orders.openedByUserName,
+        openedAt: s.orders.openedByAt,
+        closedAt: s.orders.closedAt,
+        periodId: s.orders.periodId,
       })
       .from(s.orders)
       .where(

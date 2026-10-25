@@ -29,6 +29,7 @@ export class IncidentsService {
     return {
       items: rows.map((r) => ({
         id: r.id as string,
+        code: r.code as string,
         plu: r.plu == null ? null : Number(r.plu),
         product: r.product as string,
         action: r.action as string,

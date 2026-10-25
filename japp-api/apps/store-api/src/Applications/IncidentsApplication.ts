@@ -18,7 +18,7 @@ export class IncidentsApplication {
     }
     return (
       await this.database.db.execute(
-        sql`SELECT i.id::text id, p.plu, coalesce(i.product_name, p.name, '') product, i.action, coalesce(i.diff, '') detail, i.at, i.user_name, i.status, r.code request_code
+        sql`SELECT i.id::text id, i.code, p.plu, coalesce(i.product_name, p.name, '') product, i.action, coalesce(i.diff, '') detail, i.at, i.user_name, i.status, r.code request_code
           FROM product_incident i LEFT JOIN product p ON p.id = i.product_id AND p.store_id = i.store_id
           LEFT JOIN incident_request r ON r.id = i.request_id AND r.store_id = i.store_id
           WHERE ${sql.join(w, sql` AND `)} ORDER BY i.at DESC, i.code DESC LIMIT 500`,

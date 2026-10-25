@@ -4597,6 +4597,23 @@ paths:
                               type: string
                             version:
                               type: integer
+                            zone:
+                              type:
+                              - string
+                              - 'null'
+                            waiter:
+                              type:
+                              - string
+                              - 'null'
+                            openedAt:
+                              type:
+                              - string
+                              - 'null'
+                            closedAt: {}
+                            periodId:
+                              type:
+                              - string
+                              - 'null'
               example:
                 title: Órdenes abiertas
                 type: success
@@ -4607,6 +4624,11 @@ paths:
                     tableName: '1'
                     status: open
                     version: 7
+                    zone: BARRA
+                    waiter: Pedro
+                    openedAt: '2026-10-13T16:40:00.000Z'
+                    closedAt: null
+                    periodId: …
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -4634,7 +4656,7 @@ paths:
       - name: status
         in: query
         required: false
-        description: open | closed
+        description: 'open (defecto: open y billing) | closed | cancelled'
         schema:
           type: string
       - name: tableId
@@ -17543,6 +17565,8 @@ paths:
                               type:
                               - string
                               - 'null'
+                            code:
+                              type: string
                             plu:
                               type:
                               - integer
@@ -17569,6 +17593,7 @@ paths:
                 data:
                   items:
                   - id: …
+                    code: INC-0001
                     plu: 1050
                     product: AGUA
                     action: update

@@ -8,6 +8,7 @@ import { ClosingsService } from "./ClosingsService.js";
 import { StoreApplication } from "../Applications/StoreApplication.js";
 import { PeriodsApplication, type PeriodRow } from "../Applications/PeriodsApplication.js";
 import { CashService } from "./CashService.js";
+import { IncidentsService } from "./IncidentsService.js";
 import { CashApplication } from "../Applications/CashApplication.js";
 import type { ClosePeriodInput, OpenPeriodInput } from "../Models/PeriodsModels.js";
 
@@ -23,6 +24,7 @@ export class PeriodsService {
     @Inject(PeriodsApplication) private readonly periods: PeriodsApplication,
     @Inject(CashApplication) private readonly cash: CashApplication,
     @Inject(CashService) private readonly cashSvc: CashService,
+    @Inject(IncidentsService) private readonly incidentsSvc: IncidentsService,
   ) {}
 
   private view(p: PeriodRow) {
@@ -123,6 +125,8 @@ export class PeriodsService {
       await this.periods.close(tx, session.storeId, periodId, a);
       // Gestor de cierres: resumen del periodo (y a la cola hacia el Manager) en la misma transacción
       const sum = await this.closings.persist(tx, session.storeId, periodId, d.diff, a.at, a.user);
+      // incidencias de productos pendientes → una solicitud para Marketing (REQ-nnnn) en la misma transacción
+      const inc = await this.incidentsSvc.sendPending(tx, session.storeId, a, "period_close", null, null);
       return {
         closing: {
           expectedCash: c.expected,
@@ -132,7 +136,7 @@ export class PeriodsService {
           tickets: sum.tickets,
           businessDate: sum.businessDate,
         },
-        incidentRequest: null,
+        incidentRequest: inc.code,
       };
     });
     // Corte Z por la impresora de tickets, después del COMMIT: si la impresora falla el periodo queda cerrado igual

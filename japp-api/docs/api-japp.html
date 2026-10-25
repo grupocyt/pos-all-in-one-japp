@@ -576,6 +576,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
     &quot;items&quot;: [
       {
         &quot;id&quot;: &quot;…&quot;,
+        &quot;code&quot;: &quot;INC-0001&quot;,
         &quot;plu&quot;: 1050,
         &quot;product&quot;: &quot;AGUA&quot;,
         &quot;action&quot;: &quot;update&quot;,
@@ -3620,6 +3621,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
     &quot;items&quot;: [
       {
         &quot;id&quot;: &quot;…&quot;,
+        &quot;code&quot;: &quot;INC-0001&quot;,
         &quot;plu&quot;: 1050,
         &quot;product&quot;: &quot;AGUA&quot;,
         &quot;action&quot;: &quot;update&quot;,
@@ -4869,7 +4871,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <div class="eb">
 
 <dl class="meta"><dt>Tablas</dt><dd><code>orders</code></dd></dl>
-<h5>Parámetros</h5><ul class="pl"><li><code>status</code> <span class="pin">query</span> open | closed</li><li><code>tableId</code> <span class="pin">query</span> Mesa (UUID)</li></ul>
+<h5>Parámetros</h5><ul class="pl"><li><code>status</code> <span class="pin">query</span> open (defecto: open y billing) | closed | cancelled</li><li><code>tableId</code> <span class="pin">query</span> Mesa (UUID)</li></ul>
 <div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
   &quot;title&quot;: &quot;Órdenes abiertas&quot;,
   &quot;type&quot;: &quot;success&quot;,
@@ -4880,7 +4882,12 @@ footer{color:var(--muted);font-size:13px;text-align:center}
         &quot;id&quot;: &quot;103abf8f-b3a5-44fa-9371-74a9a4a8d96b&quot;,
         &quot;tableName&quot;: &quot;1&quot;,
         &quot;status&quot;: &quot;open&quot;,
-        &quot;version&quot;: 7
+        &quot;version&quot;: 7,
+        &quot;zone&quot;: &quot;BARRA&quot;,
+        &quot;waiter&quot;: &quot;Pedro&quot;,
+        &quot;openedAt&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+        &quot;closedAt&quot;: null,
+        &quot;periodId&quot;: &quot;…&quot;
       }
     ]
   },
@@ -13840,6 +13847,23 @@ paths:
                               type: string
                             version:
                               type: integer
+                            zone:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            waiter:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            openedAt:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            closedAt: {}
+                            periodId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
               example:
                 title: Órdenes abiertas
                 type: success
@@ -13850,6 +13874,11 @@ paths:
                     tableName: &#x27;1&#x27;
                     status: open
                     version: 7
+                    zone: BARRA
+                    waiter: Pedro
+                    openedAt: &#x27;2026-10-13T16:40:00.000Z&#x27;
+                    closedAt: null
+                    periodId: …
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -13877,7 +13906,7 @@ paths:
       - name: status
         in: query
         required: false
-        description: open | closed
+        description: &#x27;open (defecto: open y billing) | closed | cancelled&#x27;
         schema:
           type: string
       - name: tableId
@@ -26786,6 +26815,8 @@ paths:
                               type:
                               - string
                               - &#x27;null&#x27;
+                            code:
+                              type: string
                             plu:
                               type:
                               - integer
@@ -26812,6 +26843,7 @@ paths:
                 data:
                   items:
                   - id: …
+                    code: INC-0001
                     plu: 1050
                     product: AGUA
                     action: update

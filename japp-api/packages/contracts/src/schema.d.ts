@@ -5228,7 +5228,7 @@ export interface operations {
     store_GET_orders: {
         parameters: {
             query?: {
-                /** @description open | closed */
+                /** @description open (defecto: open y billing) | closed | cancelled */
                 status?: string;
                 /** @description Mesa (UUID) */
                 tableId?: string;
@@ -5254,6 +5254,11 @@ export interface operations {
                                 tableName?: string;
                                 status?: string;
                                 version?: number;
+                                zone?: string | null;
+                                waiter?: string | null;
+                                openedAt?: string | null;
+                                closedAt?: unknown;
+                                periodId?: string | null;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -11760,6 +11765,7 @@ export interface operations {
                         data?: {
                             items?: {
                                 id?: string | null;
+                                code?: string;
                                 plu?: number | null;
                                 product?: string;
                                 action?: string;
