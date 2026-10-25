@@ -56,6 +56,8 @@ export interface SirInput {
   payments: SirPayment[];
   items: SirItem[];
   sessions: SirSession[];
+  /** Cod_FormaPago con el que el SIR recibe los descuentos en DinTrans (en MaxPoint, la forma de pago de tipo DESCUENTOS: 63). */
+  discountCode?: string;
 }
 export interface SirXml {
   CierreCajas: string;
@@ -71,6 +73,10 @@ const row = (tag: string, attrs: [string, string | number][]) =>
   `<${tag} ${attrs.map(([k, v]) => `${k}="${esc(v)}"`).join(" ")}/>`;
 /** Decimal con n cifras (como DECIMAL(12, n) de SQL Server: 202.0500). */
 export const sirNum = (n: number, d = 4) => D(n || 0).toFixed(d);
+
+/** Descuento de una factura sin IVA (el SIR, como MaxPoint, lo lleva sobre la base): descuento × base / total. */
+const netDiscount = (x: SirInvoice) =>
+  isRectificative(x.type) || !x.discount || !x.total ? 0 : r2(D(x.discount).times(x.taxBase).div(x.total));
 
 /** XML → «0x» + UTF-16LE con BOM (lo que da CONVERT(VARBINARY(MAX), @xml) en SQL Server), en mayúsculas. */
 export function sirHex(xml: string | null | undefined): string {
@@ -131,7 +137,7 @@ function cierreCajas(i: SirInput) {
   const neta = r2(sum(inv.map((x) => x.taxBase)));
   const iva = r2(sum(inv.map((x) => x.taxTotal)));
   const cero = r2(sum(inv.map((x) => x.zeroBase)));
-  const desc = r2(sum(inv.filter((x) => !isRectificative(x.type)).map((x) => x.discount)));
+  const desc = r2(sum(inv.map(netDiscount)));
   const trans = inv.filter((x) => !isRectificative(x.type)).length;
   const fila = (medio: string, clientes: number) =>
     row("CierreCajasDetalle", [
@@ -228,46 +234,80 @@ function dinTrans(i: SirInput) {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([u, e]) => cajero(u, "-1", e.v, e.n)),
   ];
+  // descuentos por cajero (como MaxPoint: forma de pago DESCUENTOS, importe sin IVA y número de facturas con descuento)
+  const byDisc = new Map<string, { v: number; n: number }>();
+  for (const x of i.invoices) {
+    const d = netDiscount(x);
+    if (d > 0) {
+      const e = byDisc.get(x.issuedBy) ?? { v: 0, n: 0 };
+      e.v = r2(sum([e.v, d]));
+      e.n++;
+      byDisc.set(x.issuedBy, e);
+    }
+  }
+  [...byDisc.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .forEach(([u, e]) => rows.push(cajero(u, i.discountCode ?? "63", e.v, e.n)));
   return `<DinTrans>${rows.join("")}</DinTrans>`;
 }
 
 /**
- * PlusTrans: por PLU (producto o respuesta/modificador con PLU), cantidad e importes con y sin IVA, totales y unitarios,
- * descuento (la parte del descuento de la cuenta) y agregador LOCAL. BaseIva = neta de lo que lleva IVA; BaseCero = neta al 0 %.
+ * PlusTrans (como MaxPoint): por PLU, y aparte las unidades con descuento. Bruta y Neta son las de antes del descuento
+ * (precio de carta); Descuento va sin IVA (su parte del descuento de la cuenta); IvaTotal = (Neta − Descuento) × tipo,
+ * el IVA que de verdad se cobró. En las filas con descuento MaxPoint manda IvaUnitario = 0: se manda igual.
+ * BaseIva = neta de lo que lleva IVA; BaseCero = neta al 0 %; unitarios = total / cantidad.
  */
 function plusTrans(i: SirInput) {
-  const m = new Map<
-    number,
-    { q: number; bruta: number; neta: number; iva: number; cero: number; base: number; desc: number }
-  >();
+  type Acc = {
+    plu: number;
+    disc: boolean;
+    q: number;
+    bruta: number;
+    neta: number;
+    iva: number;
+    cero: number;
+    base: number;
+    desc: number;
+  };
+  const m = new Map<string, Acc>();
   for (const it of i.items) {
     if (!it.plu || it.quantity <= 0) {
       continue;
     }
-    const bruta = r2(it.grossAfterDiscount);
-    const neta = r2(D(bruta).div(D(1).plus(D(it.taxRate).div(100))));
-    const e = m.get(it.plu) ?? { q: 0, bruta: 0, neta: 0, iva: 0, cero: 0, base: 0, desc: 0 };
+    // como MaxPoint: neto e IVA por unidad redondeados al céntimo y multiplicados por la cantidad (4,50 → 4,09 + 0,41)
+    const rate = D(it.taxRate).div(100);
+    const bruta = r2(it.gross);
+    const unitGross = D(it.gross).div(it.quantity);
+    const unitNet = r2(unitGross.div(D(1).plus(rate)));
+    const neta = r2(D(unitNet).times(it.quantity));
+    const descGross = Math.max(0, r2(D(it.gross).minus(it.grossAfterDiscount)));
+    const desc = r2(D(descGross).div(D(1).plus(rate)));
+    const iva =
+      desc > 0 ? r2(D(neta).minus(desc).times(rate)) : r2(D(r2(unitGross.minus(unitNet))).times(it.quantity));
+    const disc = desc > 0;
+    const k = `${it.plu}|${disc ? 1 : 0}`;
+    const e = m.get(k) ?? { plu: it.plu, disc, q: 0, bruta: 0, neta: 0, iva: 0, cero: 0, base: 0, desc: 0 };
     e.q = Number(D(e.q).plus(it.quantity));
     e.bruta = r2(sum([e.bruta, bruta]));
     e.neta = r2(sum([e.neta, neta]));
-    e.iva = r2(sum([e.iva, D(bruta).minus(neta)]));
+    e.iva = r2(sum([e.iva, iva]));
     if (Number(it.taxRate) === 0) {
       e.cero = r2(sum([e.cero, neta]));
     } else {
       e.base = r2(sum([e.base, neta]));
     }
-    e.desc = r2(sum([e.desc, D(it.gross).minus(it.grossAfterDiscount)]));
-    m.set(it.plu, e);
+    e.desc = r2(sum([e.desc, desc]));
+    m.set(k, e);
   }
   if (!m.size) {
     return null;
   }
   const u = (v: number, q: number) => (q ? Number(D(v).div(q)) : 0);
-  const rows = [...m.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([plu, e]) =>
+  const rows = [...m.values()]
+    .sort((a, b) => a.plu - b.plu || Number(a.disc) - Number(b.disc))
+    .map((e) =>
       row("Cod_Plu", [
-        ["Cod_Plu", plu],
+        ["Cod_Plu", e.plu],
         ["Cantidad", sirNum(e.q)],
         ["BaseIvaTotal", sirNum(e.base, 6)],
         ["BaseCeroTotal", sirNum(e.cero)],
@@ -277,7 +317,7 @@ function plusTrans(i: SirInput) {
         ["BaseIvaUnitaria", sirNum(u(e.base, e.q), 6)],
         ["BaseCeroUnitaria", sirNum(u(e.cero, e.q), 6)],
         ["NetaUnitaria", sirNum(u(e.neta, e.q), 6)],
-        ["IvaUnitario", sirNum(u(e.iva, e.q), 6)],
+        ["IvaUnitario", sirNum(e.disc ? 0 : u(e.iva, e.q), 6)],
         ["BrutaUnitaria", sirNum(u(e.bruta, e.q), 6)],
         ["Descuento", sirNum(e.desc, 6)],
         ["agregador", "LOCAL"],

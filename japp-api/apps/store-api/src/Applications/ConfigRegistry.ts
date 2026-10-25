@@ -360,7 +360,10 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
         required: true,
       }),
       name: F("name", "s", str(40), "Nombre", { required: true }),
-      kind: F("kind", "s", z.enum(["cash", "card", "platform", "voucher"]), "Tipo", { required: true }),
+      kind: F("kind", "s", z.enum(["cash", "card", "platform", "voucher", "discount"]), "Tipo", {
+        required: true,
+      }),
+      showInTpv: F("show_in_tpv", "b", z.boolean(), "Mostrar en el TPV", { default: true }),
       opensDrawer: F("opens_drawer", "b", z.boolean(), "Abre cajón", { default: false }),
       allowsTip: F("allows_tip", "b", z.boolean(), "Admite propina", { default: false }),
       externalId: F("external_id", "s", optStr(60), "Id de integración"),

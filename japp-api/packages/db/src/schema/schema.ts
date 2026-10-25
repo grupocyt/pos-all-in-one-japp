@@ -772,6 +772,7 @@ export const paymentMethod = pgTable("payment_method", {
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
 	externalId: varchar("external_id", { length: 60 }),
+	showInTpv: boolean("show_in_tpv").default(true).notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],

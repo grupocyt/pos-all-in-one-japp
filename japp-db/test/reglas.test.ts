@@ -50,6 +50,11 @@ describe("reglas en la base", () => {
     expect(await fails("UPDATE app_user SET color=NULL WHERE id=$1", [u], "23514")).toBe("OK");
     await fails("UPDATE app_user SET color='rojo' WHERE id=$1", [u], "23514");
   }));
+  it("forma de pago de tipo descuento y sin mostrar en el TPV (migración 0020)", () => rollback(c, async () => {
+    const pm = (await one(c, "SELECT id FROM payment_method WHERE store_id=$1 LIMIT 1", [store])).id;
+    expect(await fails("UPDATE payment_method SET kind='discount', show_in_tpv=false WHERE id=$1", [pm], "23514")).toBe("OK");
+    await fails("UPDATE payment_method SET kind='regalo' WHERE id=$1", [pm], "23514");
+  }));
   it("la URL del SIR es http(s) o vacía (23514, migración 0019)", () => rollback(c, async () => {
     expect(await fails("UPDATE store SET sir_url='http://sir.example.com/servicio.php' WHERE id=$1", [store], "23514")).toBe("OK");
     expect(await fails("UPDATE store SET sir_url=NULL WHERE id=$1", [store], "23514")).toBe("OK");

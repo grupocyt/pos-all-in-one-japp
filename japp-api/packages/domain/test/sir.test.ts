@@ -94,7 +94,7 @@ describe("interfaz de ventas al SIR (USP_InterfaceSistemaGerente)", () => {
   it("CierreCajas: TOTAL con comensales y canal 1; facturas menos rectificativas; constantes de MaxPoint", () => {
     const x = sirXml(base).CierreCajas!;
     expect(x).toContain(
-      '<CierreCajasDetalle Venta_Bruta="27.5000" Venta_Neta="25.0000" Iva="2.5000" VentaCero="0.0000" Descuento="1.0000" Servicios="0.0000" Transacciones="2" Compensacion="0.0000" TotalClientes="5" tipo_medio="TOTAL" neta_sin_terraza="1" iva_sin_terraza="2" anulaciones="1" anulacionGer="2" errores="3" facEmpezadas="4" facPagadas="5" cancelacion="6" descIvaInt_CierreCajasPiloto="7"/>',
+      '<CierreCajasDetalle Venta_Bruta="27.5000" Venta_Neta="25.0000" Iva="2.5000" VentaCero="0.0000" Descuento="0.9100" Servicios="0.0000" Transacciones="2" Compensacion="0.0000" TotalClientes="5" tipo_medio="TOTAL" neta_sin_terraza="1" iva_sin_terraza="2" anulaciones="1" anulacionGer="2" errores="3" facEmpezadas="4" facPagadas="5" cancelacion="6" descIvaInt_CierreCajasPiloto="7"/>',
     );
     expect(x).toContain('TotalClientes="0" tipo_medio="1"');
   });
@@ -127,10 +127,33 @@ describe("interfaz de ventas al SIR (USP_InterfaceSistemaGerente)", () => {
       '<Cod_Plu Cod_Plu="614" Cantidad="3.0000" BaseIvaTotal="6.270000" BaseCeroTotal="0.0000" NetaTotal="6.270000" IvaTotal="0.630000" BrutaTotal="6.900000" BaseIvaUnitaria="2.090000" BaseCeroUnitaria="0.000000" NetaUnitaria="2.090000" IvaUnitario="0.210000" BrutaUnitaria="2.300000" Descuento="0.000000" agregador="LOCAL"/>',
     );
     expect(x).toContain(
-      '<Cod_Plu Cod_Plu="777" Cantidad="1.0000" BaseIvaTotal="0.000000" BaseCeroTotal="10.0000" NetaTotal="10.000000" IvaTotal="0.000000" BrutaTotal="10.000000"',
+      '<Cod_Plu Cod_Plu="777" Cantidad="1.0000" BaseIvaTotal="0.000000" BaseCeroTotal="11.0000" NetaTotal="11.000000" IvaTotal="0.000000" BrutaTotal="11.000000"',
     );
     expect(x).toContain('Descuento="1.000000" agregador="LOCAL"');
     expect(x).toContain('Cod_Plu="900" Cantidad="1.0000"'); // respuesta de menú a 0 €: cuenta en cantidad
+  });
+
+  it("PlusTrans con descuento, igual que MaxPoint (CT03 18/08/2026, PLU 36): fila aparte, Bruta/Neta de carta, Descuento sin IVA, IVA tras el descuento", () => {
+    const x = sirXml({
+      ...base,
+      items: [
+        { plu: 36, quantity: 47, gross: 211.5, grossAfterDiscount: 211.5, taxRate: 10 },
+        { plu: 36, quantity: 6, gross: 27, grossAfterDiscount: 18.904, taxRate: 10 },
+      ],
+    }).PlusTrans!;
+    expect(x).toContain(
+      '<Cod_Plu Cod_Plu="36" Cantidad="6.0000" BaseIvaTotal="24.540000" BaseCeroTotal="0.0000" NetaTotal="24.540000" IvaTotal="1.720000" BrutaTotal="27.000000" BaseIvaUnitaria="4.090000" BaseCeroUnitaria="0.000000" NetaUnitaria="4.090000" IvaUnitario="0.000000" BrutaUnitaria="4.500000" Descuento="7.360000" agregador="LOCAL"/>',
+    );
+    expect(x).toContain(
+      '<Cod_Plu Cod_Plu="36" Cantidad="47.0000" BaseIvaTotal="192.230000" BaseCeroTotal="0.0000" NetaTotal="192.230000" IvaTotal="19.270000" BrutaTotal="211.500000" BaseIvaUnitaria="4.090000" BaseCeroUnitaria="0.000000" NetaUnitaria="4.090000" IvaUnitario="0.410000" BrutaUnitaria="4.500000" Descuento="0.000000" agregador="LOCAL"/>',
+    );
+  });
+
+  it("DinTrans: fila de descuentos por cajero (63 por defecto, configurable)", () => {
+    expect(sirXml(base).DinTrans).toContain(
+      '<Cajero Cod_Cajero="Pedro" Cod_FormaPago="63" Merchant="" Valor="0.9100" Num_Trans="1" Recap="0" IDDocumento="-1"/>',
+    );
+    expect(sirXml({ ...base, discountCode: "70" }).DinTrans).toContain('Cod_FormaPago="70"');
   });
 
   it("HorasCajero: por usuario y día, horas redondeadas", () => {

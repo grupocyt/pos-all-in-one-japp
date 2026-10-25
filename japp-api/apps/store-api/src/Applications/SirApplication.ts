@@ -34,6 +34,15 @@ export class SirApplication {
     return s;
   }
 
+  /** Cod_FormaPago de los descuentos: el id de integración de la forma de pago de tipo «discount» (activa). */
+  async discountCode(storeId: string) {
+    const [r] = await rows<{ code: string | null }>(
+      this.db,
+      sql`SELECT coalesce(nullif(external_id, ''), code) code FROM payment_method WHERE store_id = ${storeId} AND kind = 'discount' AND active ORDER BY created_at LIMIT 1`,
+    );
+    return r?.code ?? null;
+  }
+
   /** Facturas del periodo (también rectificativas), con su base al 0 % y el descuento de la cuenta. */
   async invoices(storeId: string, periodId: string) {
     return rows<{

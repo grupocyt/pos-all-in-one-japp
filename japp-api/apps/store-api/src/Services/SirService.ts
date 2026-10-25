@@ -37,13 +37,14 @@ export class SirService {
     }
     const from = new Date(p!.opened_at);
     const to = p!.closed_at ? new Date(p!.closed_at) : this.clock();
-    const [store, sum, invoices, payments, lines, sessions] = await Promise.all([
+    const [store, sum, invoices, payments, lines, sessions, discountCode] = await Promise.all([
       this.sir.store(se.storeId),
       this.closings.summarize(null, se.storeId, p!.id),
       this.sir.invoices(se.storeId, p!.id),
       this.sir.payments(se.storeId, p!.id),
       this.sir.lines(se.storeId, p!.id),
       this.sir.sessions(se.storeId, from, to),
+      this.sir.discountCode(se.storeId),
     ]);
     // cada línea: el producto y sus respuestas, menos lo abonado y con la parte del descuento de la cuenta
     const items: SirItem[] = [];
@@ -73,6 +74,8 @@ export class SirService {
     }
     const out = sirSales({
       storeCode: store?.rst ?? store?.code ?? "",
+      // Ajustes › Formas de pago: la de tipo «descuento» (su id de integración); si no hay, SIR_DISCOUNT_CODE o 63
+      discountCode: discountCode ?? (process.env.SIR_DISCOUNT_CODE || "63"),
       businessDate: sum.businessDate,
       guests: sum.guests,
       invoices: invoices.map((i) => ({

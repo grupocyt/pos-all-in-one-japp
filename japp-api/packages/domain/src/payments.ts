@@ -33,7 +33,12 @@ export interface MethodRow {
   code: string;
   kind: string;
   active: boolean;
+  /** false = solo para integraciones (no sale en el cobro). Los de tipo discount nunca se cobran. */
+  showInTpv?: boolean;
 }
+/** Forma de pago con la que se puede cobrar en el TPV (las de descuento o «no mostrar en el TPV» son solo para el SIR). */
+export const chargeable = (m: Pick<MethodRow, "kind" | "showInTpv">) =>
+  m.kind !== "discount" && m.showInTpv !== false;
 /**
  * ¿Se puede cobrar con esta forma de pago en esta estación?
  * - tiene que existir y estar activa;
@@ -47,6 +52,12 @@ export function assertMethodAllowed(
 ): MethodRow {
   if (!m || !m.active) {
     return fail("METHOD_NOT_ALLOWED", "Forma de pago no disponible", { field: "method", method: code });
+  }
+  if (!chargeable(m)) {
+    fail("METHOD_NOT_ALLOWED", "Con esa forma de pago no se cobra en el TPV", {
+      field: "method",
+      method: code,
+    });
   }
   if (station.methodIds.length && !station.methodIds.includes(m.id)) {
     fail("METHOD_NOT_ALLOWED", `${station.name} no cobra con esa forma de pago`, {
@@ -74,7 +85,7 @@ export function stationMethods<M extends MethodRow>(
   station: { kind: string; methodIds: string[] },
 ): M[] {
   return methods.filter((m) => {
-    if (!m.active) {
+    if (!m.active || !chargeable(m)) {
       return false;
     }
     if (station.methodIds.length && !station.methodIds.includes(m.id)) {

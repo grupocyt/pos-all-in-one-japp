@@ -62,6 +62,7 @@ export class DevicesApplication {
         code: s.paymentMethod.code,
         kind: s.paymentMethod.kind,
         active: s.paymentMethod.active,
+        showInTpv: s.paymentMethod.showInTpv,
       })
       .from(s.paymentMethod)
       .where(eq(s.paymentMethod.storeId, storeId))

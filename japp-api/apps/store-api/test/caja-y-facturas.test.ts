@@ -216,6 +216,16 @@ describe("caja y periodo", () => {
       "PERMISSION_REQUIRED",
     );
     expect(sir.body.soap).toContain(`<CierreCajas>${sir.body.CierreCajas}</CierreCajas>`);
+    // los descuentos son una forma de pago más (tipo discount, sin mostrar en el TPV): no se cobra con ella
+    const dpm = await t.call("POST", "/config/formas-pago", {
+      token: sistemas,
+      body: { code: "descuentos", name: "Descuentos", kind: "discount", showInTpv: false, externalId: "63" },
+    });
+    expect(dpm.status, JSON.stringify(dpm.error)).toBe(201);
+    const { rows: dr } = await t.sql.query(
+      "SELECT kind, show_in_tpv, external_id FROM payment_method WHERE code = 'descuentos'",
+    );
+    expect(dr[0]).toEqual({ kind: "discount", show_in_tpv: false, external_id: "63" });
     // enviar: sin URL → 422; con URL, el SOAP llega tal cual al SIR (servidor de prueba) y se ve su respuesta
     expect(
       (await t.call("POST", "/interface/sir/sales/send", { token: sistemas, body: {} })).error.field,
