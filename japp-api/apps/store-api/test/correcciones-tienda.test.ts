@@ -85,7 +85,35 @@ const outbox = async (orderId: string) =>
   (await one("SELECT count(*)::int n FROM sync_outbox WHERE entity = 'order' AND entity_id = $1", [orderId]))
     .n;
 
-describe("nombres de cuenta: «Cuenta N» nunca se repite", () => {
+describe("cierre de periodo: mesas vacías (1.2.195)", () => {
+  it("una mesa abierta, vacía y sin tocar hace rato se cierra sola al cerrar; la que tiene productos sigue bloqueando", async () => {
+    const empty = await open(1);
+    // abierta hace 5 minutos (sin el disparador que pone updated_at = now())
+    await t.sql.query("SET session_replication_role = replica");
+    await t.sql.query("UPDATE orders SET updated_at = now() - interval '5 minutes' WHERE id = $1", [
+      empty._id,
+    ]);
+    await t.sql.query("SET session_replication_role = DEFAULT");
+    const fresh = await open(1); // recién abierta: alguien va a marcar → no se toca
+    const live = await open(1);
+    await t.call("POST", `/orders/${live._id}/lines`, { token: sis, body: { plu: PLU.tosta, force: true } });
+    const p = (await t.call("GET", "/periods/current", { token: sis })).body.id;
+    const r = await t.call("POST", `/periods/${p}/close`, {
+      token: sis,
+      body: { countedCash: 0, nextFloat: 150 },
+    });
+    expect(r.status).toBe(422);
+    expect(r.error.details.openOrders).toBeGreaterThanOrEqual(2);
+    const st = async (id: string) => (await one("SELECT status FROM orders WHERE id = $1", [id])).status;
+    expect([await st(empty._id), await st(fresh._id), await st(live._id)]).toEqual([
+      "cancelled",
+      "open",
+      "open",
+    ]);
+  });
+});
+
+describe("nombres de cuenta: «Cuenta N» = la más alta que hay + 1", () => {
   it("al quitar una intermedia, la siguiente cuenta (añadir o separar a nueva) no repite número", async () => {
     const o = await open();
     const add = (body: Record<string, unknown> = {}) =>
@@ -111,6 +139,20 @@ describe("nombres de cuenta: «Cuenta N» nunca se repite", () => {
     });
     expect(mv.status, JSON.stringify(mv.env)).toBe(200);
     expect(mv.body.accounts.map((a: any) => a.name)).toEqual([
+      "Cuenta 1",
+      "Cuenta 3",
+      "Cuenta 4",
+      "Cuenta 5",
+    ]);
+    // 1.2.195: quitada la última (vacía), su número vuelve: la siguiente es otra vez «Cuenta 5»
+    const c5 = mv.body.accounts[3];
+    const back = await t.call("POST", `/orders/${o._id}/lines/move`, {
+      token: sis,
+      body: { lines: [{ lineId: c5.lines[0].id, quantity: 1 }], toAccountId: mv.body.accounts[0].id },
+    });
+    expect(back.body.accounts.map((a: any) => a.name)).toEqual(["Cuenta 1", "Cuenta 3", "Cuenta 4"]);
+    const again = await add();
+    expect(again.body.accounts.map((a: any) => a.name)).toEqual([
       "Cuenta 1",
       "Cuenta 3",
       "Cuenta 4",
@@ -175,6 +217,34 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     body: Record<string, unknown>,
     headers: Record<string, string> = {},
   ) => t.call("POST", `/orders/${id}/transfer`, { token: tok, body: { scope: "table", ...body }, headers });
+
+  it("1.2.195 · into main: lo que llega se une a la cuenta principal; la cuenta con cobros se queda aparte", async () => {
+    const s = await source();
+    const d = await dest();
+    const v = (await get(s.id)).version;
+    const r = await transfer(sis, s.id, { toTableId: d.tableId, version: v, into: "main" });
+    expect(r.status, JSON.stringify(r.env)).toBe(200);
+    const live = r.body.accounts.filter((a: any) => a.status !== "cancelled");
+    // Cuenta 1 del destino: kaspirinha + tosta (la Cuenta 1 del origen, sin cobros, se une); la de croquetas (con cobro) aparte
+    const byName = Object.fromEntries(
+      live.map((a: any) => [a.name, a.lines.map((l: any) => l.plu ?? l.productId).sort()]),
+    );
+    expect(live).toHaveLength(2);
+    expect(byName["Cuenta 1"]).toEqual([PLU.kaspirinha, PLU.tosta].sort());
+    expect(Object.values(byName)).toContainEqual([PLU.croquetas]);
+    // una cuenta suelta a una mesa ocupada, into main
+    const s2 = await open(2);
+    await t.call("POST", `/orders/${s2._id}/lines`, { token: sis, body: { plu: PLU.redbull, force: true } });
+    const v2 = (await get(s2._id)).version;
+    const a = await t.call("POST", `/orders/${s2._id}/accounts/${s2.accounts[0].id}/transfer`, {
+      token: sis,
+      body: { toTableId: d.tableId, version: v2, into: "main" },
+    });
+    expect(a.status, JSON.stringify(a.env)).toBe(200);
+    const main = a.body.to.accounts.find((x: any) => x.name === "Cuenta 1");
+    expect(main.lines.map((l: any) => l.plu ?? l.productId)).toContain(PLU.redbull);
+    expect(a.body.to.accounts.filter((x: any) => x.status !== "cancelled")).toHaveLength(2);
+  });
 
   it("las cuentas vivas pasan enteras, renombradas si se repiten; comensales y notas se suman; el origen se cierra y su QR se anula", async () => {
     const s = await source();

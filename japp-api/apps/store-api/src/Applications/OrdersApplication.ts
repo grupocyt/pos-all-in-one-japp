@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { schema as s, type Database, type Db, type Tx } from "@japp/db";
 import {
   accountTotals,
@@ -629,6 +629,7 @@ export class OrdersApplication {
       const modsChanged = JSON.stringify(p.l.modifiers) !== JSON.stringify(l.modifiers);
       if (
         p.l.quantity !== l.quantity ||
+        p.l.unitPrice !== l.unitPrice ||
         p.l.status !== l.status ||
         p.l.comment !== l.comment ||
         p.acc !== acc ||
@@ -639,6 +640,7 @@ export class OrdersApplication {
           .update(s.orderLine)
           .set({
             quantity: String(l.quantity),
+            unitPrice: String(l.unitPrice),
             status: l.status,
             printed: l.status !== "pendingPrint",
             comment: l.comment || null,
@@ -998,14 +1000,21 @@ export class OrdersApplication {
   }
 
   /**
-   * Nombres de TODAS las cuentas de la orden, también las anuladas (load() no las trae), para que el siguiente
-   * «Cuenta N» (nextAccountName) nunca repita un número ya usado en la mesa.
+   * Nombres de las cuentas vivas de la orden (abiertas, en cobro y facturadas; no las anuladas ni las quitadas).
+   * 1.2.195 (pruebas del 26/10/2026): el siguiente «Cuenta N» es el más alto de las que hay + 1; una cuenta
+   * quitada o vaciada al separar ya no deja hueco en la numeración.
    */
   async accountNames(tx: Tx, storeId: string, orderId: string): Promise<string[]> {
     const rows = await tx
       .select({ name: s.account.name })
       .from(s.account)
-      .where(and(eq(s.account.orderId, orderId), eq(s.account.storeId, storeId)));
+      .where(
+        and(
+          eq(s.account.orderId, orderId),
+          eq(s.account.storeId, storeId),
+          ne(s.account.status, "cancelled"),
+        ),
+      );
     return rows.map((r) => r.name);
   }
 

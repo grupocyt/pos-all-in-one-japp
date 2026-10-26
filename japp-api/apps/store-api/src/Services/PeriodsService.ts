@@ -9,6 +9,7 @@ import { StoreApplication } from "../Applications/StoreApplication.js";
 import { PeriodsApplication, type PeriodRow } from "../Applications/PeriodsApplication.js";
 import { CashService } from "./CashService.js";
 import { IncidentsService } from "./IncidentsService.js";
+import { OrdersService } from "./OrdersService.js";
 import { CashApplication } from "../Applications/CashApplication.js";
 import type { ClosePeriodInput, OpenPeriodInput } from "../Models/PeriodsModels.js";
 
@@ -25,6 +26,7 @@ export class PeriodsService {
     @Inject(CashApplication) private readonly cash: CashApplication,
     @Inject(CashService) private readonly cashSvc: CashService,
     @Inject(IncidentsService) private readonly incidentsSvc: IncidentsService,
+    @Inject(OrdersService) private readonly orders: OrdersService,
   ) {}
 
   private view(p: PeriodRow) {
@@ -83,6 +85,8 @@ export class PeriodsService {
     const store = await this.stores.store();
     const now = this.clock();
     const a = session.actor(now);
+    // las mesas abiertas vacías (sin productos ni cobros) no bloquean el cierre: se cierran solas antes
+    await this.orders.closeEmptyOfPeriod(session, periodId);
     const res = await this.database.withTx(async (tx) => {
       const p = await this.periods.lockForUpdate(tx, session.storeId, periodId);
       if (!p || p.status !== "open") {

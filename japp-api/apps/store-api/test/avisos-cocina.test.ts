@@ -119,24 +119,44 @@ describe("aviso de cambio de mesa", () => {
   });
 });
 
-describe("cambio de mesa entre tarifas", () => {
-  it("de una zona con precio general a una de terraza → 422 en toTableId y la mesa no se mueve (mesa y cuenta)", async () => {
-    const o = await sentTable([PLU.tosta]);
-    const v = (await t.call("GET", `/orders/${o.id}`, { token: sis })).body.version;
-    const r = await t.call("POST", `/orders/${o.id}/transfer`, {
-      token: sis,
-      body: { scope: "table", toTableId: await freeTable(t, "TERRAZA"), version: v },
-    });
-    expect([r.status, r.error.code, r.error.field]).toEqual([422, "VALIDATION", "toTableId"]);
-    expect(r.error.message).toBe(
-      "No se puede pasar de una zona con precio general a una con precio de terraza",
-    );
-    const a = await t.call("POST", `/orders/${o.id}/accounts/${o.acc}/transfer`, {
-      token: sis,
-      body: { toTableId: await freeTable(t, "TERRAZA"), version: v },
-    });
-    expect([a.status, a.error.field]).toEqual([422, "toTableId"]);
-    expect((await t.call("GET", `/orders/${o.id}`, { token: sis })).body.tableData.zone).toBe("BARRA");
+describe("cambio de mesa entre tarifas (1.2.195)", () => {
+  it("de general a terraza SÍ y los productos pasan a PVP terraza; de terraza a general → 422 en toTableId", async () => {
+    await t.sql.query("UPDATE product SET price_terrace = price + 0.5 WHERE plu = $1", [PLU.tosta]);
+    try {
+      const base = Number(
+        (await t.sql.query("SELECT price FROM product WHERE plu = $1", [PLU.tosta])).rows[0].price,
+      );
+      const o = await sentTable([PLU.tosta]);
+      const v = (await t.call("GET", `/orders/${o.id}`, { token: sis })).body.version;
+      const r = await t.call("POST", `/orders/${o.id}/transfer`, {
+        token: sis,
+        body: { scope: "table", toTableId: await freeTable(t, "TERRAZA"), version: v },
+      });
+      expect(r.status, JSON.stringify(r.error)).toBe(200);
+      expect(r.body.tableData.zone).toBe("TERRAZA");
+      const l = r.body.accounts[0].lines[0];
+      expect(Number(l.unitPrice)).toBeCloseTo(base + 0.5, 2);
+      expect(r.body.accounts[0].totals.total).toBeCloseTo(base + 0.5, 2);
+      // y vuelta atrás, no
+      const back = await t.call("POST", `/orders/${o.id}/transfer`, {
+        token: sis,
+        body: { scope: "table", toTableId: await freeTable(t, "BARRA"), version: r.body.version },
+      });
+      expect([back.status, back.error.code, back.error.field]).toEqual([422, "VALIDATION", "toTableId"]);
+      expect(back.error.message).toMatch(/De terraza solo se puede pasar a otra mesa de terraza/);
+      // una cuenta suelta de barra a una mesa de terraza: también a PVP terraza
+      const o2 = await sentTable([PLU.tosta]);
+      const v2 = (await t.call("GET", `/orders/${o2.id}`, { token: sis })).body.version;
+      const a = await t.call("POST", `/orders/${o2.id}/accounts/${o2.acc}/transfer`, {
+        token: sis,
+        body: { toTableId: await freeTable(t, "TERRAZA"), version: v2 },
+      });
+      expect(a.status, JSON.stringify(a.error)).toBe(200);
+      const to = a.body.to ?? a.body;
+      expect(Number(to.accounts[0].lines[0].unitPrice)).toBeCloseTo(base + 0.5, 2);
+    } finally {
+      await t.sql.query("UPDATE product SET price_terrace = NULL WHERE plu = $1", [PLU.tosta]);
+    }
   });
 });
 

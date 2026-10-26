@@ -19,7 +19,8 @@ import {
   accountTotals,
   kitchenTicket,
   kitchenVoidTicket,
-  assertSamePriceList,
+  priceListMove,
+  repriceToTerrace,
   tableChangeTicket,
   preBillTicket,
   invoiceTicket,
@@ -1923,6 +1924,70 @@ export class OrdersService {
     ).transaction;
   }
 
+  /** PVP terraza de los productos de esas cuentas (PLU → precio; sin producto o sin PVP terraza → null). */
+  private async terracePrices(tx: Tx, storeId: string, accounts: Order["accounts"]) {
+    const m = new Map<number, number | null>();
+    for (const plu of new Set(accounts.flatMap((a) => a.lines.map((l) => l.productId)))) {
+      const p = await this.carta.product(tx, storeId, plu);
+      m.set(plu, p?.p.priceTerrace == null ? null : Number(p.p.priceTerrace));
+    }
+    return m;
+  }
+  private repriceText(ch: { name: string; from: number; to: number; quantity: number }[]) {
+    const f = (n: number) => n.toFixed(2).replace(".", ",");
+    return `Pasa a precio de terraza: ${ch.map((c) => `${c.quantity} × ${c.name} ${f(c.from)} → ${f(c.to)} €`).join(", ")}`;
+  }
+  /** Tras pasar cuentas de una zona general a una de terraza: los productos de la mesa de destino, a PVP terraza. */
+  private async repriceDest(tx: Tx, storeId: string, orderId: string, ctx: Ctx): Promise<number | null> {
+    const d = await this.repo.load(tx, storeId, orderId, { lock: true });
+    const r = repriceToTerrace(d.order.accounts, await this.terracePrices(tx, storeId, d.order.accounts));
+    if (!r.changed.length) {
+      return null;
+    }
+    return this.repo.save(tx, storeId, d.order, { ...d.order, accounts: r.accounts }, d.header, {
+      actor: ctx.actor,
+      events: [this.ev("pricesToTerrace", this.repriceText(r.changed), ctx)],
+    });
+  }
+
+  /**
+   * Cierre de periodo (1.2.195, pruebas del 26/10/2026): las mesas abiertas del periodo sin nada vivo (sin productos ni
+   * cobros en las cuentas sin facturar; p. ej. el ticket vacío que el fast food deja preparado tras cobrar, o una mesa
+   * abierta y dejada vacía) se cierran solas sin venta, para que no bloqueen el cierre («Hay 2 mesas abiertas»).
+   * Las que tienen algo vivo no se tocan, ni las tocadas en los últimos 2 minutos (alguien la acaba de abrir y va a
+   * marcar: esa sí cuenta como abierta). Devuelve cuántas se cerraron.
+   */
+  async closeEmptyOfPeriod(session: Session, periodId: string): Promise<number> {
+    let n = 0;
+    for (const id of await this.periods.emptyOpenOrderIds(session.storeId, periodId)) {
+      try {
+        const r = await this.command(
+          session,
+          id,
+          null,
+          (l, ctx) => {
+            if (liveContentOf(l.order)) {
+              return { next: l.order, events: [], noop: true };
+            }
+            return {
+              next: this.closeEmpty(l, l.order),
+              events: [
+                this.ev("tableClosed", "Se cierra sola al cerrar el periodo (sin productos ni cobros)", ctx),
+              ],
+            };
+          },
+          { kind: "external" },
+        );
+        if (r.transaction.status === "closed" || r.transaction.status === "cancelled") {
+          n++;
+        }
+      } catch {
+        // otra cosa la tiene ocupada o ya se cerró: la cuenta de mesas abiertas del cierre decide
+      }
+    }
+    return n;
+  }
+
   /**
    * Cierre sin venta de una mesa sin nada vivo: las cuentas sin facturar se anulan (desaparecen de la orden y save() las
    * marca cancelled, nunca se borran). Sin ninguna facturada la orden queda cancelled; con alguna, save() la deja closed.
@@ -2002,7 +2067,8 @@ export class OrdersService {
           if (busy) {
             fail("TABLE_BUSY", "La mesa de destino está ocupada", { orderId: busy.id });
           }
-          assertSamePriceList(l.header.priceList, t!.a.priceList); // terraza con terraza, general con general
+          // general → terraza: sí, a PVP terraza; terraza → general: no (1.2.195)
+          const toTerrace = priceListMove(l.header.priceList, t!.a.priceList);
           const from = l.header.tableName;
           const dest = {
             tableId: t!.t.id,
@@ -2014,9 +2080,18 @@ export class OrdersService {
           // el QR de Order on Table era de la mesa vieja: se anula en la misma transacción (el camarero saca otro)
           await this.oot.revoke(q, session.storeId, orderId, "transferred");
           Object.assign(l.header, dest);
+          const rp = toTerrace
+            ? repriceToTerrace(
+                l.order.accounts,
+                await this.terracePrices(q, session.storeId, l.order.accounts),
+              )
+            : null;
           return {
-            next: { ...l.order, tableId: t!.t.id },
-            events: [this.ev("tableTransferred", `Mesa ${from} → ${t!.t.number}`, c)],
+            next: { ...l.order, accounts: rp ? rp.accounts : l.order.accounts, tableId: t!.t.id },
+            events: [
+              this.ev("tableTransferred", `Mesa ${from} → ${t!.t.number}`, c),
+              ...(rp?.changed.length ? [this.ev("pricesToTerrace", this.repriceText(rp.changed), c)] : []),
+            ],
           };
         },
         ctx,
@@ -2060,7 +2135,7 @@ export class OrdersService {
     }
     assertCanCommand(src.header.presence, me, "other", ctx.now);
     const dst = await this.repo.load(tx, S, destId, { lock: true });
-    assertSamePriceList(src.header.priceList, dst.header.priceList);
+    const toTerrace = priceListMove(src.header.priceList, dst.header.priceList);
     // cobro abierto → TABLE_CHARGING; otra persona dentro → TABLE_TAKEN (salvo mesas.entrarOcupada)
     canEnterTable(dst.header.presence, me, ctx.now);
     const names = await this.repo.accountNames(tx, S, destId);
@@ -2097,7 +2172,7 @@ export class OrdersService {
       .map((m) => `${m.renamedFrom} ahora ${m.account.name}`)
       .join(", ");
     dst.header.note = r.note;
-    const vTo = await this.repo.save(tx, S, r.to, r.to, dst.header, {
+    let vTo = await this.repo.save(tx, S, r.to, r.to, dst.header, {
       actor: ctx.actor,
       events: [
         this.ev(
@@ -2107,6 +2182,9 @@ export class OrdersService {
         ),
       ],
     });
+    if (toTerrace) {
+      vTo = (await this.repriceDest(tx, S, destId, ctx)) ?? vTo;
+    }
     const d = await this.repo.load(tx, S, destId);
     return this.repo.transaction(tx, { ...d.header, version: vTo }, d.order);
   }
@@ -2125,15 +2203,95 @@ export class OrdersService {
       toTableId: string;
       version?: number;
       authorization?: string | null;
+      into?: "main" | "new";
     },
   ) {
     return this.withTableNotice(
       session,
       orderId,
       b.scope === "account" ? (b.accountId ?? null) : null,
-      () => this.changeTable0(session, orderId, b),
+      () =>
+        this.withInto(
+          session,
+          b.toTableId,
+          b.into,
+          () => this.changeTable0(session, orderId, b),
+          (_r, to) => to,
+        ),
       (r: any) => r,
     );
+  }
+
+  /**
+   * Transferir a una mesa ocupada (1.2.195, pruebas del 26/10/2026): con into = "main", lo que llega se une a la
+   * cuenta principal de la mesa de destino (la primera abierta que ya tenía) en vez de quedarse como cuenta aparte.
+   * Las cuentas que llegan con cobros o descuentos se quedan aparte (no se mezclan cobros). Mesa libre: como siempre.
+   */
+  private async withInto<R>(
+    session: Session,
+    toTableId: string,
+    into: "main" | "new" | undefined,
+    run: () => Promise<R>,
+    setTo: (r: R, to: any) => R,
+  ): Promise<R> {
+    if (into !== "main") {
+      return run();
+    }
+    const S = session.storeId;
+    const pre = await this.database.withTx(async (tx) => {
+      const [busy] = await this.repo.liveOnTable(tx, S, { tableId: toTableId });
+      if (!busy) {
+        return null;
+      }
+      const l = await this.repo.load(tx, S, busy.id);
+      return {
+        id: busy.id,
+        ids: new Set(l.order.accounts.map((a) => a.id)),
+        // la principal: la primera abierta sin cobros (a una cuenta con cobros no se le pueden pasar productos)
+        main: l.order.accounts.find((a) => a.status === "open" && !a.payments.length)?.id ?? null,
+      };
+    });
+    const r = await run();
+    if (!pre?.main) {
+      return r;
+    }
+    const to = await this.command(
+      session,
+      pre.id,
+      null,
+      (l, ctx) => {
+        let order = l.order;
+        const names: string[] = [];
+        for (const a of l.order.accounts) {
+          const discounted = (a.discounts ?? []).some((d) => d.status === "applied");
+          if (
+            pre.ids.has(a.id) ||
+            a.status !== "open" ||
+            !a.lines.length ||
+            a.payments.length ||
+            discounted
+          ) {
+            continue;
+          }
+          const pick = Object.fromEntries(a.lines.map((x) => [x.id, x.quantity]));
+          order = moveUnits(order, a.id, pre.main!, pick, ctx, []).order;
+          names.push(a.name);
+        }
+        if (!names.length) {
+          return { next: l.order, events: [], noop: true };
+        }
+        const main = order.accounts.find((a) => a.id === pre.main);
+        return {
+          next: order,
+          movedReason: `Pasada a ${main?.name ?? ""}`,
+          events: [
+            this.ev("accountsJoined", `${names.join(", ")} se une a ${main?.name ?? ""}`, ctx, pre.main!),
+          ],
+        };
+      },
+      { kind: "external" },
+    );
+    return setTo(r, to.transaction);
   }
 
   /** Pasar una cuenta a otra mesa desde POST …/accounts/{accountId}/transfer, con el aviso a cocina y barra. */
@@ -2141,13 +2299,20 @@ export class OrdersService {
     session: Session,
     orderId: string,
     accountId: string,
-    b: { toTableId: string; version: number; authorization?: string | null },
+    b: { toTableId: string; version: number; authorization?: string | null; into?: "main" | "new" },
   ) {
     return this.withTableNotice(
       session,
       orderId,
       accountId,
-      () => this.transferAccount(session, orderId, accountId, b),
+      () =>
+        this.withInto(
+          session,
+          b.toTableId,
+          b.into,
+          () => this.transferAccount(session, orderId, accountId, b),
+          (r, to) => ({ ...r, to }),
+        ),
       (r: any) => r?.to,
     );
   }
@@ -2218,7 +2383,7 @@ export class OrdersService {
         fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
       }
       assertVersion(src.header.version, b.version);
-      assertSamePriceList(src.header.priceList, t!.a.priceList);
+      const toTerrace = priceListMove(src.header.priceList, t!.a.priceList);
       assertCanCommand(src.header.presence, me, "other", ctx.now);
       if (busy?.id === orderId || src.header.tableId === b.toTableId) {
         fail("VALIDATION", "La cuenta ya está en esa mesa", { field: "toTableId" });
@@ -2270,7 +2435,7 @@ export class OrdersService {
       if (!r.sourceLive) {
         await this.repo.savePresence(tx, S, orderId, { holder: null, chargingUntil: null });
       }
-      const vTo = await this.repo.save(tx, S, r.to, r.to, dst.header, {
+      let vTo = await this.repo.save(tx, S, r.to, r.to, dst.header, {
         actor: ctx.actor,
         events: [
           this.ev(
@@ -2281,6 +2446,9 @@ export class OrdersService {
           ),
         ],
       });
+      if (toTerrace) {
+        vTo = (await this.repriceDest(tx, S, dst.header.id, ctx)) ?? vTo;
+      }
       const a = await this.repo.load(tx, S, orderId);
       const d = await this.repo.load(tx, S, dst.header.id);
       return {

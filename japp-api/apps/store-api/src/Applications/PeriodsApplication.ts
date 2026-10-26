@@ -56,6 +56,21 @@ export class PeriodsApplication {
   }
 
   /** Mesas del periodo aún abiertas o cobrándose. */
+  /**
+   * Mesas abiertas (open o billing) del periodo totalmente vacías: ninguna línea (ni eliminada), ningún cobro y ninguna
+   * cuenta facturada, sin tocar desde hace `idleSeconds` (una recién abierta sí cuenta: alguien va a marcar).
+   */
+  async emptyOpenOrderIds(storeId: string, periodId: string, idleSeconds = 120): Promise<string[]> {
+    const r = await this.database.db.execute(sql`
+      SELECT o.id FROM orders o
+      WHERE o.store_id = ${storeId} AND o.period_id = ${periodId} AND o.status IN ('open', 'billing')
+        AND o.updated_at < now() - make_interval(secs => ${idleSeconds}::int)
+        AND NOT EXISTS (SELECT 1 FROM order_line l WHERE l.order_id = o.id)
+        AND NOT EXISTS (SELECT 1 FROM account a WHERE a.order_id = o.id AND a.status = 'invoiced')
+        AND NOT EXISTS (SELECT 1 FROM payment y JOIN account a ON a.id = y.account_id WHERE a.order_id = o.id)`);
+    return ((r as any).rows ?? r).map((x: any) => String(x.id));
+  }
+
   async countOpenOrders(tx: Tx, storeId: string, periodId: string) {
     const [open] = await tx
       .select({ n: sql<number>`count(*)` })

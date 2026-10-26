@@ -87,6 +87,8 @@ export const Transfer = z.object({
   scope: z.enum(["table", "account"]).default("table"),
   toTableId: Uuid,
   accountId: Uuid.nullish(),
+  /** mesa de destino ocupada: «new» (por defecto) llega como cuenta(s) aparte; «main» sus productos se unen a la cuenta principal */
+  into: z.enum(["main", "new"]).default("new"),
   version,
   authorization: auth,
 });
@@ -140,7 +142,12 @@ export const ReorderLines = z
   .strict();
 export const CloseOrder = z.object({ version: z.number().int().nullable().optional() }).strict();
 export const TransferAccount = z
-  .object({ version: z.number().int().positive(), toTableId: Uuid, authorization: auth })
+  .object({
+    version: z.number().int().positive(),
+    toTableId: Uuid,
+    authorization: auth,
+    into: z.enum(["main", "new"]).default("new"),
+  })
   .strict();
 /** «Guardar y salir». */
 export const SaveOrder = z.object({ version: z.number().int().positive().nullish() }).strict();

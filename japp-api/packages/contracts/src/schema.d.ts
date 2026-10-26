@@ -167,7 +167,7 @@ export interface paths {
         put?: never;
         /**
          * Cerrar periodo con arqueo
-         * @description Solo desde la caja principal (403 MAIN_STATION_REQUIRED «Solo desde la caja principal»). Guarda el arqueo final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar con mesas abiertas. Si el efectivo contado descuadra más que el umbral y no hay nota → 422 VALIDATION (field note) con details {expectedCash, countedCash, difference, threshold}: lo esperado según el servidor.
+         * @description Solo desde la caja principal (403 MAIN_STATION_REQUIRED «Solo desde la caja principal»). Guarda el arqueo final, envía las incidencias de productos a Marketing y deja todo en la cola hacia el Manager. No se puede cerrar con mesas abiertas (422 VALIDATION con details.openOrders); antes de contar, las mesas abiertas totalmente vacías (sin líneas, cobros ni cuentas facturadas) y sin tocar hace más de 2 minutos se cierran solas sin venta (1.2.195). Si el efectivo contado descuadra más que el umbral y no hay nota → 422 VALIDATION (field note) con details {expectedCash, countedCash, difference, threshold}: lo esperado según el servidor.
          *
          *     Permiso: funciones.periodo
          *
@@ -941,7 +941,7 @@ export interface paths {
         put?: never;
         /**
          * Pasar productos a otra cuenta (separar)
-         * @description Si se pasa una parte de la cantidad, la línea se parte en dos y la nueva guarda de qué línea sale.
+         * @description Si se pasa una parte de la cantidad, la línea se parte en dos y la nueva guarda de qué línea sale. Sin toAccountId va a una cuenta nueva «Cuenta N» (N = la más alta de las cuentas vivas + 1; las anuladas no cuentan desde 1.2.195) o newAccountName. La cuenta de origen que se queda vacía se anula. El TPV, con servidor, separa toque a toque con este endpoint y se queda con la transacción que devuelve.
          *
          *     Permiso: pedido.pasarCuenta | pedido.separar
          *
@@ -2257,7 +2257,7 @@ export interface paths {
         put?: never;
         /**
          * Cambiar de mesa (mesa entera o una cuenta)
-         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId; si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan. Solo entre zonas con el mismo precio (terraza con terraza, general con general): si no, 422 VALIDATION en toTableId.
+         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId; si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan (también acepta into). into (1.2.195): con la mesa de destino ocupada, «new» (defecto) llega como cuenta(s) aparte y «main» une sus productos a la cuenta principal del destino (la primera abierta sin cobros; las cuentas con cobros o descuentos se quedan aparte; evento accountsJoined). Zonas de precio (1.2.195): de general (barra, salón) a terraza SÍ y los productos de las cuentas sin facturar pasan a PVP terraza (evento pricesToTerrace); de terraza a general → 422 VALIDATION en toTableId.
          *
          *     Permiso: mesas.transferir
          *
@@ -10705,6 +10705,7 @@ export interface operations {
                  *       "accountId": null,
                  *       "toTableId": "b1f0c2d4-0000-4000-8000-0000000000a8",
                  *       "version": 7,
+                 *       "into": "new",
                  *       "authorization": null
                  *     } */
                 "application/json": {
@@ -10712,6 +10713,7 @@ export interface operations {
                     accountId?: unknown;
                     toTableId?: string;
                     version?: number;
+                    into?: string;
                     authorization?: unknown;
                 };
             };
