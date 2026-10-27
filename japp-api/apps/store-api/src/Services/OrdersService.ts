@@ -2110,8 +2110,10 @@ export class OrdersService {
       toNote: dst.header.note,
     });
     // cada cuenta y TODAS sus líneas (también las eliminadas) cambian de orden; cobros, descuentos y respuestas cuelgan de ellas
+    // 1.2.203 · cada cuenta que llega dice de qué mesa viene, quién juntó y cuándo
+    const origin = { table: src.header.tableName ?? "", by: ctx.actor.user, at: ctx.now.toISOString() };
     for (const m of r.moved) {
-      await this.repo.moveAccount(tx, S, m.account.id, orderId, destId, m.account.name);
+      await this.repo.moveAccount(tx, S, m.account.id, orderId, destId, m.account.name, origin);
     }
     // el QR de la mesa vieja deja de pedir en ella (antes de save(), que lo anularía como 'closed')
     await this.oot.revoke(tx, S, orderId, "transferred");
@@ -2385,7 +2387,16 @@ export class OrdersService {
       const name = r.account.name;
       const oldName = r.renamedFrom ?? name;
       // la cuenta y TODAS sus líneas (también las eliminadas) cambian de orden; cobros, descuentos y respuestas cuelgan de ellas
-      await this.repo.moveAccount(tx, S, accountId, orderId, dst.header.id, name);
+      // 1.2.203 · a una mesa ocupada, la cuenta dice de qué mesa viene, quién la pasó y cuándo
+      await this.repo.moveAccount(
+        tx,
+        S,
+        accountId,
+        orderId,
+        dst.header.id,
+        name,
+        busy ? { table: src.header.tableName ?? "", by: ctx.actor.user, at: ctx.now.toISOString() } : null,
+      );
       // origen: sin la cuenta (ya no es suya); si no le queda ninguna viva se cierra como «cerrar mesa sin venta»
       if (!r.sourceLive && !r.from.accounts.some((a) => a.status === "invoiced")) {
         src.header.status = "cancelled";

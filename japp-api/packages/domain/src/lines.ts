@@ -254,7 +254,7 @@ export function reorderPending(acc: Account, ids: string[]): Account {
 
 /** Clave para juntar unidades iguales al pasar entre cuentas (producto, estado, comentario y modificadores). */
 export const sameKey = (l: Line) =>
-  [l.productId, l.status, l.comment, JSON.stringify(l.modifiers.map((m) => m.name))].join("|");
+  [l.productId, l.status, l.comment, JSON.stringify(l.modifiers.map((m) => m.name)), l.origin?.table ?? ""].join("|");
 
 /** Una cuenta se puede tocar al separar si está abierta y no tiene cobros. */
 export const isMovable = (a: Account) => a.status === "open" && a.payments.length === 0;
@@ -315,11 +315,14 @@ export function moveUnits(
     if (!Number.isInteger(n) || n < 0 || n > l.quantity) {
       fail("VALIDATION", "Cantidad a pasar no válida", { lineId: lid, n, max: l.quantity });
     }
-    const ex = dest.lines.find((x) => sameKey(x) === sameKey(l));
+    // 1.2.203 · lo que sale de una cuenta traída de otra mesa lleva esa mesa (se ve «de Mesa N» en la línea)
+    const origin = l.origin ?? (src.origin ? { table: src.origin.table } : null);
+    const moved: Line = { ...clone(l), quantity: n, ...(origin ? { origin } : {}) };
+    const ex = dest.lines.find((x) => sameKey(x) === sameKey(moved));
     if (ex) {
       ex.quantity += n;
     } else {
-      dest.lines.push({ ...clone(l), id: ctx.newId(), quantity: n });
+      dest.lines.push({ ...moved, id: ctx.newId() });
     }
     l.quantity -= n;
     if (l.quantity <= 0) {

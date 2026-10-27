@@ -47,6 +47,17 @@ export interface Line {
   createdBy: Actor;
   /** Pases del menú; solo en productos con preguntas de pase (Ajustes › Preguntas › Pase). */
   courses?: LineCourse[];
+  /** Mesa de la que vino al unirse a la cuenta principal de otra mesa (1.2.203). */
+  origin?: LineOrigin | null;
+}
+export interface LineOrigin {
+  table: string;
+}
+/** Mesa de la que llegó una cuenta como cuenta nueva al juntar o transferir a una mesa ocupada, quién y cuándo. */
+export interface AccountOrigin {
+  table: string;
+  by: string;
+  at: string;
 }
 export interface DeletedLine extends Line {
   reason: string;
@@ -113,6 +124,8 @@ export interface Account {
   customerData: CustomerData | null;
   invoice: Invoice | null;
   parts?: number;
+  /** Llegó de otra mesa como cuenta nueva (juntar o transferir a una mesa ocupada, 1.2.203). */
+  origin?: AccountOrigin | null;
 }
 
 export interface Order {

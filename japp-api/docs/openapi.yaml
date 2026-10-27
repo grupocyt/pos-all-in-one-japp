@@ -14991,7 +14991,10 @@ paths:
         para los equipos que ya lo usan (también acepta into). into (1.2.195): con la mesa de destino ocupada, «new» (defecto)
         llega como cuenta(s) aparte y «main» une sus productos a la cuenta principal del destino (la primera abierta sin cobros;
         las cuentas con cobros o descuentos se quedan aparte; evento accountsJoined). Solo entre zonas con el mismo precio
-        (terraza con terraza, general con general): si no, 422 VALIDATION en toTableId.
+        (terraza con terraza, general con general): si no, 422 VALIDATION en toTableId. Origen (1.2.203, migración 0022):
+        a una mesa ocupada, cada cuenta que llega como cuenta nueva trae origin = {table, by, at} (de qué mesa viene, quién
+        la pasó y cuándo); con into = main, cada línea unida a la cuenta principal trae origin = {table}. Las líneas de distinto
+        origen no se juntan.
 
 
         Permiso: mesas.transferir

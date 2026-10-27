@@ -17,6 +17,8 @@ import {
   type Invoice,
   type Line,
   type LineCourse,
+  type LineOrigin,
+  type AccountOrigin,
   type Modifier,
   type Order,
   type Payment,
@@ -190,6 +192,7 @@ export class OrdersApplication {
           ...(m.course != null ? { course: m.course, questionId: m.questionId } : {}),
         })),
       ...(Array.isArray(l.courses) && l.courses.length ? { courses: l.courses as LineCourse[] } : {}),
+      ...(l.origin && typeof l.origin === "object" ? { origin: l.origin as LineOrigin } : {}),
       status: (l.status === "deleted" ? "printed" : l.status) as Line["status"],
       createdBy: actor({
         id: l.createdByUserId,
@@ -334,6 +337,7 @@ export class OrdersApplication {
               : (invoice?.customer ?? null);
           })(),
           invoice,
+          ...(a.origin && typeof a.origin === "object" ? { origin: a.origin as AccountOrigin } : {}),
         };
       });
     const header: OrderHeader = {
@@ -572,6 +576,7 @@ export class OrdersApplication {
         netAmount: String(lineAmount(l)),
         sortOrder: posOf.get(l.id) ?? 0,
         courses: l.courses?.length ? l.courses : null,
+        origin: l.origin ?? null,
         ...actorCols("createdBy", l.createdBy, true),
       } as typeof s.orderLine.$inferInsert);
       await this.insertMods(tx, storeId, l.id, l.modifiers, products);
@@ -840,6 +845,7 @@ export class OrdersApplication {
         id: a.id,
         name: a.name,
         status: a.status,
+        origin: a.origin ?? null,
         closedBy: null,
         note: null,
         lines: a.lines.map((l) => ({
@@ -977,9 +983,12 @@ export class OrdersApplication {
     fromOrderId: string,
     toOrderId: string,
     name: string,
+    origin: AccountOrigin | null = null,
   ) {
+    // 1.2.203 · a una mesa ocupada, la cuenta guarda de qué mesa viene, quién la pasó y cuándo (account.origin)
+    const o = origin ? JSON.stringify(origin) : null;
     await tx.execute(
-      sql`UPDATE account SET order_id = ${toOrderId}, name = ${name}, updated_at = now() WHERE store_id = ${storeId} AND id = ${accountId} AND order_id = ${fromOrderId}`,
+      sql`UPDATE account SET order_id = ${toOrderId}, name = ${name}, origin = COALESCE(${o}::jsonb, origin), updated_at = now() WHERE store_id = ${storeId} AND id = ${accountId} AND order_id = ${fromOrderId}`,
     );
     await tx.execute(
       sql`UPDATE order_line SET order_id = ${toOrderId}, updated_at = now() WHERE store_id = ${storeId} AND account_id = ${accountId} AND order_id = ${fromOrderId}`,

@@ -239,6 +239,17 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     expect(live).toHaveLength(2);
     expect(byName["Cuenta 1"]).toEqual([PLU.kaspirinha, PLU.tosta].sort());
     expect(Object.values(byName)).toContainEqual([PLU.croquetas]);
+    // 1.2.203 · cada línea unida dice de qué mesa viene; la de la mesa no lleva origen; la cuenta aparte, mesa y quién
+    const c1 = live.find((a: any) => a.name === "Cuenta 1");
+    const lp = (plu: number) => c1.lines.find((l: any) => (l.plu ?? l.productId) === plu);
+    expect(lp(PLU.tosta).origin).toEqual({ table: s.table });
+    expect(lp(PLU.kaspirinha).origin ?? null).toBeNull();
+    const apart = live.find((a: any) => a.name !== "Cuenta 1");
+    expect(apart.origin).toMatchObject({ table: s.table, by: expect.any(String), at: expect.any(String) });
+    // y se conserva al volver a leer la mesa
+    const again = await get(d.id);
+    const c1b = again.accounts.find((a: any) => a.name === "Cuenta 1");
+    expect(c1b.lines.find((l: any) => (l.plu ?? l.productId) === PLU.tosta).origin).toEqual({ table: s.table });
     // una cuenta suelta a una mesa ocupada, into main
     const s2 = await open(2);
     await t.call("POST", `/orders/${s2._id}/lines`, { token: sis, body: { plu: PLU.redbull, force: true } });
@@ -250,6 +261,9 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     expect(a.status, JSON.stringify(a.env)).toBe(200);
     const main = a.body.to.accounts.find((x: any) => x.name === "Cuenta 1");
     expect(main.lines.map((l: any) => l.plu ?? l.productId)).toContain(PLU.redbull);
+    expect(main.lines.find((l: any) => (l.plu ?? l.productId) === PLU.redbull).origin).toEqual({
+      table: s2.tableData.name,
+    });
     expect(a.body.to.accounts.filter((x: any) => x.status !== "cancelled")).toHaveLength(2);
   });
 
@@ -271,6 +285,11 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     const names = Object.fromEntries(r.body.accounts.map((a: any) => [a.id, a.name]));
     expect(r.body.accounts).toHaveLength(3);
     expect([names[s.a1], names[s.a2]]).toEqual(["Cuenta 2", "Cuenta 3"]);
+    // 1.2.203 · como cuentas nuevas: cada una dice de qué mesa viene y quién juntó; la del destino no
+    const og = Object.fromEntries(r.body.accounts.map((a: any) => [a.id, a.origin ?? null]));
+    expect(og[s.a1]).toMatchObject({ table: s.table, by: expect.any(String) });
+    expect(og[s.a2]).toMatchObject({ table: s.table });
+    expect(r.body.accounts.filter((a: any) => !a.origin)).toHaveLength(1);
     expect(Object.values(names).sort()).toEqual(["Cuenta 1", "Cuenta 2", "Cuenta 3"]);
     const moved = r.body.accounts.find((a: any) => a.id === s.a2);
     expect(moved.totals).toEqual(acc2.totals); // mismos precios y su cobro parcial

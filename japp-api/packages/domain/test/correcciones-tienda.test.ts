@@ -83,6 +83,28 @@ describe("nombres de cuenta: nunca se repite un «Cuenta N»", () => {
     const r2 = moveUnits(o, "a1", "new", { [l.id]: 1 }, ctx(), ["Cuenta 4"]);
     expect(r2.order.accounts.find((a) => a.id === r2.destId)!.name).toBe("Cuenta 5");
   });
+  it("1.2.203 · lo que sale de una cuenta traída de otra mesa lleva esa mesa y no se junta con lo igual de la mesa", () => {
+    const mine = line({ id: "m1", quantity: 1 });
+    const came = line({ id: "c1", quantity: 2 });
+    const o = order("o", [
+      account({ id: "main", name: "Cuenta 1", lines: [mine] }),
+      account({ id: "in", name: "Cuenta 2", lines: [came], origin: { table: "7", by: "Ana", at: T0.toISOString() } }),
+    ]);
+    const r = moveUnits(o, "in", "main", { c1: 2 }, ctx());
+    const main = r.order.accounts.find((a) => a.id === "main")!;
+    expect(main.lines).toHaveLength(2);
+    expect(main.lines.find((l) => l.id === "m1")!.quantity).toBe(1);
+    const moved = main.lines.find((l) => l.id !== "m1")!;
+    expect(moved.origin).toEqual({ table: "7" });
+    expect(moved.quantity).toBe(2);
+    // sin origen, lo igual se suma como siempre
+    const o2 = order("o", [
+      account({ id: "main", name: "Cuenta 1", lines: [line({ id: "m2" })] }),
+      account({ id: "b", name: "Cuenta 2", lines: [line({ id: "b2" })] }),
+    ]);
+    const r2 = moveUnits(o2, "b", "main", { b2: 1 }, ctx());
+    expect(r2.order.accounts.find((a) => a.id === "main")!.lines).toHaveLength(1);
+  });
   it("pasar una cuenta a otra mesa con el nombre repetido: siguiente número del destino, nunca uno reutilizado", () => {
     const dest = order("o8", [
       account({ id: "b1", name: "Cuenta 1", lines: [line()] }),

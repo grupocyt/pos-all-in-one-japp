@@ -121,6 +121,7 @@ export class TransactionsService {
       createdAt: iso(l.created_by_at),
       createdBy: who(l, "created_by"),
       courses: l.courses ?? null,
+      origin: l.origin ?? null,
       options: mods
         .filter((m) => m.line_id === l.id)
         .map((m) => ({
