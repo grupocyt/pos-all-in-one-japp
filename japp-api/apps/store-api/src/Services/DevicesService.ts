@@ -44,7 +44,15 @@ export class DevicesService {
   async identify(b: IdentifyDeviceInput) {
     const store = await this.stores.store();
     const st = identifyDevice(await this.devices.activeStations(store.id), b.deviceUuid, b.type);
-    return { stationId: st.id, name: st.name, kind: st.kind, main: st.isMain, ip: st.ip ?? null };
+    // la tienda (código y nombre) para que el equipo enseñe la suya antes de entrar con una clave (1.2.199)
+    return {
+      stationId: st.id,
+      name: st.name,
+      kind: st.kind,
+      main: st.isMain,
+      ip: st.ip ?? null,
+      store: { code: store.code ?? null, name: store.name ?? null },
+    };
   }
 
   async claimMain(b: ClaimMainInput) {
@@ -63,6 +71,7 @@ export class DevicesService {
         name: plan.main.name,
         main: true,
         previousUuid: plan.previousUuid,
+        store: { code: store.code ?? null, name: store.name ?? null },
       };
       if (plan.unchanged) {
         return { ...result, configVersion: await this.changes.configVersion(store.id, tx) };

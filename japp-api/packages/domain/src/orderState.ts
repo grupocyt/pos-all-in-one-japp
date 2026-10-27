@@ -23,6 +23,26 @@ export function liveContentOf(
   return null;
 }
 
+/**
+ * Tras facturar una cuenta (pruebas en tienda, 26–27/10/2026): si a la mesa solo le quedan, además de las facturadas,
+ * cuentas sin nada vivo (sin productos ni cobros confirmados; p. ej. una «Cuenta N» creada y dejada vacía), esas cuentas
+ * se quitan (save() las anula) para que la mesa se cierre. Antes la mesa quedaba abierta («Separada», morada) con todo
+ * cobrado y bloqueaba el cierre de periodo. Devuelve la orden sin esas cuentas, o la misma si queda algo vivo.
+ */
+export function dropEmptyAfterInvoice(order: Order): Order {
+  if (!order.accounts.some((a) => a.status === "invoiced")) {
+    return order;
+  }
+  if (liveContentOf(order)) {
+    return order;
+  }
+  const rest = order.accounts.filter((a) => a.status !== "invoiced");
+  if (!rest.length) {
+    return order;
+  }
+  return { ...order, accounts: order.accounts.filter((a) => a.status === "invoiced") };
+}
+
 /** Cerrar sin venta: con algo vivo → 409 ORDER_NOT_EMPTY (con productos o con cobros). */
 export function assertNothingLive(order: Order): void {
   const live = liveContentOf(order);

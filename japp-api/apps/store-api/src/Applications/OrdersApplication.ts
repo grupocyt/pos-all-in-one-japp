@@ -242,6 +242,12 @@ export class OrdersApplication {
                     name: inv.customerName ?? "",
                     taxId: inv.customerTaxId,
                     email: inv.customerEmail ?? undefined,
+                    // el domicilio del cliente va en la factura completa (F1) impresa y en las reimpresiones
+                    street: inv.customerStreet ?? undefined,
+                    postalCode: inv.customerPostalCode ?? undefined,
+                    city: inv.customerCity ?? undefined,
+                    province: inv.customerProvince ?? undefined,
+                    country: inv.customerCountry ?? undefined,
                   }
                 : null,
               verifactuQr: inv.verifactuQr ?? "",

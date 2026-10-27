@@ -4282,7 +4282,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details></div><div class="mi" id="aj-developer-conexin-api"><h4>Conexión API</h4><details class="ep" id="get-health-aj">
 <summary><span class="m get">GET</span><code class="p">/health</code><span class="s">Salud de la tienda</span><span class="st ok">Hecho</span><span class="who"><i>Agente</i><i>TPV</i></span></summary>
 <div class="eb">
-<p>Lo mismo que el latido que se envía al Manager: versión, base de datos, impresoras, cola pendiente y hora de la última factura.</p>
+<p>Lo mismo que el latido que se envía al Manager: versión (la de la tienda, 1.2.x), base de datos, impresoras, cola pendiente y hora de la última factura. period: si hay periodo abierto, desde cuándo y quién lo abrió (el TPV lo enseña en la pantalla de clave antes de entrar).</p>
 <dl class="meta"></dl>
 
 <div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
@@ -4290,13 +4290,18 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;type&quot;: &quot;success&quot;,
   &quot;status&quot;: 200,
   &quot;data&quot;: {
-    &quot;version&quot;: &quot;v112&quot;,
+    &quot;version&quot;: &quot;1.2.199&quot;,
     &quot;db&quot;: &quot;ok&quot;,
     &quot;printers&quot;: {
       &quot;BARRA&quot;: &quot;ok&quot;
     },
     &quot;outboxPending&quot;: 0,
     &quot;lastInvoiceAt&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+    &quot;period&quot;: {
+      &quot;open&quot;: true,
+      &quot;openedAt&quot;: null,
+      &quot;openedBy&quot;: null
+    },
     &quot;time&quot;: &quot;2026-10-13T16:40:00.000Z&quot;
   },
   &quot;errors&quot;: [],
@@ -4976,7 +4981,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="post-devices-identify-tx">
 <summary><span class="m post">POST</span><code class="p">/devices/identify</code><span class="s">Reconocer el equipo por su UUID</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
-<p>Primer arranque: busca la estación activa con ese UUID (Ajustes › Estaciones, sin distinguir mayúsculas). type = desktop (cualquier estación que no sea PDA) o mobile (PDA). Sin estación → 404 DEVICE_NOT_REGISTERED; con el otro tipo → 409 DEVICE_TYPE_MISMATCH (details.actual). Desde ahí el equipo manda su UUID en X-Station-Id. No pide sesión.</p>
+<p>Primer arranque: busca la estación activa con ese UUID (Ajustes › Estaciones, sin distinguir mayúsculas). type = desktop (cualquier estación que no sea PDA) o mobile (PDA). Sin estación → 404 DEVICE_NOT_REGISTERED; con el otro tipo → 409 DEVICE_TYPE_MISMATCH (details.actual). Desde ahí el equipo manda su UUID en X-Station-Id. No pide sesión. store = código y nombre de la tienda (el equipo los enseña antes de entrar con una clave).</p>
 <dl class="meta"><dt>En el TPV</dt><dd>Primer arranque › Escritorio o Móvil</dd><dt>Tablas</dt><dd><code>station</code></dd></dl>
 
 <div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
@@ -4991,7 +4996,11 @@ footer{color:var(--muted);font-size:13px;text-align:center}
     &quot;name&quot;: &quot;CAJA2&quot;,
     &quot;kind&quot;: &quot;station&quot;,
     &quot;main&quot;: false,
-    &quot;ip&quot;: null
+    &quot;ip&quot;: null,
+    &quot;store&quot;: {
+      &quot;code&quot;: &quot;JC01&quot;,
+      &quot;name&quot;: &quot;Nueva Sucursal Japp&quot;
+    }
   },
   &quot;errors&quot;: [],
   &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
@@ -5017,6 +5026,10 @@ footer{color:var(--muted);font-size:13px;text-align:center}
     &quot;name&quot;: &quot;CAJA1&quot;,
     &quot;main&quot;: true,
     &quot;previousUuid&quot;: null,
+    &quot;store&quot;: {
+      &quot;code&quot;: &quot;JC01&quot;,
+      &quot;name&quot;: &quot;Nueva Sucursal Japp&quot;
+    },
     &quot;configVersion&quot;: 215
   },
   &quot;errors&quot;: [],
@@ -7759,8 +7772,8 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="get-cash-summary-tx">
 <summary><span class="m get">GET</span><code class="p">/cash/summary</code><span class="s">Resumen de caja del periodo</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
-
-<dl class="meta"><dt>Permiso</dt><dd><code>funciones.caja</code></dd><dt>En el TPV</dt><dd>Gestiones › Arqueo de caja</dd><dt>Tablas</dt><dd><code>cash_movement</code> <code>payment</code> <code>invoice</code></dd></dl>
+<p>Lo esperado en caja del periodo abierto. También con funciones.periodo: quien cierra el periodo compara lo contado con esto (1.2.198).</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.caja | funciones.periodo</code></dd><dt>En el TPV</dt><dd>Gestiones › Arqueo de caja</dd><dt>Tablas</dt><dd><code>cash_movement</code> <code>payment</code> <code>invoice</code></dd></dl>
 
 <div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
   &quot;title&quot;: &quot;Resumen de caja del periodo&quot;,
@@ -8923,7 +8936,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 </div></details><details class="ep" id="get-health-rp">
 <summary><span class="m get">GET</span><code class="p">/health</code><span class="s">Salud de la tienda</span><span class="st ok">Hecho</span><span class="who"><i>Agente</i><i>TPV</i></span></summary>
 <div class="eb">
-<p>Lo mismo que el latido que se envía al Manager: versión, base de datos, impresoras, cola pendiente y hora de la última factura.</p>
+<p>Lo mismo que el latido que se envía al Manager: versión (la de la tienda, 1.2.x), base de datos, impresoras, cola pendiente y hora de la última factura. period: si hay periodo abierto, desde cuándo y quién lo abrió (el TPV lo enseña en la pantalla de clave antes de entrar).</p>
 <dl class="meta"></dl>
 
 <div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
@@ -8931,13 +8944,18 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;type&quot;: &quot;success&quot;,
   &quot;status&quot;: 200,
   &quot;data&quot;: {
-    &quot;version&quot;: &quot;v112&quot;,
+    &quot;version&quot;: &quot;1.2.199&quot;,
     &quot;db&quot;: &quot;ok&quot;,
     &quot;printers&quot;: {
       &quot;BARRA&quot;: &quot;ok&quot;
     },
     &quot;outboxPending&quot;: 0,
     &quot;lastInvoiceAt&quot;: &quot;2026-10-13T16:40:00.000Z&quot;,
+    &quot;period&quot;: {
+      &quot;open&quot;: true,
+      &quot;openedAt&quot;: null,
+      &quot;openedBy&quot;: null
+    },
     &quot;time&quot;: &quot;2026-10-13T16:40:00.000Z&quot;
   },
   &quot;errors&quot;: [],
@@ -19453,7 +19471,11 @@ paths:
       tags:
       - API de tienda v2 · Facturas, caja e informes
       summary: Resumen de caja del periodo
-      description: &#x27;Permiso: funciones.caja
+      description: &#x27;Lo esperado en caja del periodo abierto. También con funciones.periodo: quien cierra el periodo compara
+        lo contado con esto (1.2.198).
+
+
+        Permiso: funciones.caja | funciones.periodo
 
 
         Lo llama: TPV
@@ -20392,8 +20414,9 @@ paths:
       tags:
       - API de tienda v2 · Impresoras, salud y Developer
       summary: Salud de la tienda
-      description: &#x27;Lo mismo que el latido que se envía al Manager: versión, base de datos, impresoras, cola pendiente y hora
-        de la última factura.
+      description: &#x27;Lo mismo que el latido que se envía al Manager: versión (la de la tienda, 1.2.x), base de datos, impresoras,
+        cola pendiente y hora de la última factura. period: si hay periodo abierto, desde cuándo y quién lo abrió (el TPV
+        lo enseña en la pantalla de clave antes de entrar).
 
 
         Lo llama: Agente, TPV&#x27;
@@ -20429,6 +20452,13 @@ paths:
                         type:
                         - string
                         - &#x27;null&#x27;
+                      period:
+                        type: object
+                        properties:
+                          open:
+                            type: boolean
+                          openedAt: {}
+                          openedBy: {}
                       time:
                         type: string
               example:
@@ -20436,12 +20466,16 @@ paths:
                 type: success
                 status: 200
                 data:
-                  version: v112
+                  version: 1.2.199
                   db: ok
                   printers:
                     BARRA: ok
                   outboxPending: 0
                   lastInvoiceAt: &#x27;2026-10-13T16:40:00.000Z&#x27;
+                  period:
+                    open: true
+                    openedAt: null
+                    openedBy: null
                   time: &#x27;2026-10-13T16:40:00.000Z&#x27;
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
@@ -24029,7 +24063,7 @@ paths:
       description: &#x27;Primer arranque: busca la estación activa con ese UUID (Ajustes › Estaciones, sin distinguir mayúsculas).
         type = desktop (cualquier estación que no sea PDA) o mobile (PDA). Sin estación → 404 DEVICE_NOT_REGISTERED; con el
         otro tipo → 409 DEVICE_TYPE_MISMATCH (details.actual). Desde ahí el equipo manda su UUID en X-Station-Id. No pide
-        sesión.
+        sesión. store = código y nombre de la tienda (el equipo los enseña antes de entrar con una clave).
 
 
         Lo llama: TPV, PDA
@@ -24062,6 +24096,13 @@ paths:
                       main:
                         type: boolean
                       ip: {}
+                      store:
+                        type: object
+                        properties:
+                          code:
+                            type: string
+                          name:
+                            type: string
               example:
                 title: Reconocer el equipo por su UUID
                 type: success
@@ -24072,6 +24113,9 @@ paths:
                   kind: station
                   main: false
                   ip: null
+                  store:
+                    code: JC01
+                    name: Nueva Sucursal Japp
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -24192,6 +24236,13 @@ paths:
                       main:
                         type: boolean
                       previousUuid: {}
+                      store:
+                        type: object
+                        properties:
+                          code:
+                            type: string
+                          name:
+                            type: string
                       configVersion:
                         type:
                         - integer
@@ -24205,6 +24256,9 @@ paths:
                   name: CAJA1
                   main: true
                   previousUuid: null
+                  store:
+                    code: JC01
+                    name: Nueva Sucursal Japp
                   configVersion: 215
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f

@@ -90,7 +90,7 @@ describe("factura completa F1", () => {
         type: "company",
         taxId: "B02891075",
         name: "Eventos Madrid SL",
-        address: { city: "Madrid", country: "ES" },
+        address: { street: "Calle Mayor 1", postalCode: "28001", city: "Madrid", country: "ES" },
       },
     });
     expect(c.status, JSON.stringify(c.body)).toBe(200);
@@ -99,8 +99,16 @@ describe("factura completa F1", () => {
       token: barra,
       body: { method: "card", amount: 17 },
     });
+    const jobs = t.printer.jobs.length;
     const f = await t.call("POST", `/orders/${o.id}/accounts/${o.acc}/invoice`, { token: barra });
     expect(f.body.invoice).toMatchObject({ type: "F1", series: "F2026" });
+    // la F1 impresa lleva el domicilio del cliente (también al reimprimir) — pruebas del 27/10/2026
+    const printedF1 = t.printer.jobs.slice(jobs).map((j) => j.text).join("\n");
+    expect(printedF1).toContain("Calle Mayor 1, 28001 Madrid");
+    const invId = (await t.sql.query("SELECT id FROM invoice WHERE account_id=$1", [o.acc])).rows[0].id;
+    const j2 = t.printer.jobs.length;
+    await t.call("POST", `/invoices/${invId}/reprint`, { token: sistemas });
+    expect(t.printer.jobs.slice(j2).map((j) => j.text).join("\n")).toContain("Calle Mayor 1, 28001 Madrid");
     const detail = await t.call(
       "GET",
       `/invoices/${(await t.sql.query("SELECT id FROM invoice WHERE account_id=$1", [o.acc])).rows[0].id}`,

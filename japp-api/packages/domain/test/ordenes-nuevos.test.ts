@@ -1,6 +1,6 @@
 import { DomainError } from "../src/errors.js";
 import { planReopen } from "../src/reopen.js";
-import { liveContentOf, assertNothingLive, renameAccount } from "../src/orderState.js";
+import { liveContentOf, assertNothingLive, renameAccount, dropEmptyAfterInvoice } from "../src/orderState.js";
 import type { Order, Payment } from "../src/types.js";
 import { account, line } from "./helpers.js";
 
@@ -87,6 +87,27 @@ describe("lo que le queda vivo a la mesa (liveContentOf / assertNothingLive)", (
       code: "ORDER_NOT_EMPTY",
       details: { accountId: "a2" },
     });
+  });
+});
+
+describe("tras facturar, las cuentas vacías no dejan la mesa abierta (dropEmptyAfterInvoice)", () => {
+  it("todo facturado + cuentas vacías → se quitan las vacías (la mesa se cierra)", () => {
+    const o = order([
+      account({ id: "a1", status: "invoiced", lines: [line()] }),
+      account({ id: "a2" }),
+      account({ id: "a3", payments: [pay("cancelled")] }),
+    ]);
+    expect(dropEmptyAfterInvoice(o).accounts.map((a) => a.id)).toEqual(["a1"]);
+  });
+  it("si queda algo vivo, o no hay nada facturado, no cambia nada", () => {
+    const live = order([
+      account({ id: "a1", status: "invoiced" }),
+      account({ id: "a2", lines: [line()] }),
+      account({ id: "a3" }),
+    ]);
+    expect(dropEmptyAfterInvoice(live)).toBe(live);
+    const none = order([account({ id: "a1" })]);
+    expect(dropEmptyAfterInvoice(none)).toBe(none);
   });
 });
 

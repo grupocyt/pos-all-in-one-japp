@@ -1219,7 +1219,9 @@ export interface paths {
         };
         /**
          * Resumen de caja del periodo
-         * @description Permiso: funciones.caja
+         * @description Lo esperado en caja del periodo abierto. También con funciones.periodo: quien cierra el periodo compara lo contado con esto (1.2.198).
+         *
+         *     Permiso: funciones.caja | funciones.periodo
          *
          *     Lo llama: TPV
          *
@@ -1441,7 +1443,7 @@ export interface paths {
         };
         /**
          * Salud de la tienda
-         * @description Lo mismo que el latido que se envía al Manager: versión, base de datos, impresoras, cola pendiente y hora de la última factura.
+         * @description Lo mismo que el latido que se envía al Manager: versión (la de la tienda, 1.2.x), base de datos, impresoras, cola pendiente y hora de la última factura. period: si hay periodo abierto, desde cuándo y quién lo abrió (el TPV lo enseña en la pantalla de clave antes de entrar).
          *
          *     Lo llama: Agente, TPV
          */
@@ -2133,7 +2135,7 @@ export interface paths {
         put?: never;
         /**
          * Reconocer el equipo por su UUID
-         * @description Primer arranque: busca la estación activa con ese UUID (Ajustes › Estaciones, sin distinguir mayúsculas). type = desktop (cualquier estación que no sea PDA) o mobile (PDA). Sin estación → 404 DEVICE_NOT_REGISTERED; con el otro tipo → 409 DEVICE_TYPE_MISMATCH (details.actual). Desde ahí el equipo manda su UUID en X-Station-Id. No pide sesión.
+         * @description Primer arranque: busca la estación activa con ese UUID (Ajustes › Estaciones, sin distinguir mayúsculas). type = desktop (cualquier estación que no sea PDA) o mobile (PDA). Sin estación → 404 DEVICE_NOT_REGISTERED; con el otro tipo → 409 DEVICE_TYPE_MISMATCH (details.actual). Desde ahí el equipo manda su UUID en X-Station-Id. No pide sesión. store = código y nombre de la tienda (el equipo los enseña antes de entrar con una clave).
          *
          *     Lo llama: TPV, PDA
          *
@@ -8388,6 +8390,11 @@ export interface operations {
                             };
                             outboxPending?: number;
                             lastInvoiceAt?: string | null;
+                            period?: {
+                                open?: boolean;
+                                openedAt?: unknown;
+                                openedBy?: unknown;
+                            };
                             time?: string;
                         };
                     } & components["schemas"]["Envelope"];
@@ -10384,6 +10391,10 @@ export interface operations {
                             kind?: string;
                             main?: boolean;
                             ip?: unknown;
+                            store?: {
+                                code?: string;
+                                name?: string;
+                            };
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -10451,6 +10462,10 @@ export interface operations {
                             name?: string;
                             main?: boolean;
                             previousUuid?: unknown;
+                            store?: {
+                                code?: string;
+                                name?: string;
+                            };
                             configVersion?: number | null;
                         };
                     } & components["schemas"]["Envelope"];

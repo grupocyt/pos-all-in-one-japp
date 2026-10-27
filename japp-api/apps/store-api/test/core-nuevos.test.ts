@@ -123,6 +123,7 @@ describe("equipos", () => {
       main: true,
       previousUuid: caja.device_uuid,
       configVersion: before.config_version + 1,
+      store: { code: expect.any(String), name: expect.any(String) },
     });
     expect(Number((await one("SELECT config_version FROM store")).config_version)).toBe(
       before.config_version + 1,

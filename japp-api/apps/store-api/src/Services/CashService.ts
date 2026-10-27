@@ -40,7 +40,8 @@ export class CashService {
   ) {}
 
   async summary(session: Session) {
-    await this.auth.require(session, "funciones.caja");
+    // quien cierra el periodo (funciones.periodo, p. ej. el cajero) necesita lo esperado para comparar (pruebas 27/10/2026)
+    await this.auth.requireAny(session, ["funciones.caja", "funciones.periodo"]);
     const store = await this.stores.store();
     const p = await this.periods.current(null, session.storeId);
     if (!p) {

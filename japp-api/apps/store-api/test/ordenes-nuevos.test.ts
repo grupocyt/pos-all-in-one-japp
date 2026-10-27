@@ -290,8 +290,8 @@ describe("POST /orders/{id}/reopen · Reabrir mesa", () => {
       body: { method: "card", amount: null },
     });
     await t.call("POST", `/orders/${o.id}/accounts/${o.acc}/invoice`, { token: sis, body: {} });
-    const closed = await t.call("POST", `/orders/${o.id}/close`, { token: sis, body: {} });
-    expect(closed.body.status).toBe("closed");
+    // 1.2.198: con la otra cuenta vacía, la mesa se cierra sola al facturar (la vacía queda anulada)
+    expect((await get(o.id)).status).toBe("closed");
     const r = await t.call("POST", `/orders/${o.id}/reopen`, { token: sis, body: {} });
     expect(r.status, JSON.stringify(r.env)).toBe(200);
     expect(r.body.status).toBe("open");
@@ -389,6 +389,11 @@ describe("PATCH /orders/{id}/accounts/{accountId} · Renombrar cuenta", () => {
       const bad = await t.call("PATCH", `/orders/${o.id}/accounts/${a2}`, { token: sis, body });
       expect([bad.status, bad.error.code]).toEqual([422, "VALIDATION"]);
     }
+    // con algo en la otra cuenta la mesa sigue abierta al facturar (1.2.198) y la facturada no se renombra
+    await t.call("POST", `/orders/${o.id}/lines`, {
+      token: sis,
+      body: { plu: PLU.tosta, accountId: a2, force: true },
+    });
     await t.call("POST", `/orders/${o.id}/accounts/${o.acc}/payments`, {
       token: sis,
       body: { method: "card", amount: null },
@@ -543,7 +548,12 @@ describe("POST /orders/{id}/accounts/{accountId}/checkout · Cobrar y facturar",
     expect([again.status, again.error.code]).toEqual([409, "ORDER_CLOSED"]);
     // con otra cuenta viva, la facturada → ACCOUNT_CLOSED
     const two = await newOrder();
-    await t.call("POST", `/orders/${two.id}/accounts`, { token: sis, body: {} });
+    const t2 = (await t.call("POST", `/orders/${two.id}/accounts`, { token: sis, body: {} })).body.accounts[1]
+      .id;
+    await t.call("POST", `/orders/${two.id}/lines`, {
+      token: sis,
+      body: { plu: PLU.tosta, accountId: t2, force: true },
+    });
     await t.call("POST", url(two), { token: sis, body: { payments: [{ method: "card" }] } });
     const closed = await t.call("POST", url(two), { token: sis, body: { payments: [] } });
     expect([closed.status, closed.error.code]).toEqual([409, "ACCOUNT_CLOSED"]);

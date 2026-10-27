@@ -4,6 +4,7 @@ import { CONFIG } from "../Constants/Injection.js";
 import { StoreApplication } from "../Applications/StoreApplication.js";
 import { SystemApplication } from "../Applications/SystemApplication.js";
 import { DevicesApplication } from "../Applications/DevicesApplication.js";
+import { PeriodsApplication } from "../Applications/PeriodsApplication.js";
 import type { Config } from "../Properties/AppSettings.js";
 import type { RegisterDeviceInput } from "../Models/SystemModels.js";
 
@@ -14,6 +15,7 @@ export class SystemService {
     @Inject(SystemApplication) private readonly system: SystemApplication,
     @Inject(DevicesApplication) private readonly devices: DevicesApplication,
     @Inject(StoreApplication) private readonly stores: StoreApplication,
+    @Inject(PeriodsApplication) private readonly periods: PeriodsApplication,
     @Inject(CONFIG) private readonly cfg: Config,
   ) {}
 
@@ -28,9 +30,15 @@ export class SystemService {
     const store = await this.stores.store().catch(() => null);
     let outboxPending = 0;
     let lastInvoiceAt: string | null = null;
+    let period: { open: boolean; openedAt: string | null; openedBy: string | null } | null = null;
     if (store) {
       outboxPending = await this.system.outboxPending(store.id);
       lastInvoiceAt = await this.system.lastInvoiceAt(store.id);
+      // el equipo lo enseña en la pantalla de clave antes de entrar (1.2.199; antes decía «periodo cerrado» sin saberlo)
+      const p = await this.periods.current(null, store.id).catch(() => null);
+      period = p
+        ? { open: true, openedAt: new Date(p.openedByAt).toISOString(), openedBy: p.openedByUserName ?? null }
+        : { open: false, openedAt: null, openedBy: null };
     }
     return {
       version: this.cfg.version,
@@ -38,6 +46,7 @@ export class SystemService {
       printers: {},
       outboxPending,
       lastInvoiceAt,
+      period,
       time: new Date().toISOString(),
     };
   }

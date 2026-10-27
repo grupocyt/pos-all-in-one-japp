@@ -14,6 +14,9 @@ describe("sistema y sesiones", () => {
     const r = await t.call("GET", "/health");
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ db: "ok", outboxPending: expect.any(Number) });
+    // 1.2.199: versión de la tienda y si hay periodo abierto (sin sesión: la pantalla de clave lo enseña)
+    expect(typeof r.body.version).toBe("string");
+    expect(typeof r.body.period.open).toBe("boolean");
   });
   it("registro de equipo: el móvil recibe la PDA1 y repetir devuelve la misma", async () => {
     const a = await t.call("POST", "/devices/register", {

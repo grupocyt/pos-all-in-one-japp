@@ -85,6 +85,27 @@ const outbox = async (orderId: string) =>
   (await one("SELECT count(*)::int n FROM sync_outbox WHERE entity = 'order' AND entity_id = $1", [orderId]))
     .n;
 
+describe("cobrar la última cuenta con otra vacía (pruebas 27/10/2026)", () => {
+  it("la cuenta vacía se anula y la mesa se cierra (antes quedaba «Separada» con todo cobrado)", async () => {
+    const o = await open(2);
+    await t.call("POST", `/orders/${o._id}/lines`, { token: sis, body: { plu: PLU.tosta, force: true } });
+    const two = await t.call("POST", `/orders/${o._id}/accounts`, { token: sis, body: {} });
+    expect(two.body.accounts).toHaveLength(2);
+    const a1 = o.accounts[0].id;
+    const tot = (await get(o._id)).accounts.find((a: any) => a.id === a1).totals.total;
+    const ck = await t.call("POST", `/orders/${o._id}/accounts/${a1}/checkout`, {
+      token: sis,
+      body: { payments: [{ method: "card", amount: tot }], print: false },
+    });
+    expect(ck.status, JSON.stringify(ck.env)).toBeLessThan(300);
+    expect(ck.body.tableClosed).toBe(true);
+    const st = await one("SELECT status FROM orders WHERE id = $1", [o._id]);
+    expect(st.status).toBe("closed");
+    const accs = await t.sql.query("SELECT status FROM account WHERE order_id = $1 ORDER BY status", [o._id]);
+    expect(accs.rows.map((r: any) => r.status)).toEqual(["cancelled", "invoiced"]);
+  });
+});
+
 describe("cierre de periodo: mesas vacías (1.2.195)", () => {
   it("una mesa abierta, vacía y sin tocar hace rato se cierra sola al cerrar; la que tiene productos sigue bloqueando", async () => {
     const empty = await open(1);

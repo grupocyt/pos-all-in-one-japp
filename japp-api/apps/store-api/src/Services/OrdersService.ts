@@ -56,6 +56,7 @@ import {
   PRESENCE_LEASE_SECONDS,
   liveHolder,
   liveContentOf,
+  dropEmptyAfterInvoice,
   assertNothingLive,
   renameAccount,
   planReopen,
@@ -1435,7 +1436,8 @@ export class OrdersService {
           }),
         );
         return {
-          next: this.replace(l.order, made.account),
+          // las cuentas vacías que queden (sin productos ni cobros) se quitan: así la mesa se cierra
+          next: dropEmptyAfterInvoice(this.replace(l.order, made.account)),
           events: [this.invoiceEvent(inv, ctx, acc.id)],
           extra: { invoice: inv },
           clearCharging: true,
@@ -1585,7 +1587,7 @@ export class OrdersService {
       );
       events.push(this.invoiceEvent(inv, ctx, acc.id));
       return {
-        next: this.replace(l.order, done.account),
+        next: dropEmptyAfterInvoice(this.replace(l.order, done.account)),
         events,
         extra: { invoice: inv, payments: done.payments, change: done.change },
         clearCharging: true,

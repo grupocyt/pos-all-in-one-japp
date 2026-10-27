@@ -1,3 +1,4 @@
+import { STORE_VERSION } from "./Version.js";
 /** Configuración solo desde variables de entorno (nunca secretos en el código). */
 export interface Config {
   databaseUrl: string;
@@ -40,7 +41,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     storeCode: env.STORE_CODE?.trim() || undefined,
     sessionSecret: secret,
     sessionHours: Number(env.SESSION_HOURS ?? 12),
-    version: env.APP_VERSION ?? "0.1.0",
+    version: env.APP_VERSION ?? STORE_VERSION,
     printerMode: env.PRINTER_MODE === "escpos" ? "escpos" : "log",
     corsOrigins: (env.CORS_ORIGINS ?? "")
       .split(",")

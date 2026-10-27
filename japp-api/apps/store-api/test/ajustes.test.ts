@@ -326,6 +326,13 @@ describe("Ajustes · reglas de cada módulo", () => {
       body: { permissions: [], version: p.body.version },
     });
     expect((await t.call("GET", "/cash/summary", { token: tok })).error.code).toBe("PERMISSION_REQUIRED");
+    // quien cierra el periodo también ve lo esperado (27/10/2026: el cajero cerraba comparando contra 0 €)
+    const p2 = (await t.call("GET", `/config/perfiles/${p.body.id}`, { token: sis })).body;
+    await t.call("PATCH", `/config/perfiles/${p.body.id}`, {
+      token: sis,
+      body: { permissions: ["funciones.periodo"], version: p2.version ?? p2.item?.version },
+    });
+    expect((await t.call("GET", "/cash/summary", { token: tok })).status).toBe(200);
     await t.call("POST", `/config/usuarios/${u.body.id}/deactivate`, { token: sis, body: {} });
   });
   it("preguntas: obligatoria sin respuestas no; respuestas por PLU; mínimo > máximo no", async () => {

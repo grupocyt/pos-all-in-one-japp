@@ -9731,7 +9731,11 @@ paths:
       tags:
       - API de tienda v2 · Facturas, caja e informes
       summary: Resumen de caja del periodo
-      description: 'Permiso: funciones.caja
+      description: 'Lo esperado en caja del periodo abierto. También con funciones.periodo: quien cierra el periodo compara
+        lo contado con esto (1.2.198).
+
+
+        Permiso: funciones.caja | funciones.periodo
 
 
         Lo llama: TPV
@@ -10670,8 +10674,9 @@ paths:
       tags:
       - API de tienda v2 · Impresoras, salud y Developer
       summary: Salud de la tienda
-      description: 'Lo mismo que el latido que se envía al Manager: versión, base de datos, impresoras, cola pendiente y hora
-        de la última factura.
+      description: 'Lo mismo que el latido que se envía al Manager: versión (la de la tienda, 1.2.x), base de datos, impresoras,
+        cola pendiente y hora de la última factura. period: si hay periodo abierto, desde cuándo y quién lo abrió (el TPV
+        lo enseña en la pantalla de clave antes de entrar).
 
 
         Lo llama: Agente, TPV'
@@ -10707,6 +10712,13 @@ paths:
                         type:
                         - string
                         - 'null'
+                      period:
+                        type: object
+                        properties:
+                          open:
+                            type: boolean
+                          openedAt: {}
+                          openedBy: {}
                       time:
                         type: string
               example:
@@ -10714,12 +10726,16 @@ paths:
                 type: success
                 status: 200
                 data:
-                  version: v112
+                  version: 1.2.199
                   db: ok
                   printers:
                     BARRA: ok
                   outboxPending: 0
                   lastInvoiceAt: '2026-10-13T16:40:00.000Z'
+                  period:
+                    open: true
+                    openedAt: null
+                    openedBy: null
                   time: '2026-10-13T16:40:00.000Z'
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
@@ -14307,7 +14323,7 @@ paths:
       description: 'Primer arranque: busca la estación activa con ese UUID (Ajustes › Estaciones, sin distinguir mayúsculas).
         type = desktop (cualquier estación que no sea PDA) o mobile (PDA). Sin estación → 404 DEVICE_NOT_REGISTERED; con el
         otro tipo → 409 DEVICE_TYPE_MISMATCH (details.actual). Desde ahí el equipo manda su UUID en X-Station-Id. No pide
-        sesión.
+        sesión. store = código y nombre de la tienda (el equipo los enseña antes de entrar con una clave).
 
 
         Lo llama: TPV, PDA
@@ -14340,6 +14356,13 @@ paths:
                       main:
                         type: boolean
                       ip: {}
+                      store:
+                        type: object
+                        properties:
+                          code:
+                            type: string
+                          name:
+                            type: string
               example:
                 title: Reconocer el equipo por su UUID
                 type: success
@@ -14350,6 +14373,9 @@ paths:
                   kind: station
                   main: false
                   ip: null
+                  store:
+                    code: JC01
+                    name: Nueva Sucursal Japp
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -14470,6 +14496,13 @@ paths:
                       main:
                         type: boolean
                       previousUuid: {}
+                      store:
+                        type: object
+                        properties:
+                          code:
+                            type: string
+                          name:
+                            type: string
                       configVersion:
                         type:
                         - integer
@@ -14483,6 +14516,9 @@ paths:
                   name: CAJA1
                   main: true
                   previousUuid: null
+                  store:
+                    code: JC01
+                    name: Nueva Sucursal Japp
                   configVersion: 215
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f

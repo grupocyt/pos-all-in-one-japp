@@ -36,8 +36,10 @@ services:
     environment:
       DATABASE_URL: "postgres://${DB_USER:-sa}:${DB_PASSWORD:-sa_local}@db:5432/japp"
       STORE_CODE: "${STORE_CODE:-}"   # vacío = la única tienda de la base
-      MANAGER_URL: "${MANAGER_URL:?Pon MANAGER_URL en .env}"
-      STORE_KEY: "${STORE_KEY:?Pon STORE_KEY en .env}"
+      # sin «:?»: compose comprueba las variables de TODOS los servicios aunque el agente no se arranque (--profile sync);
+      # con «:?» un .env sin STORE_KEY impedía levantar la base y la API. El agente las exige él mismo al arrancar.
+      MANAGER_URL: "${MANAGER_URL:-}"
+      STORE_KEY: "${STORE_KEY:-}"
       SYNC_INTERVAL_SECONDS: "${SYNC_INTERVAL_SECONDS:-60}"
       SYNC_INSTANT: "${SYNC_INSTANT:-true}"
     restart: unless-stopped
