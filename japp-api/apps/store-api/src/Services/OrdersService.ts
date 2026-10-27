@@ -19,8 +19,7 @@ import {
   accountTotals,
   kitchenTicket,
   kitchenVoidTicket,
-  priceListMove,
-  repriceToTerrace,
+  assertSamePriceList,
   tableChangeTicket,
   preBillTicket,
   invoiceTicket,
@@ -1924,32 +1923,6 @@ export class OrdersService {
     ).transaction;
   }
 
-  /** PVP terraza de los productos de esas cuentas (PLU → precio; sin producto o sin PVP terraza → null). */
-  private async terracePrices(tx: Tx, storeId: string, accounts: Order["accounts"]) {
-    const m = new Map<number, number | null>();
-    for (const plu of new Set(accounts.flatMap((a) => a.lines.map((l) => l.productId)))) {
-      const p = await this.carta.product(tx, storeId, plu);
-      m.set(plu, p?.p.priceTerrace == null ? null : Number(p.p.priceTerrace));
-    }
-    return m;
-  }
-  private repriceText(ch: { name: string; from: number; to: number; quantity: number }[]) {
-    const f = (n: number) => n.toFixed(2).replace(".", ",");
-    return `Pasa a precio de terraza: ${ch.map((c) => `${c.quantity} × ${c.name} ${f(c.from)} → ${f(c.to)} €`).join(", ")}`;
-  }
-  /** Tras pasar cuentas de una zona general a una de terraza: los productos de la mesa de destino, a PVP terraza. */
-  private async repriceDest(tx: Tx, storeId: string, orderId: string, ctx: Ctx): Promise<number | null> {
-    const d = await this.repo.load(tx, storeId, orderId, { lock: true });
-    const r = repriceToTerrace(d.order.accounts, await this.terracePrices(tx, storeId, d.order.accounts));
-    if (!r.changed.length) {
-      return null;
-    }
-    return this.repo.save(tx, storeId, d.order, { ...d.order, accounts: r.accounts }, d.header, {
-      actor: ctx.actor,
-      events: [this.ev("pricesToTerrace", this.repriceText(r.changed), ctx)],
-    });
-  }
-
   /**
    * Cierre de periodo (1.2.195, pruebas del 26/10/2026): las mesas abiertas del periodo sin nada vivo (sin productos ni
    * cobros en las cuentas sin facturar; p. ej. el ticket vacío que el fast food deja preparado tras cobrar, o una mesa
@@ -2067,8 +2040,7 @@ export class OrdersService {
           if (busy) {
             fail("TABLE_BUSY", "La mesa de destino está ocupada", { orderId: busy.id });
           }
-          // general → terraza: sí, a PVP terraza; terraza → general: no (1.2.195)
-          const toTerrace = priceListMove(l.header.priceList, t!.a.priceList);
+          assertSamePriceList(l.header.priceList, t!.a.priceList); // terraza con terraza, general con general
           const from = l.header.tableName;
           const dest = {
             tableId: t!.t.id,
@@ -2080,18 +2052,9 @@ export class OrdersService {
           // el QR de Order on Table era de la mesa vieja: se anula en la misma transacción (el camarero saca otro)
           await this.oot.revoke(q, session.storeId, orderId, "transferred");
           Object.assign(l.header, dest);
-          const rp = toTerrace
-            ? repriceToTerrace(
-                l.order.accounts,
-                await this.terracePrices(q, session.storeId, l.order.accounts),
-              )
-            : null;
           return {
-            next: { ...l.order, accounts: rp ? rp.accounts : l.order.accounts, tableId: t!.t.id },
-            events: [
-              this.ev("tableTransferred", `Mesa ${from} → ${t!.t.number}`, c),
-              ...(rp?.changed.length ? [this.ev("pricesToTerrace", this.repriceText(rp.changed), c)] : []),
-            ],
+            next: { ...l.order, tableId: t!.t.id },
+            events: [this.ev("tableTransferred", `Mesa ${from} → ${t!.t.number}`, c)],
           };
         },
         ctx,
@@ -2135,7 +2098,7 @@ export class OrdersService {
     }
     assertCanCommand(src.header.presence, me, "other", ctx.now);
     const dst = await this.repo.load(tx, S, destId, { lock: true });
-    const toTerrace = priceListMove(src.header.priceList, dst.header.priceList);
+    assertSamePriceList(src.header.priceList, dst.header.priceList);
     // cobro abierto → TABLE_CHARGING; otra persona dentro → TABLE_TAKEN (salvo mesas.entrarOcupada)
     canEnterTable(dst.header.presence, me, ctx.now);
     const names = await this.repo.accountNames(tx, S, destId);
@@ -2182,9 +2145,6 @@ export class OrdersService {
         ),
       ],
     });
-    if (toTerrace) {
-      vTo = (await this.repriceDest(tx, S, destId, ctx)) ?? vTo;
-    }
     const d = await this.repo.load(tx, S, destId);
     return this.repo.transaction(tx, { ...d.header, version: vTo }, d.order);
   }
@@ -2383,7 +2343,7 @@ export class OrdersService {
         fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
       }
       assertVersion(src.header.version, b.version);
-      const toTerrace = priceListMove(src.header.priceList, t!.a.priceList);
+      assertSamePriceList(src.header.priceList, t!.a.priceList);
       assertCanCommand(src.header.presence, me, "other", ctx.now);
       if (busy?.id === orderId || src.header.tableId === b.toTableId) {
         fail("VALIDATION", "La cuenta ya está en esa mesa", { field: "toTableId" });
@@ -2446,9 +2406,6 @@ export class OrdersService {
           ),
         ],
       });
-      if (toTerrace) {
-        vTo = (await this.repriceDest(tx, S, dst.header.id, ctx)) ?? vTo;
-      }
       const a = await this.repo.load(tx, S, orderId);
       const d = await this.repo.load(tx, S, dst.header.id);
       return {

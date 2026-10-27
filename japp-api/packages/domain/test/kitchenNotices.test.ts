@@ -74,15 +74,13 @@ describe("aviso de cambio de mesa", () => {
   });
 });
 
-import { priceListMove, repriceToTerrace } from "../src/transfer.js";
-describe("cambio de mesa entre tarifas (1.2.195)", () => {
-  it("general → terraza sí (hay que pasar a PVP terraza); terraza → general → 422 en toTableId; igual → nada", () => {
-    expect(priceListMove("general", "terrace")).toBe(true);
-    expect(priceListMove(null, "terrace")).toBe(true);
-    expect(priceListMove("terrace", "terrace")).toBe(false);
-    expect(priceListMove("general", null)).toBe(false);
+import { assertSamePriceList } from "../src/transfer.js";
+describe("cambio de mesa: mismo precio", () => {
+  it("terraza con terraza y general con general pasan; mezclados → 422 en toTableId", () => {
+    expect(() => assertSamePriceList("terrace", "terrace")).not.toThrow();
+    expect(() => assertSamePriceList("general", null)).not.toThrow();
     try {
-      priceListMove("terrace", "general");
+      assertSamePriceList("terrace", "general");
       throw new Error("no falló");
     } catch (e: any) {
       expect([e.code, e.details.field, e.details.fromPriceList, e.details.toPriceList]).toEqual([
@@ -91,28 +89,7 @@ describe("cambio de mesa entre tarifas (1.2.195)", () => {
         "terrace",
         "general",
       ]);
+      expect(e.message).toBe("No se puede pasar de una zona con precio de terraza a una con precio general");
     }
-  });
-  it("repriceToTerrace: solo cuentas sin facturar y productos con PVP terraza > 0", () => {
-    const L = (productId: number, unitPrice: number) => ({
-      productId,
-      unitPrice,
-      name: `P${productId}`,
-      quantity: 2,
-    });
-    const r = repriceToTerrace(
-      [
-        { status: "open", lines: [L(1, 2), L(2, 3), L(3, 4)] },
-        { status: "invoiced", lines: [L(1, 2)] },
-      ],
-      new Map<number, number | null>([
-        [1, 2.2],
-        [2, null],
-        [3, 0],
-      ]),
-    );
-    expect(r.accounts[0]!.lines.map((l) => l.unitPrice)).toEqual([2.2, 3, 4]);
-    expect(r.accounts[1]!.lines[0]!.unitPrice).toBe(2);
-    expect(r.changed).toEqual([{ name: "P1", from: 2, to: 2.2, quantity: 2 }]);
   });
 });

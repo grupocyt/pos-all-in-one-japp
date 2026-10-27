@@ -18,7 +18,7 @@ export type InvoicesFilter = z.infer<typeof InvoicesFilterModel>;
 /** Id de la factura en la ruta. */
 export const InvoiceIdModel = z.string().uuid();
 
-/** POST /invoices/{id}/credit: abono total (sin líneas) o de algunas unidades; motivo por id (kind credit) o texto. */
+/** POST /invoices/{id}/credit: abono de la factura entera (con `lines` → 422, ver assertWholeCredit); motivo por id (kind credit) o texto. */
 export const CreditModel = z.object({
   reasonId: z.string().uuid().nullish(),
   reason: z.string().trim().max(200).nullish(),

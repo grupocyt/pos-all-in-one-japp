@@ -16,7 +16,7 @@ import {
   assertOotProduct,
   isOotProduct,
 } from "../src/oot.js";
-import { creditTypeFor, planCredit, type CreditSource } from "../src/credit.js";
+import { assertWholeCredit, creditTypeFor, planCredit, type CreditSource } from "../src/credit.js";
 import { checkout } from "../src/checkout.js";
 import { registerPayment } from "../src/payments.js";
 import { accountTotals } from "../src/totals.js";
@@ -113,7 +113,7 @@ describe("sync de la carta desde el App Manager", () => {
     const plan = planSync(existing, [{ externalId: "MGR-7", naturalKey: "CAFES" }]);
     expect(plan.items[0]!.action).toBe("created");
     expect(plan.deactivate.map((x) => x.id)).toContain("e");
-  })
+  });
   it("keyFirst (productos): la clave natural manda sobre el externalId, primero todo lo que trae clave", () => {
     const existing = [
       { id: "p1", externalId: "MGR-A", naturalKey: "100", active: true },
@@ -134,8 +134,10 @@ describe("sync de la carta desde el App Manager", () => {
     ]);
     expect(plan.deactivate).toEqual([]);
     // sin keyFirst gana el externalId
-    expect(planSync(existing, [{ externalId: "MGR-A", naturalKey: "200" }]).items[0]!.existing?.id).toBe("p1");
-  });;
+    expect(planSync(existing, [{ externalId: "MGR-A", naturalKey: "200" }]).items[0]!.existing?.id).toBe(
+      "p1",
+    );
+  });
   it("producto nuevo sin PLU: solo por externalId", () => {
     const plan = planSync([E("p", "1042", "MGR-P-1")], [{ externalId: "MGR-P-2", naturalKey: null }]);
     expect(plan.items[0]!.action).toBe("created");
@@ -242,6 +244,11 @@ describe("abono (rectificativa)", () => {
     creditedTotal: 0,
     creditedTaxes: [],
     ...over,
+  });
+  it("solo abono total (27/10/2026): con líneas → VALIDATION en lines", () => {
+    expect(() => assertWholeCredit(null)).not.toThrow();
+    expect(() => assertWholeCredit([])).not.toThrow();
+    expect(code(() => assertWholeCredit([{ lineId: "l1", quantity: 1 }]))).toBe("VALIDATION");
   });
   it("tipo: simplificada → R5, completa → R1; una rectificativa no se abona", () => {
     expect(creditTypeFor("F2")).toBe("R5");

@@ -73,6 +73,16 @@ function amountOf(l: CreditableLine): Decimal {
 
 const q3 = (n: Decimal.Value) => new Decimal(n).toDecimalPlaces(3).toNumber();
 
+/**
+ * Solo se abona la factura entera (decidido por el product owner, 27/10/2026): un abono con líneas → 422 en `lines`.
+ * planCredit sigue sabiendo abonar «lo que queda» de una factura que ya tenía abonos parciales de antes.
+ */
+export function assertWholeCredit(lines: readonly unknown[] | null | undefined): void {
+  if (lines && lines.length) {
+    fail("VALIDATION", "Solo se puede abonar la factura entera", { field: "lines" });
+  }
+}
+
 export function planCredit(
   src: CreditSource,
   request: { lineId: string; quantity: number }[] | null,

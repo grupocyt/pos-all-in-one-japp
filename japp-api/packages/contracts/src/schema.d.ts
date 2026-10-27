@@ -941,7 +941,7 @@ export interface paths {
         put?: never;
         /**
          * Pasar productos a otra cuenta (separar)
-         * @description Si se pasa una parte de la cantidad, la línea se parte en dos y la nueva guarda de qué línea sale. Sin toAccountId va a una cuenta nueva «Cuenta N» (N = la más alta de las cuentas vivas + 1; las anuladas no cuentan desde 1.2.195) o newAccountName. La cuenta de origen que se queda vacía se anula. El TPV, con servidor, separa toque a toque con este endpoint y se queda con la transacción que devuelve.
+         * @description Si se pasa una parte de la cantidad, la línea se parte en dos y la nueva guarda de qué línea sale. Sin toAccountId va a una cuenta nueva «Cuenta N» (N = la más alta de la mesa + 1, contando las anuladas: nunca se repite) o newAccountName. La cuenta de origen que se queda vacía se anula. El TPV, con servidor, separa toque a toque con este endpoint y se queda con la transacción que devuelve.
          *
          *     Permiso: pedido.pasarCuenta | pedido.separar
          *
@@ -2257,7 +2257,7 @@ export interface paths {
         put?: never;
         /**
          * Cambiar de mesa (mesa entera o una cuenta)
-         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId; si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan (también acepta into). into (1.2.195): con la mesa de destino ocupada, «new» (defecto) llega como cuenta(s) aparte y «main» une sus productos a la cuenta principal del destino (la primera abierta sin cobros; las cuentas con cobros o descuentos se quedan aparte; evento accountsJoined). Zonas de precio (1.2.195): de general (barra, salón) a terraza SÍ y los productos de las cuentas sin facturar pasan a PVP terraza (evento pricesToTerrace); de terraza a general → 422 VALIDATION en toTableId.
+         * @description Un solo endpoint para los dos cambios. scope = table (defecto): la orden entera pasa a la mesa toTableId; si está libre la ocupa, y si está ocupada junta las dos órdenes (las cuentas del origen pasan al destino, renombradas a «Cuenta N» si el nombre se repite; evento tablesMerged en las dos). Destino cobrándose → 409 TABLE_CHARGING; con otra persona dentro → 409 TABLE_TAKEN salvo mesas.entrarOcupada; la misma mesa → 409 TABLE_BUSY. scope = account: la cuenta accountId pasa a toTableId con las reglas de «Pasar una cuenta a otra mesa» (libre → orden nueva; ocupada → una cuenta más; facturada o sin productos → 422 NOTHING_TO_TRANSFER). version = la de la orden de origen. Responde la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue para los equipos que ya lo usan (también acepta into). into (1.2.195): con la mesa de destino ocupada, «new» (defecto) llega como cuenta(s) aparte y «main» une sus productos a la cuenta principal del destino (la primera abierta sin cobros; las cuentas con cobros o descuentos se quedan aparte; evento accountsJoined). Solo entre zonas con el mismo precio (terraza con terraza, general con general): si no, 422 VALIDATION en toTableId.
          *
          *     Permiso: mesas.transferir
          *
@@ -2385,7 +2385,7 @@ export interface paths {
         put?: never;
         /**
          * Abono (factura rectificativa)
-         * @description Rectificativa por diferencias en la serie de abonos de Ajustes › Facturación: R5 si la factura es simplificada (F2), R1 si es completa (F1). Total (lines vacío o null) o de algunas unidades de algunas líneas; nunca más de lo que queda por abonar (422 QUANTITY_EXCEEDS). Cada línea abona su parte del descuento; el abono que deja la factura a 0 cuadra al céntimo con lo que quedaba. Mismo bloqueo y cadena VeriFactu que facturar. La original pasa a rectified cuando se abona entera. reasonId = motivo de tipo credit (o reason con el texto). Imprime el abono después del COMMIT.
+         * @description Rectificativa por diferencias en la serie de abonos de Ajustes › Facturación: R5 si la factura es simplificada (F2), R1 si es completa (F1). Solo se abona la factura entera (decisión del 27/10/2026): lines vacío o null; con líneas → 422 VALIDATION en lines. Una factura que ya tenía abonos parciales (de antes) se abona por lo que queda y cuadra al céntimo; ya abonada entera → 422 QUANTITY_EXCEEDS. Mismo bloqueo y cadena VeriFactu que facturar. La original pasa a rectified cuando se abona entera. reasonId = motivo de tipo credit (o reason con el texto). Imprime el abono después del COMMIT.
          *
          *     Permiso: funciones.abonar
          *
@@ -11287,22 +11287,12 @@ export interface operations {
                 /** @example {
                  *       "reasonId": null,
                  *       "reason": "Error al cobrar",
-                 *       "lines": [
-                 *         {
-                 *           "lineId": "…",
-                 *           "quantity": 1
-                 *         }
-                 *       ],
                  *       "print": true,
                  *       "authorization": null
                  *     } */
                 "application/json": {
                     reasonId?: unknown;
                     reason?: string | null;
-                    lines?: {
-                        lineId?: string;
-                        quantity?: number;
-                    }[];
                     print?: boolean;
                     authorization?: unknown;
                 };

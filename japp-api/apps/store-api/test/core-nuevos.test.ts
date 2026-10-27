@@ -196,7 +196,7 @@ describe("abono (factura rectificativa)", () => {
     s = await invoiced();
   });
 
-  it("permiso funciones.abonar; motivo obligatorio; cantidades; factura que no existe", async () => {
+  it("permiso funciones.abonar; motivo obligatorio; solo la factura entera; factura que no existe", async () => {
     const url = `/invoices/${s.invoiceId}/credit`;
     const p = await t.call("POST", url, { token: mesero, body: { reason: "Error" } });
     expect([p.status, p.error.code, p.error.details.permission]).toEqual([
@@ -215,16 +215,12 @@ describe("abono (factura rectificativa)", () => {
     expect((await t.call("POST", url, { token: sistemas, body: { reasonId: motivoBorrar } })).status).toBe(
       422,
     );
-    const zero = await t.call("POST", url, {
+    // 27/10/2026: solo se abona la factura entera
+    const part = await t.call("POST", url, {
       token: sistemas,
-      body: { reason: "Error", lines: [{ lineId: s.croquetas.id, quantity: 0 }] },
+      body: { reason: "Error", lines: [{ lineId: s.croquetas.id, quantity: 1 }] },
     });
-    expect([zero.status, zero.error.code]).toEqual([422, "VALIDATION"]);
-    const many = await t.call("POST", url, {
-      token: sistemas,
-      body: { reason: "Error", lines: [{ lineId: s.croquetas.id, quantity: 3 }] },
-    });
-    expect([many.status, many.error.code, many.error.details.left]).toEqual([422, "QUANTITY_EXCEEDS", 2]);
+    expect([part.status, part.error.code, part.error.field]).toEqual([422, "VALIDATION", "lines"]);
     const nf = await t.call("POST", `/invoices/${crypto.randomUUID()}/credit`, {
       token: sistemas,
       body: { reason: "Error" },
@@ -238,7 +234,7 @@ describe("abono (factura rectificativa)", () => {
     ).toBe(0);
   });
 
-  it("parcial: R5 en la serie de abonos, en negativo, encadenado, con su línea; la orden a la cola; misma Idempotency-Key → un abono", async () => {
+  it("total: R5 en la serie de abonos, en negativo, encadenado, con sus líneas; la original rectified; la orden a la cola; misma Idempotency-Key → un abono", async () => {
     const tail = await one(
       "SELECT v.id::text, v.hash FROM verifactu_record v WHERE NOT EXISTS (SELECT 1 FROM verifactu_record n WHERE n.previous_record_id=v.id)",
     );
@@ -249,19 +245,26 @@ describe("abono (factura rectificativa)", () => {
     );
     const jobs = t.printer.jobs.length;
     const h = { "idempotency-key": crypto.randomUUID() };
-    const body = { reason: "Error al cobrar", lines: [{ lineId: s.croquetas.id, quantity: 1 }], print: true };
+    const body = { reason: "Error al cobrar", print: true };
     const r = await t.call("POST", `/invoices/${s.invoiceId}/credit`, { token: sistemas, body, headers: h });
     expect(r.status).toBe(201);
-    const unit = (await one("SELECT unit_price::float8 p FROM order_line WHERE id=$1", [s.croquetas.id])).p;
+    const unit = s.total;
     expect(r.body).toMatchObject({
       type: "R5",
       invoiceNumber: `AB2026-${String(seq + 1).padStart(6, "0")}`,
       rectifies: s.number,
       total: -unit,
-      full: false,
+      full: true,
       printed: true,
-      lines: [{ lineId: s.croquetas.id, quantity: 1, amount: unit }],
     });
+    expect(
+      r.body.lines.map((x: { lineId: string; quantity: number }) => [x.lineId, x.quantity]).sort(),
+    ).toEqual(
+      [
+        [s.tosta.id, 1],
+        [s.croquetas.id, 2],
+      ].sort(),
+    );
     expect(r.body.taxes.every((x: { base: number; tax: number }) => x.base < 0 && x.tax < 0)).toBe(true);
     expect(r.body.verifactuQr).toContain(`numserie=${r.body.invoiceNumber}`);
     const inv = await one(
@@ -277,13 +280,16 @@ describe("abono (factura rectificativa)", () => {
       status: "issued",
       acc: s.acc,
     });
-    expect((await one("SELECT status FROM invoice WHERE id=$1", [s.invoiceId])).status).toBe("issued");
+    expect((await one("SELECT status FROM invoice WHERE id=$1", [s.invoiceId])).status).toBe("rectified");
     expect(
-      await one(
-        "SELECT quantity::float8 q, amount::float8 a FROM invoice_credit_line WHERE credit_invoice_id=$1",
-        [r.body.id],
+      Number(
+        (
+          await one("SELECT sum(amount)::float8 a FROM invoice_credit_line WHERE credit_invoice_id=$1", [
+            r.body.id,
+          ])
+        ).a,
       ),
-    ).toEqual({ q: 1, a: unit });
+    ).toBe(unit);
     const vf = await one(
       "SELECT invoice_type, previous_record_id::text prev, previous_hash, total::float8 total FROM verifactu_record WHERE invoice_id=$1",
       [r.body.id],
@@ -324,37 +330,19 @@ describe("abono (factura rectificativa)", () => {
     expect(o.body.accounts[0].invoice.invoiceNumber).toBe(s.number);
   });
 
-  it("lo que queda (sin líneas): cuadra al céntimo, la original pasa a rectified; después nada que abonar; un abono no se abona", async () => {
+  it("ya abonada: nada que abonar; un abono no se abona; la base cuadra", async () => {
     const reasonId = (await one("SELECT id::text FROM reason WHERE kind='credit' LIMIT 1")).id;
-    const r = await t.call("POST", `/invoices/${s.invoiceId}/credit`, {
+    const done = await t.call("POST", `/invoices/${s.invoiceId}/credit`, {
       token: sistemas,
-      body: { reasonId, print: false },
+      body: { reasonId },
     });
-    expect(r.status).toBe(201);
-    expect(r.body).toMatchObject({ full: true, printed: false });
-    expect(
-      r.body.lines.map((x: { lineId: string; quantity: number }) => [x.lineId, x.quantity]).sort(),
-    ).toEqual(
-      [
-        [s.tosta.id, 1],
-        [s.croquetas.id, 1],
-      ].sort(),
-    );
+    expect([done.status, done.error.code]).toEqual([422, "QUANTITY_EXCEEDS"]);
     const sum = await one("SELECT sum(total)::float8 t FROM invoice WHERE rectified_invoice_id=$1", [
       s.invoiceId,
     ]);
     expect(sum.t).toBe(-s.total);
-    const orig = await one("SELECT status FROM invoice WHERE id=$1", [s.invoiceId]);
-    expect(orig.status).toBe("rectified");
-    expect(
-      (await one("SELECT rectification_reason FROM invoice WHERE id=$1", [r.body.id])).rectification_reason,
-    ).toBe((await one("SELECT name FROM reason WHERE id=$1", [reasonId])).name);
-    const done = await t.call("POST", `/invoices/${s.invoiceId}/credit`, {
-      token: sistemas,
-      body: { reason: "Otra" },
-    });
-    expect([done.status, done.error.code]).toEqual([422, "QUANTITY_EXCEEDS"]);
-    const ofCredit = await t.call("POST", `/invoices/${r.body.id}/credit`, {
+    const ab = await one("SELECT id::text FROM invoice WHERE rectified_invoice_id=$1", [s.invoiceId]);
+    const ofCredit = await t.call("POST", `/invoices/${ab.id}/credit`, {
       token: sistemas,
       body: { reason: "x" },
     });
@@ -507,13 +495,22 @@ describe("informes de ventas y camareros", () => {
   it("ventas: lo que ya tiene precuenta va aparte en open.preBill (también por hora) y sigue dentro de open.amount", async () => {
     const before = (await t.call("GET", "/reports/sales", { token: sistemas })).body;
     expect(before.open.preBill).toBeTruthy();
-    const o = await t.call("POST", "/orders", { token: sistemas, body: { tableId: await freeTable(t, "BARRA"), guests: 2 } });
-    const l = await t.call("POST", `/orders/${o.body._id}/lines`, { token: sistemas, body: { plu: PLU.croquetas, quantity: 1 } });
+    const o = await t.call("POST", "/orders", {
+      token: sistemas,
+      body: { tableId: await freeTable(t, "BARRA"), guests: 2 },
+    });
+    const l = await t.call("POST", `/orders/${o.body._id}/lines`, {
+      token: sistemas,
+      body: { plu: PLU.croquetas, quantity: 1 },
+    });
     const acc = l.body.accounts[0];
     let r = (await t.call("GET", "/reports/sales", { token: sistemas })).body;
     expect(r.open.preBill.amount).toBeCloseTo(before.open.preBill.amount, 2); // aún sin precuenta
     await t.call("POST", `/orders/${o.body._id}/send`, { token: sistemas, body: {} });
-    const pb = await t.call("POST", `/orders/${o.body._id}/accounts/${acc.id}/prebill`, { token: sistemas, body: {} });
+    const pb = await t.call("POST", `/orders/${o.body._id}/accounts/${acc.id}/prebill`, {
+      token: sistemas,
+      body: {},
+    });
     expect(pb.status, JSON.stringify(pb.error)).toBeLessThan(300);
     r = (await t.call("GET", "/reports/sales", { token: sistemas })).body;
     expect(r.open.preBill.tables).toBe(before.open.preBill.tables + 1);

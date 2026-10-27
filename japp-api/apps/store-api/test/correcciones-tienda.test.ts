@@ -113,7 +113,7 @@ describe("cierre de periodo: mesas vacías (1.2.195)", () => {
   });
 });
 
-describe("nombres de cuenta: «Cuenta N» = la más alta que hay + 1", () => {
+describe("nombres de cuenta: «Cuenta N» nunca se repite", () => {
   it("al quitar una intermedia, la siguiente cuenta (añadir o separar a nueva) no repite número", async () => {
     const o = await open();
     const add = (body: Record<string, unknown> = {}) =>
@@ -139,20 +139,6 @@ describe("nombres de cuenta: «Cuenta N» = la más alta que hay + 1", () => {
     });
     expect(mv.status, JSON.stringify(mv.env)).toBe(200);
     expect(mv.body.accounts.map((a: any) => a.name)).toEqual([
-      "Cuenta 1",
-      "Cuenta 3",
-      "Cuenta 4",
-      "Cuenta 5",
-    ]);
-    // 1.2.195: quitada la última (vacía), su número vuelve: la siguiente es otra vez «Cuenta 5»
-    const c5 = mv.body.accounts[3];
-    const back = await t.call("POST", `/orders/${o._id}/lines/move`, {
-      token: sis,
-      body: { lines: [{ lineId: c5.lines[0].id, quantity: 1 }], toAccountId: mv.body.accounts[0].id },
-    });
-    expect(back.body.accounts.map((a: any) => a.name)).toEqual(["Cuenta 1", "Cuenta 3", "Cuenta 4"]);
-    const again = await add();
-    expect(again.body.accounts.map((a: any) => a.name)).toEqual([
       "Cuenta 1",
       "Cuenta 3",
       "Cuenta 4",

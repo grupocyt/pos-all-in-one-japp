@@ -108,13 +108,13 @@ describe("caja y periodo", () => {
     expect(d.creditable).toBe(d.total);
     const c = await t.call("POST", `/invoices/${it0.id}/credit`, {
       token: sistemas,
-      body: { reason: "Prueba", lines: [{ lineId: d.lines[0].lineId, quantity: 1 }] },
+      body: { reason: "Prueba" },
     });
     expect(c.status, JSON.stringify(c.body ?? c.error)).toBe(201);
     const d2 = (await t.call("GET", `/invoices/${it0.id}`, { token: sistemas })).body;
-    expect(d2.lines[0].credited).toBe(1);
+    expect(d2.lines[0].credited).toBe(d.lines[0].quantity);
     expect(d2.credits).toHaveLength(1);
-    expect(d2.creditable).toBeLessThan(d.creditable);
+    expect(d2.creditable).toBe(0);
     const ab = (await t.call("GET", `/invoices/${c.body.id}`, { token: sistemas })).body;
     expect(ab.rectifies).toBe(d.invoiceNumber);
     expect((await t.call("POST", `/invoices/${it0.id}/reprint`, { token: sistemas })).body.printed).toBe(

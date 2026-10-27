@@ -139,57 +139,15 @@ export function mergeOrders(
  * Cambio de mesa (25/10/2026): solo entre zonas con el MISMO precio. Una mesa con precio de terraza no pasa a una con
  * precio general (ni al revés): los productos llevan el precio de su zona. → 422 VALIDATION en toTableId.
  */
-/**
- * Transferir entre zonas de precio (1.2.195, pruebas del 26/10/2026): de general (barra, salón) a terraza SÍ, y los
- * productos pasan a PVP terraza (`repriceToTerrace`); de terraza a general NO (no se quita el suplemento).
- * Devuelve true si hay que pasar los precios a terraza.
- */
-export function priceListMove(from: string | null | undefined, to: string | null | undefined): boolean {
+export function assertSamePriceList(from: string | null | undefined, to: string | null | undefined): void {
   const f = from === "terrace" ? "terrace" : "general";
   const t = to === "terrace" ? "terrace" : "general";
-  if (f === "terrace" && t === "general") {
-    fail(
-      "VALIDATION",
-      "De terraza solo se puede pasar a otra mesa de terraza (no se quita el precio de terraza)",
-      {
-        field: "toTableId",
-        fromPriceList: f,
-        toPriceList: t,
-      },
-    );
+  if (f !== t) {
+    const n = (x: string) => (x === "terrace" ? "precio de terraza" : "precio general");
+    fail("VALIDATION", `No se puede pasar de una zona con ${n(f)} a una con ${n(t)}`, {
+      field: "toTableId",
+      fromPriceList: f,
+      toPriceList: t,
+    });
   }
-  return f === "general" && t === "terrace";
-}
-
-/**
- * Productos de las cuentas sin facturar a PVP terraza (si el producto lo tiene y es > 0). `terrace`: PLU → PVP terraza.
- * No muta: devuelve las cuentas nuevas y lo que cambió (para el evento).
- */
-export function repriceToTerrace<
-  A extends {
-    status: string;
-    lines: { productId: number; unitPrice: number; name: string; quantity: number }[];
-  },
->(
-  accounts: A[],
-  terrace: ReadonlyMap<number, number | null | undefined>,
-): { accounts: A[]; changed: { name: string; from: number; to: number; quantity: number }[] } {
-  const changed: { name: string; from: number; to: number; quantity: number }[] = [];
-  const out = accounts.map((a) => {
-    if (a.status === "invoiced") {
-      return a;
-    }
-    return {
-      ...a,
-      lines: a.lines.map((l) => {
-        const tp = terrace.get(l.productId);
-        if (tp != null && tp > 0 && tp !== l.unitPrice) {
-          changed.push({ name: l.name, from: l.unitPrice, to: tp, quantity: l.quantity });
-          return { ...l, unitPrice: tp };
-        }
-        return l;
-      }),
-    };
-  });
-  return { accounts: out, changed };
 }

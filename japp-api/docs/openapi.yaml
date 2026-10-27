@@ -7904,9 +7904,9 @@ paths:
       - API de tienda v2 · Productos de la cuenta
       summary: Pasar productos a otra cuenta (separar)
       description: 'Si se pasa una parte de la cantidad, la línea se parte en dos y la nueva guarda de qué línea sale. Sin
-        toAccountId va a una cuenta nueva «Cuenta N» (N = la más alta de las cuentas vivas + 1; las anuladas no cuentan desde
-        1.2.195) o newAccountName. La cuenta de origen que se queda vacía se anula. El TPV, con servidor, separa toque a toque
-        con este endpoint y se queda con la transacción que devuelve.
+        toAccountId va a una cuenta nueva «Cuenta N» (N = la más alta de la mesa + 1, contando las anuladas: nunca se repite)
+        o newAccountName. La cuenta de origen que se queda vacía se anula. El TPV, con servidor, separa toque a toque con
+        este endpoint y se queda con la transacción que devuelve.
 
 
         Permiso: pedido.pasarCuenta | pedido.separar
@@ -14954,9 +14954,8 @@ paths:
         la transacción de destino (la de la propia orden si es la mesa entera). POST …/accounts/{accountId}/transfer sigue
         para los equipos que ya lo usan (también acepta into). into (1.2.195): con la mesa de destino ocupada, «new» (defecto)
         llega como cuenta(s) aparte y «main» une sus productos a la cuenta principal del destino (la primera abierta sin cobros;
-        las cuentas con cobros o descuentos se quedan aparte; evento accountsJoined). Zonas de precio (1.2.195): de general
-        (barra, salón) a terraza SÍ y los productos de las cuentas sin facturar pasan a PVP terraza (evento pricesToTerrace);
-        de terraza a general → 422 VALIDATION en toTableId.
+        las cuentas con cobros o descuentos se quedan aparte; evento accountsJoined). Solo entre zonas con el mismo precio
+        (terraza con terraza, general con general): si no, 422 VALIDATION en toTableId.
 
 
         Permiso: mesas.transferir
@@ -16218,10 +16217,11 @@ paths:
       - API de tienda v2 · Facturas, caja e informes
       summary: Abono (factura rectificativa)
       description: 'Rectificativa por diferencias en la serie de abonos de Ajustes › Facturación: R5 si la factura es simplificada
-        (F2), R1 si es completa (F1). Total (lines vacío o null) o de algunas unidades de algunas líneas; nunca más de lo
-        que queda por abonar (422 QUANTITY_EXCEEDS). Cada línea abona su parte del descuento; el abono que deja la factura
-        a 0 cuadra al céntimo con lo que quedaba. Mismo bloqueo y cadena VeriFactu que facturar. La original pasa a rectified
-        cuando se abona entera. reasonId = motivo de tipo credit (o reason con el texto). Imprime el abono después del COMMIT.
+        (F2), R1 si es completa (F1). Solo se abona la factura entera (decisión del 27/10/2026): lines vacío o null; con líneas
+        → 422 VALIDATION en lines. Una factura que ya tenía abonos parciales (de antes) se abona por lo que queda y cuadra
+        al céntimo; ya abonada entera → 422 QUANTITY_EXCEEDS. Mismo bloqueo y cadena VeriFactu que facturar. La original pasa
+        a rectified cuando se abona entera. reasonId = motivo de tipo credit (o reason con el texto). Imprime el abono después
+        del COMMIT.
 
 
         Permiso: funciones.abonar
@@ -16431,24 +16431,12 @@ paths:
                   type:
                   - string
                   - 'null'
-                lines:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      lineId:
-                        type: string
-                      quantity:
-                        type: integer
                 print:
                   type: boolean
                 authorization: {}
             example:
               reasonId: null
               reason: Error al cobrar
-              lines:
-              - lineId: …
-                quantity: 1
               print: true
               authorization: null
   /api/v2/invoices/{invoiceId}/verifactu:

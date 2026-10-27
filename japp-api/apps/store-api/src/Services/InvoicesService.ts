@@ -3,6 +3,7 @@ import type { Database } from "@japp/db";
 import {
   accountTotals,
   creditTicket,
+  assertWholeCredit,
   creditTypeFor,
   fail,
   formatInvoiceNumber,
@@ -264,6 +265,7 @@ export class InvoicesService {
     await this.auth.require(se, "funciones.abonar", token);
     const id = parse(InvoiceIdModel, rawId);
     const b = parse(CreditModel, body);
+    assertWholeCredit(b.lines);
     const reason = await this.creditReasonText(se, b.reasonId, b.reason);
     const ref = await this.invoices.ref(se.storeId, id);
     if (!ref?.orderId || !ref.accountId) {
@@ -297,7 +299,7 @@ export class InvoicesService {
           creditedTotal: done.total,
           creditedTaxes: done.taxes,
         },
-        b.lines ?? null,
+        null,
       );
       // cadena VeriFactu: una factura (o abono) de la tienda cada vez; la hora se toma DESPUÉS de tener el bloqueo
       await this.repo.lockInvoiceChain(tx, se.storeId);

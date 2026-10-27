@@ -8,12 +8,11 @@ const NUMBERED = /^cuenta (\d+)$/;
 const normalize = (name: string) => name.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 
 /**
- * Nombre de la cuenta nueva: «Cuenta N» con N = el número más alto que aparezca en un nombre «Cuenta N» de las
- * cuentas que hay + 1. Con «Cuenta 1» y «Cuenta 3» (la 2 se quitó) la siguiente es «Cuenta 4» (no se rellenan huecos);
- * si se quita la última, su número vuelve a usarse (pruebas del 26/10/2026: separar a una cuenta nueva y vaciar la de
- * origen ya no salta números).
+ * Nombre de la cuenta nueva (decidido tras las pruebas en tienda, 23/10/2026): «Cuenta N» con N = el número más alto
+ * que aparezca en un nombre «Cuenta N» de la orden + 1. Nunca reutiliza un número: con «Cuenta 1» y «Cuenta 3»
+ * (la 2 se quitó) la siguiente es «Cuenta 4», no otra «Cuenta 2».
  * - order: las cuentas cargadas (abiertas y facturadas);
- * - knownNames: otros nombres vivos que no estén en order (el servidor ya no pasa las anuladas).
+ * - knownNames: las que no se cargan (anuladas o quitadas), para que su número tampoco se repita.
  */
 export function nextAccountName(order: Pick<Order, "accounts">, knownNames: readonly string[] = []): string {
   let max = 0;
