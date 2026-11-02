@@ -1,0 +1,18 @@
+<script id="japp-mock-head">
+/* ===== Modo MOCK (desarrollo sin base de datos ni API) =====
+   Se activa con ?mock (o ?mock=1) y se queda activo en este navegador; ?mock=0 lo quita.
+   En mock: el TPV trabaja solo con sus datos locales (localStorage), no llama a /api/ y entra
+   directamente como CAJA1 sin pedir el alta del equipo. Lo que se decida aquí se pasa luego a la API. */
+(function(){
+  var q=new URLSearchParams(location.search), on=false;
+  try{ if(q.has("mock")) localStorage.setItem("japp-mock", q.get("mock")==="0"?"0":"1"); on=localStorage.getItem("japp-mock")==="1"; }catch(e){ on=q.has("mock")&&q.get("mock")!=="0"; }
+  window.JAPP_MOCK=on; if(!on) return;
+  try{ var P="japp-tpv-pref-v1", p=JSON.parse(localStorage.getItem(P)||"{}")||{};
+    p.apiOn=false; delete p.apiUrl; if(!p.server) p.server="mock"; localStorage.setItem(P,JSON.stringify(p)); }catch(e){}
+  /* nada sale hacia la API: cualquier llamada a /api/ falla como «sin servidor» y el TPV sigue en local */
+  var f=window.fetch.bind(window);
+  window.fetch=function(u,o){ var s=typeof u==="string"?u:(u&&u.url)||String(u||"");
+    if(/\/api\//.test(s)) return Promise.reject(new TypeError("MOCK: sin API ("+s+")")); return f(u,o); };
+  var W=window.WebSocket; if(W) window.WebSocket=function(u,p){ if(/\/api\//.test(String(u))) throw new Error("MOCK: sin WebSocket"); return new W(u,p); };
+})();
+</script>

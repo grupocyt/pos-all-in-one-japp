@@ -1,0 +1,123 @@
+v204: Facturas: el ticket de la factura se navega por pestañas (Productos con su número de unidades · Pagos · IVA y VeriFactu · Cliente, si lo hay) y el total queda siempre a la vista abajo; cabecera, estado, fecha, mesa, camarero y forma de pago siempre arriba. Cada pestaña tiene su propio scroll, así la ventana no crece.
+
+v205: Fondo con el azulejo azul nuevo (en mosaico de 240 px; en modo oscuro, oscurecido como antes).
+
+v206: Ajustes: el grupo Developer pasa a llamarse Administración y tiene una opción nueva, Sistema: nombre del sistema (acceso, menú lateral y pestaña del navegador), subtítulo, texto del grupo en la pantalla de acceso, logo del sistema e icono «Sin imagen» (subir o volver al original), paleta de colores (cada usuario elige el suyo abajo a la izquierda en Ajustes; el marcado «Por defecto» es el de quien no ha elegido) y colores del sistema (secundario, fondos, textos y colores de estado; vacío = el original), con vista previa. Se guarda en el servidor (migración 0023) y lo ven todos los equipos.
+
+v207: Administración › API backend › Documentación: cada endpoint tiene «Probar sin servidor» (mock): parámetros de la ruta, consulta y cuerpo editables, elegir respuesta correcta o cualquiera de sus errores, y «Enviar» responde con el ejemplo del contrato en el formato común (estado, tiempo, cabeceras y JSON) sin tocar ninguna base de datos; avisa si el JSON no es válido o falta un dato de la ruta o la versión. «Copiar curl» para probarlo luego contra un servidor real. La cabecera del usuario (logo, nombre, perfil y Cambiar) pasa a ser blanca, sin el degradado verde.
+
+v208: Cabecera del usuario: la línea de abajo va en el color elegido de la paleta (antes naranja), el perfil sin rojo (gris suave), «Cambiar» como botón azul suave y el nombre en el color configurado del usuario.
+
+v209: Cabecera del usuario rediseñada: tarjeta blanca, logo con un anillo y el nombre en el color del usuario, el perfil como texto con un punto de su color, «Cambiar» como botón ancho en el color elegido de la paleta y la línea de abajo en ese mismo color.
+
+v210: Áreas del plano: las normales con el nombre en verde y las de terraza con el nombre en dorado, sin fondo amarillo (al elegirla, solo el borde dorado).
+
+v211: Áreas del plano: las que no son de terraza, con el nombre en negro (en modo oscuro, en claro).
+
+v212: Áreas del plano: la elegida se ve con los colores invertidos (fondo azul de mesa y nombre en blanco; en terraza, fondo dorado y nombre en blanco).
+
+v213: Áreas del plano: la barra de ocupación de las áreas normales, en gris (antes naranja).
+
+v214: Cabecera del usuario en fila: el logo con un anillo de su color a la izquierda y, al lado, el nombre (en su color) y el perfil; debajo, «Cambiar» como botón blanco con borde que se marca en su color al pasar por encima.
+
+v215: Áreas del plano: la normal elegida, en el azul de las mesas (antes verde planta).
+
+v216: Cabecera del usuario como tarjeta de identificación: una franja con su color arriba, el logo encima, el nombre centrado, el perfil en una etiqueta con borde de su color y «Cambiar» como botón redondo en la esquina de la franja (también se cambia tocando la tarjeta).
+
+v217: Delivery: botón «Pedidos» en la columna izquierda (debajo de las áreas) que abre el tablero como en el sistema antiguo: medio, transacción, cliente, motorizado, estado, semáforo y tiempo de espera; filtros Todos · Pendiente · Recibido · Por asignar · Asignado · En camino; Pendientes / Entregados; ficha con los pasos y asignar motorizado · Perfil: nombres y perfiles largos en dos líneas · Áreas normales sin elegir en azul mesa suave
+
+v218: Botón «Pedidos» encima del reloj, en el color primario, para abrir el tablero de delivery
+
+v219: Menos colores: áreas sin elegir en blanco con texto oscuro y barra gris (la terraza lleva un sol pequeño en vez del dorado), la elegida en azul mesa; perfil en gris
+
+v220: Franja del perfil en el color del sistema (sin morado) · Tablero de pedidos con menos colores: filtros, plataformas, estados y botones en neutro y el color primario; solo el semáforo va en color
+
+v221: Áreas sin barra de progreso ni contador de mesas
+
+v222: «Tu color» como interruptor con el nombre de cada color, también en la pantalla de acceso; el color se guarda en el equipo · Acceso: «Restaurantes que confían en Plataforma Japp»
+
+v223: Acceso: pie «Plataforma Japp» · «Tu color» más pequeño
+
+v224: Selector de color sin el texto «Tu color»
+
+v225: Acceso: el selector de color, encima de «Plataforma Japp»
+
+v226: Acceso sin la barra de arriba (tienda, wifi simulada, idiomas y modo oscuro) y centrado en la pantalla · Mapa con Colombia, España y Estados Unidos
+
+v227: En pantallas grandes el sistema queda centrado (como máximo 1680 × 980 px) en vez de estirarse · Mapa del acceso: Ecuador, Colombia, España y Estados Unidos, cada uno late en un momento distinto
+
+v228: Mesas: el plano ocupa todo el alto, alineado con las columnas, con una franja abajo (de momento vacía)
+
+v229: «Pedidos» pasa a la derecha de la franja de abajo (también visible con el tablero abierto)
+
+v230: Con Pedidos abierto, la columna derecha muestra los estados de los pedidos (en vez de los de las mesas) y filtran la tabla; el tablero queda sin la fila de filtros
+
+v231: Estado de pedidos con colores (Pendiente naranja, Recibido ámbar, Por asignar morado, Asignado azul, En camino turquesa) y el mismo punto de color en la columna Estado de la tabla
+
+v232: Pedidos: botones de acción de la tabla todos del mismo tamaño y en verde suave
+
+v233: Ajustes › Pedidos › Delivery: integración (activar, integrador y plataformas), tiempos (preparación y semáforo ámbar/rojo), funcionamiento (aceptar solos, pedir motorizado, aviso sonoro) y lista de motorizados; el tablero usa estos tiempos y motorizados · Fast food: botón «Pedidos» en la cabecera que abre el tablero en una ventana, y «Gestiones» en verde
+
+v234: Sin modo oscuro: se quita el botón «Oscuro» (también en la PDA) y el sistema va siempre en claro; los colores se configuran en Administración › Sistema
+
+v235: El teclado en pantalla sale de la barra de arriba y pasa a Ajustes (casilla «Teclado en pantalla» abajo a la izquierda)
+
+v236: Fast food: cabecera sin el naranja; avatar con iniciales, nombre y perfil, y etiqueta «Fast food» suave en el color del sistema
+
+v237: Fast food: la barra del usuario con Pedidos, Gestiones, Ajustes y Salir pasa a la parte de abajo
+
+v238: Fast food: sin la etiqueta «Fast food» en la barra
+
+v239: Fast food: sin la barra de arriba; la tienda, los idiomas y la versión pasan dentro de la barra de abajo
+
+v240: Fast food: la barra de abajo más alta, con botones más grandes
+
+v241: Fast food: la barra vuelve arriba; la tienda se ve con su logo, el nombre y debajo el código y el sistema
+
+v242: Fast food: sin el código y el sistema debajo de la tienda, ni el avatar del usuario
+
+v243: Fast food: el usuario y su perfil, debajo del nombre de la tienda
+
+v244: Fast food: debajo de la tienda, el usuario y en otra línea su perfil en letra más pequeña
+
+v245: Fast food: sin el botón de la versión en la barra
+
+v246: Fast food: sin los idiomas en la barra
+
+v247: Idiomas solo en la pantalla de acceso (abajo, junto al color); se quitan de la barra de arriba
+
+v248: Toma de pedido: la fila de botones de abajo (Cobrar, Guardar, Separar…) con su fondo blanco
+
+v249: Sin el botón de la versión en la barra de arriba (se sigue viendo en el acceso)
+
+v250: Debajo del perfil del usuario, el código y el nombre de la tienda
+
+v251: Sin la tienda ni el logo en la barra de arriba
+
+v252: Sin el texto «Toca un estado para resaltarlo» (ni el de pedidos)
+
+v253: «Editar sala» pasa dentro de Gestiones (sale de la columna derecha)
+
+v254: Gestiones se cierra antes de abrir la opción elegida: ya no quedan dos ventanas una encima de otra · Se quita «Reabrir mesa» de Gestiones
+
+v255: Gestiones: la opción elegida se abre encima y Gestiones se queda detrás; al cerrarla se vuelve a Gestiones · Arqueo de caja con icono de bolsa de dinero
+
+v256: Caja: la ventana tiene el mismo tamaño en todas las pestañas
+
+v257: Ajustes › Restaurante: Tipo de servicio como interruptor (Servicio a la mesa · Fast food) y Código e ID integración en la misma línea · Se quita «Aplicación (PWA)»
+
+v258: Ajustes › Restaurante: Código e ID integración (cortos) y Nombre en la misma línea
+
+v259: Pruebas del 28/10 (Catalina): la precuenta se imprime cada vez que se pide (sin cambios, tras eliminar o tras separar); la cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; en Separar salen también las cuentas con un cobro parcial para cobrar lo que falta; no se puede eliminar si la cuenta quedaría por debajo de lo cobrado (antes «No cuadra» y mesa bloqueada); una mesa nueva sin nada se cierra al pulsar Guardar aunque la conexión vaya lenta; pasar una sola cuenta a otra mesa ya deja elegir la mesa (fallaba al tocarla); fast food: añadir, quitar y volver a marcar ya no deja «No cuadra» (lo quitado sale antes que lo nuevo y se continúa con el ticket que el servidor ya tenía abierto); pantalla del cliente: se ven el subtotal y cada descuento con lo que resta, y al cobrar salen «Pagado», el ticket y «Gracias» (antes se quedaba el pedido anterior)
+
+v260: Pruebas del 28/10 (Catalina): los datos del cliente que se escriben al cobrar con factura completa se guardan en el fichero de clientes (antes nunca aparecían al buscarlos) y se puede buscar también por el correo; en la ficha del cliente, «Quitar cliente» y «Guardar» van justo después de País y el buscador usa el mismo teclado de pantalla (antes salían dos); no se pueden crear dos personas con el mismo nombre (aunque cambien mayúsculas o espacios); el bloqueo por inactividad es como mínimo de 10 s (con 1–9 s la pantalla de bloqueo salía sin parar)
+
+v261: Decisiones del 28/10: sin conexión con el servidor el botón Cobrar se desactiva y se avisa encima del total; no se cobra un menú con pases por elegir ni sin marchar (también en la API); en Editar sala una mesa no se puede dejar ni crear encima de otra
+
+v262: Gestiones › Resumen semana: venta, transacciones y ticket medio de cada día de lunes a domingo y el total de la semana (completo al cerrar el domingo); se puede ver cualquier semana anterior. Con servidor sale de los cierres de periodo
+
+v263: Resumen semana con el formato de la hoja de los locales: por día, semana anterior, venta del año anterior, proyección de la semana (objetivo de Ajustes › Objetivos) y cumplimiento (venta real), cada uno con sus comparativas de venta, transacciones y ticket medio en verde o rojo; total de la semana; observaciones de cada día (se guardan en el servidor); productos más vendidos con su % de mezcla
+
+v264: Ajustes › Pedidos: nuevo interruptor «Delivery en este local»; apagado, el botón Pedidos no sale ni en la pantalla de mesas ni en fast food (locales sin delivery)
+
+v265: Administración › API backend y Base de datos al día con la 1.2.264 (para empezar a programar): endpoints nuevos de Sistema (/config/sistema), Resumen semana (/reports/week y sus observaciones) y Pedidos de delivery (/delivery/orders, /config/pedidos, /config/motorizados), las reglas del 28/10 marcadas como «cambia» y 4 códigos de error nuevos; Base de datos con las 72 tablas hasta la migración 0026 (system_branding, week_note, delivery_settings, delivery_rider, delivery_order con sus productos y pasos) y las pruebas de japp-db.

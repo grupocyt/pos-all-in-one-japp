@@ -1,0 +1,27 @@
+<script id="japp-mock-tail">
+/* ===== Modo MOCK: entrar como CAJA1 y chip para reiniciar o salir ===== */
+(function(){
+  if(!window.JAPP_MOCK) return;
+  try{
+    pref.apiOn=false; delete pref.apiUrl; savePref();
+    if(!pref.modo){ var m=stMain()||st.cfg.estaciones.find(function(e){ return e.activo!==false&&e.tipo!=="pda"; });
+      if(m){ var u=devUUID(); st.cfg.estaciones.forEach(function(x){ if(x!==m&&x.uuid&&x.uuid.toLowerCase()===u.toLowerCase()) x.uuid=""; });
+        m.uuid=u; m.activo=true; save(); setModo("desktop", m.id); } }
+  }catch(e){ console.warn("[MOCK]", e); }
+  var css=document.createElement("style");
+  css.textContent='#japp-mock{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:2147483000;font:600 12px/1 "IBM Plex Sans",system-ui,sans-serif;display:flex;gap:4px;align-items:center;background:#7c2d12;color:#fff;border-radius:999px;padding:4px 4px 4px 10px;box-shadow:0 2px 8px rgba(0,0,0,.25);opacity:.9}'+
+    '#japp-mock:hover{opacity:1}#japp-mock button{font:inherit;border:0;border-radius:999px;padding:5px 9px;background:rgba(255,255,255,.18);color:#fff;cursor:pointer}#japp-mock button:hover{background:rgba(255,255,255,.32)}';
+  document.head.appendChild(css);
+  var el=document.createElement("div"); el.id="japp-mock"; el.setAttribute("role","status");
+  el.innerHTML='<span title="Sin base de datos ni API: los datos se guardan solo en este navegador">MOCK · sin API</span>'+
+    '<button type="button" id="jm-reset" title="Borra ventas, mesas y ajustes de este navegador y vuelve a los datos de ejemplo">Reiniciar datos</button>'+
+    '<button type="button" id="jm-exit" title="Vuelve al modo normal (con servidor)">Salir</button>';
+  document.body.appendChild(el);
+  document.getElementById("jm-reset").onclick=function(){ if(!confirm("¿Borrar los datos del mock en este navegador?")) return;
+    try{ ["japp-tpv-proto-v3","japp-tpv-pref-v1","japp.apiSync","japp.apiTokens"].forEach(function(k){ localStorage.removeItem(k); }); sessionStorage.clear(); }catch(e){}
+    location.replace(location.pathname+"?mock=1"); };
+  document.getElementById("jm-exit").onclick=function(){
+    try{ localStorage.setItem("japp-mock","0"); var p=JSON.parse(localStorage.getItem("japp-tpv-pref-v1")||"{}")||{}; delete p.apiOn; p.modo=null; p.server=null; p.device=null; localStorage.setItem("japp-tpv-pref-v1",JSON.stringify(p)); }catch(e){}
+    location.replace(location.pathname); };
+})();
+</script>
