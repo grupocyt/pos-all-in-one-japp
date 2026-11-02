@@ -204,4 +204,70 @@ describe("migraciones", () => {
     await expect(c.query("UPDATE pin_attempt SET failures = -1 WHERE key='device:abc'")).rejects.toMatchObject({ code: "23514" });
     await c.query("ROLLBACK TO SAVEPOINT s");
   }));
+  it("0023: marca del sistema, una fila por tienda; nombre obligatorio, imágenes como data URL y paleta con 1–12 colores", () => rollback(c, async () => {
+    const st = (await one(c, "SELECT id FROM store")).id;
+    await c.query("INSERT INTO system_branding (store_id) VALUES ($1)", [st]);
+    const r = await one(c, "SELECT name, palette, colors, version FROM system_branding WHERE store_id=$1", [st]);
+    expect([r.name, r.palette, r.colors, r.version]).toEqual(["Japp", [{ hex: "#15616D", name: "Verde", default: true }], {}, 1]);
+    for (const bad of ["UPDATE system_branding SET name='  '", "UPDATE system_branding SET logo='http://x/logo.png'", "UPDATE system_branding SET palette='[]'", "UPDATE system_branding SET colors='[]'"]) {
+      await c.query("SAVEPOINT s");
+      await expect(c.query(bad)).rejects.toMatchObject({ code: "23514" });
+      await c.query("ROLLBACK TO SAVEPOINT s");
+    }
+    await c.query("UPDATE system_branding SET logo='data:image/png;base64,AAAA', updated_by='Sistemas'");
+  }));
+  it("0024: una observación por día de negocio y tienda; period_summary.by_product es una lista", () => rollback(c, async () => {
+    const st = (await one(c, "SELECT id FROM store")).id;
+    const ins = "INSERT INTO week_note (id, store_id, business_date, note) VALUES ($1,$2,'2026-11-02',$3)";
+    await c.query(ins, [uuid(), st, "Lluvia toda la tarde"]);
+    await c.query("SAVEPOINT s");
+    await expect(c.query(ins, [uuid(), st, "Otra"])).rejects.toMatchObject({ code: "23505" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
+    await expect(c.query("UPDATE week_note SET note=' '")).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK");
+    const col = await one(c, "SELECT column_default, is_nullable FROM information_schema.columns WHERE table_name='period_summary' AND column_name='by_product'");
+    expect([col.column_default, col.is_nullable]).toEqual(["'[]'::jsonb", "NO"]);
+    await c.query("BEGIN");
+  }));
+  it("0025: delivery — ajustes por tienda (rojo después del ámbar), motorizados sin repetir y pedidos con estados válidos", () => rollback(c, async () => {
+    const st = (await one(c, "SELECT id FROM store")).id;
+    await c.query("INSERT INTO delivery_settings (store_id) VALUES ($1)", [st]);
+    const s = await one(c, "SELECT active, ask_rider, amber_minutes, red_minutes, jsonb_array_length(platforms) n FROM delivery_settings");
+    expect([s.active, s.ask_rider, s.amber_minutes, s.red_minutes, s.n]).toEqual([true, true, 15, 30, 4]);
+    await c.query("SAVEPOINT s");
+    await expect(c.query("UPDATE delivery_settings SET red_minutes=15")).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
+    const r1 = uuid();
+    await c.query("INSERT INTO delivery_rider (id, store_id, name) VALUES ($1,$2,'Carlos M.')", [r1, st]);
+    await c.query("SAVEPOINT s2");
+    await expect(c.query("INSERT INTO delivery_rider (id, store_id, name) VALUES ($1,$2,' carlos m. ')", [uuid(), st])).rejects.toMatchObject({ code: "23505" });
+    await c.query("ROLLBACK TO SAVEPOINT s2");
+    const o = uuid();
+    await c.query(`INSERT INTO delivery_order (id, store_id, platform, code, external_id, customer_name, total) VALUES ($1,$2,'glovo','GLV-4821','g-1','Marta R.',30.30)`, [o, st]);
+    await c.query("INSERT INTO delivery_order_line (id, store_id, delivery_order_id, line_no, name, quantity, unit_price) VALUES ($1,$2,$3,1,'Patatas bravas',2,5.5)", [uuid(), st, o]);
+    await c.query("INSERT INTO delivery_order_event (id, store_id, delivery_order_id, status, by_name) VALUES ($1,$2,$3,'pending','Integración')", [uuid(), st, o]);
+    for (const [sql, code] of [
+      ["INSERT INTO delivery_order (id, store_id, platform, code, external_id, customer_name) VALUES ('" + uuid() + "','" + st + "','glovo','GLV-0000','g-1','Otro')", "23505"],
+      ["UPDATE delivery_order SET status='camino'", "23514"],
+      ["UPDATE delivery_order SET status='assigned'", "23514"],
+      ["UPDATE delivery_order SET status='delivered', rider_name='Carlos M.'", "23514"],
+    ] as const) {
+      await c.query("SAVEPOINT s3");
+      await expect(c.query(sql)).rejects.toMatchObject({ code });
+      await c.query("ROLLBACK TO SAVEPOINT s3");
+    }
+    await c.query("UPDATE delivery_order SET status='assigned', rider_id=$1, rider_name='Carlos M.'", [r1]);
+    await c.query("UPDATE delivery_order SET status='delivered', finished_at=now()");
+    const perms = (await all(c, "SELECT code FROM permission WHERE code IN ('ajustes.pedidos','funciones.pedidos') ORDER BY 1")).map(r => r.code);
+    expect(perms).toEqual(["ajustes.pedidos", "funciones.pedidos"]);
+    const sinTablero = await all(c, "SELECT p.code FROM user_profile p WHERE NOT EXISTS (SELECT 1 FROM profile_permission x WHERE x.profile_id=p.id AND x.permission_code='funciones.pedidos')");
+    expect(sinTablero).toEqual([]);
+  }));
+  it("0026: no hay dos personas con el mismo nombre aunque cambien mayúsculas o espacios; búsqueda de clientes por correo", () => rollback(c, async () => {
+    const u = await one(c, "SELECT store_id, profile_id FROM app_user WHERE name='Mesero'");
+    await expect(c.query("INSERT INTO app_user (id, store_id, name, profile_id, pin_hash) VALUES ($1,$2,' mesero ',$3,'x')", [uuid(), u.store_id, u.profile_id])).rejects.toMatchObject({ code: "23505" });
+    await c.query("ROLLBACK");
+    expect(await one(c, "SELECT 1 x FROM pg_indexes WHERE indexname='ix_customer_ref_store_id_email'")).toEqual({ x: 1 });
+    await c.query("BEGIN");
+  }));
 });

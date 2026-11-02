@@ -1,16 +1,24 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0020, consultas de control · 66 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 97 endpoints · 255 pruebas de dominio + 264 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0026, consultas de control · 76 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 97 endpoints (+9 nuevos en el contrato, sin programar) · 255 pruebas de dominio + 264 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.203. La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.265 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
 **Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`.
+
+## TPV 1.2.265 (02/11/2026): qué cambia respecto a la 1.2.203
+
+- `japp-tpv/` trae el TPV **1.2.265**: la 1.2.264 recuperada del artefacto «TPV Japp» más la documentación de Administración al día. Los cambios están en `CAMBIOS-v204-v264.md`.
+- **La base ya está lista:** `japp-db` trae las migraciones **0023–0026** (Sistema, Resumen semana, Delivery y reglas del 28/10) con sus pruebas (76 en verde). `npm run db:init` las aplica sin borrar nada.
+- **El contrato ya está listo:** `japp-api/docs/openapi.yaml` y `docs/api-japp.html` (sección «4 · Nuevo en el TPV 1.2.264») traen los 9 endpoints nuevos, los módulos `pedidos` y `motorizados` y las reglas nuevas. Lo mismo en el TPV, en Administración › API backend (29 «nuevos» y 28 que «cambian») y Base de datos (72 tablas).
+- **Falta programarlo en la API:** está en `japp-api/CLAUDE.md` › «Siguiente encargo». Hasta entonces, Sistema, Delivery y Resumen semana solo guardan en el equipo. No subas esta versión a producción sin ellos.
+- **Probar sin base de datos:** abre `http://localhost:8080/?mock`, o el `index.html` suelto añadiendo `?mock`. Entra como CAJA1, no llama a la API y guarda en el navegador. Abre el periodo con 1012 y entra con 0186. Se quita con «Salir» en el chip de abajo o con `?mock=0`. Sin `?mock` no hace nada.
 
 ## Opción A · Docker (lo más rápido)
 
@@ -60,7 +68,7 @@ La 1.2.203 trae **la migración 0022**: de qué mesa viene una cuenta o un produ
 2. Haz copia de tu `.env` de `japp-api` y de `japp-db`. Descomprime el zip encima de la carpeta anterior (el zip no trae `.env`).
 3. En `japp-db`: `npm install` (lo necesita `db:init`). En `japp-api`: `npm install` y después `npm run db:init` (aplica las migraciones pendientes: la 0022 y, si faltan, la 0014 a la 0021; no borra nada). Con Docker: `docker compose up --build -d`.
 4. Para que la factura, la precuenta y la comanda salgan por papel, en el `.env` de `japp-api` pon `PRINTER_MODE=escpos`.
-5. Arranca la API (`npm start`) y en el TPV pulsa **Actualizar** (o Ctrl+F5): abajo debe poner **1.2.203**.
+5. Arranca la API (`npm start`) y en el TPV pulsa **Actualizar** (o Ctrl+F5): abajo debe poner **1.2.265**.
 6. Para que lleguen los datos al Manager, arranca también el agente (`npm start -w sync-agent` en otra ventana, o en Docker `--profile sync`).
 
 ## Git: un solo repositorio en la carpeta principal

@@ -35,6 +35,9 @@ tags:
   description: Descuentos, cliente, pagos y emisión de la factura VeriFactu.
 - name: API de tienda v2 · Facturas, caja e informes
   description: Lo que se usa desde Gestiones.
+- name: API de tienda v2 · Pedidos (delivery)
+  description: 'Tablero de pedidos de Glovo, Uber Eats, Just Eat y la web propia: alta desde el integrador, pasos, motorizado
+    y cancelación.'
 - name: API de tienda v2 · Impresoras, salud y Developer
   description: Estado de la tienda y consulta de transacciones.
 - name: API de tienda v2 · Prueba de impresoras
@@ -1634,16 +1637,30 @@ paths:
       summary: Listar un módulo de Ajustes
       description: 'module = restaurante, empresa, facturacion, parametros (un solo registro: id «current»), usuarios, perfiles,
         areas, mesas, impuestos, categorias, productos, preguntas, canales, impresoras, estaciones, formas-pago, descuentos,
-        motivos u objetivos. Por defecto solo lo activo (active=all para todo, active=false para lo desactivado). Cada registro
-        lleva id, version y active; productos además channels, questions y taxRate; preguntas, answers; estaciones, channels
-        (canal → impresora), paymentMethods y discounts; perfiles, permissions y users.
+        motivos, objetivos, pedidos (un solo registro: id «current») o motorizados. Por defecto solo lo activo (active=all
+        para todo, active=false para lo desactivado). Cada registro lleva id, version y active; productos además channels,
+        questions y taxRate; preguntas, answers; estaciones, channels (canal → impresora), paymentMethods y discounts; perfiles,
+        permissions y users.
 
 
         Permiso: ajustes.{module} (áreas y mesas: mesas.editarPlano; impuestos, formas de pago y descuentos: ajustes.facturacion;
-        objetivos: ajustes.cierres)
+        objetivos: ajustes.cierres; pedidos y motorizados: ajustes.pedidos)
 
 
-        Lo llama: TPV'
+        Lo llama: TPV
+
+
+        Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, Pendiente de programar (TPV 1.2.264)): active sí/no Delivery
+        en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; integration · provider
+        · platforms[] Recibir de las plataformas, integrador y plataformas {id, name, active}; autoAccept · askRider · sound
+        sí/no Aceptar solos · pedir motorizado al asignar · aviso sonoro; prepMinutes · amberMinutes · redMinutes 1–240 Preparación
+        y semáforo; rojo > ámbar (VALIDATION). En el TPV: st.cfg.pedidos: activo, integracion, proveedor, plataformas[{id,nombre,activa}],
+        autoAceptar, pedirMoto, sonido, prep, ambar, rojo.
+
+
+        Módulo motorizados (Motorizados, tabla delivery_rider, Pendiente de programar (TPV 1.2.264)): name texto ≤ 40 Obligatorio;
+        sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); phone texto ≤ 20; sortOrder entero Orden
+        en la lista. En el TPV: st.cfg.pedidos.motorizados[{nombre, tel, activo}] → un registro por motorizado; quitar = deactivate.'
       operationId: store_GET_config_module
       security:
       - session: []
@@ -1779,7 +1796,13 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: config_change_log, product_incident, sync_outbox'
+        Tablas: config_change_log, product_incident, sync_outbox
+
+
+        Cambio TPV 1.2.260 · 1.2.233 (pendiente de programar): usuarios: no puede haber dos personas con el mismo nombre aunque
+        cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios:
+        el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo
+        registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).'
       operationId: store_POST_config_module
       security:
       - session: []
@@ -2056,7 +2079,11 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: config_change_log, product_incident, sync_outbox'
+        Tablas: config_change_log, product_incident, sync_outbox
+
+
+        Cambio TPV 1.2.260 (pendiente de programar): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE)
+        y bloqueo 0 o ≥ 10 s.'
       operationId: store_PATCH_config_module_id
       security:
       - session: []
@@ -2956,6 +2983,544 @@ paths:
         in: query
         required: false
         description: 'Año (defecto: el actual)'
+        schema:
+          type: string
+  /api/v2/reports/week:
+    get:
+      tags:
+      - API de tienda v2 · Gestor de cierres
+      summary: Resumen de la semana
+      description: 'Gestiones › Resumen semana con el formato de la hoja de los locales: cada día de lunes a domingo con semana
+        anterior, venta del año anterior (364 días antes, mismo día de la semana), proyección y cumplimiento (venta real),
+        cada uno con venta, transacciones (T) y ticket medio (TM); el total de la semana; las observaciones y los productos
+        más vendidos con su % de mezcla.
+
+
+        De dónde sale: de los cierres de periodo (period_summary, por business_date); el periodo abierto se calcula al vuelo
+        (open: true).
+
+
+        Proyección: año anterior × (1 + growthPct/100) del objetivo de esa semana (Ajustes › Objetivos, sales_target year/week;
+        si no hay de la semana, el del año con week 0). Con importe fijo (amount) se reparte por días en proporción al año
+        anterior y targetAmount lo dice.
+
+
+        Comparativas como la hoja: (real − referencia) / real × 100, en %, con 2 decimales; null si falta alguno de los dos.
+
+
+        Totales: las comparativas solo con los días que ya tienen venta real; complete = el domingo ya se cerró.
+
+
+        Productos: suma de period_summary.by_product de los días de la semana; mixPct = importe del producto / importe de
+        todos × 100; los 20 primeros.
+
+
+        La regla va en el dominio (weekSummary) para que el TPV sin servidor calcule lo mismo.
+
+
+        Permiso: funciones.informes
+
+
+        Lo llama: TPV
+
+
+        Tablas: period_summary, sales_target, week_note
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)'
+      operationId: store_GET_api_v2_reports_week
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      year:
+                        type: integer
+                      week:
+                        type: integer
+                      from:
+                        type: string
+                      to:
+                        type: string
+                      growthPct:
+                        type: number
+                      targetAmount:
+                        type:
+                        - string
+                        - 'null'
+                      complete:
+                        type: boolean
+                      days:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                            dow:
+                              type: integer
+                            open:
+                              type: boolean
+                            real:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: integer
+                                avg:
+                                  type: number
+                            prevWeek:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: integer
+                                avg:
+                                  type: number
+                            lastYear:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: integer
+                                avg:
+                                  type: number
+                            target:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: integer
+                                avg:
+                                  type: number
+                            vsPrevWeek:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: number
+                                avg:
+                                  type: number
+                            vsLastYear:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: number
+                                avg:
+                                  type: number
+                            vsTarget:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: number
+                                avg:
+                                  type: number
+                            note:
+                              type: string
+                      totals:
+                        type: object
+                        properties:
+                          real:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: integer
+                              avg:
+                                type: number
+                          prevWeek:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: integer
+                              avg:
+                                type: number
+                          lastYear:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: integer
+                              avg:
+                                type: number
+                          target:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: integer
+                              avg:
+                                type: number
+                          vsPrevWeek:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: number
+                              avg:
+                                type: number
+                          vsLastYear:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: number
+                              avg:
+                                type: number
+                          vsTarget:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: number
+                              avg:
+                                type: number
+                      notes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                            note:
+                              type: string
+                            version:
+                              type: integer
+                            updatedBy:
+                              type: string
+                            updatedAt:
+                              type: string
+                      products:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            rank:
+                              type: integer
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            amount:
+                              type: number
+                            mixPct:
+                              type: number
+              example:
+                title: Resumen de la semana
+                type: success
+                status: 200
+                data:
+                  year: 2026
+                  week: 45
+                  from: '2026-11-02'
+                  to: '2026-11-08'
+                  growthPct: 5.0
+                  targetAmount: null
+                  complete: false
+                  days:
+                  - date: '2026-11-02'
+                    dow: 1
+                    open: true
+                    real:
+                      sales: 3409.63
+                      tickets: 130
+                      avg: 26.23
+                    prevWeek:
+                      date: '2026-10-26'
+                      sales: 3120.4
+                      tickets: 121
+                      avg: 25.79
+                    lastYear:
+                      date: '2025-11-03'
+                      sales: 3280.1
+                      tickets: 127
+                      avg: 25.83
+                    target:
+                      sales: 3444.11
+                      tickets: 133
+                      avg: 25.9
+                    vsPrevWeek:
+                      sales: 8.48
+                      tickets: 6.92
+                      avg: 1.68
+                    vsLastYear:
+                      sales: 3.8
+                      tickets: 2.31
+                      avg: 1.53
+                    vsTarget:
+                      sales: -1.01
+                      tickets: -2.31
+                      avg: 1.29
+                    note: Lluvia toda la tarde
+                  totals:
+                    real:
+                      sales: 3409.63
+                      tickets: 130
+                      avg: 26.23
+                    prevWeek:
+                      sales: 21840.3
+                      tickets: 842
+                      avg: 25.94
+                    lastYear:
+                      sales: 22950.7
+                      tickets: 880
+                      avg: 26.08
+                    target:
+                      sales: 24098.24
+                      tickets: 924
+                      avg: 26.08
+                    vsPrevWeek:
+                      sales: 8.48
+                      tickets: 6.92
+                      avg: 1.68
+                    vsLastYear:
+                      sales: 3.8
+                      tickets: 2.31
+                      avg: 1.53
+                    vsTarget:
+                      sales: -1.01
+                      tickets: -2.31
+                      avg: 1.29
+                  notes:
+                  - date: '2026-11-02'
+                    note: Lluvia toda la tarde
+                    version: 1
+                    updatedBy: Sistemas
+                    updatedAt: '2026-11-02T22:10:00.000Z'
+                  products:
+                  - rank: 1
+                    plu: 1001
+                    name: Caña
+                    quantity: 412
+                    amount: 906.4
+                    mixPct: 26.58
+                  - rank: 2
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 96
+                    amount: 528.0
+                    mixPct: 15.49
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: date no es una fecha o es de una semana futura'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Resumen de la semana
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: date no es una fecha o es de una semana futura
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Resumen de la semana
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: date
+        in: query
+        required: false
+        description: 'Cualquier día de la semana (AAAA-MM-DD); se toma su lunes. Defecto: hoy'
+        schema:
+          type: string
+  /api/v2/reports/week/notes/{date}:
+    put:
+      tags:
+      - API de tienda v2 · Gestor de cierres
+      summary: Observación de un día
+      description: 'Escribe, cambia o borra (note vacía) la observación de un día de la hoja.
+
+
+        Borrar responde 200 con note: null y version: 0.
+
+
+        Permiso: funciones.informes
+
+
+        Lo llama: TPV
+
+
+        Tablas: week_note
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)'
+      operationId: store_PUT_api_v2_reports_week_notes_date
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                version:
+                  type: integer
+            example:
+              note: Lluvia toda la tarde
+              version: 1
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                      note:
+                        type: string
+                      version:
+                        type: integer
+                      updatedBy:
+                        type: string
+                      updatedAt:
+                        type: string
+              example:
+                title: Observación de un día
+                type: success
+                status: 200
+                data:
+                  date: '2026-11-02'
+                  note: Lluvia toda la tarde
+                  version: 2
+                  updatedBy: Sistemas
+                  updatedAt: '2026-11-02T22:12:00.000Z'
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: date futura o no válida; note de más de 500 caracteres'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Observación de un día
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: date futura o no válida; note de más de 500 caracteres
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'VERSION_CONFLICT: Otro equipo la cambió antes: details.current trae la que hay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Observación de un día
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: VERSION_CONFLICT
+                  message: 'Otro equipo la cambió antes: details.current trae la que hay'
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Observación de un día
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: date
+        in: path
+        required: true
+        description: Día de negocio AAAA-MM-DD
         schema:
           type: string
   /api/v2/reports/live:
@@ -8602,7 +9167,11 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_event'
+        Tablas: order_line, order_event
+
+
+        Cambio TPV 1.2.259 (pendiente de programar): La precuenta se imprime cada vez que se pide, aunque no haya cambios,
+        tras eliminar o tras separar.'
       operationId: store_POST_orders_orderId_accounts_accountId_prebill
       security:
       - session: []
@@ -9058,7 +9627,11 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event'
+        Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event
+
+
+        Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar
+        → 409 COURSE_PENDING.'
       operationId: store_POST_orders_orderId_accounts_accountId_payments
       security:
       - session: []
@@ -14715,7 +15288,11 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: dining_table, area_drawing, config_change_log'
+        Tablas: dining_table, area_drawing, config_change_log
+
+
+        Cambio TPV 1.2.261 (pendiente de programar): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos
+        (x, y, ancho, alto en % del plano) se solapan → 422 TABLE_OVERLAP con details {a, b} (números de mesa).'
       operationId: store_PUT_config_areas_areaId_layout
       security:
       - session: []
@@ -15166,7 +15743,11 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox'
+        Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox
+
+
+        Cambio TPV 1.2.259 (pendiente de programar): La cuenta que se queda sin productos porque se eliminó todo desaparece
+        al guardar; una mesa nueva sin nada se cierra al guardar.'
       operationId: store_POST_orders_orderId_save
       security:
       - session: []
@@ -15924,7 +16505,11 @@ paths:
 
 
         Tablas: payment, payment_cash_detail, invoice_series, invoice, invoice_tax, verifactu_record, account, orders, order_event,
-        sync_outbox'
+        sync_outbox
+
+
+        Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar
+        → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.'
       operationId: store_POST_orders_orderId_accounts_accountId_checkout
       security:
       - session: []
@@ -16154,7 +16739,12 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: customer_ref'
+        Tablas: customer_ref
+
+
+        Cambio TPV 1.2.260 (pendiente de programar): q busca también por correo (además de NIF y nombre). Los datos del cliente
+        escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email
+        (0026).'
       operationId: store_GET_customers
       security:
       - session: []
@@ -16248,6 +16838,1351 @@ paths:
         in: query
         required: false
         description: NIF o nombre
+        schema:
+          type: string
+  /api/v2/delivery/orders:
+    get:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Tablero de pedidos
+      description: 'Los pedidos del tablero: pendientes (sin terminar, del más antiguo al más nuevo) o entregados y cancelados
+        del día.
+
+
+        Estados en orden: pending (Pendiente) → received (Recibido) → to_assign (Por asignar) → assigned (Asignado) → on_route
+        (En camino) → delivered (Entregado). cancelled desde cualquiera sin terminar. En el TPV: pend, rec, poras, asig, camino,
+        done, cancel.
+
+
+        Semáforo (light): green, amber desde amberMinutes, red desde redMinutes desde receivedAt; null en los terminados.
+
+
+        counts son los pendientes por estado (la columna derecha del TPV); finished, los terminados del día.
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: TPV
+
+
+        Tablas: delivery_order, delivery_settings
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)'
+      operationId: store_GET_api_v2_delivery_orders
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            platform:
+                              type: string
+                            code:
+                              type: string
+                            externalId:
+                              type: string
+                            customer:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                phone:
+                                  type: string
+                            address:
+                              type: string
+                            paymentNote:
+                              type: string
+                            note:
+                              type: string
+                            status:
+                              type: string
+                            riderId:
+                              type: string
+                            riderName:
+                              type: string
+                            total:
+                              type: number
+                            receivedAt:
+                              type: string
+                            finishedAt:
+                              type:
+                              - string
+                              - 'null'
+                            waitMinutes:
+                              type: integer
+                            light:
+                              type: string
+                            orderId:
+                              type:
+                              - string
+                              - 'null'
+                            version:
+                              type: integer
+                      counts:
+                        type: object
+                        properties:
+                          pending:
+                            type: integer
+                          received:
+                            type: integer
+                          to_assign:
+                            type: integer
+                          assigned:
+                            type: integer
+                          on_route:
+                            type: integer
+                      finished:
+                        type: integer
+                      settings:
+                        type: object
+                        properties:
+                          active:
+                            type: boolean
+                          amberMinutes:
+                            type: integer
+                          redMinutes:
+                            type: integer
+                          askRider:
+                            type: boolean
+              example:
+                title: Tablero de pedidos
+                type: success
+                status: 200
+                data:
+                  items:
+                  - id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                    platform: glovo
+                    code: GLV-4821
+                    externalId: glv_8f2a91
+                    customer:
+                      name: Marta R.
+                      phone: 612 345 678
+                    address: C/ Mayor 12, 3.º B
+                    paymentNote: Pagado online
+                    note: Sin cebolla, por favor
+                    status: assigned
+                    riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                    riderName: Carlos M.
+                    total: 30.3
+                    receivedAt: '2026-11-02T21:58:00.000Z'
+                    finishedAt: null
+                    waitMinutes: 14
+                    light: green
+                    orderId: null
+                    version: 4
+                  counts:
+                    pending: 1
+                    received: 1
+                    to_assign: 1
+                    assigned: 1
+                    on_route: 1
+                  finished: 12
+                  settings:
+                    active: true
+                    amberMinutes: 15
+                    redMinutes: 30
+                    askRider: true
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'DELIVERY_OFF: Delivery apagado en este local (Ajustes › Pedidos)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Tablero de pedidos
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: DELIVERY_OFF
+                  message: Delivery apagado en este local (Ajustes › Pedidos)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Tablero de pedidos
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: scope
+        in: query
+        required: false
+        description: active (defecto) o finished
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        description: Filtra por estado (solo con active)
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        description: Busca en transacción, cliente, motorizado y plataforma
+        schema:
+          type: string
+      - name: date
+        in: query
+        required: false
+        description: 'Día de negocio de los terminados (defecto: hoy)'
+        schema:
+          type: string
+    post:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Entra un pedido
+      description: 'Alta de un pedido: lo manda el integrador (Deliverect…) con la clave de la tienda, o un encargado a mano
+        desde el TPV.
+
+
+        El total lo calcula la API: Σ quantity × unitPrice redondeado a 2 decimales.
+
+
+        Con autoAccept entra directamente como received (dos pasos: pending por Integración y received por Automático).
+
+
+        Avisa por WebSocket delivery.changed y, con sound, el TPV suena.
+
+
+        Con externalId repetido no se duplica: 200 con el pedido que ya había.
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: Integrador · TPV
+
+
+        Tablas: delivery_order, delivery_order_line, delivery_order_event
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)
+
+
+        WebSocket: delivery.changed'
+      operationId: store_POST_api_v2_delivery_orders
+      security:
+      - session: []
+      - storeKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platform:
+                  type: string
+                code:
+                  type: string
+                externalId:
+                  type: string
+                customer:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    phone:
+                      type: string
+                address:
+                  type: string
+                paymentNote:
+                  type: string
+                note:
+                  type: string
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      plu:
+                        type: integer
+                      name:
+                        type: string
+                      quantity:
+                        type: integer
+                      unitPrice:
+                        type: number
+            example:
+              platform: glovo
+              code: GLV-4821
+              externalId: glv_8f2a91
+              customer:
+                name: Marta R.
+                phone: 612 345 678
+              address: C/ Mayor 12, 3.º B
+              paymentNote: Pagado online
+              note: Sin cebolla, por favor
+              lines:
+              - plu: 2040
+                name: Patatas bravas
+                quantity: 2
+                unitPrice: 5.5
+              - name: Huevos rotos con jamón
+                quantity: 1
+                unitPrice: 11.9
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type: string
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type: string
+                      address:
+                        type: string
+                      paymentNote:
+                        type: string
+                      note:
+                        type: string
+                      status:
+                        type: string
+                      riderId:
+                        type: string
+                      riderName:
+                        type: string
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type:
+                        - string
+                        - 'null'
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type: string
+                      orderId:
+                        type:
+                        - string
+                        - 'null'
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - 'null'
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - 'null'
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type: string
+              example:
+                title: Entra un pedido
+                type: success
+                status: 201
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: assigned
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: '2026-11-02T21:58:00.000Z'
+                  finishedAt: null
+                  waitMinutes: 14
+                  light: green
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: '2026-11-02T21:58:00.000Z'
+                    by: Integración
+                  - status: received
+                    at: '2026-11-02T21:59:10.000Z'
+                    by: Barra
+                  - status: to_assign
+                    at: '2026-11-02T22:08:00.000Z'
+                    by: Barra
+                  - status: assigned
+                    at: '2026-11-02T22:11:30.000Z'
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'DELIVERY_OFF: Delivery apagado en este local'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Entra un pedido
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: DELIVERY_OFF
+                  message: Delivery apagado en este local
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Falta cliente o productos, cantidad ≤ 0, precio < 0 o plataforma desactivada (field =
+            platform)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Entra un pedido
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Falta cliente o productos, cantidad ≤ 0, precio < 0 o plataforma desactivada (field = platform)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '413':
+          description: 'TOO_LARGE: Más de 100 productos'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Entra un pedido
+                type: error
+                status: 413
+                data: null
+                errors:
+                - code: TOO_LARGE
+                  message: Más de 100 productos
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Entra un pedido
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: UUID del intento; un reintento con la misma clave no repite la acción
+        schema:
+          type: string
+          format: uuid
+  /api/v2/delivery/orders/{deliveryOrderId}:
+    get:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Ficha de un pedido
+      description: 'El pedido con sus productos y sus pasos (quién y cuándo).
+
+
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: TPV
+
+
+        Tablas: delivery_order, delivery_order_line, delivery_order_event
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)'
+      operationId: store_GET_api_v2_delivery_orders_deliveryOrderId
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type: string
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type: string
+                      address:
+                        type: string
+                      paymentNote:
+                        type: string
+                      note:
+                        type: string
+                      status:
+                        type: string
+                      riderId:
+                        type: string
+                      riderName:
+                        type: string
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type:
+                        - string
+                        - 'null'
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type: string
+                      orderId:
+                        type:
+                        - string
+                        - 'null'
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - 'null'
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - 'null'
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type: string
+              example:
+                title: Ficha de un pedido
+                type: success
+                status: 200
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: assigned
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: '2026-11-02T21:58:00.000Z'
+                  finishedAt: null
+                  waitMinutes: 14
+                  light: green
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: '2026-11-02T21:58:00.000Z'
+                    by: Integración
+                  - status: received
+                    at: '2026-11-02T21:59:10.000Z'
+                    by: Barra
+                  - status: to_assign
+                    at: '2026-11-02T22:08:00.000Z'
+                    by: Barra
+                  - status: assigned
+                    at: '2026-11-02T22:11:30.000Z'
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe o no es de esta tienda'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Ficha de un pedido
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Ficha de un pedido
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: deliveryOrderId
+        in: path
+        required: true
+        description: Pedido
+        schema:
+          type: string
+  /api/v2/delivery/orders/{deliveryOrderId}/advance:
+    post:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Siguiente paso
+      description: 'Aceptar → Listo → Asignar → Sale → Entregado: pasa el pedido al estado siguiente.
+
+
+        Estados en orden: pending (Pendiente) → received (Recibido) → to_assign (Por asignar) → assigned (Asignado) → on_route
+        (En camino) → delivered (Entregado). cancelled desde cualquiera sin terminar. En el TPV: pend, rec, poras, asig, camino,
+        done, cancel.
+
+
+        Al pasar a assigned: con askRider, riderId o riderName obligatorio (RIDER_REQUIRED); sin askRider y sin nada, queda
+        «Repartidor de la plataforma».
+
+
+        Al pasar a delivered se pone finishedAt. Cada paso queda en delivery_order_event con quién y cuándo.
+
+
+        Avisa por WebSocket delivery.changed.
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: TPV
+
+
+        Tablas: delivery_order, delivery_order_event, delivery_rider
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)
+
+
+        WebSocket: delivery.changed'
+      operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_advance
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                riderId:
+                  type: string
+            example:
+              version: 3
+              riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type: string
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type: string
+                      address:
+                        type: string
+                      paymentNote:
+                        type: string
+                      note:
+                        type: string
+                      status:
+                        type: string
+                      riderId:
+                        type: string
+                      riderName:
+                        type: string
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type:
+                        - string
+                        - 'null'
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type: string
+                      orderId:
+                        type:
+                        - string
+                        - 'null'
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - 'null'
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - 'null'
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type: string
+              example:
+                title: Siguiente paso
+                type: success
+                status: 200
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: assigned
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: '2026-11-02T21:58:00.000Z'
+                  finishedAt: null
+                  waitMinutes: 14
+                  light: green
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: '2026-11-02T21:58:00.000Z'
+                    by: Integración
+                  - status: received
+                    at: '2026-11-02T21:59:10.000Z'
+                    by: Barra
+                  - status: to_assign
+                    at: '2026-11-02T22:08:00.000Z'
+                    by: Barra
+                  - status: assigned
+                    at: '2026-11-02T22:11:30.000Z'
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'INVALID_TRANSITION: El pedido ya está entregado o cancelado (details.status)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Siguiente paso
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: El pedido ya está entregado o cancelado (details.status)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'RIDER_REQUIRED: Al pasar a assigned con askRider hay que decir quién lo lleva'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Siguiente paso
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: RIDER_REQUIRED
+                  message: Al pasar a assigned con askRider hay que decir quién lo lleva
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '404':
+          description: 'NOT_FOUND: No existe, o riderId no es un motorizado activo de la tienda'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Siguiente paso
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe, o riderId no es un motorizado activo de la tienda
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Siguiente paso
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: deliveryOrderId
+        in: path
+        required: true
+        description: Pedido
+        schema:
+          type: string
+  /api/v2/delivery/orders/{deliveryOrderId}/cancel:
+    post:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Cancelar pedido
+      description: 'Cancela un pedido que no está terminado.
+
+
+        Queda en delivery_order_event con el motivo. Avisa por WebSocket delivery.changed.
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: TPV
+
+
+        Tablas: delivery_order, delivery_order_event
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)
+
+
+        WebSocket: delivery.changed'
+      operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_cancel
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                note:
+                  type: string
+            example:
+              version: 3
+              note: El cliente no contesta
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type: string
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type: string
+                      address:
+                        type: string
+                      paymentNote:
+                        type: string
+                      note:
+                        type: string
+                      status:
+                        type: string
+                      riderId:
+                        type: string
+                      riderName:
+                        type: string
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type: string
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type:
+                        - string
+                        - 'null'
+                      orderId:
+                        type:
+                        - string
+                        - 'null'
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - 'null'
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - 'null'
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type: string
+              example:
+                title: Cancelar pedido
+                type: success
+                status: 200
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: cancelled
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: '2026-11-02T21:58:00.000Z'
+                  finishedAt: '2026-11-02T22:20:00.000Z'
+                  waitMinutes: 14
+                  light: null
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: '2026-11-02T21:58:00.000Z'
+                    by: Integración
+                  - status: received
+                    at: '2026-11-02T21:59:10.000Z'
+                    by: Barra
+                  - status: to_assign
+                    at: '2026-11-02T22:08:00.000Z'
+                    by: Barra
+                  - status: assigned
+                    at: '2026-11-02T22:11:30.000Z'
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'INVALID_TRANSITION: Ya está entregado o cancelado'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Cancelar pedido
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: Ya está entregado o cancelado
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Cancelar pide autorización de encargado (sistema.autorizar)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Cancelar pedido
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Cancelar pide autorización de encargado (sistema.autorizar)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: deliveryOrderId
+        in: path
+        required: true
+        description: Pedido
         schema:
           type: string
   /api/v2/invoices/{invoiceId}/credit:
@@ -21348,6 +23283,355 @@ paths:
                 from: '17:00'
                 to: '20:00'
                 active: true
+  /api/v2/config/sistema:
+    get:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: 'Sistema: nombre, logos y colores'
+      description: 'Ajustes › Administración › Sistema. Lo pide la pantalla de acceso antes de entrar (sin sesión) y cada
+        equipo al arrancar. Sin fila en la base devuelve los originales (Japp, paleta Verde #15616D, version 0).
+
+
+        Sin sesión: el acceso enseña el nombre, el subtítulo, el grupo, el logo y la paleta antes de que nadie entre.
+
+
+        Campos en el TPV: name = nombre, subtitle = subtitulo, loginGroup = grupo, logo = logo, noImage = sinImagen, palette[].default
+        = paleta[].def, colors = colores.
+
+
+        El color de cada equipo (pref.sysColor) no va al servidor: se elige en el equipo entre los de la paleta.
+
+
+        Permiso: ninguno (sin sesión)
+
+
+        Lo llama: TPV (sin sesión)
+
+
+        Tablas: system_branding
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)'
+      operationId: store_GET_api_v2_config_sistema
+      security: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      subtitle:
+                        type: string
+                      loginGroup:
+                        type: string
+                      logo:
+                        type: string
+                      noImage:
+                        type:
+                        - string
+                        - 'null'
+                      palette:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            hex:
+                              type: string
+                            name:
+                              type: string
+                            default:
+                              type: boolean
+                      colors:
+                        type: object
+                        properties:
+                          secondary:
+                            type: string
+                          err:
+                            type: string
+                      version:
+                        type: integer
+                      updatedAt:
+                        type: string
+                      updatedBy:
+                        type: string
+              example:
+                title: 'Sistema: nombre, logos y colores'
+                type: success
+                status: 200
+                data:
+                  name: Cañas y Tapas
+                  subtitle: Plataforma Japp
+                  loginGroup: Grupo Cañas y Tapas
+                  logo: data:image/png;base64,iVBORw0KGgo…
+                  noImage: null
+                  palette:
+                  - hex: '#15616D'
+                    name: Verde
+                    default: true
+                  - hex: '#7A3E6A'
+                    name: Morado
+                    default: false
+                  colors:
+                    secondary: '#B88A4C'
+                    err: '#B3261E'
+                  version: 4
+                  updatedAt: '2026-11-02T21:40:00.000Z'
+                  updatedBy: Sistemas
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+    put:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Guardar Sistema
+      description: 'Guarda el nombre, los textos, los logos (data URL) y los colores. Todo el registro de una vez, con version.
+
+
+        Sube la versión de configuración y avisa por WebSocket config.changed {module: sistema}: los demás equipos lo aplican
+        sin recargar.
+
+
+        Queda en el historial de cambios (config_change_log) y en la cola hacia el Manager.
+
+
+        Permiso: ajustes.restaurante
+
+
+        Lo llama: TPV
+
+
+        Tablas: system_branding, config_change_log
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)
+
+
+        WebSocket: config.changed'
+      operationId: store_PUT_api_v2_config_sistema
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                subtitle:
+                  type: string
+                loginGroup:
+                  type: string
+                logo:
+                  type: string
+                noImage:
+                  type:
+                  - string
+                  - 'null'
+                palette:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      hex:
+                        type: string
+                      name:
+                        type: string
+                      default:
+                        type: boolean
+                colors:
+                  type: object
+                  properties:
+                    secondary:
+                      type: string
+                    err:
+                      type: string
+                version:
+                  type: integer
+            example:
+              name: Cañas y Tapas
+              subtitle: Plataforma Japp
+              loginGroup: Grupo Cañas y Tapas
+              logo: data:image/png;base64,iVBORw0KGgo…
+              noImage: null
+              palette:
+              - hex: '#15616D'
+                name: Verde
+                default: true
+              - hex: '#7A3E6A'
+                name: Morado
+                default: false
+              colors:
+                secondary: '#B88A4C'
+                err: '#B3261E'
+              version: 4
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      subtitle:
+                        type: string
+                      loginGroup:
+                        type: string
+                      logo:
+                        type: string
+                      noImage:
+                        type:
+                        - string
+                        - 'null'
+                      palette:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            hex:
+                              type: string
+                            name:
+                              type: string
+                            default:
+                              type: boolean
+                      colors:
+                        type: object
+                        properties:
+                          secondary:
+                            type: string
+                          err:
+                            type: string
+                      version:
+                        type: integer
+                      updatedAt:
+                        type: string
+                      updatedBy:
+                        type: string
+              example:
+                title: Guardar Sistema
+                type: success
+                status: 200
+                data:
+                  name: Cañas y Tapas
+                  subtitle: Plataforma Japp
+                  loginGroup: Grupo Cañas y Tapas
+                  logo: data:image/png;base64,iVBORw0KGgo…
+                  noImage: null
+                  palette:
+                  - hex: '#15616D'
+                    name: Verde
+                    default: true
+                  - hex: '#7A3E6A'
+                    name: Morado
+                    default: false
+                  colors:
+                    secondary: '#B88A4C'
+                    err: '#B3261E'
+                  version: 4
+                  updatedAt: '2026-11-02T21:40:00.000Z'
+                  updatedBy: Sistemas
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: Nombre vacío, ningún color válido en la paleta, más de 12 colores, un color que no es
+            #RRGGBB o más de un «Por defecto»'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar Sistema
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: 'Nombre vacío, ningún color válido en la paleta, más de 12 colores, un color que no es #RRGGBB
+                    o más de un «Por defecto»'
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '413':
+          description: 'TOO_LARGE: Un logo de más de 190 000 caracteres (el TPV ya los reduce a 256 px)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar Sistema
+                type: error
+                status: 413
+                data: null
+                errors:
+                - code: TOO_LARGE
+                  message: Un logo de más de 190 000 caracteres (el TPV ya los reduce a 256 px)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'VERSION_CONFLICT: Otro equipo lo cambió antes: details.current trae lo guardado'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar Sistema
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: VERSION_CONFLICT
+                  message: 'Otro equipo lo cambió antes: details.current trae lo guardado'
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '403':
+          description: 'PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Guardar Sistema
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
   /api/v2/config/pantalla-cliente/media:
     post:
       tags:
@@ -22337,6 +24621,10 @@ components:
           - LINE_NOT_SENT
           - QUANTITY_EXCEEDS
           - BUSY_RETRY
+          - INVALID_TRANSITION
+          - RIDER_REQUIRED
+          - DELIVERY_OFF
+          - TABLE_OVERLAP
         message:
           type: string
         field:

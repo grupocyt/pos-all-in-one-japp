@@ -31,3 +31,15 @@ Las peticiones de las pruebas que cambian funcionalidad se aprueban antes de hac
 | 12 | Nombres de los canales de impresión: los acordados (LINEA, CONTROL, BEBIDA, TICKET/FACTURACIÓN) | Los datos iniciales traen TICKET, BEBIDA y COMIDA | ¿Qué canales y con qué nombre se crean en una tienda nueva? (se cambia en los datos iniciales) |
 | 13 | Editar sala: número de mesa nueva secuencial por zona, sin poder pisar una existente | Se escribe el número a mano y avisa si ya existe (100–199 y 200–399 ya existen aunque no se vean en el plano, ver #7) | ¿Se propone solo el siguiente número libre de la zona? |
 | 14 | «En los canales de impresión no es posible desactivar o mover esta opción» | Un canal con productos no se puede desactivar (avisa «en uso») | Aclarar con Catalina qué opción quiere desactivar o mover |
+
+## Al diseñar la API de la 1.2.264 (02/11/2026)
+
+Decisiones tomadas para poder dejar el contrato y las tablas listos. Se pueden cambiar antes de programarlas.
+
+| # | Tema | Cómo queda en el contrato | Qué hay que confirmar |
+|---|---|---|---|
+| 15 | Resumen semana | Permiso `funciones.informes` (el de Informes de Gestiones) | ¿Lo ve quien ve Informes, o solo quien tiene el Gestor de cierres (`ajustes.cierres`)? |
+| 16 | Tablero de pedidos (delivery) | Permiso nuevo `funciones.pedidos`, dado a todos los perfiles (hoy el TPV no lo limita) | ¿Lo usa cualquiera o solo cajero y encargado? |
+| 17 | Cancelar un pedido de delivery | Pide clave de encargado (`sistema.autorizar`) y un motivo | ¿Puede cancelar cualquiera? ¿Hay que avisar a la plataforma? |
+| 18 | Nombre, logo y colores del sistema | `GET /config/sistema` sin sesión (la pantalla de acceso lo enseña antes de entrar) | Que no es un dato reservado (solo nombre, textos, logo y colores) |
+

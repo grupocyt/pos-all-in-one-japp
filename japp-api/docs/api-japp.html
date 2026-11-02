@@ -84,7 +84,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <div class="wrap">
 <header class="hero"><div><div class="eyebrow">Japp · contrato de integración · v0.1</div><h1>API Japp</h1>
 <p class="lead">Los endpoints que conectan la caja, las PDA, el servidor de cada tienda, Japp Manager y el backoffice. Cada endpoint dice quién lo llama, qué permiso pide, qué envía, qué responde y qué tablas toca. La transacción es la estructura acordada en vista-orden.</p></div>
-<div class="stats"><div><b>135</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>41</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
+<div class="stats"><div><b>144</b><span>endpoints</span></div><div><b>3</b><span>APIs: tienda, Manager y Gateway</span></div><div><b>45</b><span>códigos de error</span></div><div><b>OpenAPI 3.1</b><span>contrato validado</span></div></div></header>
 <section class="card"><h2>Quién llama a quién</h2><svg viewBox="0 0 760 330" role="img" aria-label="Quién llama a quién en Japp" class="arch">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
 <rect x="8" y="8" width="360" height="314" rx="14" class="zone"/><text x="22" y="30" class="zt">TIENDA</text>
@@ -115,7 +115,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <div><h4>Fechas e ids</h4><p>ISO 8601 en UTC (<code>2026-10-13T16:40:00.000Z</code>); la pantalla las muestra en hora de Madrid. Ids UUID.</p></div>
 </div></section>
 <section class="card"><h2>Una mesa de principio a fin</h2><ol class="flow"><li><span>Abrir mesa</span><code>POST /orders</code></li><li><span>Entrar y avisar a los demás equipos</span><code>POST /orders/{orderId}/presence</code></li><li><span>Marcar productos (precio según el área)</span><code>POST /orders/{orderId}/lines</code></li><li><span>Enviar a cocina o barra</span><code>POST /orders/{orderId}/send</code></li><li><span>Precuenta</span><code>POST /orders/{orderId}/accounts/{accountId}/prebill</code></li><li><span>Separar si hace falta</span><code>POST /orders/{orderId}/lines/move</code></li><li><span>Cobrar (uno o varios pagos)</span><code>POST /orders/{orderId}/accounts/{accountId}/payments</code></li><li><span>Emitir la factura VeriFactu y cerrar la mesa</span><code>POST /orders/{orderId}/accounts/{accountId}/invoice</code></li><li><span>El agente envía la transacción, la factura y el registro VeriFactu al Manager</span><code>POST /stores/{storeId}/outbox</code></li></ol></section>
-<nav class="toc"><a href="#sec-ajustes">1 · Ajustes</a><a href="#sec-tx">2 · Transaccional</a><a href="#sec-rep">3 · Reportes y sincronización</a><a href="#api-manager">Manager</a><a href="#api-gateway">Gateway</a><a href="#errores">Errores</a><a href="#openapi">OpenAPI</a></nav>
+<nav class="toc"><a href="#sec-ajustes">1 · Ajustes</a><a href="#sec-tx">2 · Transaccional</a><a href="#sec-rep">3 · Reportes y sincronización</a><a href="#sec-264">4 · Nuevo 1.2.264</a><a href="#api-manager">Manager</a><a href="#api-gateway">Gateway</a><a href="#errores">Errores</a><a href="#openapi">OpenAPI</a></nav>
 <section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 113 de 113 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
 <summary><span class="m get">GET</span><code class="p">/config</code><span class="s">Paquete de configuración</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
@@ -9008,7 +9008,745 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
 
-</div></details></section><section class="api sub" id="api-manager"><header class="ah"><h2>Japp Manager · sincronización</h2><code class="base">https://{manager}/api/manager/v1</code><p>En la nube. La llama el agente de cada tienda: latido, cambios de configuración y envío de lo que pasa en la tienda. La conexión siempre sale de la tienda.</p></header><section class="grp"><h3>Sincronización tienda ↔ Manager</h3><p class="gd">El agente de la tienda llama al Manager; el Manager nunca entra en la tienda.</p><details class="ep" id="post-stores-storeid-heartbeat">
+</div></details></section><section class="api" id="sec-264"><header class="ah"><h2>4 · Nuevo en el TPV 1.2.264 · pendiente de programar</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Lo que el TPV 1.2.204–1.2.264 ya usa y la API todavía no tiene: 9 endpoints nuevos, 2 módulos de Ajustes y reglas nuevas en 8 endpoints. Tablas en las migraciones 0023–0026 de japp-db.</p></header><section class="grp"><h3>Sistema (Administración › Sistema)</h3><p class="gd">Nombre, logos y colores del sistema que ven todos los equipos.</p><details class="ep" id="store_get_config_sistema">
+<summary><span class="m get">GET</span><code class="p">/config/sistema</code><span class="s">Sistema: nombre, logos y colores</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Ajustes › Administración › Sistema. Lo pide la pantalla de acceso antes de entrar (sin sesión) y cada equipo al arrancar. Sin fila en la base devuelve los originales (Japp, paleta Verde #15616D, version 0).</p>
+<dl class="meta"><dt>Permiso</dt><dd>Ninguno (sin sesión)</dd><dt>En el TPV</dt><dd>Acceso · Ajustes › Administración › Sistema</dd><dt>Tablas</dt><dd><code>system_branding</code></dd></dl>
+<h5>Reglas</h5><ul class="pl"><li><b>Sin sesión:</b> el acceso enseña el nombre, el subtítulo, el grupo, el logo y la paleta antes de que nadie entre.</li><li><b>Campos en el TPV:</b> name = nombre, subtitle = subtitulo, loginGroup = grupo, logo = logo, noImage = sinImagen, palette[].default = paleta[].def, colors = colores.</li><li>El color de cada equipo (pref.sysColor) no va al servidor: se elige en el equipo entre los de la paleta.</li></ul>
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Sistema: nombre, logos y colores&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;name&quot;: &quot;Cañas y Tapas&quot;,
+    &quot;subtitle&quot;: &quot;Plataforma Japp&quot;,
+    &quot;loginGroup&quot;: &quot;Grupo Cañas y Tapas&quot;,
+    &quot;logo&quot;: &quot;data:image/png;base64,iVBORw0KGgo…&quot;,
+    &quot;noImage&quot;: null,
+    &quot;palette&quot;: [
+      {
+        &quot;hex&quot;: &quot;#15616D&quot;,
+        &quot;name&quot;: &quot;Verde&quot;,
+        &quot;default&quot;: true
+      },
+      {
+        &quot;hex&quot;: &quot;#7A3E6A&quot;,
+        &quot;name&quot;: &quot;Morado&quot;,
+        &quot;default&quot;: false
+      }
+    ],
+    &quot;colors&quot;: {
+      &quot;secondary&quot;: &quot;#B88A4C&quot;,
+      &quot;err&quot;: &quot;#B3261E&quot;
+    },
+    &quot;version&quot;: 4,
+    &quot;updatedAt&quot;: &quot;2026-11-02T21:40:00.000Z&quot;,
+    &quot;updatedBy&quot;: &quot;Sistemas&quot;
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"></ul>
+</div></details><details class="ep" id="store_put_config_sistema">
+<summary><span class="m put">PUT</span><code class="p">/config/sistema</code><span class="s">Guardar Sistema</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Guarda el nombre, los textos, los logos (data URL) y los colores. Todo el registro de una vez, con version.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>ajustes.restaurante</code></dd><dt>En el TPV</dt><dd>Ajustes › Administración › Sistema › Guardar</dd><dt>Tablas</dt><dd><code>system_branding</code> <code>config_change_log</code></dd><dt>WebSocket</dt><dd><code>config.changed</code></dd></dl>
+<h5>Reglas</h5><ul class="pl"><li>Sube la versión de configuración y avisa por WebSocket <code>config.changed</code> {module: sistema}: los demás equipos lo aplican sin recargar.</li><li>Queda en el historial de cambios (config_change_log) y en la cola hacia el Manager.</li></ul>
+<h5>Cuerpo</h5><ul class="pl"><li><code>name</code> <span class="pin">texto ≤ 60</span> Nombre del sistema · obligatorio</li><li><code>subtitle</code> <span class="pin">texto ≤ 60</span> Subtítulo</li><li><code>loginGroup</code> <span class="pin">texto ≤ 80</span> Texto del grupo en el acceso; vacío = no sale</li><li><code>logo · noImage</code> <span class="pin">data URL | null</span> PNG/JPEG/WebP (se guarda PNG ≤ 256 px) o SVG; null = el original</li><li><code>palette[]</code> <span class="pin">lista 1–12</span> {hex:#RRGGBB, name, default}; exactamente uno con default · obligatorio</li><li><code>colors</code> <span class="pin">objeto</span> secondary, bg, card, text, muted, line, link, ok, warn, err, info (#RRGGBB); el que falta = el original</li><li><code>version</code> <span class="pin">entero</span> La que se leyó (0 si no había fila) · obligatorio</li></ul>
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;name&quot;: &quot;Cañas y Tapas&quot;,
+  &quot;subtitle&quot;: &quot;Plataforma Japp&quot;,
+  &quot;loginGroup&quot;: &quot;Grupo Cañas y Tapas&quot;,
+  &quot;logo&quot;: &quot;data:image/png;base64,iVBORw0KGgo…&quot;,
+  &quot;noImage&quot;: null,
+  &quot;palette&quot;: [
+    {
+      &quot;hex&quot;: &quot;#15616D&quot;,
+      &quot;name&quot;: &quot;Verde&quot;,
+      &quot;default&quot;: true
+    },
+    {
+      &quot;hex&quot;: &quot;#7A3E6A&quot;,
+      &quot;name&quot;: &quot;Morado&quot;,
+      &quot;default&quot;: false
+    }
+  ],
+  &quot;colors&quot;: {
+    &quot;secondary&quot;: &quot;#B88A4C&quot;,
+    &quot;err&quot;: &quot;#B3261E&quot;
+  },
+  &quot;version&quot;: 4
+}</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Guardar Sistema&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;name&quot;: &quot;Cañas y Tapas&quot;,
+    &quot;subtitle&quot;: &quot;Plataforma Japp&quot;,
+    &quot;loginGroup&quot;: &quot;Grupo Cañas y Tapas&quot;,
+    &quot;logo&quot;: &quot;data:image/png;base64,iVBORw0KGgo…&quot;,
+    &quot;noImage&quot;: null,
+    &quot;palette&quot;: [
+      {
+        &quot;hex&quot;: &quot;#15616D&quot;,
+        &quot;name&quot;: &quot;Verde&quot;,
+        &quot;default&quot;: true
+      },
+      {
+        &quot;hex&quot;: &quot;#7A3E6A&quot;,
+        &quot;name&quot;: &quot;Morado&quot;,
+        &quot;default&quot;: false
+      }
+    ],
+    &quot;colors&quot;: {
+      &quot;secondary&quot;: &quot;#B88A4C&quot;,
+      &quot;err&quot;: &quot;#B3261E&quot;
+    },
+    &quot;version&quot;: 4,
+    &quot;updatedAt&quot;: &quot;2026-11-02T21:40:00.000Z&quot;,
+    &quot;updatedBy&quot;: &quot;Sistemas&quot;
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Nombre vacío, ningún color válido en la paleta, más de 12 colores, un color que no es #RRGGBB o más de un «Por defecto»</li><li><code>TOO_LARGE</code> <span class="pin">413</span> Un logo de más de 190 000 caracteres (el TPV ya los reduce a 256 px)</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo lo cambió antes: details.current trae lo guardado</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
+</div></details></section><section class="grp"><h3>Resumen semana (Gestiones)</h3><p class="gd">La hoja semanal de los locales y sus observaciones.</p><details class="ep" id="store_get_reports_week">
+<summary><span class="m get">GET</span><code class="p">/reports/week</code><span class="s">Resumen de la semana</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Gestiones › Resumen semana con el formato de la hoja de los locales: cada día de lunes a domingo con semana anterior, venta del año anterior (364 días antes, mismo día de la semana), proyección y cumplimiento (venta real), cada uno con venta, transacciones (T) y ticket medio (TM); el total de la semana; las observaciones y los productos más vendidos con su % de mezcla.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.informes</code></dd><dt>En el TPV</dt><dd>Gestiones › Resumen semana</dd><dt>Tablas</dt><dd><code>period_summary</code> <code>sales_target</code> <code>week_note</code></dd></dl>
+<h5>Reglas</h5><ul class="pl"><li><b>De dónde sale:</b> de los cierres de periodo (period_summary, por business_date); el periodo abierto se calcula al vuelo (<code>open: true</code>).</li><li><b>Proyección:</b> año anterior × (1 + growthPct/100) del objetivo de esa semana (Ajustes › Objetivos, sales_target year/week; si no hay de la semana, el del año con week 0). Con importe fijo (amount) se reparte por días en proporción al año anterior y <code>targetAmount</code> lo dice.</li><li><b>Comparativas</b> como la hoja: (real − referencia) / real × 100, en %, con 2 decimales; null si falta alguno de los dos.</li><li><b>Totales:</b> las comparativas solo con los días que ya tienen venta real; <code>complete</code> = el domingo ya se cerró.</li><li><b>Productos:</b> suma de period_summary.by_product de los días de la semana; mixPct = importe del producto / importe de todos × 100; los 20 primeros.</li><li>La regla va en el dominio (weekSummary) para que el TPV sin servidor calcule lo mismo.</li></ul>
+<h5>Parámetros</h5><ul class="pl"><li><code>date</code> <span class="pin">query</span> Cualquier día de la semana (AAAA-MM-DD); se toma su lunes. Defecto: hoy</li></ul>
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Resumen de la semana&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;year&quot;: 2026,
+    &quot;week&quot;: 45,
+    &quot;from&quot;: &quot;2026-11-02&quot;,
+    &quot;to&quot;: &quot;2026-11-08&quot;,
+    &quot;growthPct&quot;: 5.0,
+    &quot;targetAmount&quot;: null,
+    &quot;complete&quot;: false,
+    &quot;days&quot;: [
+      {
+        &quot;date&quot;: &quot;2026-11-02&quot;,
+        &quot;dow&quot;: 1,
+        &quot;open&quot;: true,
+        &quot;real&quot;: {
+          &quot;sales&quot;: 3409.63,
+          &quot;tickets&quot;: 130,
+          &quot;avg&quot;: 26.23
+        },
+        &quot;prevWeek&quot;: {
+          &quot;date&quot;: &quot;2026-10-26&quot;,
+          &quot;sales&quot;: 3120.4,
+          &quot;tickets&quot;: 121,
+          &quot;avg&quot;: 25.79
+        },
+        &quot;lastYear&quot;: {
+          &quot;date&quot;: &quot;2025-11-03&quot;,
+          &quot;sales&quot;: 3280.1,
+          &quot;tickets&quot;: 127,
+          &quot;avg&quot;: 25.83
+        },
+        &quot;target&quot;: {
+          &quot;sales&quot;: 3444.11,
+          &quot;tickets&quot;: 133,
+          &quot;avg&quot;: 25.9
+        },
+        &quot;vsPrevWeek&quot;: {
+          &quot;sales&quot;: 8.48,
+          &quot;tickets&quot;: 6.92,
+          &quot;avg&quot;: 1.68
+        },
+        &quot;vsLastYear&quot;: {
+          &quot;sales&quot;: 3.8,
+          &quot;tickets&quot;: 2.31,
+          &quot;avg&quot;: 1.53
+        },
+        &quot;vsTarget&quot;: {
+          &quot;sales&quot;: -1.01,
+          &quot;tickets&quot;: -2.31,
+          &quot;avg&quot;: 1.29
+        },
+        &quot;note&quot;: &quot;Lluvia toda la tarde&quot;
+      }
+    ],
+    &quot;totals&quot;: {
+      &quot;real&quot;: {
+        &quot;sales&quot;: 3409.63,
+        &quot;tickets&quot;: 130,
+        &quot;avg&quot;: 26.23
+      },
+      &quot;prevWeek&quot;: {
+        &quot;sales&quot;: 21840.3,
+        &quot;tickets&quot;: 842,
+        &quot;avg&quot;: 25.94
+      },
+      &quot;lastYear&quot;: {
+        &quot;sales&quot;: 22950.7,
+        &quot;tickets&quot;: 880,
+        &quot;avg&quot;: 26.08
+      },
+      &quot;target&quot;: {
+        &quot;sales&quot;: 24098.24,
+        &quot;tickets&quot;: 924,
+        &quot;avg&quot;: 26.08
+      },
+      &quot;vsPrevWeek&quot;: {
+        &quot;sales&quot;: 8.48,
+        &quot;tickets&quot;: 6.92,
+        &quot;avg&quot;: 1.68
+      },
+      &quot;vsLastYear&quot;: {
+        &quot;sales&quot;: 3.8,
+        &quot;tickets&quot;: 2.31,
+        &quot;avg&quot;: 1.53
+      },
+      &quot;vsTarget&quot;: {
+        &quot;sales&quot;: -1.01,
+        &quot;tickets&quot;: -2.31,
+        &quot;avg&quot;: 1.29
+      }
+    },
+    &quot;notes&quot;: [
+      {
+        &quot;date&quot;: &quot;2026-11-02&quot;,
+        &quot;note&quot;: &quot;Lluvia toda la tarde&quot;,
+        &quot;version&quot;: 1,
+        &quot;updatedBy&quot;: &quot;Sistemas&quot;,
+        &quot;updatedAt&quot;: &quot;2026-11-02T22:10:00.000Z&quot;
+      }
+    ],
+    &quot;products&quot;: [
+      {
+        &quot;rank&quot;: 1,
+        &quot;plu&quot;: 1001,
+        &quot;name&quot;: &quot;Caña&quot;,
+        &quot;quantity&quot;: 412,
+        &quot;amount&quot;: 906.4,
+        &quot;mixPct&quot;: 26.58
+      },
+      {
+        &quot;rank&quot;: 2,
+        &quot;plu&quot;: 2040,
+        &quot;name&quot;: &quot;Patatas bravas&quot;,
+        &quot;quantity&quot;: 96,
+        &quot;amount&quot;: 528.0,
+        &quot;mixPct&quot;: 15.49
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> date no es una fecha o es de una semana futura</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
+</div></details><details class="ep" id="store_put_reports_week_notes_date">
+<summary><span class="m put">PUT</span><code class="p">/reports/week/notes/{date}</code><span class="s">Observación de un día</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Escribe, cambia o borra (note vacía) la observación de un día de la hoja.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.informes</code></dd><dt>En el TPV</dt><dd>Gestiones › Resumen semana › Observaciones</dd><dt>Tablas</dt><dd><code>week_note</code></dd></dl>
+<h5>Reglas</h5><ul class="pl"><li>Borrar responde 200 con <code>note: null</code> y <code>version: 0</code>.</li></ul>
+<h5>Parámetros</h5><ul class="pl"><li><code>date</code> <span class="pin">path</span> Día de negocio AAAA-MM-DD</li></ul>
+<h5>Cuerpo</h5><ul class="pl"><li><code>note</code> <span class="pin">texto ≤ 500</span> Vacío = se borra la observación · obligatorio</li><li><code>version</code> <span class="pin">entero</span> La de notes[] del resumen (0 si no había) · obligatorio</li></ul>
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;note&quot;: &quot;Lluvia toda la tarde&quot;,
+  &quot;version&quot;: 1
+}</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Observación de un día&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;date&quot;: &quot;2026-11-02&quot;,
+    &quot;note&quot;: &quot;Lluvia toda la tarde&quot;,
+    &quot;version&quot;: 2,
+    &quot;updatedBy&quot;: &quot;Sistemas&quot;,
+    &quot;updatedAt&quot;: &quot;2026-11-02T22:12:00.000Z&quot;
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> date futura o no válida; note de más de 500 caracteres</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo la cambió antes: details.current trae la que hay</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
+</div></details></section><section class="grp"><h3>Pedidos (delivery)</h3><p class="gd">El tablero de pedidos de las plataformas y la web propia.</p><details class="ep" id="store_get_delivery_orders">
+<summary><span class="m get">GET</span><code class="p">/delivery/orders</code><span class="s">Tablero de pedidos</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Los pedidos del tablero: pendientes (sin terminar, del más antiguo al más nuevo) o entregados y cancelados del día.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Pedidos (mesas y fast food)</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_settings</code></dd></dl>
+<h5>Reglas</h5><ul class="pl"><li><b>Estados en orden:</b> <code>pending</code> (Pendiente) → <code>received</code> (Recibido) → <code>to_assign</code> (Por asignar) → <code>assigned</code> (Asignado) → <code>on_route</code> (En camino) → <code>delivered</code> (Entregado). <code>cancelled</code> desde cualquiera sin terminar. En el TPV: pend, rec, poras, asig, camino, done, cancel.</li><li><b>Semáforo</b> (<code>light</code>): green, amber desde amberMinutes, red desde redMinutes desde receivedAt; null en los terminados.</li><li><code>counts</code> son los pendientes por estado (la columna derecha del TPV); <code>finished</code>, los terminados del día.</li></ul>
+<h5>Parámetros</h5><ul class="pl"><li><code>scope</code> <span class="pin">query</span> active (defecto) o finished</li><li><code>status</code> <span class="pin">query</span> Filtra por estado (solo con active)</li><li><code>q</code> <span class="pin">query</span> Busca en transacción, cliente, motorizado y plataforma</li><li><code>date</code> <span class="pin">query</span> Día de negocio de los terminados (defecto: hoy)</li></ul>
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Tablero de pedidos&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80&quot;,
+        &quot;platform&quot;: &quot;glovo&quot;,
+        &quot;code&quot;: &quot;GLV-4821&quot;,
+        &quot;externalId&quot;: &quot;glv_8f2a91&quot;,
+        &quot;customer&quot;: {
+          &quot;name&quot;: &quot;Marta R.&quot;,
+          &quot;phone&quot;: &quot;612 345 678&quot;
+        },
+        &quot;address&quot;: &quot;C/ Mayor 12, 3.º B&quot;,
+        &quot;paymentNote&quot;: &quot;Pagado online&quot;,
+        &quot;note&quot;: &quot;Sin cebolla, por favor&quot;,
+        &quot;status&quot;: &quot;assigned&quot;,
+        &quot;riderId&quot;: &quot;5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11&quot;,
+        &quot;riderName&quot;: &quot;Carlos M.&quot;,
+        &quot;total&quot;: 30.3,
+        &quot;receivedAt&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+        &quot;finishedAt&quot;: null,
+        &quot;waitMinutes&quot;: 14,
+        &quot;light&quot;: &quot;green&quot;,
+        &quot;orderId&quot;: null,
+        &quot;version&quot;: 4
+      }
+    ],
+    &quot;counts&quot;: {
+      &quot;pending&quot;: 1,
+      &quot;received&quot;: 1,
+      &quot;to_assign&quot;: 1,
+      &quot;assigned&quot;: 1,
+      &quot;on_route&quot;: 1
+    },
+    &quot;finished&quot;: 12,
+    &quot;settings&quot;: {
+      &quot;active&quot;: true,
+      &quot;amberMinutes&quot;: 15,
+      &quot;redMinutes&quot;: 30,
+      &quot;askRider&quot;: true
+    }
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>DELIVERY_OFF</code> <span class="pin">409</span> Delivery apagado en este local (Ajustes › Pedidos)</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
+</div></details><details class="ep" id="store_get_delivery_orders_deliveryorderid">
+<summary><span class="m get">GET</span><code class="p">/delivery/orders/{deliveryOrderId}</code><span class="s">Ficha de un pedido</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>El pedido con sus productos y sus pasos (quién y cuándo).</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Pedidos › ficha</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_order_line</code> <code>delivery_order_event</code></dd></dl>
+<h5>Parámetros</h5><ul class="pl"><li><code>deliveryOrderId</code> <span class="pin">path</span> Pedido</li></ul>
+<div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Ficha de un pedido&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80&quot;,
+    &quot;platform&quot;: &quot;glovo&quot;,
+    &quot;code&quot;: &quot;GLV-4821&quot;,
+    &quot;externalId&quot;: &quot;glv_8f2a91&quot;,
+    &quot;customer&quot;: {
+      &quot;name&quot;: &quot;Marta R.&quot;,
+      &quot;phone&quot;: &quot;612 345 678&quot;
+    },
+    &quot;address&quot;: &quot;C/ Mayor 12, 3.º B&quot;,
+    &quot;paymentNote&quot;: &quot;Pagado online&quot;,
+    &quot;note&quot;: &quot;Sin cebolla, por favor&quot;,
+    &quot;status&quot;: &quot;assigned&quot;,
+    &quot;riderId&quot;: &quot;5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11&quot;,
+    &quot;riderName&quot;: &quot;Carlos M.&quot;,
+    &quot;total&quot;: 30.3,
+    &quot;receivedAt&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+    &quot;finishedAt&quot;: null,
+    &quot;waitMinutes&quot;: 14,
+    &quot;light&quot;: &quot;green&quot;,
+    &quot;orderId&quot;: null,
+    &quot;version&quot;: 4,
+    &quot;lines&quot;: [
+      {
+        &quot;lineNo&quot;: 1,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: 2040,
+        &quot;name&quot;: &quot;Patatas bravas&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 5.5,
+        &quot;amount&quot;: 11.0,
+        &quot;note&quot;: null
+      },
+      {
+        &quot;lineNo&quot;: 2,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: null,
+        &quot;name&quot;: &quot;Huevos rotos con jamón&quot;,
+        &quot;quantity&quot;: 1,
+        &quot;unitPrice&quot;: 11.9,
+        &quot;amount&quot;: 11.9,
+        &quot;note&quot;: null
+      },
+      {
+        &quot;lineNo&quot;: 3,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: 1101,
+        &quot;name&quot;: &quot;Coca-Cola&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 2.6,
+        &quot;amount&quot;: 5.2,
+        &quot;note&quot;: null
+      }
+    ],
+    &quot;events&quot;: [
+      {
+        &quot;status&quot;: &quot;pending&quot;,
+        &quot;at&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+        &quot;by&quot;: &quot;Integración&quot;
+      },
+      {
+        &quot;status&quot;: &quot;received&quot;,
+        &quot;at&quot;: &quot;2026-11-02T21:59:10.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      },
+      {
+        &quot;status&quot;: &quot;to_assign&quot;,
+        &quot;at&quot;: &quot;2026-11-02T22:08:00.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      },
+      {
+        &quot;status&quot;: &quot;assigned&quot;,
+        &quot;at&quot;: &quot;2026-11-02T22:11:30.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
+</div></details><details class="ep" id="store_post_delivery_orders">
+<summary><span class="m post">POST</span><code class="p">/delivery/orders</code><span class="s">Entra un pedido</span><span class="st no">Pendiente</span><span class="who"><i>Integrador</i><i>TPV</i></span></summary>
+<div class="eb">
+<p>Alta de un pedido: lo manda el integrador (Deliverect…) con la clave de la tienda, o un encargado a mano desde el TPV.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Integración · Pedidos › Nuevo</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_order_line</code> <code>delivery_order_event</code></dd><dt>WebSocket</dt><dd><code>delivery.changed</code></dd></dl>
+<h5>Reglas</h5><ul class="pl"><li>El total lo calcula la API: Σ quantity × unitPrice redondeado a 2 decimales.</li><li>Con <code>autoAccept</code> entra directamente como <code>received</code> (dos pasos: pending por Integración y received por Automático).</li><li>Avisa por WebSocket <code>delivery.changed</code> y, con <code>sound</code>, el TPV suena.</li><li>Con <code>externalId</code> repetido no se duplica: 200 con el pedido que ya había.</li></ul>
+<h5>Parámetros</h5><ul class="pl"><li><code>Idempotency-Key</code> <span class="pin">header</span> UUID del intento</li></ul>
+<h5>Cuerpo</h5><ul class="pl"><li><code>platform</code> <span class="pin">texto</span> Id de una plataforma activa de Ajustes › Pedidos (glovo, uber, just, own…) · obligatorio</li><li><code>code</code> <span class="pin">texto ≤ 30</span> Transacción que se enseña (GLV-4821) · obligatorio</li><li><code>externalId</code> <span class="pin">texto ≤ 80</span> Id en la plataforma: si ya entró, responde 200 con el mismo pedido</li><li><code>customer</code> <span class="pin">objeto</span> name (≤ 80, obligatorio) y phone · obligatorio</li><li><code>address · paymentNote · note</code> <span class="pin">texto</span> Tal como llegan</li><li><code>lines[]</code> <span class="pin">lista 1–100</span> {plu?, name, quantity &gt; 0, unitPrice ≥ 0, note?}; con plu de la carta se enlaza el producto · obligatorio</li></ul>
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;platform&quot;: &quot;glovo&quot;,
+  &quot;code&quot;: &quot;GLV-4821&quot;,
+  &quot;externalId&quot;: &quot;glv_8f2a91&quot;,
+  &quot;customer&quot;: {
+    &quot;name&quot;: &quot;Marta R.&quot;,
+    &quot;phone&quot;: &quot;612 345 678&quot;
+  },
+  &quot;address&quot;: &quot;C/ Mayor 12, 3.º B&quot;,
+  &quot;paymentNote&quot;: &quot;Pagado online&quot;,
+  &quot;note&quot;: &quot;Sin cebolla, por favor&quot;,
+  &quot;lines&quot;: [
+    {
+      &quot;plu&quot;: 2040,
+      &quot;name&quot;: &quot;Patatas bravas&quot;,
+      &quot;quantity&quot;: 2,
+      &quot;unitPrice&quot;: 5.5
+    },
+    {
+      &quot;name&quot;: &quot;Huevos rotos con jamón&quot;,
+      &quot;quantity&quot;: 1,
+      &quot;unitPrice&quot;: 11.9
+    }
+  ]
+}</code></pre></div><div><h5>Responde 201</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Entra un pedido&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 201,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80&quot;,
+    &quot;platform&quot;: &quot;glovo&quot;,
+    &quot;code&quot;: &quot;GLV-4821&quot;,
+    &quot;externalId&quot;: &quot;glv_8f2a91&quot;,
+    &quot;customer&quot;: {
+      &quot;name&quot;: &quot;Marta R.&quot;,
+      &quot;phone&quot;: &quot;612 345 678&quot;
+    },
+    &quot;address&quot;: &quot;C/ Mayor 12, 3.º B&quot;,
+    &quot;paymentNote&quot;: &quot;Pagado online&quot;,
+    &quot;note&quot;: &quot;Sin cebolla, por favor&quot;,
+    &quot;status&quot;: &quot;assigned&quot;,
+    &quot;riderId&quot;: &quot;5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11&quot;,
+    &quot;riderName&quot;: &quot;Carlos M.&quot;,
+    &quot;total&quot;: 30.3,
+    &quot;receivedAt&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+    &quot;finishedAt&quot;: null,
+    &quot;waitMinutes&quot;: 14,
+    &quot;light&quot;: &quot;green&quot;,
+    &quot;orderId&quot;: null,
+    &quot;version&quot;: 4,
+    &quot;lines&quot;: [
+      {
+        &quot;lineNo&quot;: 1,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: 2040,
+        &quot;name&quot;: &quot;Patatas bravas&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 5.5,
+        &quot;amount&quot;: 11.0,
+        &quot;note&quot;: null
+      },
+      {
+        &quot;lineNo&quot;: 2,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: null,
+        &quot;name&quot;: &quot;Huevos rotos con jamón&quot;,
+        &quot;quantity&quot;: 1,
+        &quot;unitPrice&quot;: 11.9,
+        &quot;amount&quot;: 11.9,
+        &quot;note&quot;: null
+      },
+      {
+        &quot;lineNo&quot;: 3,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: 1101,
+        &quot;name&quot;: &quot;Coca-Cola&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 2.6,
+        &quot;amount&quot;: 5.2,
+        &quot;note&quot;: null
+      }
+    ],
+    &quot;events&quot;: [
+      {
+        &quot;status&quot;: &quot;pending&quot;,
+        &quot;at&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+        &quot;by&quot;: &quot;Integración&quot;
+      },
+      {
+        &quot;status&quot;: &quot;received&quot;,
+        &quot;at&quot;: &quot;2026-11-02T21:59:10.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      },
+      {
+        &quot;status&quot;: &quot;to_assign&quot;,
+        &quot;at&quot;: &quot;2026-11-02T22:08:00.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      },
+      {
+        &quot;status&quot;: &quot;assigned&quot;,
+        &quot;at&quot;: &quot;2026-11-02T22:11:30.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>DELIVERY_OFF</code> <span class="pin">409</span> Delivery apagado en este local</li><li><code>VALIDATION</code> <span class="pin">422</span> Falta cliente o productos, cantidad ≤ 0, precio &lt; 0 o plataforma desactivada (field = platform)</li><li><code>TOO_LARGE</code> <span class="pin">413</span> Más de 100 productos</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
+</div></details><details class="ep" id="store_post_delivery_orders_deliveryorderid_advance">
+<summary><span class="m post">POST</span><code class="p">/delivery/orders/{deliveryOrderId}/advance</code><span class="s">Siguiente paso</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Aceptar → Listo → Asignar → Sale → Entregado: pasa el pedido al estado siguiente.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Pedidos › botón de la fila · ficha</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_order_event</code> <code>delivery_rider</code></dd><dt>WebSocket</dt><dd><code>delivery.changed</code></dd></dl>
+<h5>Reglas</h5><ul class="pl"><li><b>Estados en orden:</b> <code>pending</code> (Pendiente) → <code>received</code> (Recibido) → <code>to_assign</code> (Por asignar) → <code>assigned</code> (Asignado) → <code>on_route</code> (En camino) → <code>delivered</code> (Entregado). <code>cancelled</code> desde cualquiera sin terminar. En el TPV: pend, rec, poras, asig, camino, done, cancel.</li><li>Al pasar a <code>assigned</code>: con askRider, riderId o riderName obligatorio (RIDER_REQUIRED); sin askRider y sin nada, queda «Repartidor de la plataforma».</li><li>Al pasar a <code>delivered</code> se pone finishedAt. Cada paso queda en delivery_order_event con quién y cuándo.</li><li>Avisa por WebSocket <code>delivery.changed</code>.</li></ul>
+<h5>Parámetros</h5><ul class="pl"><li><code>deliveryOrderId</code> <span class="pin">path</span> Pedido</li></ul>
+<h5>Cuerpo</h5><ul class="pl"><li><code>version</code> <span class="pin">entero</span> La del pedido · obligatorio</li><li><code>riderId</code> <span class="pin">uuid</span> Motorizado activo (solo al pasar a assigned)</li><li><code>riderName</code> <span class="pin">texto</span> «Repartidor de la plataforma» (sin riderId)</li></ul>
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;version&quot;: 3,
+  &quot;riderId&quot;: &quot;5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11&quot;
+}</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Siguiente paso&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80&quot;,
+    &quot;platform&quot;: &quot;glovo&quot;,
+    &quot;code&quot;: &quot;GLV-4821&quot;,
+    &quot;externalId&quot;: &quot;glv_8f2a91&quot;,
+    &quot;customer&quot;: {
+      &quot;name&quot;: &quot;Marta R.&quot;,
+      &quot;phone&quot;: &quot;612 345 678&quot;
+    },
+    &quot;address&quot;: &quot;C/ Mayor 12, 3.º B&quot;,
+    &quot;paymentNote&quot;: &quot;Pagado online&quot;,
+    &quot;note&quot;: &quot;Sin cebolla, por favor&quot;,
+    &quot;status&quot;: &quot;assigned&quot;,
+    &quot;riderId&quot;: &quot;5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11&quot;,
+    &quot;riderName&quot;: &quot;Carlos M.&quot;,
+    &quot;total&quot;: 30.3,
+    &quot;receivedAt&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+    &quot;finishedAt&quot;: null,
+    &quot;waitMinutes&quot;: 14,
+    &quot;light&quot;: &quot;green&quot;,
+    &quot;orderId&quot;: null,
+    &quot;version&quot;: 4,
+    &quot;lines&quot;: [
+      {
+        &quot;lineNo&quot;: 1,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: 2040,
+        &quot;name&quot;: &quot;Patatas bravas&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 5.5,
+        &quot;amount&quot;: 11.0,
+        &quot;note&quot;: null
+      },
+      {
+        &quot;lineNo&quot;: 2,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: null,
+        &quot;name&quot;: &quot;Huevos rotos con jamón&quot;,
+        &quot;quantity&quot;: 1,
+        &quot;unitPrice&quot;: 11.9,
+        &quot;amount&quot;: 11.9,
+        &quot;note&quot;: null
+      },
+      {
+        &quot;lineNo&quot;: 3,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: 1101,
+        &quot;name&quot;: &quot;Coca-Cola&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 2.6,
+        &quot;amount&quot;: 5.2,
+        &quot;note&quot;: null
+      }
+    ],
+    &quot;events&quot;: [
+      {
+        &quot;status&quot;: &quot;pending&quot;,
+        &quot;at&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+        &quot;by&quot;: &quot;Integración&quot;
+      },
+      {
+        &quot;status&quot;: &quot;received&quot;,
+        &quot;at&quot;: &quot;2026-11-02T21:59:10.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      },
+      {
+        &quot;status&quot;: &quot;to_assign&quot;,
+        &quot;at&quot;: &quot;2026-11-02T22:08:00.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      },
+      {
+        &quot;status&quot;: &quot;assigned&quot;,
+        &quot;at&quot;: &quot;2026-11-02T22:11:30.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>INVALID_TRANSITION</code> <span class="pin">409</span> El pedido ya está entregado o cancelado (details.status)</li><li><code>RIDER_REQUIRED</code> <span class="pin">422</span> Al pasar a assigned con askRider hay que decir quién lo lleva</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo lo movió antes: details.current trae el pedido</li><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe, o riderId no es un motorizado activo de la tienda</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
+</div></details><details class="ep" id="store_post_delivery_orders_deliveryorderid_cancel">
+<summary><span class="m post">POST</span><code class="p">/delivery/orders/{deliveryOrderId}/cancel</code><span class="s">Cancelar pedido</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>Cancela un pedido que no está terminado.</p>
+<dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Pedidos › ficha › Cancelar</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_order_event</code></dd><dt>WebSocket</dt><dd><code>delivery.changed</code></dd></dl>
+<h5>Reglas</h5><ul class="pl"><li>Queda en delivery_order_event con el motivo. Avisa por WebSocket <code>delivery.changed</code>.</li></ul>
+<h5>Parámetros</h5><ul class="pl"><li><code>deliveryOrderId</code> <span class="pin">path</span> Pedido</li></ul>
+<h5>Cuerpo</h5><ul class="pl"><li><code>version</code> <span class="pin">entero</span> La del pedido · obligatorio</li><li><code>note</code> <span class="pin">texto ≤ 300</span> Motivo · obligatorio</li></ul>
+<div class="io"><div><h5>Envía</h5><pre class="ex"><code>{
+  &quot;version&quot;: 3,
+  &quot;note&quot;: &quot;El cliente no contesta&quot;
+}</code></pre></div><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Cancelar pedido&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80&quot;,
+    &quot;platform&quot;: &quot;glovo&quot;,
+    &quot;code&quot;: &quot;GLV-4821&quot;,
+    &quot;externalId&quot;: &quot;glv_8f2a91&quot;,
+    &quot;customer&quot;: {
+      &quot;name&quot;: &quot;Marta R.&quot;,
+      &quot;phone&quot;: &quot;612 345 678&quot;
+    },
+    &quot;address&quot;: &quot;C/ Mayor 12, 3.º B&quot;,
+    &quot;paymentNote&quot;: &quot;Pagado online&quot;,
+    &quot;note&quot;: &quot;Sin cebolla, por favor&quot;,
+    &quot;status&quot;: &quot;cancelled&quot;,
+    &quot;riderId&quot;: &quot;5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11&quot;,
+    &quot;riderName&quot;: &quot;Carlos M.&quot;,
+    &quot;total&quot;: 30.3,
+    &quot;receivedAt&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+    &quot;finishedAt&quot;: &quot;2026-11-02T22:20:00.000Z&quot;,
+    &quot;waitMinutes&quot;: 14,
+    &quot;light&quot;: null,
+    &quot;orderId&quot;: null,
+    &quot;version&quot;: 4,
+    &quot;lines&quot;: [
+      {
+        &quot;lineNo&quot;: 1,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: 2040,
+        &quot;name&quot;: &quot;Patatas bravas&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 5.5,
+        &quot;amount&quot;: 11.0,
+        &quot;note&quot;: null
+      },
+      {
+        &quot;lineNo&quot;: 2,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: null,
+        &quot;name&quot;: &quot;Huevos rotos con jamón&quot;,
+        &quot;quantity&quot;: 1,
+        &quot;unitPrice&quot;: 11.9,
+        &quot;amount&quot;: 11.9,
+        &quot;note&quot;: null
+      },
+      {
+        &quot;lineNo&quot;: 3,
+        &quot;productId&quot;: null,
+        &quot;plu&quot;: 1101,
+        &quot;name&quot;: &quot;Coca-Cola&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 2.6,
+        &quot;amount&quot;: 5.2,
+        &quot;note&quot;: null
+      }
+    ],
+    &quot;events&quot;: [
+      {
+        &quot;status&quot;: &quot;pending&quot;,
+        &quot;at&quot;: &quot;2026-11-02T21:58:00.000Z&quot;,
+        &quot;by&quot;: &quot;Integración&quot;
+      },
+      {
+        &quot;status&quot;: &quot;received&quot;,
+        &quot;at&quot;: &quot;2026-11-02T21:59:10.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      },
+      {
+        &quot;status&quot;: &quot;to_assign&quot;,
+        &quot;at&quot;: &quot;2026-11-02T22:08:00.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      },
+      {
+        &quot;status&quot;: &quot;assigned&quot;,
+        &quot;at&quot;: &quot;2026-11-02T22:11:30.000Z&quot;,
+        &quot;by&quot;: &quot;Barra&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div>
+<h5>Errores</h5><ul class="pl"><li><code>INVALID_TRANSITION</code> <span class="pin">409</span> Ya está entregado o cancelado</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo lo movió antes</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Cancelar pide autorización de encargado (sistema.autorizar)</li></ul>
+</div></details></section><section class="grp"><h3>Módulos nuevos de Ajustes (<code>/config/{módulo}</code>)</h3><p class="gd">Con el mismo patrón que los demás módulos.</p><ul class="pl"><li><code>/config/pedidos</code> (id <code>current</code>) · Pedidos · Delivery · tabla <code>delivery_settings</code> · permiso <code>ajustes.pedidos</code>: <code>active</code> Delivery en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; <code>integration · provider · platforms[]</code> Recibir de las plataformas, integrador y plataformas {id, name, active}; <code>autoAccept · askRider · sound</code> Aceptar solos · pedir motorizado al asignar · aviso sonoro; <code>prepMinutes · amberMinutes · redMinutes</code> Preparación y semáforo; rojo &gt; ámbar (VALIDATION)</li><li><code>/config/motorizados</code> · Motorizados · tabla <code>delivery_rider</code> · permiso <code>ajustes.pedidos</code>: <code>name</code> Obligatorio; sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); <code>phone</code> ; <code>sortOrder</code> Orden en la lista</li></ul></section><section class="grp"><h3>Reglas nuevas en endpoints que ya existen</h3><p class="gd">Pruebas y decisiones del 28/10 (TPV 1.2.259–1.2.261).</p><ul class="pl"><li><b>GET /customers</b> <span class="pin">TPV 1.2.260</span> q busca también por correo (además de NIF y nombre). Los datos del cliente escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email (0026).</li><li><b>POST /config/{module}</b> <span class="pin">TPV 1.2.260 · 1.2.233</span> usuarios: no puede haber dos personas con el mismo nombre aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios: el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).</li><li><b>PATCH /config/{module}/{id}</b> <span class="pin">TPV 1.2.260</span> Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.</li><li><b>PUT /config/areas/{areaId}/layout</b> <span class="pin">TPV 1.2.261</span> Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos (x, y, ancho, alto en % del plano) se solapan → 422 TABLE_OVERLAP con details {a, b} (números de mesa).</li><li><b>POST /orders/{orderId}/accounts/{accountId}/checkout</b> <span class="pin">TPV 1.2.261</span> No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.</li><li><b>POST /orders/{orderId}/accounts/{accountId}/payments</b> <span class="pin">TPV 1.2.261</span> No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING.</li><li><b>POST /orders/{orderId}/accounts/{accountId}/prebill</b> <span class="pin">TPV 1.2.259</span> La precuenta se imprime cada vez que se pide, aunque no haya cambios, tras eliminar o tras separar.</li><li><b>POST /orders/{orderId}/save</b> <span class="pin">TPV 1.2.259</span> La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.</li></ul></section></section>
+<section class="api sub" id="api-manager"><header class="ah"><h2>Japp Manager · sincronización</h2><code class="base">https://{manager}/api/manager/v1</code><p>En la nube. La llama el agente de cada tienda: latido, cambios de configuración y envío de lo que pasa en la tienda. La conexión siempre sale de la tienda.</p></header><section class="grp"><h3>Sincronización tienda ↔ Manager</h3><p class="gd">El agente de la tienda llama al Manager; el Manager nunca entra en la tienda.</p><details class="ep" id="post-stores-storeid-heartbeat">
 <summary><span class="m post">POST</span><code class="p">/stores/{storeId}/heartbeat</code><span class="s">Latido</span><span class="who"><i>Agente</i></span></summary>
 <div class="eb">
 <p>Cada 5 segundos. Si falta más de 5 minutos, el Manager avisa por correo.</p>
@@ -9736,7 +10474,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 
 </div></details></section></section></section>
-<section class="card" id="errores"><h2>Códigos de error</h2><p class="muted">Las respuestas de error usan el mismo formato con <code>"type": "error"</code>, <code>"data": null</code> y <code>"errors": [{"code", "message", "field", "details"}]</code>. Con <code>VALIDATION</code> hay un elemento por campo.</p><div class="tw"><table><thead><tr><th>Código</th><th>HTTP</th><th>Qué pasa y qué hace el equipo</th></tr></thead><tbody><tr><td><code>VALIDATION</code></td><td>422</td><td>Faltan datos o tienen un formato incorrecto. details dice qué campo.</td></tr><tr><td><code>NOT_FOUND</code></td><td>404</td><td>No existe o no es de esta tienda.</td></tr><tr><td><code>BAD_PIN</code></td><td>401</td><td>Clave incorrecta. Tras varios intentos, PIN_LOCKED.</td></tr><tr><td><code>PIN_LOCKED</code></td><td>423</td><td>Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).</td></tr><tr><td><code>PERMISSION_REQUIRED</code></td><td>403</td><td>Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</td></tr><tr><td><code>NOT_ALLOWED</code></td><td>403</td><td>La clave es correcta pero esa persona tampoco tiene el permiso.</td></tr><tr><td><code>VERSION_CONFLICT</code></td><td>409</td><td>Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</td></tr><tr><td><code>DUPLICATE_SUSPECTED</code></td><td>409</td><td>Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.</td></tr><tr><td><code>INCIDENT_RESOLVED</code></td><td>409</td><td>La incidencia de mesa ya está resuelta de otra forma.</td></tr><tr><td><code>ACCOUNT_CLOSED</code></td><td>409</td><td>La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</td></tr><tr><td><code>ORDER_CLOSED</code></td><td>409</td><td>La mesa se cerró desde otro equipo.</td></tr><tr><td><code>TABLE_BUSY</code></td><td>409</td><td>La mesa de destino está ocupada.</td></tr><tr><td><code>PERIOD_CLOSED</code></td><td>409</td><td>No hay periodo abierto.</td></tr><tr><td><code>PENDING_NOT_ZERO</code></td><td>409</td><td>No se puede facturar con importe pendiente.</td></tr><tr><td><code>ORDER_NOT_EMPTY</code></td><td>409</td><td>La mesa aún tiene productos o cobros: no se puede cerrar sin venta.</td></tr><tr><td><code>COURSE_PENDING</code></td><td>409</td><td>Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar.</td></tr><tr><td><code>NOTHING_TO_CHARGE</code></td><td>409</td><td>La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta.</td></tr><tr><td><code>PRINTER_OFFLINE</code></td><td>503</td><td>Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir.</td></tr><tr><td><code>IN_USE</code></td><td>409</td><td>No se puede desactivar: está en uso.</td></tr><tr><td><code>DUPLICATE</code></td><td>409</td><td>Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</td></tr><tr><td><code>STATION_NOT_ALLOWED</code></td><td>403</td><td>Este perfil solo puede entrar en la caja principal (details.allowed = main, details.station), o este equipo no es esa estación (la estación tiene UUID de equipo y X-Station-Id no lo trae).</td></tr><tr><td><code>MAIN_STATION_REQUIRED</code></td><td>403</td><td>Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo.</td></tr><tr><td><code>PERIOD_ALREADY_OPEN</code></td><td>409</td><td>Ya hay un periodo abierto en la tienda.</td></tr><tr><td><code>TABLE_TAKEN</code></td><td>409</td><td>Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</td></tr><tr><td><code>TABLE_CHARGING</code></td><td>409</td><td>Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador).</td></tr><tr><td><code>TOTAL_BELOW_PAID</code></td><td>409</td><td>Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).</td></tr><tr><td><code>AMOUNT_EXCEEDS_PENDING</code></td><td>409</td><td>El importe supera lo pendiente (details.pending). Nunca se recorta.</td></tr><tr><td><code>METHOD_NOT_ALLOWED</code></td><td>409</td><td>Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta).</td></tr><tr><td><code>NOTHING_TO_TRANSFER</code></td><td>422</td><td>La cuenta está facturada o no tiene productos: no hay nada que pasar a otra mesa.</td></tr><tr><td><code>SESSION_REPLACED</code></td><td>401</td><td>Tu clave se ha abierto en otro equipo (o has vuelto a entrar): este token ya no vale. details.station = dónde está ahora la sesión. Vuelve a entrar con la clave.</td></tr><tr><td><code>IDEMPOTENCY_IN_PROGRESS</code></td><td>409</td><td>Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</td></tr><tr><td><code>DEVICE_NOT_REGISTERED</code></td><td>404</td><td>Ninguna estación activa tiene el UUID de este equipo: darlo de alta en Ajustes › Estaciones.</td></tr><tr><td><code>DEVICE_TYPE_MISMATCH</code></td><td>409</td><td>El UUID está dado de alta con el otro tipo (PDA o escritorio): details.actual dice cuál.</td></tr><tr><td><code>OOT_NOT_CONFIGURED</code></td><td>409</td><td>Falta la URL de Order on Table en Ajustes › Restaurante.</td></tr><tr><td><code>OOT_TOKEN_INVALID</code></td><td>404</td><td>Token de Order on Table caducado, anulado o de una mesa cerrada.</td></tr><tr><td><code>PRODUCT_NOT_OOT</code></td><td>422</td><td>Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu).</td></tr><tr><td><code>REF_NOT_FOUND</code></td><td>422</td><td>Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</td></tr><tr><td><code>TOO_LARGE</code></td><td>413</td><td>Demasiadas filas en una carga (details.max).</td></tr><tr><td><code>LINE_NOT_SENT</code></td><td>409</td><td>Una línea pendiente de imprimir no se puede pasar a otra cuenta.</td></tr><tr><td><code>QUANTITY_EXCEEDS</code></td><td>422</td><td>Se piden más unidades de las que quedan (details.left).</td></tr><tr><td><code>BUSY_RETRY</code></td><td>409</td><td>Otro equipo está cambiando lo mismo a la vez (la base ha deshecho esta petición): vuelve a intentarlo.</td></tr></tbody></table></div></section>
+<section class="card" id="errores"><h2>Códigos de error</h2><p class="muted">Las respuestas de error usan el mismo formato con <code>"type": "error"</code>, <code>"data": null</code> y <code>"errors": [{"code", "message", "field", "details"}]</code>. Con <code>VALIDATION</code> hay un elemento por campo.</p><div class="tw"><table><thead><tr><th>Código</th><th>HTTP</th><th>Qué pasa y qué hace el equipo</th></tr></thead><tbody><tr><td><code>VALIDATION</code></td><td>422</td><td>Faltan datos o tienen un formato incorrecto. details dice qué campo.</td></tr><tr><td><code>NOT_FOUND</code></td><td>404</td><td>No existe o no es de esta tienda.</td></tr><tr><td><code>BAD_PIN</code></td><td>401</td><td>Clave incorrecta. Tras varios intentos, PIN_LOCKED.</td></tr><tr><td><code>PIN_LOCKED</code></td><td>423</td><td>Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).</td></tr><tr><td><code>PERMISSION_REQUIRED</code></td><td>403</td><td>Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</td></tr><tr><td><code>NOT_ALLOWED</code></td><td>403</td><td>La clave es correcta pero esa persona tampoco tiene el permiso.</td></tr><tr><td><code>VERSION_CONFLICT</code></td><td>409</td><td>Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</td></tr><tr><td><code>DUPLICATE_SUSPECTED</code></td><td>409</td><td>Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.</td></tr><tr><td><code>INCIDENT_RESOLVED</code></td><td>409</td><td>La incidencia de mesa ya está resuelta de otra forma.</td></tr><tr><td><code>ACCOUNT_CLOSED</code></td><td>409</td><td>La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</td></tr><tr><td><code>ORDER_CLOSED</code></td><td>409</td><td>La mesa se cerró desde otro equipo.</td></tr><tr><td><code>TABLE_BUSY</code></td><td>409</td><td>La mesa de destino está ocupada.</td></tr><tr><td><code>PERIOD_CLOSED</code></td><td>409</td><td>No hay periodo abierto.</td></tr><tr><td><code>PENDING_NOT_ZERO</code></td><td>409</td><td>No se puede facturar con importe pendiente.</td></tr><tr><td><code>ORDER_NOT_EMPTY</code></td><td>409</td><td>La mesa aún tiene productos o cobros: no se puede cerrar sin venta.</td></tr><tr><td><code>COURSE_PENDING</code></td><td>409</td><td>Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar.</td></tr><tr><td><code>NOTHING_TO_CHARGE</code></td><td>409</td><td>La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta.</td></tr><tr><td><code>PRINTER_OFFLINE</code></td><td>503</td><td>Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir.</td></tr><tr><td><code>IN_USE</code></td><td>409</td><td>No se puede desactivar: está en uso.</td></tr><tr><td><code>DUPLICATE</code></td><td>409</td><td>Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</td></tr><tr><td><code>STATION_NOT_ALLOWED</code></td><td>403</td><td>Este perfil solo puede entrar en la caja principal (details.allowed = main, details.station), o este equipo no es esa estación (la estación tiene UUID de equipo y X-Station-Id no lo trae).</td></tr><tr><td><code>MAIN_STATION_REQUIRED</code></td><td>403</td><td>Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo.</td></tr><tr><td><code>PERIOD_ALREADY_OPEN</code></td><td>409</td><td>Ya hay un periodo abierto en la tienda.</td></tr><tr><td><code>TABLE_TAKEN</code></td><td>409</td><td>Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</td></tr><tr><td><code>TABLE_CHARGING</code></td><td>409</td><td>Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador).</td></tr><tr><td><code>TOTAL_BELOW_PAID</code></td><td>409</td><td>Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).</td></tr><tr><td><code>AMOUNT_EXCEEDS_PENDING</code></td><td>409</td><td>El importe supera lo pendiente (details.pending). Nunca se recorta.</td></tr><tr><td><code>METHOD_NOT_ALLOWED</code></td><td>409</td><td>Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta).</td></tr><tr><td><code>NOTHING_TO_TRANSFER</code></td><td>422</td><td>La cuenta está facturada o no tiene productos: no hay nada que pasar a otra mesa.</td></tr><tr><td><code>SESSION_REPLACED</code></td><td>401</td><td>Tu clave se ha abierto en otro equipo (o has vuelto a entrar): este token ya no vale. details.station = dónde está ahora la sesión. Vuelve a entrar con la clave.</td></tr><tr><td><code>IDEMPOTENCY_IN_PROGRESS</code></td><td>409</td><td>Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</td></tr><tr><td><code>DEVICE_NOT_REGISTERED</code></td><td>404</td><td>Ninguna estación activa tiene el UUID de este equipo: darlo de alta en Ajustes › Estaciones.</td></tr><tr><td><code>DEVICE_TYPE_MISMATCH</code></td><td>409</td><td>El UUID está dado de alta con el otro tipo (PDA o escritorio): details.actual dice cuál.</td></tr><tr><td><code>OOT_NOT_CONFIGURED</code></td><td>409</td><td>Falta la URL de Order on Table en Ajustes › Restaurante.</td></tr><tr><td><code>OOT_TOKEN_INVALID</code></td><td>404</td><td>Token de Order on Table caducado, anulado o de una mesa cerrada.</td></tr><tr><td><code>PRODUCT_NOT_OOT</code></td><td>422</td><td>Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu).</td></tr><tr><td><code>REF_NOT_FOUND</code></td><td>422</td><td>Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</td></tr><tr><td><code>TOO_LARGE</code></td><td>413</td><td>Demasiadas filas en una carga (details.max).</td></tr><tr><td><code>LINE_NOT_SENT</code></td><td>409</td><td>Una línea pendiente de imprimir no se puede pasar a otra cuenta.</td></tr><tr><td><code>QUANTITY_EXCEEDS</code></td><td>422</td><td>Se piden más unidades de las que quedan (details.left).</td></tr><tr><td><code>BUSY_RETRY</code></td><td>409</td><td>Otro equipo está cambiando lo mismo a la vez (la base ha deshecho esta petición): vuelve a intentarlo.</td></tr><tr><td><code>INVALID_TRANSITION</code></td><td>409</td><td>El pedido de delivery ya está terminado (entregado o cancelado); details.status dice en cuál. <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>RIDER_REQUIRED</code></td><td>422</td><td>Al asignar un pedido de delivery hay que decir quién lo lleva (riderId o riderName). <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>DELIVERY_OFF</code></td><td>409</td><td>Delivery apagado en este local (Ajustes › Pedidos). <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>TABLE_OVERLAP</code></td><td>422</td><td>En Editar sala dos mesas quedan una encima de otra; details {a, b}. <em>(nuevo 1.2.264)</em></td></tr></tbody></table></div></section>
 <section class="card" id="openapi"><h2>Contrato OpenAPI 3.1</h2><p class="muted">El mismo contenido en formato máquina, validado con openapi-spec-validator. Sirve para generar el cliente de TypeScript y probar la API.</p>
 <div class="bar"><button type="button" id="cp">Copiar openapi.yaml</button><span id="cpm" role="status"></span></div><pre class="yaml" id="yaml" tabindex="0">openapi: 3.1.0
 info:
@@ -9775,6 +10513,9 @@ tags:
   description: Descuentos, cliente, pagos y emisión de la factura VeriFactu.
 - name: API de tienda v2 · Facturas, caja e informes
   description: Lo que se usa desde Gestiones.
+- name: API de tienda v2 · Pedidos (delivery)
+  description: &#x27;Tablero de pedidos de Glovo, Uber Eats, Just Eat y la web propia: alta desde el integrador, pasos, motorizado
+    y cancelación.&#x27;
 - name: API de tienda v2 · Impresoras, salud y Developer
   description: Estado de la tienda y consulta de transacciones.
 - name: API de tienda v2 · Prueba de impresoras
@@ -11374,16 +12115,30 @@ paths:
       summary: Listar un módulo de Ajustes
       description: &#x27;module = restaurante, empresa, facturacion, parametros (un solo registro: id «current»), usuarios, perfiles,
         areas, mesas, impuestos, categorias, productos, preguntas, canales, impresoras, estaciones, formas-pago, descuentos,
-        motivos u objetivos. Por defecto solo lo activo (active=all para todo, active=false para lo desactivado). Cada registro
-        lleva id, version y active; productos además channels, questions y taxRate; preguntas, answers; estaciones, channels
-        (canal → impresora), paymentMethods y discounts; perfiles, permissions y users.
+        motivos, objetivos, pedidos (un solo registro: id «current») o motorizados. Por defecto solo lo activo (active=all
+        para todo, active=false para lo desactivado). Cada registro lleva id, version y active; productos además channels,
+        questions y taxRate; preguntas, answers; estaciones, channels (canal → impresora), paymentMethods y discounts; perfiles,
+        permissions y users.
 
 
         Permiso: ajustes.{module} (áreas y mesas: mesas.editarPlano; impuestos, formas de pago y descuentos: ajustes.facturacion;
-        objetivos: ajustes.cierres)
+        objetivos: ajustes.cierres; pedidos y motorizados: ajustes.pedidos)
 
 
-        Lo llama: TPV&#x27;
+        Lo llama: TPV
+
+
+        Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, Pendiente de programar (TPV 1.2.264)): active sí/no Delivery
+        en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; integration · provider
+        · platforms[] Recibir de las plataformas, integrador y plataformas {id, name, active}; autoAccept · askRider · sound
+        sí/no Aceptar solos · pedir motorizado al asignar · aviso sonoro; prepMinutes · amberMinutes · redMinutes 1–240 Preparación
+        y semáforo; rojo &gt; ámbar (VALIDATION). En el TPV: st.cfg.pedidos: activo, integracion, proveedor, plataformas[{id,nombre,activa}],
+        autoAceptar, pedirMoto, sonido, prep, ambar, rojo.
+
+
+        Módulo motorizados (Motorizados, tabla delivery_rider, Pendiente de programar (TPV 1.2.264)): name texto ≤ 40 Obligatorio;
+        sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); phone texto ≤ 20; sortOrder entero Orden
+        en la lista. En el TPV: st.cfg.pedidos.motorizados[{nombre, tel, activo}] → un registro por motorizado; quitar = deactivate.&#x27;
       operationId: store_GET_config_module
       security:
       - session: []
@@ -11519,7 +12274,13 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: config_change_log, product_incident, sync_outbox&#x27;
+        Tablas: config_change_log, product_incident, sync_outbox
+
+
+        Cambio TPV 1.2.260 · 1.2.233 (pendiente de programar): usuarios: no puede haber dos personas con el mismo nombre aunque
+        cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios:
+        el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo
+        registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).&#x27;
       operationId: store_POST_config_module
       security:
       - session: []
@@ -11796,7 +12557,11 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: config_change_log, product_incident, sync_outbox&#x27;
+        Tablas: config_change_log, product_incident, sync_outbox
+
+
+        Cambio TPV 1.2.260 (pendiente de programar): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE)
+        y bloqueo 0 o ≥ 10 s.&#x27;
       operationId: store_PATCH_config_module_id
       security:
       - session: []
@@ -12696,6 +13461,544 @@ paths:
         in: query
         required: false
         description: &#x27;Año (defecto: el actual)&#x27;
+        schema:
+          type: string
+  /api/v2/reports/week:
+    get:
+      tags:
+      - API de tienda v2 · Gestor de cierres
+      summary: Resumen de la semana
+      description: &#x27;Gestiones › Resumen semana con el formato de la hoja de los locales: cada día de lunes a domingo con semana
+        anterior, venta del año anterior (364 días antes, mismo día de la semana), proyección y cumplimiento (venta real),
+        cada uno con venta, transacciones (T) y ticket medio (TM); el total de la semana; las observaciones y los productos
+        más vendidos con su % de mezcla.
+
+
+        De dónde sale: de los cierres de periodo (period_summary, por business_date); el periodo abierto se calcula al vuelo
+        (open: true).
+
+
+        Proyección: año anterior × (1 + growthPct/100) del objetivo de esa semana (Ajustes › Objetivos, sales_target year/week;
+        si no hay de la semana, el del año con week 0). Con importe fijo (amount) se reparte por días en proporción al año
+        anterior y targetAmount lo dice.
+
+
+        Comparativas como la hoja: (real − referencia) / real × 100, en %, con 2 decimales; null si falta alguno de los dos.
+
+
+        Totales: las comparativas solo con los días que ya tienen venta real; complete = el domingo ya se cerró.
+
+
+        Productos: suma de period_summary.by_product de los días de la semana; mixPct = importe del producto / importe de
+        todos × 100; los 20 primeros.
+
+
+        La regla va en el dominio (weekSummary) para que el TPV sin servidor calcule lo mismo.
+
+
+        Permiso: funciones.informes
+
+
+        Lo llama: TPV
+
+
+        Tablas: period_summary, sales_target, week_note
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+      operationId: store_GET_api_v2_reports_week
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      year:
+                        type: integer
+                      week:
+                        type: integer
+                      from:
+                        type: string
+                      to:
+                        type: string
+                      growthPct:
+                        type: number
+                      targetAmount:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      complete:
+                        type: boolean
+                      days:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                            dow:
+                              type: integer
+                            open:
+                              type: boolean
+                            real:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: integer
+                                avg:
+                                  type: number
+                            prevWeek:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: integer
+                                avg:
+                                  type: number
+                            lastYear:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: integer
+                                avg:
+                                  type: number
+                            target:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: integer
+                                avg:
+                                  type: number
+                            vsPrevWeek:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: number
+                                avg:
+                                  type: number
+                            vsLastYear:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: number
+                                avg:
+                                  type: number
+                            vsTarget:
+                              type: object
+                              properties:
+                                sales:
+                                  type: number
+                                tickets:
+                                  type: number
+                                avg:
+                                  type: number
+                            note:
+                              type: string
+                      totals:
+                        type: object
+                        properties:
+                          real:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: integer
+                              avg:
+                                type: number
+                          prevWeek:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: integer
+                              avg:
+                                type: number
+                          lastYear:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: integer
+                              avg:
+                                type: number
+                          target:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: integer
+                              avg:
+                                type: number
+                          vsPrevWeek:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: number
+                              avg:
+                                type: number
+                          vsLastYear:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: number
+                              avg:
+                                type: number
+                          vsTarget:
+                            type: object
+                            properties:
+                              sales:
+                                type: number
+                              tickets:
+                                type: number
+                              avg:
+                                type: number
+                      notes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                            note:
+                              type: string
+                            version:
+                              type: integer
+                            updatedBy:
+                              type: string
+                            updatedAt:
+                              type: string
+                      products:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            rank:
+                              type: integer
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            amount:
+                              type: number
+                            mixPct:
+                              type: number
+              example:
+                title: Resumen de la semana
+                type: success
+                status: 200
+                data:
+                  year: 2026
+                  week: 45
+                  from: &#x27;2026-11-02&#x27;
+                  to: &#x27;2026-11-08&#x27;
+                  growthPct: 5.0
+                  targetAmount: null
+                  complete: false
+                  days:
+                  - date: &#x27;2026-11-02&#x27;
+                    dow: 1
+                    open: true
+                    real:
+                      sales: 3409.63
+                      tickets: 130
+                      avg: 26.23
+                    prevWeek:
+                      date: &#x27;2026-10-26&#x27;
+                      sales: 3120.4
+                      tickets: 121
+                      avg: 25.79
+                    lastYear:
+                      date: &#x27;2025-11-03&#x27;
+                      sales: 3280.1
+                      tickets: 127
+                      avg: 25.83
+                    target:
+                      sales: 3444.11
+                      tickets: 133
+                      avg: 25.9
+                    vsPrevWeek:
+                      sales: 8.48
+                      tickets: 6.92
+                      avg: 1.68
+                    vsLastYear:
+                      sales: 3.8
+                      tickets: 2.31
+                      avg: 1.53
+                    vsTarget:
+                      sales: -1.01
+                      tickets: -2.31
+                      avg: 1.29
+                    note: Lluvia toda la tarde
+                  totals:
+                    real:
+                      sales: 3409.63
+                      tickets: 130
+                      avg: 26.23
+                    prevWeek:
+                      sales: 21840.3
+                      tickets: 842
+                      avg: 25.94
+                    lastYear:
+                      sales: 22950.7
+                      tickets: 880
+                      avg: 26.08
+                    target:
+                      sales: 24098.24
+                      tickets: 924
+                      avg: 26.08
+                    vsPrevWeek:
+                      sales: 8.48
+                      tickets: 6.92
+                      avg: 1.68
+                    vsLastYear:
+                      sales: 3.8
+                      tickets: 2.31
+                      avg: 1.53
+                    vsTarget:
+                      sales: -1.01
+                      tickets: -2.31
+                      avg: 1.29
+                  notes:
+                  - date: &#x27;2026-11-02&#x27;
+                    note: Lluvia toda la tarde
+                    version: 1
+                    updatedBy: Sistemas
+                    updatedAt: &#x27;2026-11-02T22:10:00.000Z&#x27;
+                  products:
+                  - rank: 1
+                    plu: 1001
+                    name: Caña
+                    quantity: 412
+                    amount: 906.4
+                    mixPct: 26.58
+                  - rank: 2
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 96
+                    amount: 528.0
+                    mixPct: 15.49
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: date no es una fecha o es de una semana futura&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Resumen de la semana
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: date no es una fecha o es de una semana futura
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Resumen de la semana
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: date
+        in: query
+        required: false
+        description: &#x27;Cualquier día de la semana (AAAA-MM-DD); se toma su lunes. Defecto: hoy&#x27;
+        schema:
+          type: string
+  /api/v2/reports/week/notes/{date}:
+    put:
+      tags:
+      - API de tienda v2 · Gestor de cierres
+      summary: Observación de un día
+      description: &#x27;Escribe, cambia o borra (note vacía) la observación de un día de la hoja.
+
+
+        Borrar responde 200 con note: null y version: 0.
+
+
+        Permiso: funciones.informes
+
+
+        Lo llama: TPV
+
+
+        Tablas: week_note
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+      operationId: store_PUT_api_v2_reports_week_notes_date
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                version:
+                  type: integer
+            example:
+              note: Lluvia toda la tarde
+              version: 1
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                      note:
+                        type: string
+                      version:
+                        type: integer
+                      updatedBy:
+                        type: string
+                      updatedAt:
+                        type: string
+              example:
+                title: Observación de un día
+                type: success
+                status: 200
+                data:
+                  date: &#x27;2026-11-02&#x27;
+                  note: Lluvia toda la tarde
+                  version: 2
+                  updatedBy: Sistemas
+                  updatedAt: &#x27;2026-11-02T22:12:00.000Z&#x27;
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: date futura o no válida; note de más de 500 caracteres&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Observación de un día
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: date futura o no válida; note de más de 500 caracteres
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;VERSION_CONFLICT: Otro equipo la cambió antes: details.current trae la que hay&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Observación de un día
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: VERSION_CONFLICT
+                  message: &#x27;Otro equipo la cambió antes: details.current trae la que hay&#x27;
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Observación de un día
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: date
+        in: path
+        required: true
+        description: Día de negocio AAAA-MM-DD
         schema:
           type: string
   /api/v2/reports/live:
@@ -18342,7 +19645,11 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_event&#x27;
+        Tablas: order_line, order_event
+
+
+        Cambio TPV 1.2.259 (pendiente de programar): La precuenta se imprime cada vez que se pide, aunque no haya cambios,
+        tras eliminar o tras separar.&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_prebill
       security:
       - session: []
@@ -18798,7 +20105,11 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event&#x27;
+        Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event
+
+
+        Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar
+        → 409 COURSE_PENDING.&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_payments
       security:
       - session: []
@@ -19660,7 +20971,7 @@ paths:
       summary: Arqueo
       description: &#x27;Arqueo sin cierre: lo contado frente a lo esperado ahora (fondo + efectivo cobrado − retiros + ingresos
         del periodo, la misma cuenta que el cierre). Solo desde la caja principal (403 MAIN_STATION_REQUIRED). countedCash
-        ≥ 0; detail opcional = billetes y monedas → unidades enteras ({&quot;20&quot;: 7, &quot;0.5&quot;: 3}; la denominación con punto o coma:
+        ≥ 0; detail opcional = billetes y monedas → unidades enteras ({"20": 7, "0.5": 3}; la denominación con punto o coma:
         «0.5» o «0,50»): si se manda, Σ denominación × unidades tiene que ser countedCash al céntimo, si no 422 VALIDATION
         con field detail «El desglose suma X €, no Y €»; note hasta 200. Queda como movimiento de caja «count» con el detalle
         y no cambia lo esperado. difference = contado − esperado. Sin periodo abierto, 409 PERIOD_CLOSED.
@@ -24455,7 +25766,11 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: dining_table, area_drawing, config_change_log&#x27;
+        Tablas: dining_table, area_drawing, config_change_log
+
+
+        Cambio TPV 1.2.261 (pendiente de programar): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos
+        (x, y, ancho, alto en % del plano) se solapan → 422 TABLE_OVERLAP con details {a, b} (números de mesa).&#x27;
       operationId: store_PUT_config_areas_areaId_layout
       security:
       - session: []
@@ -24906,7 +26221,11 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox&#x27;
+        Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox
+
+
+        Cambio TPV 1.2.259 (pendiente de programar): La cuenta que se queda sin productos porque se eliminó todo desaparece
+        al guardar; una mesa nueva sin nada se cierra al guardar.&#x27;
       operationId: store_POST_orders_orderId_save
       security:
       - session: []
@@ -25664,7 +26983,11 @@ paths:
 
 
         Tablas: payment, payment_cash_detail, invoice_series, invoice, invoice_tax, verifactu_record, account, orders, order_event,
-        sync_outbox&#x27;
+        sync_outbox
+
+
+        Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar
+        → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_checkout
       security:
       - session: []
@@ -25894,7 +27217,12 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: customer_ref&#x27;
+        Tablas: customer_ref
+
+
+        Cambio TPV 1.2.260 (pendiente de programar): q busca también por correo (además de NIF y nombre). Los datos del cliente
+        escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email
+        (0026).&#x27;
       operationId: store_GET_customers
       security:
       - session: []
@@ -25988,6 +27316,1351 @@ paths:
         in: query
         required: false
         description: NIF o nombre
+        schema:
+          type: string
+  /api/v2/delivery/orders:
+    get:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Tablero de pedidos
+      description: &#x27;Los pedidos del tablero: pendientes (sin terminar, del más antiguo al más nuevo) o entregados y cancelados
+        del día.
+
+
+        Estados en orden: pending (Pendiente) → received (Recibido) → to_assign (Por asignar) → assigned (Asignado) → on_route
+        (En camino) → delivered (Entregado). cancelled desde cualquiera sin terminar. En el TPV: pend, rec, poras, asig, camino,
+        done, cancel.
+
+
+        Semáforo (light): green, amber desde amberMinutes, red desde redMinutes desde receivedAt; null en los terminados.
+
+
+        counts son los pendientes por estado (la columna derecha del TPV); finished, los terminados del día.
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: TPV
+
+
+        Tablas: delivery_order, delivery_settings
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+      operationId: store_GET_api_v2_delivery_orders
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            platform:
+                              type: string
+                            code:
+                              type: string
+                            externalId:
+                              type: string
+                            customer:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                phone:
+                                  type: string
+                            address:
+                              type: string
+                            paymentNote:
+                              type: string
+                            note:
+                              type: string
+                            status:
+                              type: string
+                            riderId:
+                              type: string
+                            riderName:
+                              type: string
+                            total:
+                              type: number
+                            receivedAt:
+                              type: string
+                            finishedAt:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            waitMinutes:
+                              type: integer
+                            light:
+                              type: string
+                            orderId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            version:
+                              type: integer
+                      counts:
+                        type: object
+                        properties:
+                          pending:
+                            type: integer
+                          received:
+                            type: integer
+                          to_assign:
+                            type: integer
+                          assigned:
+                            type: integer
+                          on_route:
+                            type: integer
+                      finished:
+                        type: integer
+                      settings:
+                        type: object
+                        properties:
+                          active:
+                            type: boolean
+                          amberMinutes:
+                            type: integer
+                          redMinutes:
+                            type: integer
+                          askRider:
+                            type: boolean
+              example:
+                title: Tablero de pedidos
+                type: success
+                status: 200
+                data:
+                  items:
+                  - id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                    platform: glovo
+                    code: GLV-4821
+                    externalId: glv_8f2a91
+                    customer:
+                      name: Marta R.
+                      phone: 612 345 678
+                    address: C/ Mayor 12, 3.º B
+                    paymentNote: Pagado online
+                    note: Sin cebolla, por favor
+                    status: assigned
+                    riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                    riderName: Carlos M.
+                    total: 30.3
+                    receivedAt: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                    finishedAt: null
+                    waitMinutes: 14
+                    light: green
+                    orderId: null
+                    version: 4
+                  counts:
+                    pending: 1
+                    received: 1
+                    to_assign: 1
+                    assigned: 1
+                    on_route: 1
+                  finished: 12
+                  settings:
+                    active: true
+                    amberMinutes: 15
+                    redMinutes: 30
+                    askRider: true
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;DELIVERY_OFF: Delivery apagado en este local (Ajustes › Pedidos)&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Tablero de pedidos
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: DELIVERY_OFF
+                  message: Delivery apagado en este local (Ajustes › Pedidos)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Tablero de pedidos
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: scope
+        in: query
+        required: false
+        description: active (defecto) o finished
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        description: Filtra por estado (solo con active)
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        description: Busca en transacción, cliente, motorizado y plataforma
+        schema:
+          type: string
+      - name: date
+        in: query
+        required: false
+        description: &#x27;Día de negocio de los terminados (defecto: hoy)&#x27;
+        schema:
+          type: string
+    post:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Entra un pedido
+      description: &#x27;Alta de un pedido: lo manda el integrador (Deliverect…) con la clave de la tienda, o un encargado a mano
+        desde el TPV.
+
+
+        El total lo calcula la API: Σ quantity × unitPrice redondeado a 2 decimales.
+
+
+        Con autoAccept entra directamente como received (dos pasos: pending por Integración y received por Automático).
+
+
+        Avisa por WebSocket delivery.changed y, con sound, el TPV suena.
+
+
+        Con externalId repetido no se duplica: 200 con el pedido que ya había.
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: Integrador · TPV
+
+
+        Tablas: delivery_order, delivery_order_line, delivery_order_event
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)
+
+
+        WebSocket: delivery.changed&#x27;
+      operationId: store_POST_api_v2_delivery_orders
+      security:
+      - session: []
+      - storeKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platform:
+                  type: string
+                code:
+                  type: string
+                externalId:
+                  type: string
+                customer:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    phone:
+                      type: string
+                address:
+                  type: string
+                paymentNote:
+                  type: string
+                note:
+                  type: string
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      plu:
+                        type: integer
+                      name:
+                        type: string
+                      quantity:
+                        type: integer
+                      unitPrice:
+                        type: number
+            example:
+              platform: glovo
+              code: GLV-4821
+              externalId: glv_8f2a91
+              customer:
+                name: Marta R.
+                phone: 612 345 678
+              address: C/ Mayor 12, 3.º B
+              paymentNote: Pagado online
+              note: Sin cebolla, por favor
+              lines:
+              - plu: 2040
+                name: Patatas bravas
+                quantity: 2
+                unitPrice: 5.5
+              - name: Huevos rotos con jamón
+                quantity: 1
+                unitPrice: 11.9
+      responses:
+        &#x27;201&#x27;:
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type: string
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type: string
+                      address:
+                        type: string
+                      paymentNote:
+                        type: string
+                      note:
+                        type: string
+                      status:
+                        type: string
+                      riderId:
+                        type: string
+                      riderName:
+                        type: string
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type: string
+                      orderId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type: string
+              example:
+                title: Entra un pedido
+                type: success
+                status: 201
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: assigned
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                  finishedAt: null
+                  waitMinutes: 14
+                  light: green
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                    by: Integración
+                  - status: received
+                    at: &#x27;2026-11-02T21:59:10.000Z&#x27;
+                    by: Barra
+                  - status: to_assign
+                    at: &#x27;2026-11-02T22:08:00.000Z&#x27;
+                    by: Barra
+                  - status: assigned
+                    at: &#x27;2026-11-02T22:11:30.000Z&#x27;
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;DELIVERY_OFF: Delivery apagado en este local&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Entra un pedido
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: DELIVERY_OFF
+                  message: Delivery apagado en este local
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Falta cliente o productos, cantidad ≤ 0, precio &lt; 0 o plataforma desactivada (field =
+            platform)&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Entra un pedido
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Falta cliente o productos, cantidad ≤ 0, precio &lt; 0 o plataforma desactivada (field = platform)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;413&#x27;:
+          description: &#x27;TOO_LARGE: Más de 100 productos&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Entra un pedido
+                type: error
+                status: 413
+                data: null
+                errors:
+                - code: TOO_LARGE
+                  message: Más de 100 productos
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Entra un pedido
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: UUID del intento; un reintento con la misma clave no repite la acción
+        schema:
+          type: string
+          format: uuid
+  /api/v2/delivery/orders/{deliveryOrderId}:
+    get:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Ficha de un pedido
+      description: &#x27;El pedido con sus productos y sus pasos (quién y cuándo).
+
+
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: TPV
+
+
+        Tablas: delivery_order, delivery_order_line, delivery_order_event
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+      operationId: store_GET_api_v2_delivery_orders_deliveryOrderId
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type: string
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type: string
+                      address:
+                        type: string
+                      paymentNote:
+                        type: string
+                      note:
+                        type: string
+                      status:
+                        type: string
+                      riderId:
+                        type: string
+                      riderName:
+                        type: string
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type: string
+                      orderId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type: string
+              example:
+                title: Ficha de un pedido
+                type: success
+                status: 200
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: assigned
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                  finishedAt: null
+                  waitMinutes: 14
+                  light: green
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                    by: Integración
+                  - status: received
+                    at: &#x27;2026-11-02T21:59:10.000Z&#x27;
+                    by: Barra
+                  - status: to_assign
+                    at: &#x27;2026-11-02T22:08:00.000Z&#x27;
+                    by: Barra
+                  - status: assigned
+                    at: &#x27;2026-11-02T22:11:30.000Z&#x27;
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: No existe o no es de esta tienda&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Ficha de un pedido
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe o no es de esta tienda
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Ficha de un pedido
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: deliveryOrderId
+        in: path
+        required: true
+        description: Pedido
+        schema:
+          type: string
+  /api/v2/delivery/orders/{deliveryOrderId}/advance:
+    post:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Siguiente paso
+      description: &#x27;Aceptar → Listo → Asignar → Sale → Entregado: pasa el pedido al estado siguiente.
+
+
+        Estados en orden: pending (Pendiente) → received (Recibido) → to_assign (Por asignar) → assigned (Asignado) → on_route
+        (En camino) → delivered (Entregado). cancelled desde cualquiera sin terminar. En el TPV: pend, rec, poras, asig, camino,
+        done, cancel.
+
+
+        Al pasar a assigned: con askRider, riderId o riderName obligatorio (RIDER_REQUIRED); sin askRider y sin nada, queda
+        «Repartidor de la plataforma».
+
+
+        Al pasar a delivered se pone finishedAt. Cada paso queda en delivery_order_event con quién y cuándo.
+
+
+        Avisa por WebSocket delivery.changed.
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: TPV
+
+
+        Tablas: delivery_order, delivery_order_event, delivery_rider
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)
+
+
+        WebSocket: delivery.changed&#x27;
+      operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_advance
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                riderId:
+                  type: string
+            example:
+              version: 3
+              riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type: string
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type: string
+                      address:
+                        type: string
+                      paymentNote:
+                        type: string
+                      note:
+                        type: string
+                      status:
+                        type: string
+                      riderId:
+                        type: string
+                      riderName:
+                        type: string
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type: string
+                      orderId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type: string
+              example:
+                title: Siguiente paso
+                type: success
+                status: 200
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: assigned
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                  finishedAt: null
+                  waitMinutes: 14
+                  light: green
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                    by: Integración
+                  - status: received
+                    at: &#x27;2026-11-02T21:59:10.000Z&#x27;
+                    by: Barra
+                  - status: to_assign
+                    at: &#x27;2026-11-02T22:08:00.000Z&#x27;
+                    by: Barra
+                  - status: assigned
+                    at: &#x27;2026-11-02T22:11:30.000Z&#x27;
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;INVALID_TRANSITION: El pedido ya está entregado o cancelado (details.status)&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Siguiente paso
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: El pedido ya está entregado o cancelado (details.status)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;RIDER_REQUIRED: Al pasar a assigned con askRider hay que decir quién lo lleva&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Siguiente paso
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: RIDER_REQUIRED
+                  message: Al pasar a assigned con askRider hay que decir quién lo lleva
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: No existe, o riderId no es un motorizado activo de la tienda&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Siguiente paso
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: No existe, o riderId no es un motorizado activo de la tienda
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Siguiente paso
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: deliveryOrderId
+        in: path
+        required: true
+        description: Pedido
+        schema:
+          type: string
+  /api/v2/delivery/orders/{deliveryOrderId}/cancel:
+    post:
+      tags:
+      - API de tienda v2 · Pedidos (delivery)
+      summary: Cancelar pedido
+      description: &#x27;Cancela un pedido que no está terminado.
+
+
+        Queda en delivery_order_event con el motivo. Avisa por WebSocket delivery.changed.
+
+
+        Permiso: funciones.pedidos
+
+
+        Lo llama: TPV
+
+
+        Tablas: delivery_order, delivery_order_event
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)
+
+
+        WebSocket: delivery.changed&#x27;
+      operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_cancel
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: integer
+                note:
+                  type: string
+            example:
+              version: 3
+              note: El cliente no contesta
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type: string
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type: string
+                      address:
+                        type: string
+                      paymentNote:
+                        type: string
+                      note:
+                        type: string
+                      status:
+                        type: string
+                      riderId:
+                        type: string
+                      riderName:
+                        type: string
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type: string
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      orderId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            plu:
+                              type: integer
+                            name:
+                              type: string
+                            quantity:
+                              type: integer
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type: string
+              example:
+                title: Cancelar pedido
+                type: success
+                status: 200
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: cancelled
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                  finishedAt: &#x27;2026-11-02T22:20:00.000Z&#x27;
+                  waitMinutes: 14
+                  light: null
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                    by: Integración
+                  - status: received
+                    at: &#x27;2026-11-02T21:59:10.000Z&#x27;
+                    by: Barra
+                  - status: to_assign
+                    at: &#x27;2026-11-02T22:08:00.000Z&#x27;
+                    by: Barra
+                  - status: assigned
+                    at: &#x27;2026-11-02T22:11:30.000Z&#x27;
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;INVALID_TRANSITION: Ya está entregado o cancelado&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar pedido
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: Ya está entregado o cancelado
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Cancelar pide autorización de encargado (sistema.autorizar)&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar pedido
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Cancelar pide autorización de encargado (sistema.autorizar)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: deliveryOrderId
+        in: path
+        required: true
+        description: Pedido
         schema:
           type: string
   /api/v2/invoices/{invoiceId}/credit:
@@ -30253,7 +32926,7 @@ paths:
                     VentaHora: &lt;VentasHora&gt;…&lt;/VentasHora&gt;
                     PlusTrans: &lt;PlusTrans&gt;…&lt;/PlusTrans&gt;
                     HorasCajero: &lt;HorasCajero&gt;…&lt;/HorasCajero&gt;
-                  soap: &lt;Envelope xmlns=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot;&gt;…&lt;/Envelope&gt;
+                  soap: &lt;Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/"&gt;…&lt;/Envelope&gt;
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -30431,7 +33104,7 @@ paths:
                   sir:
                     respuesta: &#x27;0&#x27;
                     mensaje: El Menu Mix ya se encuetra Asentado
-                    raw: &#x27;{&quot;Respuesta&quot;:&quot;0&quot;,&quot;Mensaje&quot;:&quot;El Menu Mix ya se encuetra Asentado&quot;}&#x27;
+                    raw: &#x27;{"Respuesta":"0","Mensaje":"El Menu Mix ya se encuetra Asentado"}&#x27;
                   accepted: false
                   status: 200
                   ms: 812
@@ -31088,6 +33761,355 @@ paths:
                 from: &#x27;17:00&#x27;
                 to: &#x27;20:00&#x27;
                 active: true
+  /api/v2/config/sistema:
+    get:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: &#x27;Sistema: nombre, logos y colores&#x27;
+      description: &#x27;Ajustes › Administración › Sistema. Lo pide la pantalla de acceso antes de entrar (sin sesión) y cada
+        equipo al arrancar. Sin fila en la base devuelve los originales (Japp, paleta Verde #15616D, version 0).
+
+
+        Sin sesión: el acceso enseña el nombre, el subtítulo, el grupo, el logo y la paleta antes de que nadie entre.
+
+
+        Campos en el TPV: name = nombre, subtitle = subtitulo, loginGroup = grupo, logo = logo, noImage = sinImagen, palette[].default
+        = paleta[].def, colors = colores.
+
+
+        El color de cada equipo (pref.sysColor) no va al servidor: se elige en el equipo entre los de la paleta.
+
+
+        Permiso: ninguno (sin sesión)
+
+
+        Lo llama: TPV (sin sesión)
+
+
+        Tablas: system_branding
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+      operationId: store_GET_api_v2_config_sistema
+      security: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      subtitle:
+                        type: string
+                      loginGroup:
+                        type: string
+                      logo:
+                        type: string
+                      noImage:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      palette:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            hex:
+                              type: string
+                            name:
+                              type: string
+                            default:
+                              type: boolean
+                      colors:
+                        type: object
+                        properties:
+                          secondary:
+                            type: string
+                          err:
+                            type: string
+                      version:
+                        type: integer
+                      updatedAt:
+                        type: string
+                      updatedBy:
+                        type: string
+              example:
+                title: &#x27;Sistema: nombre, logos y colores&#x27;
+                type: success
+                status: 200
+                data:
+                  name: Cañas y Tapas
+                  subtitle: Plataforma Japp
+                  loginGroup: Grupo Cañas y Tapas
+                  logo: data:image/png;base64,iVBORw0KGgo…
+                  noImage: null
+                  palette:
+                  - hex: &#x27;#15616D&#x27;
+                    name: Verde
+                    default: true
+                  - hex: &#x27;#7A3E6A&#x27;
+                    name: Morado
+                    default: false
+                  colors:
+                    secondary: &#x27;#B88A4C&#x27;
+                    err: &#x27;#B3261E&#x27;
+                  version: 4
+                  updatedAt: &#x27;2026-11-02T21:40:00.000Z&#x27;
+                  updatedBy: Sistemas
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+    put:
+      tags:
+      - API de tienda v2 · Configuración y Ajustes
+      summary: Guardar Sistema
+      description: &#x27;Guarda el nombre, los textos, los logos (data URL) y los colores. Todo el registro de una vez, con version.
+
+
+        Sube la versión de configuración y avisa por WebSocket config.changed {module: sistema}: los demás equipos lo aplican
+        sin recargar.
+
+
+        Queda en el historial de cambios (config_change_log) y en la cola hacia el Manager.
+
+
+        Permiso: ajustes.restaurante
+
+
+        Lo llama: TPV
+
+
+        Tablas: system_branding, config_change_log
+
+
+        Estado: Pendiente de programar (TPV 1.2.264)
+
+
+        WebSocket: config.changed&#x27;
+      operationId: store_PUT_api_v2_config_sistema
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                subtitle:
+                  type: string
+                loginGroup:
+                  type: string
+                logo:
+                  type: string
+                noImage:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+                palette:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      hex:
+                        type: string
+                      name:
+                        type: string
+                      default:
+                        type: boolean
+                colors:
+                  type: object
+                  properties:
+                    secondary:
+                      type: string
+                    err:
+                      type: string
+                version:
+                  type: integer
+            example:
+              name: Cañas y Tapas
+              subtitle: Plataforma Japp
+              loginGroup: Grupo Cañas y Tapas
+              logo: data:image/png;base64,iVBORw0KGgo…
+              noImage: null
+              palette:
+              - hex: &#x27;#15616D&#x27;
+                name: Verde
+                default: true
+              - hex: &#x27;#7A3E6A&#x27;
+                name: Morado
+                default: false
+              colors:
+                secondary: &#x27;#B88A4C&#x27;
+                err: &#x27;#B3261E&#x27;
+              version: 4
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      subtitle:
+                        type: string
+                      loginGroup:
+                        type: string
+                      logo:
+                        type: string
+                      noImage:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      palette:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            hex:
+                              type: string
+                            name:
+                              type: string
+                            default:
+                              type: boolean
+                      colors:
+                        type: object
+                        properties:
+                          secondary:
+                            type: string
+                          err:
+                            type: string
+                      version:
+                        type: integer
+                      updatedAt:
+                        type: string
+                      updatedBy:
+                        type: string
+              example:
+                title: Guardar Sistema
+                type: success
+                status: 200
+                data:
+                  name: Cañas y Tapas
+                  subtitle: Plataforma Japp
+                  loginGroup: Grupo Cañas y Tapas
+                  logo: data:image/png;base64,iVBORw0KGgo…
+                  noImage: null
+                  palette:
+                  - hex: &#x27;#15616D&#x27;
+                    name: Verde
+                    default: true
+                  - hex: &#x27;#7A3E6A&#x27;
+                    name: Morado
+                    default: false
+                  colors:
+                    secondary: &#x27;#B88A4C&#x27;
+                    err: &#x27;#B3261E&#x27;
+                  version: 4
+                  updatedAt: &#x27;2026-11-02T21:40:00.000Z&#x27;
+                  updatedBy: Sistemas
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Nombre vacío, ningún color válido en la paleta, más de 12 colores, un color que no es
+            #RRGGBB o más de un «Por defecto»&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar Sistema
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: &#x27;Nombre vacío, ningún color válido en la paleta, más de 12 colores, un color que no es #RRGGBB
+                    o más de un «Por defecto»&#x27;
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;413&#x27;:
+          description: &#x27;TOO_LARGE: Un logo de más de 190 000 caracteres (el TPV ya los reduce a 256 px)&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar Sistema
+                type: error
+                status: 413
+                data: null
+                errors:
+                - code: TOO_LARGE
+                  message: Un logo de más de 190 000 caracteres (el TPV ya los reduce a 256 px)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;VERSION_CONFLICT: Otro equipo lo cambió antes: details.current trae lo guardado&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar Sistema
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: VERSION_CONFLICT
+                  message: &#x27;Otro equipo lo cambió antes: details.current trae lo guardado&#x27;
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Guardar Sistema
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso. details.permission dice cuál.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
   /api/v2/config/pantalla-cliente/media:
     post:
       tags:
@@ -32077,6 +35099,10 @@ components:
           - LINE_NOT_SENT
           - QUANTITY_EXCEEDS
           - BUSY_RETRY
+          - INVALID_TRANSITION
+          - RIDER_REQUIRED
+          - DELIVERY_OFF
+          - TABLE_OVERLAP
         message:
           type: string
         field:

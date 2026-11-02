@@ -241,11 +241,15 @@ export interface paths {
         };
         /**
          * Listar un módulo de Ajustes
-         * @description module = restaurante, empresa, facturacion, parametros (un solo registro: id «current»), usuarios, perfiles, areas, mesas, impuestos, categorias, productos, preguntas, canales, impresoras, estaciones, formas-pago, descuentos, motivos u objetivos. Por defecto solo lo activo (active=all para todo, active=false para lo desactivado). Cada registro lleva id, version y active; productos además channels, questions y taxRate; preguntas, answers; estaciones, channels (canal → impresora), paymentMethods y discounts; perfiles, permissions y users.
+         * @description module = restaurante, empresa, facturacion, parametros (un solo registro: id «current»), usuarios, perfiles, areas, mesas, impuestos, categorias, productos, preguntas, canales, impresoras, estaciones, formas-pago, descuentos, motivos, objetivos, pedidos (un solo registro: id «current») o motorizados. Por defecto solo lo activo (active=all para todo, active=false para lo desactivado). Cada registro lleva id, version y active; productos además channels, questions y taxRate; preguntas, answers; estaciones, channels (canal → impresora), paymentMethods y discounts; perfiles, permissions y users.
          *
-         *     Permiso: ajustes.{module} (áreas y mesas: mesas.editarPlano; impuestos, formas de pago y descuentos: ajustes.facturacion; objetivos: ajustes.cierres)
+         *     Permiso: ajustes.{module} (áreas y mesas: mesas.editarPlano; impuestos, formas de pago y descuentos: ajustes.facturacion; objetivos: ajustes.cierres; pedidos y motorizados: ajustes.pedidos)
          *
          *     Lo llama: TPV
+         *
+         *     Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, Pendiente de programar (TPV 1.2.264)): active sí/no Delivery en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; integration · provider · platforms[] Recibir de las plataformas, integrador y plataformas {id, name, active}; autoAccept · askRider · sound sí/no Aceptar solos · pedir motorizado al asignar · aviso sonoro; prepMinutes · amberMinutes · redMinutes 1–240 Preparación y semáforo; rojo > ámbar (VALIDATION). En el TPV: st.cfg.pedidos: activo, integracion, proveedor, plataformas[{id,nombre,activa}], autoAceptar, pedirMoto, sonido, prep, ambar, rojo.
+         *
+         *     Módulo motorizados (Motorizados, tabla delivery_rider, Pendiente de programar (TPV 1.2.264)): name texto ≤ 40 Obligatorio; sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); phone texto ≤ 20; sortOrder entero Orden en la lista. En el TPV: st.cfg.pedidos.motorizados[{nombre, tel, activo}] → un registro por motorizado; quitar = deactivate.
          */
         get: operations["store_GET_config_module"];
         put?: never;
@@ -258,6 +262,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: config_change_log, product_incident, sync_outbox
+         *
+         *     Cambio TPV 1.2.260 · 1.2.233 (pendiente de programar): usuarios: no puede haber dos personas con el mismo nombre aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios: el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -296,6 +302,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: config_change_log, product_incident, sync_outbox
+         *
+         *     Cambio TPV 1.2.260 (pendiente de programar): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -397,6 +405,76 @@ export interface paths {
          */
         get: operations["store_GET_reports_weeks"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/reports/week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumen de la semana
+         * @description Gestiones › Resumen semana con el formato de la hoja de los locales: cada día de lunes a domingo con semana anterior, venta del año anterior (364 días antes, mismo día de la semana), proyección y cumplimiento (venta real), cada uno con venta, transacciones (T) y ticket medio (TM); el total de la semana; las observaciones y los productos más vendidos con su % de mezcla.
+         *
+         *     De dónde sale: de los cierres de periodo (period_summary, por business_date); el periodo abierto se calcula al vuelo (open: true).
+         *
+         *     Proyección: año anterior × (1 + growthPct/100) del objetivo de esa semana (Ajustes › Objetivos, sales_target year/week; si no hay de la semana, el del año con week 0). Con importe fijo (amount) se reparte por días en proporción al año anterior y targetAmount lo dice.
+         *
+         *     Comparativas como la hoja: (real − referencia) / real × 100, en %, con 2 decimales; null si falta alguno de los dos.
+         *
+         *     Totales: las comparativas solo con los días que ya tienen venta real; complete = el domingo ya se cerró.
+         *
+         *     Productos: suma de period_summary.by_product de los días de la semana; mixPct = importe del producto / importe de todos × 100; los 20 primeros.
+         *
+         *     La regla va en el dominio (weekSummary) para que el TPV sin servidor calcule lo mismo.
+         *
+         *     Permiso: funciones.informes
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: period_summary, sales_target, week_note
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         */
+        get: operations["store_GET_api_v2_reports_week"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/reports/week/notes/{date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Observación de un día
+         * @description Escribe, cambia o borra (note vacía) la observación de un día de la hoja.
+         *
+         *     Borrar responde 200 con note: null y version: 0.
+         *
+         *     Permiso: funciones.informes
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: week_note
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         */
+        put: operations["store_PUT_api_v2_reports_week_notes_date"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1000,6 +1078,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: order_line, order_event
+         *
+         *     Cambio TPV 1.2.259 (pendiente de programar): La precuenta se imprime cada vez que se pide, aunque no haya cambios, tras eliminar o tras separar.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_prebill"];
         delete?: never;
@@ -1102,6 +1182,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event
+         *
+         *     Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_payments"];
         delete?: never;
@@ -2213,6 +2295,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: dining_table, area_drawing, config_change_log
+         *
+         *     Cambio TPV 1.2.261 (pendiente de programar): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos (x, y, ancho, alto en % del plano) se solapan → 422 TABLE_OVERLAP con details {a, b} (números de mesa).
          */
         put: operations["store_PUT_config_areas_areaId_layout"];
         post?: never;
@@ -2290,6 +2374,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox
+         *
+         *     Cambio TPV 1.2.259 (pendiente de programar): La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.
          */
         post: operations["store_POST_orders_orderId_save"];
         delete?: never;
@@ -2342,6 +2428,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: payment, payment_cash_detail, invoice_series, invoice, invoice_tax, verifactu_record, account, orders, order_event, sync_outbox
+         *
+         *     Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_checkout"];
         delete?: never;
@@ -2366,10 +2454,168 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: customer_ref
+         *
+         *     Cambio TPV 1.2.260 (pendiente de programar): q busca también por correo (además de NIF y nombre). Los datos del cliente escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email (0026).
          */
         get: operations["store_GET_customers"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/delivery/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tablero de pedidos
+         * @description Los pedidos del tablero: pendientes (sin terminar, del más antiguo al más nuevo) o entregados y cancelados del día.
+         *
+         *     Estados en orden: pending (Pendiente) → received (Recibido) → to_assign (Por asignar) → assigned (Asignado) → on_route (En camino) → delivered (Entregado). cancelled desde cualquiera sin terminar. En el TPV: pend, rec, poras, asig, camino, done, cancel.
+         *
+         *     Semáforo (light): green, amber desde amberMinutes, red desde redMinutes desde receivedAt; null en los terminados.
+         *
+         *     counts son los pendientes por estado (la columna derecha del TPV); finished, los terminados del día.
+         *
+         *     Permiso: funciones.pedidos
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: delivery_order, delivery_settings
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         */
+        get: operations["store_GET_api_v2_delivery_orders"];
+        put?: never;
+        /**
+         * Entra un pedido
+         * @description Alta de un pedido: lo manda el integrador (Deliverect…) con la clave de la tienda, o un encargado a mano desde el TPV.
+         *
+         *     El total lo calcula la API: Σ quantity × unitPrice redondeado a 2 decimales.
+         *
+         *     Con autoAccept entra directamente como received (dos pasos: pending por Integración y received por Automático).
+         *
+         *     Avisa por WebSocket delivery.changed y, con sound, el TPV suena.
+         *
+         *     Con externalId repetido no se duplica: 200 con el pedido que ya había.
+         *
+         *     Permiso: funciones.pedidos
+         *
+         *     Lo llama: Integrador · TPV
+         *
+         *     Tablas: delivery_order, delivery_order_line, delivery_order_event
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         *
+         *     WebSocket: delivery.changed
+         */
+        post: operations["store_POST_api_v2_delivery_orders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/delivery/orders/{deliveryOrderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ficha de un pedido
+         * @description El pedido con sus productos y sus pasos (quién y cuándo).
+         *
+         *
+         *
+         *     Permiso: funciones.pedidos
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: delivery_order, delivery_order_line, delivery_order_event
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         */
+        get: operations["store_GET_api_v2_delivery_orders_deliveryOrderId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/delivery/orders/{deliveryOrderId}/advance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Siguiente paso
+         * @description Aceptar → Listo → Asignar → Sale → Entregado: pasa el pedido al estado siguiente.
+         *
+         *     Estados en orden: pending (Pendiente) → received (Recibido) → to_assign (Por asignar) → assigned (Asignado) → on_route (En camino) → delivered (Entregado). cancelled desde cualquiera sin terminar. En el TPV: pend, rec, poras, asig, camino, done, cancel.
+         *
+         *     Al pasar a assigned: con askRider, riderId o riderName obligatorio (RIDER_REQUIRED); sin askRider y sin nada, queda «Repartidor de la plataforma».
+         *
+         *     Al pasar a delivered se pone finishedAt. Cada paso queda en delivery_order_event con quién y cuándo.
+         *
+         *     Avisa por WebSocket delivery.changed.
+         *
+         *     Permiso: funciones.pedidos
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: delivery_order, delivery_order_event, delivery_rider
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         *
+         *     WebSocket: delivery.changed
+         */
+        post: operations["store_POST_api_v2_delivery_orders_deliveryOrderId_advance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/delivery/orders/{deliveryOrderId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar pedido
+         * @description Cancela un pedido que no está terminado.
+         *
+         *     Queda en delivery_order_event con el motivo. Avisa por WebSocket delivery.changed.
+         *
+         *     Permiso: funciones.pedidos
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: delivery_order, delivery_order_event
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         *
+         *     WebSocket: delivery.changed
+         */
+        post: operations["store_POST_api_v2_delivery_orders_deliveryOrderId_cancel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3076,6 +3322,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/config/sistema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sistema: nombre, logos y colores
+         * @description Ajustes › Administración › Sistema. Lo pide la pantalla de acceso antes de entrar (sin sesión) y cada equipo al arrancar. Sin fila en la base devuelve los originales (Japp, paleta Verde #15616D, version 0).
+         *
+         *     Sin sesión: el acceso enseña el nombre, el subtítulo, el grupo, el logo y la paleta antes de que nadie entre.
+         *
+         *     Campos en el TPV: name = nombre, subtitle = subtitulo, loginGroup = grupo, logo = logo, noImage = sinImagen, palette[].default = paleta[].def, colors = colores.
+         *
+         *     El color de cada equipo (pref.sysColor) no va al servidor: se elige en el equipo entre los de la paleta.
+         *
+         *     Permiso: ninguno (sin sesión)
+         *
+         *     Lo llama: TPV (sin sesión)
+         *
+         *     Tablas: system_branding
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         */
+        get: operations["store_GET_api_v2_config_sistema"];
+        /**
+         * Guardar Sistema
+         * @description Guarda el nombre, los textos, los logos (data URL) y los colores. Todo el registro de una vez, con version.
+         *
+         *     Sube la versión de configuración y avisa por WebSocket config.changed {module: sistema}: los demás equipos lo aplican sin recargar.
+         *
+         *     Queda en el historial de cambios (config_change_log) y en la cola hacia el Manager.
+         *
+         *     Permiso: ajustes.restaurante
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: system_branding, config_change_log
+         *
+         *     Estado: Pendiente de programar (TPV 1.2.264)
+         *
+         *     WebSocket: config.changed
+         */
+        put: operations["store_PUT_api_v2_config_sistema"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/config/pantalla-cliente/media": {
         parameters: {
             query?: never;
@@ -3655,7 +3953,7 @@ export interface components {
         };
         ErrorItem: {
             /** @enum {string} */
-            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY";
+            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP";
             message: string;
             /** @description Campo con el problema, si lo hay */
             field: string | null;
@@ -4905,6 +5203,225 @@ export interface operations {
                 };
             };
             /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_api_v2_reports_week: {
+        parameters: {
+            query?: {
+                /** @description Cualquier día de la semana (AAAA-MM-DD); se toma su lunes. Defecto: hoy */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            year?: number;
+                            week?: number;
+                            from?: string;
+                            to?: string;
+                            growthPct?: number;
+                            targetAmount?: string | null;
+                            complete?: boolean;
+                            days?: {
+                                date?: string;
+                                dow?: number;
+                                open?: boolean;
+                                real?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                prevWeek?: {
+                                    date?: string;
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                lastYear?: {
+                                    date?: string;
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                target?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                vsPrevWeek?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                vsLastYear?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                vsTarget?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                note?: string;
+                            }[];
+                            totals?: {
+                                real?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                prevWeek?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                lastYear?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                target?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                vsPrevWeek?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                vsLastYear?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                                vsTarget?: {
+                                    sales?: number;
+                                    tickets?: number;
+                                    avg?: number;
+                                };
+                            };
+                            notes?: {
+                                date?: string;
+                                note?: string;
+                                version?: number;
+                                updatedBy?: string;
+                                updatedAt?: string;
+                            }[];
+                            products?: {
+                                rank?: number;
+                                plu?: number;
+                                name?: string;
+                                quantity?: number;
+                                amount?: number;
+                                mixPct?: number;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: date no es una fecha o es de una semana futura */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_PUT_api_v2_reports_week_notes_date: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Día de negocio AAAA-MM-DD */
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "note": "Lluvia toda la tarde",
+                 *       "version": 1
+                 *     } */
+                "application/json": {
+                    note?: string;
+                    version?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            date?: string;
+                            note?: string;
+                            version?: number;
+                            updatedBy?: string;
+                            updatedAt?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VERSION_CONFLICT: Otro equipo la cambió antes: details.current trae la que hay */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: date futura o no válida; note de más de 500 caracteres */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -11285,6 +11802,527 @@ export interface operations {
             };
         };
     };
+    store_GET_api_v2_delivery_orders: {
+        parameters: {
+            query?: {
+                /** @description active (defecto) o finished */
+                scope?: string;
+                /** @description Filtra por estado (solo con active) */
+                status?: string;
+                /** @description Busca en transacción, cliente, motorizado y plataforma */
+                q?: string;
+                /** @description Día de negocio de los terminados (defecto: hoy) */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            items?: {
+                                id?: string;
+                                platform?: string;
+                                code?: string;
+                                externalId?: string;
+                                customer?: {
+                                    name?: string;
+                                    phone?: string;
+                                };
+                                address?: string;
+                                paymentNote?: string;
+                                note?: string;
+                                status?: string;
+                                riderId?: string;
+                                riderName?: string;
+                                total?: number;
+                                receivedAt?: string;
+                                finishedAt?: string | null;
+                                waitMinutes?: number;
+                                light?: string;
+                                orderId?: string | null;
+                                version?: number;
+                            }[];
+                            counts?: {
+                                pending?: number;
+                                received?: number;
+                                to_assign?: number;
+                                assigned?: number;
+                                on_route?: number;
+                            };
+                            finished?: number;
+                            settings?: {
+                                active?: boolean;
+                                amberMinutes?: number;
+                                redMinutes?: number;
+                                askRider?: boolean;
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DELIVERY_OFF: Delivery apagado en este local (Ajustes › Pedidos) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_api_v2_delivery_orders: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID del intento; un reintento con la misma clave no repite la acción */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "platform": "glovo",
+                 *       "code": "GLV-4821",
+                 *       "externalId": "glv_8f2a91",
+                 *       "customer": {
+                 *         "name": "Marta R.",
+                 *         "phone": "612 345 678"
+                 *       },
+                 *       "address": "C/ Mayor 12, 3.º B",
+                 *       "paymentNote": "Pagado online",
+                 *       "note": "Sin cebolla, por favor",
+                 *       "lines": [
+                 *         {
+                 *           "plu": 2040,
+                 *           "name": "Patatas bravas",
+                 *           "quantity": 2,
+                 *           "unitPrice": 5.5
+                 *         },
+                 *         {
+                 *           "name": "Huevos rotos con jamón",
+                 *           "quantity": 1,
+                 *           "unitPrice": 11.9
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    platform?: string;
+                    code?: string;
+                    externalId?: string;
+                    customer?: {
+                        name?: string;
+                        phone?: string;
+                    };
+                    address?: string;
+                    paymentNote?: string;
+                    note?: string;
+                    lines?: {
+                        plu?: number;
+                        name?: string;
+                        quantity?: number;
+                        unitPrice?: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            platform?: string;
+                            code?: string;
+                            externalId?: string;
+                            customer?: {
+                                name?: string;
+                                phone?: string;
+                            };
+                            address?: string;
+                            paymentNote?: string;
+                            note?: string;
+                            status?: string;
+                            riderId?: string;
+                            riderName?: string;
+                            total?: number;
+                            receivedAt?: string;
+                            finishedAt?: string | null;
+                            waitMinutes?: number;
+                            light?: string;
+                            orderId?: string | null;
+                            version?: number;
+                            lines?: {
+                                lineNo?: number;
+                                productId?: string | null;
+                                plu?: number;
+                                name?: string;
+                                quantity?: number;
+                                unitPrice?: number;
+                                amount?: number;
+                                note?: string | null;
+                            }[];
+                            events?: {
+                                status?: string;
+                                at?: string;
+                                by?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DELIVERY_OFF: Delivery apagado en este local */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TOO_LARGE: Más de 100 productos */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Falta cliente o productos, cantidad ≤ 0, precio < 0 o plataforma desactivada (field = platform) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_api_v2_delivery_orders_deliveryOrderId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pedido */
+                deliveryOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            platform?: string;
+                            code?: string;
+                            externalId?: string;
+                            customer?: {
+                                name?: string;
+                                phone?: string;
+                            };
+                            address?: string;
+                            paymentNote?: string;
+                            note?: string;
+                            status?: string;
+                            riderId?: string;
+                            riderName?: string;
+                            total?: number;
+                            receivedAt?: string;
+                            finishedAt?: string | null;
+                            waitMinutes?: number;
+                            light?: string;
+                            orderId?: string | null;
+                            version?: number;
+                            lines?: {
+                                lineNo?: number;
+                                productId?: string | null;
+                                plu?: number;
+                                name?: string;
+                                quantity?: number;
+                                unitPrice?: number;
+                                amount?: number;
+                                note?: string | null;
+                            }[];
+                            events?: {
+                                status?: string;
+                                at?: string;
+                                by?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe o no es de esta tienda */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_api_v2_delivery_orders_deliveryOrderId_advance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pedido */
+                deliveryOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "version": 3,
+                 *       "riderId": "5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11"
+                 *     } */
+                "application/json": {
+                    version?: number;
+                    riderId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            platform?: string;
+                            code?: string;
+                            externalId?: string;
+                            customer?: {
+                                name?: string;
+                                phone?: string;
+                            };
+                            address?: string;
+                            paymentNote?: string;
+                            note?: string;
+                            status?: string;
+                            riderId?: string;
+                            riderName?: string;
+                            total?: number;
+                            receivedAt?: string;
+                            finishedAt?: string | null;
+                            waitMinutes?: number;
+                            light?: string;
+                            orderId?: string | null;
+                            version?: number;
+                            lines?: {
+                                lineNo?: number;
+                                productId?: string | null;
+                                plu?: number;
+                                name?: string;
+                                quantity?: number;
+                                unitPrice?: number;
+                                amount?: number;
+                                note?: string | null;
+                            }[];
+                            events?: {
+                                status?: string;
+                                at?: string;
+                                by?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe, o riderId no es un motorizado activo de la tienda */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INVALID_TRANSITION: El pedido ya está entregado o cancelado (details.status) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description RIDER_REQUIRED: Al pasar a assigned con askRider hay que decir quién lo lleva */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_api_v2_delivery_orders_deliveryOrderId_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pedido */
+                deliveryOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "version": 3,
+                 *       "note": "El cliente no contesta"
+                 *     } */
+                "application/json": {
+                    version?: number;
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            platform?: string;
+                            code?: string;
+                            externalId?: string;
+                            customer?: {
+                                name?: string;
+                                phone?: string;
+                            };
+                            address?: string;
+                            paymentNote?: string;
+                            note?: string;
+                            status?: string;
+                            riderId?: string;
+                            riderName?: string;
+                            total?: number;
+                            receivedAt?: string;
+                            finishedAt?: string;
+                            waitMinutes?: number;
+                            light?: string | null;
+                            orderId?: string | null;
+                            version?: number;
+                            lines?: {
+                                lineNo?: number;
+                                productId?: string | null;
+                                plu?: number;
+                                name?: string;
+                                quantity?: number;
+                                unitPrice?: number;
+                                amount?: number;
+                                note?: string | null;
+                            }[];
+                            events?: {
+                                status?: string;
+                                at?: string;
+                                by?: string;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Cancelar pide autorización de encargado (sistema.autorizar) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INVALID_TRANSITION: Ya está entregado o cancelado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     store_POST_invoices_invoiceId_credit: {
         parameters: {
             query?: never;
@@ -13612,6 +14650,170 @@ export interface operations {
                 };
             };
             /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_api_v2_config_sistema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            name?: string;
+                            subtitle?: string;
+                            loginGroup?: string;
+                            logo?: string;
+                            noImage?: string | null;
+                            palette?: {
+                                hex?: string;
+                                name?: string;
+                                default?: boolean;
+                            }[];
+                            colors?: {
+                                secondary?: string;
+                                err?: string;
+                            };
+                            version?: number;
+                            updatedAt?: string;
+                            updatedBy?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    store_PUT_api_v2_config_sistema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "name": "Cañas y Tapas",
+                 *       "subtitle": "Plataforma Japp",
+                 *       "loginGroup": "Grupo Cañas y Tapas",
+                 *       "logo": "data:image/png;base64,iVBORw0KGgo…",
+                 *       "noImage": null,
+                 *       "palette": [
+                 *         {
+                 *           "hex": "#15616D",
+                 *           "name": "Verde",
+                 *           "default": true
+                 *         },
+                 *         {
+                 *           "hex": "#7A3E6A",
+                 *           "name": "Morado",
+                 *           "default": false
+                 *         }
+                 *       ],
+                 *       "colors": {
+                 *         "secondary": "#B88A4C",
+                 *         "err": "#B3261E"
+                 *       },
+                 *       "version": 4
+                 *     } */
+                "application/json": {
+                    name?: string;
+                    subtitle?: string;
+                    loginGroup?: string;
+                    logo?: string;
+                    noImage?: string | null;
+                    palette?: {
+                        hex?: string;
+                        name?: string;
+                        default?: boolean;
+                    }[];
+                    colors?: {
+                        secondary?: string;
+                        err?: string;
+                    };
+                    version?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            name?: string;
+                            subtitle?: string;
+                            loginGroup?: string;
+                            logo?: string;
+                            noImage?: string | null;
+                            palette?: {
+                                hex?: string;
+                                name?: string;
+                                default?: boolean;
+                            }[];
+                            colors?: {
+                                secondary?: string;
+                                err?: string;
+                            };
+                            version?: number;
+                            updatedAt?: string;
+                            updatedBy?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VERSION_CONFLICT: Otro equipo lo cambió antes: details.current trae lo guardado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description TOO_LARGE: Un logo de más de 190 000 caracteres (el TPV ya los reduce a 256 px) */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Nombre vacío, ningún color válido en la paleta, más de 12 colores, un color que no es #RRGGBB o más de un «Por defecto» */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -20,6 +20,7 @@ export const SETTINGS_MODULES = [
   "devapi",
   "devsync",
   "devtests",
+  "pedidos", // 0025 · Ajustes › Pedidos (delivery)
 ] as const;
 
 /** Teclas por módulo tal como aparecen en Ajustes › Perfiles (= PM_TREE del prototipo). */
@@ -40,7 +41,7 @@ export const PERMISSION_TREE = {
     "transaccion",
   ],
   cobro: ["cobrar", "descuentos", "clientes", "reabrir"],
-  funciones: ["facturas", "abonar", "informes", "kpi", "caja", "abrirCajon", "periodo"],
+  funciones: ["facturas", "abonar", "informes", "kpi", "caja", "abrirCajon", "periodo", "pedidos"], // pedidos = tablero de delivery (0025)
   ajustes: ["acceso", ...SETTINGS_MODULES],
   sistema: ["autorizar"],
 } as const;
