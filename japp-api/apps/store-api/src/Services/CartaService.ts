@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database, Tx } from "@japp/db";
-import { assertRecordVersion, describeDiff, fail, isOotProduct } from "@japp/domain";
+import { assertRecordVersion, describeDiff, fail, findTableOverlap, isOotProduct } from "@japp/domain";
 import { CLOCK, DATABASE, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { AuthorizationService } from "./AuthorizationService.js";
@@ -246,6 +246,35 @@ export class CartaService {
         }
         seen.add(t.id);
       });
+      // 28/10: ninguna mesa puede quedar encima de otra. Se miran las mesas que cambian de sitio o de tamaño contra todas
+      // las demás del área (dos mesas antiguas ya solapadas no bloquean guardar otra cosa)
+      const rect = (x: (typeof tables)[number]) => {
+        const t = b.tables.find((y) => y.id === x.id);
+        return {
+          id: x.id,
+          number: x.number,
+          x: Number(t ? t.x : (x.posX ?? 0)),
+          y: Number(t ? t.y : (x.posY ?? 0)),
+          // sin tamaño, el mínimo (10)
+          width: Number((t?.width ?? x.width) || 10),
+          height: Number((t?.height ?? x.height) || 10),
+          changed:
+            !!t &&
+            (Number(x.posX) !== t.x ||
+              Number(x.posY) !== t.y ||
+              (t.width != null && t.width !== x.width) ||
+              (t.height != null && t.height !== x.height)),
+        };
+      };
+      const all = tables.map(rect);
+      for (const m of all.filter((x) => x.changed)) {
+        for (const o of all.filter((x) => x.id !== m.id)) {
+          const hit = findTableOverlap([m, o]);
+          if (hit) {
+            fail("TABLE_OVERLAP", `La mesa ${hit.a} queda encima de la mesa ${hit.b}`, hit);
+          }
+        }
+      }
       const drawingsBefore = await this.carta.drawings(tx, se.storeId, areaId);
       const moved: string[] = [];
       for (const t of b.tables) {

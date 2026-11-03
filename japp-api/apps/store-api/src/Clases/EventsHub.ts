@@ -1,10 +1,16 @@
 /**
  * Tiempo real (GET /api/v2/ws): los equipos abiertos de una tienda reciben avisos para repintarse sin preguntar.
  * Solo avisa (qué cambió y su versión); el dato se vuelve a pedir por REST. Un proceso por tienda: basta la memoria.
- * Eventos: order.updated, table.updated, config.changed, print.failed, session.replaced.
+ * Eventos: order.updated, table.updated, config.changed, print.failed, session.replaced, delivery.changed.
  */
 export interface HubEvent {
-  event: "order.updated" | "table.updated" | "config.changed" | "print.failed" | "session.replaced";
+  event:
+    | "order.updated"
+    | "table.updated"
+    | "config.changed"
+    | "print.failed"
+    | "session.replaced"
+    | "delivery.changed";
   [k: string]: unknown;
 }
 

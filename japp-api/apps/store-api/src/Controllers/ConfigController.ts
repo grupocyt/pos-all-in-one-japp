@@ -1,11 +1,40 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
-import { CurrentSession, type Session } from "../Helpers/AuthGuard.js";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Req,
+  Res,
+} from "@nestjs/common";
+import { CurrentSession, Public, type Session } from "../Helpers/AuthGuard.js";
 import { ConfigService } from "../Services/ConfigService.js";
+import { BrandingService } from "../Services/BrandingService.js";
 
 /** Ajustes por API: paquete de configuración, CRUD de cada módulo (nada se borra: se desactiva) e historial. */
 @Controller("config")
 export class ConfigController {
-  constructor(@Inject(ConfigService) private readonly cfg: ConfigService) {}
+  constructor(
+    @Inject(ConfigService) private readonly cfg: ConfigService,
+    @Inject(BrandingService) private readonly branding: BrandingService,
+  ) {}
+
+  /** Ajustes › Administración › Sistema: sin sesión (la pantalla de acceso enseña el nombre, el logo y la paleta). */
+  @Public()
+  @Get("sistema")
+  sistema() {
+    return this.branding.get();
+  }
+
+  @Put("sistema")
+  saveSistema(@CurrentSession() se: Session, @Body() body: unknown) {
+    return this.branding.put(se, body);
+  }
 
   /** Paquete para pintar el TPV y la PDA. ETag = versión de configuración; If-None-Match igual → 304 sin cuerpo. */
   @Get()

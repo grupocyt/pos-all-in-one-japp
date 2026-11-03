@@ -176,6 +176,14 @@ SELECT p.id, v.code, p.store_id FROM (VALUES
   ('sistema.autorizar', 'ADMIN_LOCAL'),
   ('sistema.autorizar', 'CAPITAN')
 ) AS v(code, profile) JOIN user_profile p ON p.code = v.profile JOIN permission x ON x.code = v.code;
+-- 1.2.267: los permisos de las migraciones posteriores (0025 delivery) que el DELETE de arriba quitaría en una tienda nueva:
+-- Ajustes › Pedidos a quien tiene Restaurante y el tablero de pedidos a todos los perfiles (igual que la migración 0025)
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT profile_id, 'ajustes.pedidos', store_id FROM profile_permission WHERE permission_code = 'ajustes.restaurante'
+ON CONFLICT DO NOTHING;
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT id, 'funciones.pedidos', store_id FROM user_profile
+ON CONFLICT DO NOTHING;
 
 -- Impresoras y canales: BARRA pasa a llamarse BEBIDA y se crea COMIDA (impresora LINEA)
 UPDATE printer SET connection='tcp://10.221.17.35';

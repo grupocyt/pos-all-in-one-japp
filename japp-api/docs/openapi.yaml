@@ -1072,8 +1072,9 @@ paths:
       summary: Paquete de configuración
       description: 'Todo lo que el equipo necesita para trabajar sin más llamadas: restaurante, empresa, facturación, parámetros,
         áreas con sus mesas, carta (categorías, productos con canales y preguntas, preguntas con respuestas), impuestos, formas
-        de pago, descuentos, motivos, canales, impresoras y estaciones. Solo lo activo. Cabecera ETag = versión de configuración;
-        con If-None-Match igual responde 304 sin cuerpo.
+        de pago, descuentos, motivos, canales, impresoras y estaciones, system (= GET /config/sistema) y delivery {settings
+        (Ajustes › Pedidos), riders (motorizados activos)}. Solo lo activo. Cabecera ETag = versión de configuración; con
+        If-None-Match igual responde 304 sin cuerpo.
 
 
         Lo llama: TPV, PDA
@@ -1650,7 +1651,7 @@ paths:
         Lo llama: TPV
 
 
-        Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, Pendiente de programar (TPV 1.2.264)): active sí/no Delivery
+        Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, programado en la API 1.2.267): active sí/no Delivery
         en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; integration · provider
         · platforms[] Recibir de las plataformas, integrador y plataformas {id, name, active}; autoAccept · askRider · sound
         sí/no Aceptar solos · pedir motorizado al asignar · aviso sonoro; prepMinutes · amberMinutes · redMinutes 1–240 Preparación
@@ -1658,7 +1659,7 @@ paths:
         autoAceptar, pedirMoto, sonido, prep, ambar, rojo.
 
 
-        Módulo motorizados (Motorizados, tabla delivery_rider, Pendiente de programar (TPV 1.2.264)): name texto ≤ 40 Obligatorio;
+        Módulo motorizados (Motorizados, tabla delivery_rider, programado en la API 1.2.267): name texto ≤ 40 Obligatorio;
         sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); phone texto ≤ 20; sortOrder entero Orden
         en la lista. En el TPV: st.cfg.pedidos.motorizados[{nombre, tel, activo}] → un registro por motorizado; quitar = deactivate.'
       operationId: store_GET_config_module
@@ -1799,8 +1800,8 @@ paths:
         Tablas: config_change_log, product_incident, sync_outbox
 
 
-        Cambio TPV 1.2.260 · 1.2.233 (pendiente de programar): usuarios: no puede haber dos personas con el mismo nombre aunque
-        cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios:
+        Cambio TPV 1.2.260 · 1.2.233 (hecho en la API 1.2.267): usuarios: no puede haber dos personas con el mismo nombre
+        aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios:
         el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo
         registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).'
       operationId: store_POST_config_module
@@ -2082,7 +2083,7 @@ paths:
         Tablas: config_change_log, product_incident, sync_outbox
 
 
-        Cambio TPV 1.2.260 (pendiente de programar): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE)
+        Cambio TPV 1.2.260 (hecho en la API 1.2.267): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE)
         y bloqueo 0 o ≥ 10 s.'
       operationId: store_PATCH_config_module_id
       security:
@@ -3024,10 +3025,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: period_summary, sales_target, week_note
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)'
+        Tablas: period_summary, sales_target, week_note'
       operationId: store_GET_api_v2_reports_week
       security:
       - session: []
@@ -3073,14 +3071,18 @@ paths:
                             open:
                               type: boolean
                             real:
-                              type: object
+                              type:
+                              - object
+                              - 'null'
                               properties:
                                 sales:
                                   type: number
                                 tickets:
                                   type: integer
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                             prevWeek:
                               type: object
                               properties:
@@ -3091,7 +3093,9 @@ paths:
                                 tickets:
                                   type: integer
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                             lastYear:
                               type: object
                               properties:
@@ -3102,7 +3106,9 @@ paths:
                                 tickets:
                                   type: integer
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                             target:
                               type: object
                               properties:
@@ -3111,48 +3117,74 @@ paths:
                                 tickets:
                                   type: integer
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                             vsPrevWeek:
                               type: object
                               properties:
                                 sales:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                                 tickets:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                             vsLastYear:
                               type: object
                               properties:
                                 sales:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                                 tickets:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                             vsTarget:
                               type: object
                               properties:
                                 sales:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                                 tickets:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - 'null'
                             note:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                       totals:
                         type: object
                         properties:
                           real:
-                            type: object
+                            type:
+                            - object
+                            - 'null'
                             properties:
                               sales:
                                 type: number
                               tickets:
                                 type: integer
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                           prevWeek:
                             type: object
                             properties:
@@ -3161,7 +3193,9 @@ paths:
                               tickets:
                                 type: integer
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                           lastYear:
                             type: object
                             properties:
@@ -3170,7 +3204,9 @@ paths:
                               tickets:
                                 type: integer
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                           target:
                             type: object
                             properties:
@@ -3179,34 +3215,54 @@ paths:
                               tickets:
                                 type: integer
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                           vsPrevWeek:
                             type: object
                             properties:
                               sales:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                               tickets:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                           vsLastYear:
                             type: object
                             properties:
                               sales:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                               tickets:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                           vsTarget:
                             type: object
                             properties:
                               sales:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                               tickets:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - 'null'
                       notes:
                         type: array
                         items:
@@ -3219,7 +3275,9 @@ paths:
                             version:
                               type: integer
                             updatedBy:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                             updatedAt:
                               type: string
                       products:
@@ -3230,11 +3288,13 @@ paths:
                             rank:
                               type: integer
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - 'null'
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             amount:
                               type: number
                             mixPct:
@@ -3400,10 +3460,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: week_note
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)'
+        Tablas: week_note'
       operationId: store_PUT_api_v2_reports_week_notes_date
       security:
       - session: []
@@ -3418,6 +3475,10 @@ paths:
                   type: string
                 version:
                   type: integer
+                authorization:
+                  type:
+                  - string
+                  - 'null'
             example:
               note: Lluvia toda la tarde
               version: 1
@@ -3438,13 +3499,19 @@ paths:
                       date:
                         type: string
                       note:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       version:
                         type: integer
                       updatedBy:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       updatedAt:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
               example:
                 title: Observación de un día
                 type: success
@@ -9170,7 +9237,7 @@ paths:
         Tablas: order_line, order_event
 
 
-        Cambio TPV 1.2.259 (pendiente de programar): La precuenta se imprime cada vez que se pide, aunque no haya cambios,
+        Cambio TPV 1.2.259 (hecho en la API 1.2.267): La precuenta se imprime cada vez que se pide, aunque no haya cambios,
         tras eliminar o tras separar.'
       operationId: store_POST_orders_orderId_accounts_accountId_prebill
       security:
@@ -9630,7 +9697,7 @@ paths:
         Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event
 
 
-        Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar
+        Cambio TPV 1.2.261 (hecho en la API 1.2.267): No se cobra una cuenta con un menú con pases por elegir o sin marchar
         → 409 COURSE_PENDING.'
       operationId: store_POST_orders_orderId_accounts_accountId_payments
       security:
@@ -15291,8 +15358,9 @@ paths:
         Tablas: dining_table, area_drawing, config_change_log
 
 
-        Cambio TPV 1.2.261 (pendiente de programar): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos
-        (x, y, ancho, alto en % del plano) se solapan → 422 TABLE_OVERLAP con details {a, b} (números de mesa).'
+        Cambio TPV 1.2.261 (hecho en la API 1.2.267): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos
+        (x, y, ancho y alto, en las mismas unidades del plano; sin tamaño cuenta 10) se solapan; se miran las mesas que se
+        mueven contra las demás del área → 422 TABLE_OVERLAP con details {a, b} (números de mesa).'
       operationId: store_PUT_config_areas_areaId_layout
       security:
       - session: []
@@ -15746,7 +15814,7 @@ paths:
         Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox
 
 
-        Cambio TPV 1.2.259 (pendiente de programar): La cuenta que se queda sin productos porque se eliminó todo desaparece
+        Cambio TPV 1.2.259 (hecho en la API 1.2.267): La cuenta que se queda sin productos porque se eliminó todo desaparece
         al guardar; una mesa nueva sin nada se cierra al guardar.'
       operationId: store_POST_orders_orderId_save
       security:
@@ -16508,7 +16576,7 @@ paths:
         sync_outbox
 
 
-        Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar
+        Cambio TPV 1.2.261 (hecho en la API 1.2.267): No se cobra una cuenta con un menú con pases por elegir o sin marchar
         → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.'
       operationId: store_POST_orders_orderId_accounts_accountId_checkout
       security:
@@ -16742,7 +16810,7 @@ paths:
         Tablas: customer_ref
 
 
-        Cambio TPV 1.2.260 (pendiente de programar): q busca también por correo (además de NIF y nombre). Los datos del cliente
+        Cambio TPV 1.2.260 (hecho en la API 1.2.267): q busca también por correo (además de NIF y nombre). Los datos del cliente
         escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email
         (0026).'
       operationId: store_GET_customers
@@ -16866,10 +16934,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: delivery_order, delivery_settings
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)'
+        Tablas: delivery_order, delivery_settings'
       operationId: store_GET_api_v2_delivery_orders
       security:
       - session: []
@@ -16899,26 +16964,40 @@ paths:
                             code:
                               type: string
                             externalId:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                             customer:
                               type: object
                               properties:
                                 name:
                                   type: string
                                 phone:
-                                  type: string
+                                  type:
+                                  - string
+                                  - 'null'
                             address:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                             paymentNote:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                             note:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                             status:
                               type: string
                             riderId:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                             riderName:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                             total:
                               type: number
                             receivedAt:
@@ -16930,7 +17009,9 @@ paths:
                             waitMinutes:
                               type: integer
                             light:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
                             orderId:
                               type:
                               - string
@@ -17085,7 +17166,8 @@ paths:
         Avisa por WebSocket delivery.changed y, con sound, el TPV suena.
 
 
-        Con externalId repetido no se duplica: 200 con el pedido que ya había.
+        Con externalId repetido (misma plataforma) no se duplica: 200 con el pedido que ya había. El integrador manda Authorization:
+        Bearer <STORE_KEY>; desde el TPV, la sesión.
 
 
         Permiso: funciones.pedidos
@@ -17095,9 +17177,6 @@ paths:
 
 
         Tablas: delivery_order, delivery_order_line, delivery_order_event
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)
 
 
         WebSocket: delivery.changed'
@@ -17117,33 +17196,49 @@ paths:
                 code:
                   type: string
                 externalId:
-                  type: string
+                  type:
+                  - string
+                  - 'null'
                 customer:
                   type: object
                   properties:
                     name:
                       type: string
                     phone:
-                      type: string
+                      type:
+                      - string
+                      - 'null'
                 address:
-                  type: string
+                  type:
+                  - string
+                  - 'null'
                 paymentNote:
-                  type: string
+                  type:
+                  - string
+                  - 'null'
                 note:
-                  type: string
+                  type:
+                  - string
+                  - 'null'
                 lines:
                   type: array
                   items:
                     type: object
                     properties:
                       plu:
-                        type: integer
+                        type:
+                        - integer
+                        - 'null'
                       name:
                         type: string
                       quantity:
-                        type: integer
+                        type: number
                       unitPrice:
                         type: number
+                      note:
+                        type:
+                        - string
+                        - 'null'
             example:
               platform: glovo
               code: GLV-4821
@@ -17183,26 +17278,40 @@ paths:
                       code:
                         type: string
                       externalId:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       customer:
                         type: object
                         properties:
                           name:
                             type: string
                           phone:
-                            type: string
+                            type:
+                            - string
+                            - 'null'
                       address:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       paymentNote:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       note:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       status:
                         type: string
                       riderId:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       riderName:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       total:
                         type: number
                       receivedAt:
@@ -17214,7 +17323,9 @@ paths:
                       waitMinutes:
                         type: integer
                       light:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       orderId:
                         type:
                         - string
@@ -17233,11 +17344,13 @@ paths:
                               - string
                               - 'null'
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - 'null'
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             unitPrice:
                               type: number
                             amount:
@@ -17256,11 +17369,202 @@ paths:
                             at:
                               type: string
                             by:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
+                            note:
+                              type:
+                              - string
+                              - 'null'
               example:
                 title: Entra un pedido
                 type: success
                 status: 201
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: assigned
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: '2026-11-02T21:58:00.000Z'
+                  finishedAt: null
+                  waitMinutes: 14
+                  light: green
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: '2026-11-02T21:58:00.000Z'
+                    by: Integración
+                  - status: received
+                    at: '2026-11-02T21:59:10.000Z'
+                    by: Barra
+                  - status: to_assign
+                    at: '2026-11-02T22:08:00.000Z'
+                    by: Barra
+                  - status: assigned
+                    at: '2026-11-02T22:11:30.000Z'
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '200':
+          description: 'Ya estaba (mismo externalId): el pedido que había, sin duplicarlo'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type:
+                        - string
+                        - 'null'
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type:
+                            - string
+                            - 'null'
+                      address:
+                        type:
+                        - string
+                        - 'null'
+                      paymentNote:
+                        type:
+                        - string
+                        - 'null'
+                      note:
+                        type:
+                        - string
+                        - 'null'
+                      status:
+                        type: string
+                      riderId:
+                        type:
+                        - string
+                        - 'null'
+                      riderName:
+                        type:
+                        - string
+                        - 'null'
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type:
+                        - string
+                        - 'null'
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type:
+                        - string
+                        - 'null'
+                      orderId:
+                        type:
+                        - string
+                        - 'null'
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - 'null'
+                            plu:
+                              type:
+                              - integer
+                              - 'null'
+                            name:
+                              type: string
+                            quantity:
+                              type: number
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - 'null'
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type:
+                              - string
+                              - 'null'
+                            note:
+                              type:
+                              - string
+                              - 'null'
+              example:
+                title: Entra un pedido
+                type: success
+                status: 200
                 data:
                   id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
                   platform: glovo
@@ -17425,10 +17729,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: delivery_order, delivery_order_line, delivery_order_event
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)'
+        Tablas: delivery_order, delivery_order_line, delivery_order_event'
       operationId: store_GET_api_v2_delivery_orders_deliveryOrderId
       security:
       - session: []
@@ -17453,26 +17754,40 @@ paths:
                       code:
                         type: string
                       externalId:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       customer:
                         type: object
                         properties:
                           name:
                             type: string
                           phone:
-                            type: string
+                            type:
+                            - string
+                            - 'null'
                       address:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       paymentNote:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       note:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       status:
                         type: string
                       riderId:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       riderName:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       total:
                         type: number
                       receivedAt:
@@ -17484,7 +17799,9 @@ paths:
                       waitMinutes:
                         type: integer
                       light:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       orderId:
                         type:
                         - string
@@ -17503,11 +17820,13 @@ paths:
                               - string
                               - 'null'
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - 'null'
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             unitPrice:
                               type: number
                             amount:
@@ -17526,7 +17845,13 @@ paths:
                             at:
                               type: string
                             by:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
+                            note:
+                              type:
+                              - string
+                              - 'null'
               example:
                 title: Ficha de un pedido
                 type: success
@@ -17671,9 +17996,6 @@ paths:
         Tablas: delivery_order, delivery_order_event, delivery_rider
 
 
-        Estado: Pendiente de programar (TPV 1.2.264)
-
-
         WebSocket: delivery.changed'
       operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_advance
       security:
@@ -17688,7 +18010,13 @@ paths:
                 version:
                   type: integer
                 riderId:
-                  type: string
+                  type:
+                  - string
+                  - 'null'
+                riderName:
+                  type:
+                  - string
+                  - 'null'
             example:
               version: 3
               riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
@@ -17713,26 +18041,40 @@ paths:
                       code:
                         type: string
                       externalId:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       customer:
                         type: object
                         properties:
                           name:
                             type: string
                           phone:
-                            type: string
+                            type:
+                            - string
+                            - 'null'
                       address:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       paymentNote:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       note:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       status:
                         type: string
                       riderId:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       riderName:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       total:
                         type: number
                       receivedAt:
@@ -17744,7 +18086,9 @@ paths:
                       waitMinutes:
                         type: integer
                       light:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       orderId:
                         type:
                         - string
@@ -17763,11 +18107,13 @@ paths:
                               - string
                               - 'null'
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - 'null'
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             unitPrice:
                               type: number
                             amount:
@@ -17786,7 +18132,13 @@ paths:
                             at:
                               type: string
                             by:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
+                            note:
+                              type:
+                              - string
+                              - 'null'
               example:
                 title: Siguiente paso
                 type: success
@@ -17957,9 +18309,6 @@ paths:
         Tablas: delivery_order, delivery_order_event
 
 
-        Estado: Pendiente de programar (TPV 1.2.264)
-
-
         WebSocket: delivery.changed'
       operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_cancel
       security:
@@ -17975,6 +18324,10 @@ paths:
                   type: integer
                 note:
                   type: string
+                authorization:
+                  type:
+                  - string
+                  - 'null'
             example:
               version: 3
               note: El cliente no contesta
@@ -17999,32 +18352,48 @@ paths:
                       code:
                         type: string
                       externalId:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       customer:
                         type: object
                         properties:
                           name:
                             type: string
                           phone:
-                            type: string
+                            type:
+                            - string
+                            - 'null'
                       address:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       paymentNote:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       note:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       status:
                         type: string
                       riderId:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       riderName:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       total:
                         type: number
                       receivedAt:
                         type: string
                       finishedAt:
-                        type: string
+                        type:
+                        - string
+                        - 'null'
                       waitMinutes:
                         type: integer
                       light:
@@ -18049,11 +18418,13 @@ paths:
                               - string
                               - 'null'
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - 'null'
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             unitPrice:
                               type: number
                             amount:
@@ -18072,7 +18443,13 @@ paths:
                             at:
                               type: string
                             by:
-                              type: string
+                              type:
+                              - string
+                              - 'null'
+                            note:
+                              type:
+                              - string
+                              - 'null'
               example:
                 title: Cancelar pedido
                 type: success
@@ -23308,10 +23685,7 @@ paths:
         Lo llama: TPV (sin sesión)
 
 
-        Tablas: system_branding
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)'
+        Tablas: system_branding'
       operationId: store_GET_api_v2_config_sistema
       security: []
       responses:
@@ -23414,9 +23788,6 @@ paths:
         Tablas: system_branding, config_change_log
 
 
-        Estado: Pendiente de programar (TPV 1.2.264)
-
-
         WebSocket: config.changed'
       operationId: store_PUT_api_v2_config_sistema
       security:
@@ -23431,11 +23802,17 @@ paths:
                 name:
                   type: string
                 subtitle:
-                  type: string
+                  type:
+                  - string
+                  - 'null'
                 loginGroup:
-                  type: string
+                  type:
+                  - string
+                  - 'null'
                 logo:
-                  type: string
+                  type:
+                  - string
+                  - 'null'
                 noImage:
                   type:
                   - string
@@ -23460,6 +23837,10 @@ paths:
                       type: string
                 version:
                   type: integer
+                authorization:
+                  type:
+                  - string
+                  - 'null'
             example:
               name: Cañas y Tapas
               subtitle: Plataforma Japp

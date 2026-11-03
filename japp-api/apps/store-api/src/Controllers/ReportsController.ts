@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put, Query } from "@nestjs/common";
 import { CurrentSession, type Session } from "../Helpers/AuthGuard.js";
 import { parse } from "../Helpers/ValidationHelper.js";
 import { ClosingIdModel } from "../Models/ReportsModels.js";
@@ -58,6 +58,18 @@ export class ReportsController {
   @Get("reports/weeks")
   async weeks(@CurrentSession() se: Session, @Query("year") year?: string) {
     return this.reports.weeks(se, year);
+  }
+
+  /** Gestiones › Resumen semana: los 7 días de la semana de `date` con semana anterior, año anterior y proyección. */
+  @Get("reports/week")
+  async week(@CurrentSession() se: Session, @Query("date") date?: string) {
+    return this.reports.week(se, date);
+  }
+
+  /** Observación de un día de la hoja (note vacía = borrarla). */
+  @Put("reports/week/notes/:date")
+  async weekNote(@CurrentSession() se: Session, @Param("date") date: string, @Body() body: unknown) {
+    return this.reports.weekNote(se, date, body);
   }
 
   /** Venta en vivo: el pulso que el agente manda al Manager cada minuto. */

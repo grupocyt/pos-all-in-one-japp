@@ -513,10 +513,22 @@ describe("Ajustes · reglas de cada módulo", () => {
         })
       ).error.field,
     ).toBe("pinAttempts");
-    await t.call("PATCH", "/config/parametros/current", {
+    // 28/10: el bloqueo es 0 (nunca) o de 10 a 3600 s
+    const seven = await t.call("PATCH", "/config/parametros/current", {
       token: sis,
       body: { lockSeconds: 7, version: r.body.version },
     });
+    expect([seven.status, seven.error.field]).toEqual([422, "lockSeconds"]);
+    expect(
+      (
+        await t.call("PATCH", "/config/parametros/current", {
+          token: sis,
+          body: { lockSeconds: 0, version: r.body.version },
+        })
+      ).status,
+    ).toBe(200);
+    // vuelve a los 7 s de los datos de arranque (otras pruebas los esperan)
+    await t.sql.query("UPDATE store_parameters SET lock_seconds = 7");
     const rest = (await t.call("GET", "/config/restaurante/current", { token: sis })).body;
     const r2 = await t.call("PATCH", "/config/restaurante/current", {
       token: sis,

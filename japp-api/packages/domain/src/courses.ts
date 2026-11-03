@@ -34,14 +34,23 @@ export const pendingCourses = (acc: Pick<Account, "lines">) =>
   acc.lines.flatMap((l) =>
     (l.courses ?? []).filter((c) => c.state === "pending").map((c) => ({ line: l, course: c })),
   );
+/**
+ * No se cobra ni se factura una cuenta con un menú con pases por elegir (pending) o sin marchar (held)
+ * (decisión del 28/10, TPV 1.2.261) → COURSE_PENDING con las líneas y los pases.
+ */
 export function assertNoPendingCourses(acc: Pick<Account, "lines">) {
   const p = pendingCourses(acc);
-  if (p.length) {
-    fail(
-      "COURSE_PENDING",
-      `Falta elegir ${p.map((x) => `${courseLabel(x.course.course)} de ${x.line.name}`).join(", ")}`,
-      { lines: p.map((x) => ({ lineId: x.line.id, course: x.course.course })) },
-    );
+  const h = acc.lines.flatMap((l) =>
+    (l.courses ?? []).filter((c) => c.state === "held").map((c) => ({ line: l, course: c })),
+  );
+  if (p.length || h.length) {
+    const txt = [
+      ...p.map((x) => `elegir ${courseLabel(x.course.course)} de ${x.line.name}`),
+      ...h.map((x) => `marchar ${courseLabel(x.course.course)} de ${x.line.name}`),
+    ].join(", ");
+    fail("COURSE_PENDING", `Falta ${txt}`, {
+      lines: [...p, ...h].map((x) => ({ lineId: x.line.id, course: x.course.course, state: x.course.state })),
+    });
   }
 }
 

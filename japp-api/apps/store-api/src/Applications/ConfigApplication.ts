@@ -33,6 +33,9 @@ function toDb(kind: string, v: unknown) {
   if (kind === "n") {
     return Number(v).toFixed(2);
   }
+  if (kind === "j") {
+    return JSON.stringify(v);
+  }
   return v;
 }
 
@@ -99,6 +102,13 @@ export class ConfigApplication {
   }
 
   // ───────────────────────── lectura ─────────────────────────
+  /** Ajustes › Pedidos: la fila de la tienda con los valores por defecto si aún no existe (sin fila = por defecto). */
+  async ensureDeliverySettings(storeId: string, q: Q = this.database.db) {
+    await q.execute(
+      sql`INSERT INTO delivery_settings (store_id) VALUES (${storeId}) ON CONFLICT (store_id) DO NOTHING`,
+    );
+  }
+
   /** Un registro con sus relaciones (null si no existe). */
   async findOne(storeId: string, m: ConfigModule, id: string, q: Q = this.database.db): Promise<Row | null> {
     return this.loadOne(q, storeId, m, id, false);
@@ -339,6 +349,19 @@ export class ConfigApplication {
   }
 
   // ───────────────────────── consultas de las reglas (prepare) ─────────────────────────
+  /** Nombres de personas (todas) o motorizados (activos) de la tienda, para no repetirlos. */
+  async namesOf(
+    tx: Tx,
+    storeId: string,
+    m: "usuarios" | "motorizados",
+  ): Promise<{ id: string; name: string }[]> {
+    const q =
+      m === "usuarios"
+        ? sql`SELECT id::text, name FROM app_user WHERE store_id = ${storeId}`
+        : sql`SELECT id::text, name FROM delivery_rider WHERE store_id = ${storeId} AND active`;
+    return (await this.rows(tx, q)) as { id: string; name: string }[];
+  }
+
   /** Usuarios activos de la tienda con su PIN cifrado (para no repetir PIN). */
   async activeUserPins(tx: Tx, storeId: string): Promise<{ id: string; pinHash: string }[]> {
     const rows = await this.rows(

@@ -33,6 +33,11 @@ import { PrintersController } from "./Controllers/PrintersController.js";
 import { TransactionsController } from "./Controllers/TransactionsController.js";
 import { TransactionsService } from "./Services/TransactionsService.js";
 import { ConfigService } from "./Services/ConfigService.js";
+import { BrandingService } from "./Services/BrandingService.js";
+import { DeliveryService } from "./Services/DeliveryService.js";
+import { DeliveryApplication } from "./Applications/DeliveryApplication.js";
+import { DeliveryController } from "./Controllers/DeliveryController.js";
+import { BrandingApplication } from "./Applications/BrandingApplication.js";
 import { EscPosNetPrinter, LogPrinter, type PrinterPort } from "./Clases/Printers.js";
 import type { Config } from "./Properties/AppSettings.js";
 import { registerWeb } from "./Helpers/WebHost.js";
@@ -129,6 +134,7 @@ class AppModule {
         OrderIncidentsController,
         ServiceSlaController,
         OrdersBatchController,
+        DeliveryController,
       ],
       providers: [
         { provide: CONFIG, useValue: d.config },
@@ -151,6 +157,10 @@ class AppModule {
         PrintersService,
         ClosingsService,
         ConfigService,
+        BrandingService,
+        BrandingApplication,
+        DeliveryService,
+        DeliveryApplication,
         TransactionsService,
         SessionsService,
         SystemService,

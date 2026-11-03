@@ -2,22 +2,46 @@
 
 ```
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0026, consultas de control · 76 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 97 endpoints (+9 nuevos en el contrato, sin programar) · 255 pruebas de dominio + 264 de integración
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 106 endpoints, todos programados · 312 pruebas de dominio + 332 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.265 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.267 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`.
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.267).
+
+## 1.2.267 (03/11/2026): la API ya tiene todo lo que usa el TPV
+
+Lo que estaba «diseñado, sin programar» ya está programado y probado (el «Siguiente encargo» de `japp-api/CLAUDE.md`, puntos 1–4):
+
+- **Sistema** (`GET /config/sistema` sin sesión y `PUT /config/sistema`): nombre, textos del acceso, logos y colores. El TPV lo guarda en el servidor y la pantalla de clave lo lee antes de entrar.
+- **Resumen semana** (`GET /reports/week`, `PUT /reports/week/notes/{date}`): la cuenta va en el dominio (`weekSummary`) y al cerrar el periodo se guarda lo vendido por producto (productos más vendidos y % de mezcla).
+- **Delivery**: Ajustes › Pedidos y Motorizados (`/config/pedidos/current`, `/config/motorizados`) y el tablero (`/delivery/orders`: lista, ficha, alta del integrador con la clave de la tienda, siguiente paso y cancelar con clave de encargado). El TPV ya no usa los pedidos de ejemplo cuando hay servidor.
+- **Reglas del 28/10 en el servidor**: nombre de persona sin repetir, bloqueo 0 o 10–3600 s, ninguna mesa encima de otra (`TABLE_OVERLAP`), no se cobra un menú con pases por elegir o sin marchar, la cuenta vaciada desaparece al guardar y los clientes se buscan también por correo.
+- **PDA**: la comanda abierta se repinta sola cuando la mesa queda retenida tras un corte (salen al momento «Reintentar envío» y «Quedarme con lo del servidor»). Probado en tamaño de móvil junto con el cobro parcial.
+- **Tienda nueva**: `04_datos_tienda_inicial.sql` ya da el tablero de pedidos a todos los perfiles (antes una base nueva lo dejaba sin permiso).
+
+**Actualizar la tienda JC01 a la 1.2.267:** ahora cambian la API y el TPV, así que se actualiza todo junto: guarda los `.env`, descomprime encima, doble clic en **`actualizar-base.bat`** (copia de seguridad + migraciones 0023–0026; no borra nada), `docker compose up --build -d` y Ctrl+F5 en cada TPV y PDA (abajo debe poner 1.2.267). El integrador de delivery manda los pedidos a `POST /api/v2/delivery/orders` con `Authorization: Bearer <STORE_KEY>`.
+
+## TPV 1.2.266 (03/11/2026): arreglos de las pruebas en JC01
+
+Dos fallos que dejaban mesas sin poder cobrarse en la 1.2.203 (pruebas del 03/11, mesas 4, 5, 8 y 9):
+
+- **Mesa «Pendiente de revisar» sin salida:** tras un corte con el servidor, si lo pendiente era de la mesa (comensales, cuentas, notas o pases) y no de una línea, no salían «Reintentar envío» ni «Quedarme con lo del servidor». Arreglado en la **1.2.266**: salen debajo de la cuenta y en el aviso al cobrar o pedir la precuenta.
+- **Cuenta con un cobro parcial que no se podía terminar** con varias cuentas en la mesa («Separar y cobrar» salía vacío). Arreglado desde la **1.2.259**: la cuenta sale con «Faltan …» y «Cobrar …».
+
+Probado contra la API y PostgreSQL de este zip (tienda JC01): corte simulado, reintento, cobro parcial y cobro de lo que falta.
+
+**Actualizar la tienda JC01:** como la API no cambia, basta con copiar la carpeta `japp-tpv` encima de la del servidor (con Docker, después `docker compose up --build -d`, porque la imagen lleva el TPV dentro) y pulsar **Actualizar** (Ctrl+F5) en cada equipo; abajo debe poner 1.2.266. Opcional: doble clic en **`actualizar-base.bat`** para tener las tablas nuevas (0023–0026): hace una copia en `backups\`, aplica solo las migraciones que falten y no borra ningún dato (`reiniciar-base.bat`, en cambio, borra todo). Las mesas que ya estaban retenidas enseñan ahora los dos botones: «Reintentar envío» y listo.
 
 ## TPV 1.2.265 (02/11/2026): qué cambia respecto a la 1.2.203
 
-- `japp-tpv/` trae el TPV **1.2.265**: la 1.2.264 recuperada del artefacto «TPV Japp» más la documentación de Administración al día. Los cambios están en `CAMBIOS-v204-v264.md`.
+- `japp-tpv/` trae el TPV **1.2.266** (la 1.2.264 recuperada del artefacto «TPV Japp», la documentación de Administración al día y los arreglos del 03/11). Los cambios están en `CAMBIOS-v204-v264.md`.
 - **La base ya está lista:** `japp-db` trae las migraciones **0023–0026** (Sistema, Resumen semana, Delivery y reglas del 28/10) con sus pruebas (76 en verde). `npm run db:init` las aplica sin borrar nada.
 - **El contrato ya está listo:** `japp-api/docs/openapi.yaml` y `docs/api-japp.html` (sección «4 · Nuevo en el TPV 1.2.264») traen los 9 endpoints nuevos, los módulos `pedidos` y `motorizados` y las reglas nuevas. Lo mismo en el TPV, en Administración › API backend (29 «nuevos» y 28 que «cambian») y Base de datos (72 tablas).
-- **Falta programarlo en la API:** está en `japp-api/CLAUDE.md` › «Siguiente encargo». Hasta entonces, Sistema, Delivery y Resumen semana solo guardan en el equipo. No subas esta versión a producción sin ellos.
+- **Programado en la 1.2.267** (ver arriba). Antes, Sistema, Delivery y Resumen semana solo guardaban en el equipo.
 - **Probar sin base de datos:** abre `http://localhost:8080/?mock`, o el `index.html` suelto añadiendo `?mock`. Entra como CAJA1, no llama a la API y guarda en el navegador. Abre el periodo con 1012 y entra con 0186. Se quita con «Salir» en el chip de abajo o con `?mock=0`. Sin `?mock` no hace nada.
 
 ## Opción A · Docker (lo más rápido)
@@ -68,7 +92,7 @@ La 1.2.203 trae **la migración 0022**: de qué mesa viene una cuenta o un produ
 2. Haz copia de tu `.env` de `japp-api` y de `japp-db`. Descomprime el zip encima de la carpeta anterior (el zip no trae `.env`).
 3. En `japp-db`: `npm install` (lo necesita `db:init`). En `japp-api`: `npm install` y después `npm run db:init` (aplica las migraciones pendientes: la 0022 y, si faltan, la 0014 a la 0021; no borra nada). Con Docker: `docker compose up --build -d`.
 4. Para que la factura, la precuenta y la comanda salgan por papel, en el `.env` de `japp-api` pon `PRINTER_MODE=escpos`.
-5. Arranca la API (`npm start`) y en el TPV pulsa **Actualizar** (o Ctrl+F5): abajo debe poner **1.2.265**.
+5. Arranca la API (`npm start`) y en el TPV pulsa **Actualizar** (o Ctrl+F5): abajo debe poner **1.2.266**.
 6. Para que lleguen los datos al Manager, arranca también el agente (`npm start -w sync-agent` en otra ventana, o en Docker `--profile sync`).
 
 ## Git: un solo repositorio en la carpeta principal

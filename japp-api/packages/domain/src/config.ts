@@ -1,4 +1,5 @@
 import { fail } from "./errors.js";
+import { checkDeliverySettings } from "./delivery.js";
 
 /**
  * Ajustes: módulos que se pueden consultar y cambiar desde el TPV (y por API), su permiso y las reglas de cada registro.
@@ -24,6 +25,8 @@ export const CONFIG_MODULES = [
   "descuentos",
   "motivos",
   "objetivos",
+  "pedidos",
+  "motorizados",
 ] as const;
 export type ConfigModule = (typeof CONFIG_MODULES)[number];
 
@@ -33,6 +36,7 @@ export const SINGLETON_MODULES: readonly ConfigModule[] = [
   "empresa",
   "facturacion",
   "parametros",
+  "pedidos",
 ];
 
 /** Permiso de cada módulo (= los que pinta Ajustes › Perfiles). */
@@ -56,10 +60,24 @@ export const CONFIG_PERMISSION: Record<ConfigModule, string> = {
   estaciones: "ajustes.estaciones",
   motivos: "ajustes.motivos",
   objetivos: "ajustes.cierres",
+  pedidos: "ajustes.pedidos",
+  motorizados: "ajustes.pedidos",
 };
 
 export const isConfigModule = (m: string): m is ConfigModule =>
   (CONFIG_MODULES as readonly string[]).includes(m);
+
+/** Bloqueo por inactividad (decisión del 28/10): 0 = nunca, o de 10 a 3600 segundos. */
+export const isLockSeconds = (v: number) => Number.isInteger(v) && (v === 0 || (v >= 10 && v <= 3600));
+
+/** Nombre de persona o motorizado para no repetirlo: sin contar mayúsculas, tildes ni espacios de más. */
+export const sameNameKey = (s: string) =>
+  String(s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 
 const bad = (field: string, message: string, details: Record<string, unknown> = {}): never =>
   fail("VALIDATION", message, { field, ...details });
@@ -78,8 +96,8 @@ export function checkConfigRecord(
       if (r.pin != null && !/^\d{4}$/.test(String(r.pin))) {
         bad("pin", "El PIN son 4 números");
       }
-      if (r.lockSeconds != null && (r.lockSeconds < 0 || r.lockSeconds > 3600)) {
-        bad("lockSeconds", "El bloqueo va de 0 (nunca) a 3600 segundos");
+      if (r.lockSeconds != null && !isLockSeconds(r.lockSeconds)) {
+        bad("lockSeconds", "El bloqueo es 0 (nunca) o de 10 a 3600 segundos");
       }
       break;
     case "perfiles":
@@ -141,9 +159,12 @@ export function checkConfigRecord(
       }
       break;
     case "parametros":
+      for (const k of ["lockSeconds", "lockSecondsPda"] as const) {
+        if (r[k] != null && !isLockSeconds(r[k])) {
+          bad(k, "El bloqueo es 0 (nunca) o de 10 a 3600 segundos");
+        }
+      }
       for (const [k, min, max] of [
-        ["lockSeconds", 0, 3600],
-        ["lockSecondsPda", 0, 3600],
         ["duplicateMinutes", 0, 120],
         ["pinAttempts", 1, 20],
         ["pinLockSeconds", 0, 3600],
@@ -160,6 +181,20 @@ export function checkConfigRecord(
       }
       if (r.cashDiffThreshold != null && r.cashDiffThreshold < 0) {
         bad("cashDiffThreshold", "El umbral no puede ser negativo");
+      }
+      break;
+    case "pedidos":
+      checkDeliverySettings(r);
+      if (Array.isArray(r.platforms)) {
+        const ids = r.platforms.map((p: { id: string }) => p.id);
+        if (new Set(ids).size !== ids.length) {
+          bad("platforms", "Dos plataformas con el mismo id");
+        }
+      }
+      break;
+    case "motorizados":
+      if (!String(r.name ?? "").trim()) {
+        bad("name", "El nombre es obligatorio");
       }
       break;
     case "objetivos":

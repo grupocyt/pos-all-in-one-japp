@@ -31,6 +31,10 @@ describe("datos de la tienda nueva (04)", () => {
     expect(await has("funciones.periodo", "CAJERO")).toBe(true);
     expect(await has("ajustes.acceso", "ADMIN_LOCAL")).toBe(true);
     expect(await has("ajustes.devdb", "ADMIN_LOCAL")).toBe(false);
+    // 1.2.267: el tablero de pedidos para todos y Ajustes › Pedidos a quien tiene Restaurante (como la migración 0025)
+    expect(await has("funciones.pedidos", "MESERO")).toBe(true);
+    expect(await has("funciones.pedidos", "CAJERO")).toBe(true);
+    expect(await has("ajustes.pedidos", "ADMIN")).toBe(true);
   }));
   it("no se aplica a una base con ventas", () => rollback(c, async () => {
     const st = (await one(c, "SELECT id FROM store")).id;

@@ -9008,8 +9008,8 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
 
-</div></details></section><section class="api" id="sec-264"><header class="ah"><h2>4 · Nuevo en el TPV 1.2.264 · pendiente de programar</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Lo que el TPV 1.2.204–1.2.264 ya usa y la API todavía no tiene: 9 endpoints nuevos, 2 módulos de Ajustes y reglas nuevas en 8 endpoints. Tablas en las migraciones 0023–0026 de japp-db.</p></header><section class="grp"><h3>Sistema (Administración › Sistema)</h3><p class="gd">Nombre, logos y colores del sistema que ven todos los equipos.</p><details class="ep" id="store_get_config_sistema">
-<summary><span class="m get">GET</span><code class="p">/config/sistema</code><span class="s">Sistema: nombre, logos y colores</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+</div></details></section><section class="api" id="sec-264"><header class="ah"><h2>4 · Nuevo en el TPV 1.2.264 · programado en la API 1.2.267</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Lo que el TPV 1.2.204–1.2.264 usa y la API tiene desde la 1.2.267: 9 endpoints nuevos, 2 módulos de Ajustes y reglas nuevas en 8 endpoints. Tablas en las migraciones 0023–0026 de japp-db.</p></header><section class="grp"><h3>Sistema (Administración › Sistema)</h3><p class="gd">Nombre, logos y colores del sistema que ven todos los equipos.</p><details class="ep" id="store_get_config_sistema">
+<summary><span class="m get">GET</span><code class="p">/config/sistema</code><span class="s">Sistema: nombre, logos y colores</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
 <p>Ajustes › Administración › Sistema. Lo pide la pantalla de acceso antes de entrar (sin sesión) y cada equipo al arrancar. Sin fila en la base devuelve los originales (Japp, paleta Verde #15616D, version 0).</p>
 <dl class="meta"><dt>Permiso</dt><dd>Ninguno (sin sesión)</dd><dt>En el TPV</dt><dd>Acceso · Ajustes › Administración › Sistema</dd><dt>Tablas</dt><dd><code>system_branding</code></dd></dl>
@@ -9051,7 +9051,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"></ul>
 </div></details><details class="ep" id="store_put_config_sistema">
-<summary><span class="m put">PUT</span><code class="p">/config/sistema</code><span class="s">Guardar Sistema</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<summary><span class="m put">PUT</span><code class="p">/config/sistema</code><span class="s">Guardar Sistema</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
 <p>Guarda el nombre, los textos, los logos (data URL) y los colores. Todo el registro de una vez, con version.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>ajustes.restaurante</code></dd><dt>En el TPV</dt><dd>Ajustes › Administración › Sistema › Guardar</dd><dt>Tablas</dt><dd><code>system_branding</code> <code>config_change_log</code></dd><dt>WebSocket</dt><dd><code>config.changed</code></dd></dl>
@@ -9117,7 +9117,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> Nombre vacío, ningún color válido en la paleta, más de 12 colores, un color que no es #RRGGBB o más de un «Por defecto»</li><li><code>TOO_LARGE</code> <span class="pin">413</span> Un logo de más de 190 000 caracteres (el TPV ya los reduce a 256 px)</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo lo cambió antes: details.current trae lo guardado</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
 </div></details></section><section class="grp"><h3>Resumen semana (Gestiones)</h3><p class="gd">La hoja semanal de los locales y sus observaciones.</p><details class="ep" id="store_get_reports_week">
-<summary><span class="m get">GET</span><code class="p">/reports/week</code><span class="s">Resumen de la semana</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<summary><span class="m get">GET</span><code class="p">/reports/week</code><span class="s">Resumen de la semana</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
 <p>Gestiones › Resumen semana con el formato de la hoja de los locales: cada día de lunes a domingo con semana anterior, venta del año anterior (364 días antes, mismo día de la semana), proyección y cumplimiento (venta real), cada uno con venta, transacciones (T) y ticket medio (TM); el total de la semana; las observaciones y los productos más vendidos con su % de mezcla.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.informes</code></dd><dt>En el TPV</dt><dd>Gestiones › Resumen semana</dd><dt>Tablas</dt><dd><code>period_summary</code> <code>sales_target</code> <code>week_note</code></dd></dl>
@@ -9252,7 +9252,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> date no es una fecha o es de una semana futura</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
 </div></details><details class="ep" id="store_put_reports_week_notes_date">
-<summary><span class="m put">PUT</span><code class="p">/reports/week/notes/{date}</code><span class="s">Observación de un día</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<summary><span class="m put">PUT</span><code class="p">/reports/week/notes/{date}</code><span class="s">Observación de un día</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
 <p>Escribe, cambia o borra (note vacía) la observación de un día de la hoja.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.informes</code></dd><dt>En el TPV</dt><dd>Gestiones › Resumen semana › Observaciones</dd><dt>Tablas</dt><dd><code>week_note</code></dd></dl>
@@ -9280,7 +9280,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>VALIDATION</code> <span class="pin">422</span> date futura o no válida; note de más de 500 caracteres</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo la cambió antes: details.current trae la que hay</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
 </div></details></section><section class="grp"><h3>Pedidos (delivery)</h3><p class="gd">El tablero de pedidos de las plataformas y la web propia.</p><details class="ep" id="store_get_delivery_orders">
-<summary><span class="m get">GET</span><code class="p">/delivery/orders</code><span class="s">Tablero de pedidos</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<summary><span class="m get">GET</span><code class="p">/delivery/orders</code><span class="s">Tablero de pedidos</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
 <p>Los pedidos del tablero: pendientes (sin terminar, del más antiguo al más nuevo) o entregados y cancelados del día.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Pedidos (mesas y fast food)</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_settings</code></dd></dl>
@@ -9338,7 +9338,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>DELIVERY_OFF</code> <span class="pin">409</span> Delivery apagado en este local (Ajustes › Pedidos)</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
 </div></details><details class="ep" id="store_get_delivery_orders_deliveryorderid">
-<summary><span class="m get">GET</span><code class="p">/delivery/orders/{deliveryOrderId}</code><span class="s">Ficha de un pedido</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<summary><span class="m get">GET</span><code class="p">/delivery/orders/{deliveryOrderId}</code><span class="s">Ficha de un pedido</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
 <p>El pedido con sus productos y sus pasos (quién y cuándo).</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Pedidos › ficha</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_order_line</code> <code>delivery_order_event</code></dd></dl>
@@ -9431,7 +9431,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe o no es de esta tienda</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
 </div></details><details class="ep" id="store_post_delivery_orders">
-<summary><span class="m post">POST</span><code class="p">/delivery/orders</code><span class="s">Entra un pedido</span><span class="st no">Pendiente</span><span class="who"><i>Integrador</i><i>TPV</i></span></summary>
+<summary><span class="m post">POST</span><code class="p">/delivery/orders</code><span class="s">Entra un pedido</span><span class="st ok">Hecho</span><span class="who"><i>Integrador</i><i>TPV</i></span></summary>
 <div class="eb">
 <p>Alta de un pedido: lo manda el integrador (Deliverect…) con la clave de la tienda, o un encargado a mano desde el TPV.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Integración · Pedidos › Nuevo</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_order_line</code> <code>delivery_order_event</code></dd><dt>WebSocket</dt><dd><code>delivery.changed</code></dd></dl>
@@ -9550,7 +9550,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>DELIVERY_OFF</code> <span class="pin">409</span> Delivery apagado en este local</li><li><code>VALIDATION</code> <span class="pin">422</span> Falta cliente o productos, cantidad ≤ 0, precio &lt; 0 o plataforma desactivada (field = platform)</li><li><code>TOO_LARGE</code> <span class="pin">413</span> Más de 100 productos</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
 </div></details><details class="ep" id="store_post_delivery_orders_deliveryorderid_advance">
-<summary><span class="m post">POST</span><code class="p">/delivery/orders/{deliveryOrderId}/advance</code><span class="s">Siguiente paso</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<summary><span class="m post">POST</span><code class="p">/delivery/orders/{deliveryOrderId}/advance</code><span class="s">Siguiente paso</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
 <p>Aceptar → Listo → Asignar → Sale → Entregado: pasa el pedido al estado siguiente.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Pedidos › botón de la fila · ficha</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_order_event</code> <code>delivery_rider</code></dd><dt>WebSocket</dt><dd><code>delivery.changed</code></dd></dl>
@@ -9648,7 +9648,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>INVALID_TRANSITION</code> <span class="pin">409</span> El pedido ya está entregado o cancelado (details.status)</li><li><code>RIDER_REQUIRED</code> <span class="pin">422</span> Al pasar a assigned con askRider hay que decir quién lo lleva</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo lo movió antes: details.current trae el pedido</li><li><code>NOT_FOUND</code> <span class="pin">404</span> No existe, o riderId no es un motorizado activo de la tienda</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Falta un permiso. details.permission dice cuál.</li></ul>
 </div></details><details class="ep" id="store_post_delivery_orders_deliveryorderid_cancel">
-<summary><span class="m post">POST</span><code class="p">/delivery/orders/{deliveryOrderId}/cancel</code><span class="s">Cancelar pedido</span><span class="st no">Pendiente</span><span class="who"><i>TPV</i></span></summary>
+<summary><span class="m post">POST</span><code class="p">/delivery/orders/{deliveryOrderId}/cancel</code><span class="s">Cancelar pedido</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
 <div class="eb">
 <p>Cancela un pedido que no está terminado.</p>
 <dl class="meta"><dt>Permiso</dt><dd><code>funciones.pedidos</code></dd><dt>En el TPV</dt><dd>Pedidos › ficha › Cancelar</dd><dt>Tablas</dt><dd><code>delivery_order</code> <code>delivery_order_event</code></dd><dt>WebSocket</dt><dd><code>delivery.changed</code></dd></dl>
@@ -9745,7 +9745,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
   &quot;mode&quot;: &quot;developer&quot;
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>INVALID_TRANSITION</code> <span class="pin">409</span> Ya está entregado o cancelado</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo lo movió antes</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Cancelar pide autorización de encargado (sistema.autorizar)</li></ul>
-</div></details></section><section class="grp"><h3>Módulos nuevos de Ajustes (<code>/config/{módulo}</code>)</h3><p class="gd">Con el mismo patrón que los demás módulos.</p><ul class="pl"><li><code>/config/pedidos</code> (id <code>current</code>) · Pedidos · Delivery · tabla <code>delivery_settings</code> · permiso <code>ajustes.pedidos</code>: <code>active</code> Delivery en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; <code>integration · provider · platforms[]</code> Recibir de las plataformas, integrador y plataformas {id, name, active}; <code>autoAccept · askRider · sound</code> Aceptar solos · pedir motorizado al asignar · aviso sonoro; <code>prepMinutes · amberMinutes · redMinutes</code> Preparación y semáforo; rojo &gt; ámbar (VALIDATION)</li><li><code>/config/motorizados</code> · Motorizados · tabla <code>delivery_rider</code> · permiso <code>ajustes.pedidos</code>: <code>name</code> Obligatorio; sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); <code>phone</code> ; <code>sortOrder</code> Orden en la lista</li></ul></section><section class="grp"><h3>Reglas nuevas en endpoints que ya existen</h3><p class="gd">Pruebas y decisiones del 28/10 (TPV 1.2.259–1.2.261).</p><ul class="pl"><li><b>GET /customers</b> <span class="pin">TPV 1.2.260</span> q busca también por correo (además de NIF y nombre). Los datos del cliente escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email (0026).</li><li><b>POST /config/{module}</b> <span class="pin">TPV 1.2.260 · 1.2.233</span> usuarios: no puede haber dos personas con el mismo nombre aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios: el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).</li><li><b>PATCH /config/{module}/{id}</b> <span class="pin">TPV 1.2.260</span> Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.</li><li><b>PUT /config/areas/{areaId}/layout</b> <span class="pin">TPV 1.2.261</span> Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos (x, y, ancho, alto en % del plano) se solapan → 422 TABLE_OVERLAP con details {a, b} (números de mesa).</li><li><b>POST /orders/{orderId}/accounts/{accountId}/checkout</b> <span class="pin">TPV 1.2.261</span> No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.</li><li><b>POST /orders/{orderId}/accounts/{accountId}/payments</b> <span class="pin">TPV 1.2.261</span> No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING.</li><li><b>POST /orders/{orderId}/accounts/{accountId}/prebill</b> <span class="pin">TPV 1.2.259</span> La precuenta se imprime cada vez que se pide, aunque no haya cambios, tras eliminar o tras separar.</li><li><b>POST /orders/{orderId}/save</b> <span class="pin">TPV 1.2.259</span> La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.</li></ul></section></section>
+</div></details></section><section class="grp"><h3>Módulos nuevos de Ajustes (<code>/config/{módulo}</code>)</h3><p class="gd">Con el mismo patrón que los demás módulos.</p><ul class="pl"><li><code>/config/pedidos</code> (id <code>current</code>) · Pedidos · Delivery · tabla <code>delivery_settings</code> · permiso <code>ajustes.pedidos</code>: <code>active</code> Delivery en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; <code>integration · provider · platforms[]</code> Recibir de las plataformas, integrador y plataformas {id, name, active}; <code>autoAccept · askRider · sound</code> Aceptar solos · pedir motorizado al asignar · aviso sonoro; <code>prepMinutes · amberMinutes · redMinutes</code> Preparación y semáforo; rojo &gt; ámbar (VALIDATION)</li><li><code>/config/motorizados</code> · Motorizados · tabla <code>delivery_rider</code> · permiso <code>ajustes.pedidos</code>: <code>name</code> Obligatorio; sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); <code>phone</code> ; <code>sortOrder</code> Orden en la lista</li></ul></section><section class="grp"><h3>Reglas nuevas en endpoints que ya existen</h3><p class="gd">Pruebas y decisiones del 28/10 (TPV 1.2.259–1.2.261).</p><ul class="pl"><li><b>GET /customers</b> <span class="pin">TPV 1.2.260</span> q busca también por correo (además de NIF y nombre). Los datos del cliente escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email (0026).</li><li><b>POST /config/{module}</b> <span class="pin">TPV 1.2.260 · 1.2.233</span> usuarios: no puede haber dos personas con el mismo nombre aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios: el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).</li><li><b>PATCH /config/{module}/{id}</b> <span class="pin">TPV 1.2.260</span> Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.</li><li><b>PUT /config/areas/{areaId}/layout</b> <span class="pin">TPV 1.2.261</span> Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos (x, y, ancho y alto, en las mismas unidades del plano; sin tamaño cuenta 10) se solapan; se miran las mesas que se mueven contra las demás del área → 422 TABLE_OVERLAP con details {a, b} (números de mesa).</li><li><b>POST /orders/{orderId}/accounts/{accountId}/checkout</b> <span class="pin">TPV 1.2.261</span> No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.</li><li><b>POST /orders/{orderId}/accounts/{accountId}/payments</b> <span class="pin">TPV 1.2.261</span> No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING.</li><li><b>POST /orders/{orderId}/accounts/{accountId}/prebill</b> <span class="pin">TPV 1.2.259</span> La precuenta se imprime cada vez que se pide, aunque no haya cambios, tras eliminar o tras separar.</li><li><b>POST /orders/{orderId}/save</b> <span class="pin">TPV 1.2.259</span> La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.</li></ul></section></section>
 <section class="api sub" id="api-manager"><header class="ah"><h2>Japp Manager · sincronización</h2><code class="base">https://{manager}/api/manager/v1</code><p>En la nube. La llama el agente de cada tienda: latido, cambios de configuración y envío de lo que pasa en la tienda. La conexión siempre sale de la tienda.</p></header><section class="grp"><h3>Sincronización tienda ↔ Manager</h3><p class="gd">El agente de la tienda llama al Manager; el Manager nunca entra en la tienda.</p><details class="ep" id="post-stores-storeid-heartbeat">
 <summary><span class="m post">POST</span><code class="p">/stores/{storeId}/heartbeat</code><span class="s">Latido</span><span class="who"><i>Agente</i></span></summary>
 <div class="eb">
@@ -11550,8 +11550,9 @@ paths:
       summary: Paquete de configuración
       description: &#x27;Todo lo que el equipo necesita para trabajar sin más llamadas: restaurante, empresa, facturación, parámetros,
         áreas con sus mesas, carta (categorías, productos con canales y preguntas, preguntas con respuestas), impuestos, formas
-        de pago, descuentos, motivos, canales, impresoras y estaciones. Solo lo activo. Cabecera ETag = versión de configuración;
-        con If-None-Match igual responde 304 sin cuerpo.
+        de pago, descuentos, motivos, canales, impresoras y estaciones, system (= GET /config/sistema) y delivery {settings
+        (Ajustes › Pedidos), riders (motorizados activos)}. Solo lo activo. Cabecera ETag = versión de configuración; con
+        If-None-Match igual responde 304 sin cuerpo.
 
 
         Lo llama: TPV, PDA
@@ -12128,7 +12129,7 @@ paths:
         Lo llama: TPV
 
 
-        Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, Pendiente de programar (TPV 1.2.264)): active sí/no Delivery
+        Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, programado en la API 1.2.267): active sí/no Delivery
         en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; integration · provider
         · platforms[] Recibir de las plataformas, integrador y plataformas {id, name, active}; autoAccept · askRider · sound
         sí/no Aceptar solos · pedir motorizado al asignar · aviso sonoro; prepMinutes · amberMinutes · redMinutes 1–240 Preparación
@@ -12136,7 +12137,7 @@ paths:
         autoAceptar, pedirMoto, sonido, prep, ambar, rojo.
 
 
-        Módulo motorizados (Motorizados, tabla delivery_rider, Pendiente de programar (TPV 1.2.264)): name texto ≤ 40 Obligatorio;
+        Módulo motorizados (Motorizados, tabla delivery_rider, programado en la API 1.2.267): name texto ≤ 40 Obligatorio;
         sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); phone texto ≤ 20; sortOrder entero Orden
         en la lista. En el TPV: st.cfg.pedidos.motorizados[{nombre, tel, activo}] → un registro por motorizado; quitar = deactivate.&#x27;
       operationId: store_GET_config_module
@@ -12277,8 +12278,8 @@ paths:
         Tablas: config_change_log, product_incident, sync_outbox
 
 
-        Cambio TPV 1.2.260 · 1.2.233 (pendiente de programar): usuarios: no puede haber dos personas con el mismo nombre aunque
-        cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios:
+        Cambio TPV 1.2.260 · 1.2.233 (hecho en la API 1.2.267): usuarios: no puede haber dos personas con el mismo nombre
+        aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios:
         el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo
         registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).&#x27;
       operationId: store_POST_config_module
@@ -12560,7 +12561,7 @@ paths:
         Tablas: config_change_log, product_incident, sync_outbox
 
 
-        Cambio TPV 1.2.260 (pendiente de programar): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE)
+        Cambio TPV 1.2.260 (hecho en la API 1.2.267): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE)
         y bloqueo 0 o ≥ 10 s.&#x27;
       operationId: store_PATCH_config_module_id
       security:
@@ -13502,10 +13503,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: period_summary, sales_target, week_note
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+        Tablas: period_summary, sales_target, week_note&#x27;
       operationId: store_GET_api_v2_reports_week
       security:
       - session: []
@@ -13551,14 +13549,18 @@ paths:
                             open:
                               type: boolean
                             real:
-                              type: object
+                              type:
+                              - object
+                              - &#x27;null&#x27;
                               properties:
                                 sales:
                                   type: number
                                 tickets:
                                   type: integer
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                             prevWeek:
                               type: object
                               properties:
@@ -13569,7 +13571,9 @@ paths:
                                 tickets:
                                   type: integer
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                             lastYear:
                               type: object
                               properties:
@@ -13580,7 +13584,9 @@ paths:
                                 tickets:
                                   type: integer
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                             target:
                               type: object
                               properties:
@@ -13589,48 +13595,74 @@ paths:
                                 tickets:
                                   type: integer
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                             vsPrevWeek:
                               type: object
                               properties:
                                 sales:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                                 tickets:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                             vsLastYear:
                               type: object
                               properties:
                                 sales:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                                 tickets:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                             vsTarget:
                               type: object
                               properties:
                                 sales:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                                 tickets:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                                 avg:
-                                  type: number
+                                  type:
+                                  - number
+                                  - &#x27;null&#x27;
                             note:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                       totals:
                         type: object
                         properties:
                           real:
-                            type: object
+                            type:
+                            - object
+                            - &#x27;null&#x27;
                             properties:
                               sales:
                                 type: number
                               tickets:
                                 type: integer
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                           prevWeek:
                             type: object
                             properties:
@@ -13639,7 +13671,9 @@ paths:
                               tickets:
                                 type: integer
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                           lastYear:
                             type: object
                             properties:
@@ -13648,7 +13682,9 @@ paths:
                               tickets:
                                 type: integer
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                           target:
                             type: object
                             properties:
@@ -13657,34 +13693,54 @@ paths:
                               tickets:
                                 type: integer
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                           vsPrevWeek:
                             type: object
                             properties:
                               sales:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                               tickets:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                           vsLastYear:
                             type: object
                             properties:
                               sales:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                               tickets:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                           vsTarget:
                             type: object
                             properties:
                               sales:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                               tickets:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                               avg:
-                                type: number
+                                type:
+                                - number
+                                - &#x27;null&#x27;
                       notes:
                         type: array
                         items:
@@ -13697,7 +13753,9 @@ paths:
                             version:
                               type: integer
                             updatedBy:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                             updatedAt:
                               type: string
                       products:
@@ -13708,11 +13766,13 @@ paths:
                             rank:
                               type: integer
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - &#x27;null&#x27;
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             amount:
                               type: number
                             mixPct:
@@ -13878,10 +13938,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: week_note
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+        Tablas: week_note&#x27;
       operationId: store_PUT_api_v2_reports_week_notes_date
       security:
       - session: []
@@ -13896,6 +13953,10 @@ paths:
                   type: string
                 version:
                   type: integer
+                authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
             example:
               note: Lluvia toda la tarde
               version: 1
@@ -13916,13 +13977,19 @@ paths:
                       date:
                         type: string
                       note:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       version:
                         type: integer
                       updatedBy:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       updatedAt:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
               example:
                 title: Observación de un día
                 type: success
@@ -19648,7 +19715,7 @@ paths:
         Tablas: order_line, order_event
 
 
-        Cambio TPV 1.2.259 (pendiente de programar): La precuenta se imprime cada vez que se pide, aunque no haya cambios,
+        Cambio TPV 1.2.259 (hecho en la API 1.2.267): La precuenta se imprime cada vez que se pide, aunque no haya cambios,
         tras eliminar o tras separar.&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_prebill
       security:
@@ -20108,7 +20175,7 @@ paths:
         Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event
 
 
-        Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar
+        Cambio TPV 1.2.261 (hecho en la API 1.2.267): No se cobra una cuenta con un menú con pases por elegir o sin marchar
         → 409 COURSE_PENDING.&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_payments
       security:
@@ -20971,7 +21038,7 @@ paths:
       summary: Arqueo
       description: &#x27;Arqueo sin cierre: lo contado frente a lo esperado ahora (fondo + efectivo cobrado − retiros + ingresos
         del periodo, la misma cuenta que el cierre). Solo desde la caja principal (403 MAIN_STATION_REQUIRED). countedCash
-        ≥ 0; detail opcional = billetes y monedas → unidades enteras ({"20": 7, "0.5": 3}; la denominación con punto o coma:
+        ≥ 0; detail opcional = billetes y monedas → unidades enteras ({&quot;20&quot;: 7, &quot;0.5&quot;: 3}; la denominación con punto o coma:
         «0.5» o «0,50»): si se manda, Σ denominación × unidades tiene que ser countedCash al céntimo, si no 422 VALIDATION
         con field detail «El desglose suma X €, no Y €»; note hasta 200. Queda como movimiento de caja «count» con el detalle
         y no cambia lo esperado. difference = contado − esperado. Sin periodo abierto, 409 PERIOD_CLOSED.
@@ -25769,8 +25836,9 @@ paths:
         Tablas: dining_table, area_drawing, config_change_log
 
 
-        Cambio TPV 1.2.261 (pendiente de programar): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos
-        (x, y, ancho, alto en % del plano) se solapan → 422 TABLE_OVERLAP con details {a, b} (números de mesa).&#x27;
+        Cambio TPV 1.2.261 (hecho en la API 1.2.267): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos
+        (x, y, ancho y alto, en las mismas unidades del plano; sin tamaño cuenta 10) se solapan; se miran las mesas que se
+        mueven contra las demás del área → 422 TABLE_OVERLAP con details {a, b} (números de mesa).&#x27;
       operationId: store_PUT_config_areas_areaId_layout
       security:
       - session: []
@@ -26224,7 +26292,7 @@ paths:
         Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox
 
 
-        Cambio TPV 1.2.259 (pendiente de programar): La cuenta que se queda sin productos porque se eliminó todo desaparece
+        Cambio TPV 1.2.259 (hecho en la API 1.2.267): La cuenta que se queda sin productos porque se eliminó todo desaparece
         al guardar; una mesa nueva sin nada se cierra al guardar.&#x27;
       operationId: store_POST_orders_orderId_save
       security:
@@ -26986,7 +27054,7 @@ paths:
         sync_outbox
 
 
-        Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar
+        Cambio TPV 1.2.261 (hecho en la API 1.2.267): No se cobra una cuenta con un menú con pases por elegir o sin marchar
         → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_checkout
       security:
@@ -27220,7 +27288,7 @@ paths:
         Tablas: customer_ref
 
 
-        Cambio TPV 1.2.260 (pendiente de programar): q busca también por correo (además de NIF y nombre). Los datos del cliente
+        Cambio TPV 1.2.260 (hecho en la API 1.2.267): q busca también por correo (además de NIF y nombre). Los datos del cliente
         escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email
         (0026).&#x27;
       operationId: store_GET_customers
@@ -27344,10 +27412,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: delivery_order, delivery_settings
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+        Tablas: delivery_order, delivery_settings&#x27;
       operationId: store_GET_api_v2_delivery_orders
       security:
       - session: []
@@ -27377,26 +27442,40 @@ paths:
                             code:
                               type: string
                             externalId:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                             customer:
                               type: object
                               properties:
                                 name:
                                   type: string
                                 phone:
-                                  type: string
+                                  type:
+                                  - string
+                                  - &#x27;null&#x27;
                             address:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                             paymentNote:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                             note:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                             status:
                               type: string
                             riderId:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                             riderName:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                             total:
                               type: number
                             receivedAt:
@@ -27408,7 +27487,9 @@ paths:
                             waitMinutes:
                               type: integer
                             light:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
                             orderId:
                               type:
                               - string
@@ -27563,7 +27644,8 @@ paths:
         Avisa por WebSocket delivery.changed y, con sound, el TPV suena.
 
 
-        Con externalId repetido no se duplica: 200 con el pedido que ya había.
+        Con externalId repetido (misma plataforma) no se duplica: 200 con el pedido que ya había. El integrador manda Authorization:
+        Bearer &lt;STORE_KEY&gt;; desde el TPV, la sesión.
 
 
         Permiso: funciones.pedidos
@@ -27573,9 +27655,6 @@ paths:
 
 
         Tablas: delivery_order, delivery_order_line, delivery_order_event
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)
 
 
         WebSocket: delivery.changed&#x27;
@@ -27595,33 +27674,49 @@ paths:
                 code:
                   type: string
                 externalId:
-                  type: string
+                  type:
+                  - string
+                  - &#x27;null&#x27;
                 customer:
                   type: object
                   properties:
                     name:
                       type: string
                     phone:
-                      type: string
+                      type:
+                      - string
+                      - &#x27;null&#x27;
                 address:
-                  type: string
+                  type:
+                  - string
+                  - &#x27;null&#x27;
                 paymentNote:
-                  type: string
+                  type:
+                  - string
+                  - &#x27;null&#x27;
                 note:
-                  type: string
+                  type:
+                  - string
+                  - &#x27;null&#x27;
                 lines:
                   type: array
                   items:
                     type: object
                     properties:
                       plu:
-                        type: integer
+                        type:
+                        - integer
+                        - &#x27;null&#x27;
                       name:
                         type: string
                       quantity:
-                        type: integer
+                        type: number
                       unitPrice:
                         type: number
+                      note:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
             example:
               platform: glovo
               code: GLV-4821
@@ -27661,26 +27756,40 @@ paths:
                       code:
                         type: string
                       externalId:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       customer:
                         type: object
                         properties:
                           name:
                             type: string
                           phone:
-                            type: string
+                            type:
+                            - string
+                            - &#x27;null&#x27;
                       address:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       paymentNote:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       note:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       status:
                         type: string
                       riderId:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       riderName:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       total:
                         type: number
                       receivedAt:
@@ -27692,7 +27801,9 @@ paths:
                       waitMinutes:
                         type: integer
                       light:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       orderId:
                         type:
                         - string
@@ -27711,11 +27822,13 @@ paths:
                               - string
                               - &#x27;null&#x27;
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - &#x27;null&#x27;
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             unitPrice:
                               type: number
                             amount:
@@ -27734,11 +27847,202 @@ paths:
                             at:
                               type: string
                             by:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
               example:
                 title: Entra un pedido
                 type: success
                 status: 201
+                data:
+                  id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
+                  platform: glovo
+                  code: GLV-4821
+                  externalId: glv_8f2a91
+                  customer:
+                    name: Marta R.
+                    phone: 612 345 678
+                  address: C/ Mayor 12, 3.º B
+                  paymentNote: Pagado online
+                  note: Sin cebolla, por favor
+                  status: assigned
+                  riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                  riderName: Carlos M.
+                  total: 30.3
+                  receivedAt: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                  finishedAt: null
+                  waitMinutes: 14
+                  light: green
+                  orderId: null
+                  version: 4
+                  lines:
+                  - lineNo: 1
+                    productId: null
+                    plu: 2040
+                    name: Patatas bravas
+                    quantity: 2
+                    unitPrice: 5.5
+                    amount: 11.0
+                    note: null
+                  - lineNo: 2
+                    productId: null
+                    plu: null
+                    name: Huevos rotos con jamón
+                    quantity: 1
+                    unitPrice: 11.9
+                    amount: 11.9
+                    note: null
+                  - lineNo: 3
+                    productId: null
+                    plu: 1101
+                    name: Coca-Cola
+                    quantity: 2
+                    unitPrice: 2.6
+                    amount: 5.2
+                    note: null
+                  events:
+                  - status: pending
+                    at: &#x27;2026-11-02T21:58:00.000Z&#x27;
+                    by: Integración
+                  - status: received
+                    at: &#x27;2026-11-02T21:59:10.000Z&#x27;
+                    by: Barra
+                  - status: to_assign
+                    at: &#x27;2026-11-02T22:08:00.000Z&#x27;
+                    by: Barra
+                  - status: assigned
+                    at: &#x27;2026-11-02T22:11:30.000Z&#x27;
+                    by: Barra
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;200&#x27;:
+          description: &#x27;Ya estaba (mismo externalId): el pedido que había, sin duplicarlo&#x27;
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      platform:
+                        type: string
+                      code:
+                        type: string
+                      externalId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      customer:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          phone:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                      address:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      paymentNote:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      note:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      status:
+                        type: string
+                      riderId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      riderName:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      total:
+                        type: number
+                      receivedAt:
+                        type: string
+                      finishedAt:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      waitMinutes:
+                        type: integer
+                      light:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      orderId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      version:
+                        type: integer
+                      lines:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            lineNo:
+                              type: integer
+                            productId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            plu:
+                              type:
+                              - integer
+                              - &#x27;null&#x27;
+                            name:
+                              type: string
+                            quantity:
+                              type: number
+                            unitPrice:
+                              type: number
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            at:
+                              type: string
+                            by:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+              example:
+                title: Entra un pedido
+                type: success
+                status: 200
                 data:
                   id: 0f6a2b1e-7c55-4e7c-a1d2-3b4c5d6e7f80
                   platform: glovo
@@ -27903,10 +28207,7 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: delivery_order, delivery_order_line, delivery_order_event
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+        Tablas: delivery_order, delivery_order_line, delivery_order_event&#x27;
       operationId: store_GET_api_v2_delivery_orders_deliveryOrderId
       security:
       - session: []
@@ -27931,26 +28232,40 @@ paths:
                       code:
                         type: string
                       externalId:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       customer:
                         type: object
                         properties:
                           name:
                             type: string
                           phone:
-                            type: string
+                            type:
+                            - string
+                            - &#x27;null&#x27;
                       address:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       paymentNote:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       note:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       status:
                         type: string
                       riderId:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       riderName:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       total:
                         type: number
                       receivedAt:
@@ -27962,7 +28277,9 @@ paths:
                       waitMinutes:
                         type: integer
                       light:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       orderId:
                         type:
                         - string
@@ -27981,11 +28298,13 @@ paths:
                               - string
                               - &#x27;null&#x27;
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - &#x27;null&#x27;
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             unitPrice:
                               type: number
                             amount:
@@ -28004,7 +28323,13 @@ paths:
                             at:
                               type: string
                             by:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
               example:
                 title: Ficha de un pedido
                 type: success
@@ -28149,9 +28474,6 @@ paths:
         Tablas: delivery_order, delivery_order_event, delivery_rider
 
 
-        Estado: Pendiente de programar (TPV 1.2.264)
-
-
         WebSocket: delivery.changed&#x27;
       operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_advance
       security:
@@ -28166,7 +28488,13 @@ paths:
                 version:
                   type: integer
                 riderId:
-                  type: string
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+                riderName:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
             example:
               version: 3
               riderId: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
@@ -28191,26 +28519,40 @@ paths:
                       code:
                         type: string
                       externalId:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       customer:
                         type: object
                         properties:
                           name:
                             type: string
                           phone:
-                            type: string
+                            type:
+                            - string
+                            - &#x27;null&#x27;
                       address:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       paymentNote:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       note:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       status:
                         type: string
                       riderId:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       riderName:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       total:
                         type: number
                       receivedAt:
@@ -28222,7 +28564,9 @@ paths:
                       waitMinutes:
                         type: integer
                       light:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       orderId:
                         type:
                         - string
@@ -28241,11 +28585,13 @@ paths:
                               - string
                               - &#x27;null&#x27;
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - &#x27;null&#x27;
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             unitPrice:
                               type: number
                             amount:
@@ -28264,7 +28610,13 @@ paths:
                             at:
                               type: string
                             by:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
               example:
                 title: Siguiente paso
                 type: success
@@ -28435,9 +28787,6 @@ paths:
         Tablas: delivery_order, delivery_order_event
 
 
-        Estado: Pendiente de programar (TPV 1.2.264)
-
-
         WebSocket: delivery.changed&#x27;
       operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_cancel
       security:
@@ -28453,6 +28802,10 @@ paths:
                   type: integer
                 note:
                   type: string
+                authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
             example:
               version: 3
               note: El cliente no contesta
@@ -28477,32 +28830,48 @@ paths:
                       code:
                         type: string
                       externalId:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       customer:
                         type: object
                         properties:
                           name:
                             type: string
                           phone:
-                            type: string
+                            type:
+                            - string
+                            - &#x27;null&#x27;
                       address:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       paymentNote:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       note:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       status:
                         type: string
                       riderId:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       riderName:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       total:
                         type: number
                       receivedAt:
                         type: string
                       finishedAt:
-                        type: string
+                        type:
+                        - string
+                        - &#x27;null&#x27;
                       waitMinutes:
                         type: integer
                       light:
@@ -28527,11 +28896,13 @@ paths:
                               - string
                               - &#x27;null&#x27;
                             plu:
-                              type: integer
+                              type:
+                              - integer
+                              - &#x27;null&#x27;
                             name:
                               type: string
                             quantity:
-                              type: integer
+                              type: number
                             unitPrice:
                               type: number
                             amount:
@@ -28550,7 +28921,13 @@ paths:
                             at:
                               type: string
                             by:
-                              type: string
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
               example:
                 title: Cancelar pedido
                 type: success
@@ -32926,7 +33303,7 @@ paths:
                     VentaHora: &lt;VentasHora&gt;…&lt;/VentasHora&gt;
                     PlusTrans: &lt;PlusTrans&gt;…&lt;/PlusTrans&gt;
                     HorasCajero: &lt;HorasCajero&gt;…&lt;/HorasCajero&gt;
-                  soap: &lt;Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/"&gt;…&lt;/Envelope&gt;
+                  soap: &lt;Envelope xmlns=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot;&gt;…&lt;/Envelope&gt;
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -33104,7 +33481,7 @@ paths:
                   sir:
                     respuesta: &#x27;0&#x27;
                     mensaje: El Menu Mix ya se encuetra Asentado
-                    raw: &#x27;{"Respuesta":"0","Mensaje":"El Menu Mix ya se encuetra Asentado"}&#x27;
+                    raw: &#x27;{&quot;Respuesta&quot;:&quot;0&quot;,&quot;Mensaje&quot;:&quot;El Menu Mix ya se encuetra Asentado&quot;}&#x27;
                   accepted: false
                   status: 200
                   ms: 812
@@ -33786,10 +34163,7 @@ paths:
         Lo llama: TPV (sin sesión)
 
 
-        Tablas: system_branding
-
-
-        Estado: Pendiente de programar (TPV 1.2.264)&#x27;
+        Tablas: system_branding&#x27;
       operationId: store_GET_api_v2_config_sistema
       security: []
       responses:
@@ -33892,9 +34266,6 @@ paths:
         Tablas: system_branding, config_change_log
 
 
-        Estado: Pendiente de programar (TPV 1.2.264)
-
-
         WebSocket: config.changed&#x27;
       operationId: store_PUT_api_v2_config_sistema
       security:
@@ -33909,11 +34280,17 @@ paths:
                 name:
                   type: string
                 subtitle:
-                  type: string
+                  type:
+                  - string
+                  - &#x27;null&#x27;
                 loginGroup:
-                  type: string
+                  type:
+                  - string
+                  - &#x27;null&#x27;
                 logo:
-                  type: string
+                  type:
+                  - string
+                  - &#x27;null&#x27;
                 noImage:
                   type:
                   - string
@@ -33938,6 +34315,10 @@ paths:
                       type: string
                 version:
                   type: integer
+                authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
             example:
               name: Cañas y Tapas
               subtitle: Plataforma Japp

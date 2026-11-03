@@ -123,4 +123,23 @@ export function removeEmptyAccount(order: Order, accountId: string): Order {
   return { ...clone(order), accounts: order.accounts.filter((a) => a.id !== accountId).map(clone) };
 }
 
+/**
+ * Al guardar (decisión del 28/10, TPV 1.2.259): la cuenta que se quedó sin productos porque se eliminó todo desaparece
+ * (sin cobros). Queda siempre al menos una cuenta abierta: si se vaciaron todas, se conserva la primera.
+ */
+export function dropEmptiedAccounts(order: Order): { order: Order; dropped: Account[] } {
+  const emptied = (a: Account) =>
+    a.status === "open" && !a.lines.length && a.deletedLines.length > 0 && !a.payments.length;
+  const open = order.accounts.filter((a) => a.status === "open");
+  let drop = order.accounts.filter(emptied);
+  if (drop.length && drop.length === open.length) {
+    drop = drop.slice(1);
+  }
+  if (!drop.length) {
+    return { order, dropped: [] };
+  }
+  const ids = new Set(drop.map((a) => a.id));
+  return { order: { ...clone(order), accounts: order.accounts.filter((a) => !ids.has(a.id)).map(clone) }, dropped: drop };
+}
+
 export { accountTotals };

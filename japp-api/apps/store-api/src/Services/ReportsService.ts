@@ -1,5 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { D, fail, r2, salesOutlook, sum, voidsOf } from "@japp/domain";
+import { D, fail, madridDay, r2, salesOutlook, sum, voidsOf } from "@japp/domain";
+import type { Database } from "@japp/db";
+import { DATABASE } from "../Constants/Injection.js";
+import { WeekNoteModel } from "../Models/ReportsModels.js";
 import { CLOCK, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { AuthorizationService } from "./AuthorizationService.js";
@@ -23,7 +26,58 @@ export class ReportsService {
     @Inject(ReportsApplication) private readonly reports: ReportsApplication,
     @Inject(ClosingsApplication) private readonly closingsData: ClosingsApplication,
     @Inject(SystemApplication) private readonly system: SystemApplication,
+    @Inject(DATABASE) private readonly database: Database,
   ) {}
+
+  /** Gestiones › Resumen semana (regla weekSummary del dominio). */
+  async week(se: Session, date?: string) {
+    await this.auth.require(se, "funciones.informes");
+    return this.closings.week(se.storeId, date);
+  }
+
+  /** Observación de un día de la hoja: escribir, cambiar o borrar (note vacía), con version. */
+  async weekNote(se: Session, date: string, body: unknown) {
+    const b = parse(WeekNoteModel, body);
+    await this.auth.require(se, "funciones.informes", b.authorization);
+    const today = madridDay(this.clock()).date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)) || date > today) {
+      fail("VALIDATION", "date futura o no válida (AAAA-MM-DD)", { field: "date" });
+    }
+    const note = b.note.trim();
+    return this.database.withTx(async (tx) => {
+      const cur = await this.closingsData.weekNoteForUpdate(tx, se.storeId, date);
+      const version = cur ? Number(cur.version) : 0;
+      if (b.version != null && b.version !== version) {
+        fail("VERSION_CONFLICT", "Otro equipo cambió la observación antes", {
+          current: cur
+            ? {
+                date,
+                note: cur.note,
+                version,
+                updatedBy: cur.updatedBy,
+                updatedAt: new Date(cur.updatedAt).toISOString(),
+              }
+            : { date, note: null, version: 0 },
+          sent: b.version,
+        });
+      }
+      if (!note) {
+        if (cur) {
+          await this.closingsData.deleteWeekNote(tx, se.storeId, date);
+        }
+        return { date, note: null, version: 0, updatedBy: null, updatedAt: null };
+      }
+      const by = se.actor(this.clock()).user.slice(0, 80);
+      const r = await this.closingsData.saveWeekNote(tx, se.storeId, date, note, version + 1, by);
+      return {
+        date,
+        note: r.note,
+        version: Number(r.version),
+        updatedBy: r.updatedBy,
+        updatedAt: new Date(r.updatedAt).toISOString(),
+      };
+    });
+  }
 
   /** Eliminaciones: qué se quitó después de enviar, en qué momento (enviado o precuenta), quién, por qué y quién lo autorizó (regla voidsOf). */
   async deletions(se: Session) {

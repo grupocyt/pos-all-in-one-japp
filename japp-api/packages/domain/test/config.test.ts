@@ -20,7 +20,7 @@ const code = (f: () => unknown) => {
 
 describe("Ajustes · módulos y permisos", () => {
   it("19 módulos, cada uno con un permiso que existe", () => {
-    expect(CONFIG_MODULES).toHaveLength(19);
+    expect(CONFIG_MODULES).toHaveLength(21);
     for (const m of CONFIG_MODULES) {
       expect(ALL_PERMISSIONS).toContain(CONFIG_PERMISSION[m]);
     }

@@ -40,7 +40,11 @@ export type ErrorCode =
   | "TOO_LARGE"
   | "LINE_NOT_SENT"
   | "QUANTITY_EXCEEDS"
-  | "BUSY_RETRY";
+  | "BUSY_RETRY"
+  | "INVALID_TRANSITION"
+  | "RIDER_REQUIRED"
+  | "DELIVERY_OFF"
+  | "TABLE_OVERLAP";
 
 export const HTTP_STATUS: Record<ErrorCode, number> = {
   VALIDATION: 422,
@@ -85,6 +89,12 @@ export const HTTP_STATUS: Record<ErrorCode, number> = {
   QUANTITY_EXCEEDS: 422,
   // la base canceló la transacción por un interbloqueo (40P01) o un fallo de serialización (40001): nada quedó a medias
   BUSY_RETRY: 409,
+  // delivery (TPV 1.2.264): pedido ya terminado, falta quién lo lleva, delivery apagado en el local
+  INVALID_TRANSITION: 409,
+  RIDER_REQUIRED: 422,
+  DELIVERY_OFF: 409,
+  // editar sala (28/10): una mesa encima de otra
+  TABLE_OVERLAP: 422,
 };
 
 export class DomainError extends Error {

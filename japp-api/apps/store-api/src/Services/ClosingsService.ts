@@ -14,6 +14,9 @@ import {
   voidsOf,
   weeksReport,
   weeksTotals,
+  weekMonday,
+  isoWeek,
+  weekSummary,
   type PeriodSummary,
 } from "@japp/domain";
 import { CLOCK, type Clock } from "../Constants/Injection.js";
@@ -131,7 +134,9 @@ export class ClosingsService {
     closedBy: string,
   ) {
     const s = await this.summarize(tx, storeId, periodId, cashDifference);
-    await this.data.insertSummary(tx, storeId, periodId, s, closedAt, closedBy);
+    // lo vendido por producto (sin anulaciones ni invitaciones): productos más vendidos del Resumen semana
+    const byProduct = (await this.data.topProducts(storeId, periodId, 2000, tx)).filter((p) => p.amount > 0);
+    await this.data.insertSummary(tx, storeId, periodId, s, closedAt, closedBy, byProduct);
     await this.data.enqueuePeriodClosed(tx, storeId, periodId, { periodId, closedAt, closedBy, ...s });
     return s;
   }
@@ -292,6 +297,69 @@ export class ClosingsService {
       weeks: r,
       totals: weeksTotals(r),
     };
+  }
+
+  /** Gestiones › Resumen semana: la semana de `date` (lunes a domingo) con la regla weekSummary del dominio. */
+  async week(storeId: string, date?: string) {
+    const today = madridDay(this.clock()).date;
+    const d = date ?? today;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(`${d}T00:00:00Z`))) {
+      fail("VALIDATION", "date no es una fecha (AAAA-MM-DD)", { field: "date" });
+    }
+    const mon = weekMonday(d);
+    if (mon > weekMonday(today)) {
+      fail("VALIDATION", "Esa semana todavía no ha empezado", { field: "date" });
+    }
+    const sun = addDays(mon, 6);
+    // semana, semana anterior y la misma semana del año anterior (364 días antes)
+    const saved = [
+      ...(await this.data.weekDays(storeId, addDays(mon, -7), sun)),
+      ...(await this.data.weekDays(storeId, addDays(mon, -364), addDays(sun, -364))),
+    ];
+    const days: Record<string, { sales: number; tickets: number }> = {};
+    const prods: Record<string, any[]> = {};
+    for (const r of saved) {
+      days[r.date] = { sales: Number(r.sales), tickets: Number(r.tickets) };
+      prods[r.date] = r.products ?? [];
+    }
+    const open = await this.openRow(storeId);
+    if (open) {
+      const o = days[open.business_date] ?? { sales: 0, tickets: 0 };
+      days[open.business_date] = { sales: r2(o.sales + open.gross_sales), tickets: o.tickets + open.tickets };
+      if (open.business_date >= mon && open.business_date <= sun) {
+        prods[open.business_date] = [
+          ...(prods[open.business_date] ?? []),
+          ...(await this.data.topProducts(storeId, open.period_id, 2000)).filter((p) => p.amount > 0),
+        ];
+      }
+    }
+    // objetivos del año ISO de la semana (la semana 1 puede empezar en diciembre)
+    const targets = (await this.data.targets(storeId, isoWeek(mon).year)).map((t) => ({
+      week: Number(t.week),
+      growthPct: t.g,
+      amount: t.a,
+    }));
+    const notes = (await this.data.weekNotes(storeId, mon, sun)).map((n) => ({
+      ...n,
+      version: Number(n.version),
+      updatedAt: new Date(n.updatedAt).toISOString(),
+    }));
+    return weekSummary({
+      date: mon,
+      today,
+      days,
+      openDate: open?.business_date ?? null,
+      targets,
+      notes,
+      products: [...Array(7)].map((_, k) =>
+        (prods[addDays(mon, k)] ?? []).map((p) => ({
+          plu: p.plu ?? null,
+          name: String(p.name),
+          quantity: Number(p.quantity),
+          amount: Number(p.amount),
+        })),
+      ),
+    });
   }
 
   /** Pulso de cada minuto para el Manager: lo cobrado del periodo + lo que hay en mesas abiertas. */

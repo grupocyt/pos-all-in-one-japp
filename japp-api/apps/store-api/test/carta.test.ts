@@ -480,7 +480,8 @@ describe("POST /config/carta/sync", () => {
     const now = await getCarta();
     const tosta = now.products.find((p: any) => p.plu === PLU.tosta);
     const chans = async () =>
-      (await t.sql.query("SELECT channel_id FROM product_channel WHERE product_id=$1 ORDER BY 1", [tosta.id])).rows;
+      (await t.sql.query("SELECT channel_id FROM product_channel WHERE product_id=$1 ORDER BY 1", [tosta.id]))
+        .rows;
     const ch0 = await chans();
     expect(ch0.length).toBeGreaterThan(0);
     const send = async (patch: Record<string, unknown>) => {
@@ -491,7 +492,12 @@ describe("POST /config/carta/sync", () => {
       expect(r.status, JSON.stringify(r.error)).toBe(200);
       return r.body;
     };
-    let b = await send({ externalId: "MGR-T-NOMBRES-1", name: "TOSTA PLU", buttonLabel: "TOSTA TECLA", ticketName: "TOSTA TICKET" });
+    let b = await send({
+      externalId: "MGR-T-NOMBRES-1",
+      name: "TOSTA PLU",
+      buttonLabel: "TOSTA TECLA",
+      ticketName: "TOSTA TICKET",
+    });
     expect(b.products).toMatchObject({ created: 0, updated: 1, deactivated: 0 });
     const row = async () =>
       (
@@ -501,18 +507,43 @@ describe("POST /config/carta/sync", () => {
         )
       ).rows;
     expect(await row()).toEqual([
-      { id: tosta.id, name: "TOSTA PLU", ticket_name: "TOSTA TICKET", external_id: "MGR-T-NOMBRES-1", label: "TOSTA TECLA" },
+      {
+        id: tosta.id,
+        name: "TOSTA PLU",
+        ticket_name: "TOSTA TICKET",
+        external_id: "MGR-T-NOMBRES-1",
+        label: "TOSTA TECLA",
+      },
     ]);
     expect(await chans()).toEqual(ch0);
     const back = (await getCarta()).products.find((p: any) => p.plu === PLU.tosta);
-    expect(back).toMatchObject({ id: tosta.id, name: "TOSTA PLU", buttonLabel: "TOSTA TECLA", ticketName: "TOSTA TICKET" });
+    expect(back).toMatchObject({
+      id: tosta.id,
+      name: "TOSTA PLU",
+      buttonLabel: "TOSTA TECLA",
+      ticketName: "TOSTA TICKET",
+    });
     // el Manager le cambia el id: sigue siendo el mismo producto (por PLU), con sus canales; sin buttonLabel la tecla se conserva
-    b = await send({ externalId: "MGR-T-NOMBRES-2", name: "TOSTA PLU", buttonLabel: undefined, ticketName: "TOSTA TICKET" });
+    b = await send({
+      externalId: "MGR-T-NOMBRES-2",
+      name: "TOSTA PLU",
+      buttonLabel: undefined,
+      ticketName: "TOSTA TICKET",
+    });
     expect(b.products).toMatchObject({ created: 0, updated: 1, deactivated: 0 });
-    expect((await row())[0]).toMatchObject({ id: tosta.id, external_id: "MGR-T-NOMBRES-2", label: "TOSTA TECLA" });
+    expect((await row())[0]).toMatchObject({
+      id: tosta.id,
+      external_id: "MGR-T-NOMBRES-2",
+      label: "TOSTA TECLA",
+    });
     expect(await chans()).toEqual(ch0);
     // buttonLabel vacío = la tecla vuelve al nombre del PLU
-    await send({ externalId: "MGR-T-NOMBRES-2", name: "TOSTA PLU", buttonLabel: "", ticketName: "TOSTA TICKET" });
+    await send({
+      externalId: "MGR-T-NOMBRES-2",
+      name: "TOSTA PLU",
+      buttonLabel: "",
+      ticketName: "TOSTA TICKET",
+    });
     expect((await row())[0].label).toBe("TOSTA PLU");
     // como estaba
     await send({ ...tosta });
@@ -531,12 +562,20 @@ describe("POST /config/carta/sync", () => {
     r = await post("/config/carta/sync", {
       ...resend(now),
       products: now.products.map((p: any) =>
-        p.id === c.id ? { ...p, externalId: "MGR-T-MUEVE" } : p.id === a.id ? { ...p, externalId: undefined } : p,
+        p.id === c.id
+          ? { ...p, externalId: "MGR-T-MUEVE" }
+          : p.id === a.id
+            ? { ...p, externalId: undefined }
+            : p,
       ),
     });
     expect(r.status, JSON.stringify(r.error)).toBe(200);
-    const ids = (await t.sql.query("SELECT id, external_id FROM product WHERE id = ANY($1)", [[a.id, c.id]])).rows;
-    expect(Object.fromEntries(ids.map((x) => [x.id, x.external_id]))).toEqual({ [a.id]: null, [c.id]: "MGR-T-MUEVE" });
+    const ids = (await t.sql.query("SELECT id, external_id FROM product WHERE id = ANY($1)", [[a.id, c.id]]))
+      .rows;
+    expect(Object.fromEntries(ids.map((x) => [x.id, x.external_id]))).toEqual({
+      [a.id]: null,
+      [c.id]: "MGR-T-MUEVE",
+    });
     await t.sql.query("UPDATE product SET external_id = NULL WHERE id = ANY($1)", [[a.id, c.id]]);
   });
   it("todo o nada: una referencia mala al final deja la tienda como estaba (422 REF_NOT_FOUND)", async () => {
@@ -736,7 +775,7 @@ describe("PUT /config/areas/{areaId}/layout", () => {
     ).rows;
     const v0 = await cv();
     const body = {
-      tables: [{ id: tables[0].id, x: 18, y: 30, width: 120, height: 90 }],
+      tables: [{ id: tables[0].id, x: 18, y: 30, width: 90, height: 40 }],
       drawings: [
         { kind: "wall", x1: 10, y1: 80, x2: 60, y2: 80 },
         { kind: "text", x1: 5, y1: 5, label: "Entrada" },
@@ -751,7 +790,7 @@ describe("PUT /config/areas/{areaId}/layout", () => {
         tables[0].id,
       ])
     ).rows[0];
-    expect(tb).toEqual({ x: 18, y: 30, width: 120 });
+    expect(tb).toEqual({ x: 18, y: 30, width: 90 });
     const d = (
       await t.sql.query("SELECT kind, label FROM area_drawing WHERE area_id=$1 ORDER BY sort_order", [
         area.id,

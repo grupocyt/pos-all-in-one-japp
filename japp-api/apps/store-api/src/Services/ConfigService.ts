@@ -11,6 +11,7 @@ import {
   SINGLETON_MODULES,
   isConfigModule,
   ALL_PERMISSIONS,
+  sameNameKey,
   type ConfigModule,
   type ConfigUsage,
 } from "@japp/domain";
@@ -24,6 +25,7 @@ import { ConfigApplication, type RefTable, type Row } from "../Applications/Conf
 import { ConfigHistoryApplication } from "../Applications/ConfigHistoryApplication.js";
 import { CartaSyncApplication } from "../Applications/CartaSyncApplication.js";
 import { schemas, type ConfigHistoryQuery, type ConfigListQuery } from "../Models/ConfigModels.js";
+import { BrandingService } from "./BrandingService.js";
 
 const PG_UNIQUE = "23505";
 const PG_FK = "23503";
@@ -52,6 +54,7 @@ export class ConfigService {
     @Inject(ConfigHistoryApplication) private readonly changes: ConfigHistoryApplication,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(CartaSyncApplication) private readonly carta: CartaSyncApplication,
+    @Inject(BrandingService) private readonly branding: BrandingService,
   ) {}
 
   // ───────────────────────── utilidades ─────────────────────────
@@ -94,6 +97,12 @@ export class ConfigService {
     if (e.code === PG_UNIQUE && e.constraint === "uq_station_device_uuid") {
       return this.mk("DUPLICATE", "Ese UUID de equipo ya lo tiene otra estación activa: quítaselo primero", {
         field: "deviceUuid",
+        constraint: e.constraint,
+      });
+    }
+    if (e.code === PG_UNIQUE && /name/.test(e.constraint ?? "")) {
+      return this.mk("DUPLICATE", "Ya hay otro con ese nombre (sin contar mayúsculas ni espacios)", {
+        field: "name",
         constraint: e.constraint,
       });
     }
@@ -150,6 +159,9 @@ export class ConfigService {
   ): Promise<Row> {
     if (d.singleton && id !== "current" && id !== se.storeId) {
       fail("NOT_FOUND", "Este módulo tiene un solo registro: usa «current»", { id });
+    }
+    if (m === "pedidos") {
+      await this.config.ensureDeliverySettings(se.storeId, tx);
     }
     let row: Row | null;
     if (tx && lock) {
@@ -309,6 +321,29 @@ export class ConfigService {
   /** Completa y valida lo que depende de otros registros (IVA por tipo, PLU nuevo, PIN repetido, permisos que existen…). */
   private async prepare(tx: Tx, se: Session, m: ConfigModule, rec: Row, before: Row | null) {
     const S = se.storeId;
+    // 28/10: no hay dos personas (ni dos motorizados activos) con el mismo nombre sin contar mayúsculas, tildes ni espacios
+    if (
+      (m === "usuarios" || m === "motorizados") &&
+      rec.name &&
+      (!before ||
+        sameNameKey(rec.name) !== sameNameKey(before.name) ||
+        (m === "motorizados" && rec.active !== false && before.active === false))
+    ) {
+      const k = sameNameKey(rec.name);
+      const other = (await this.config.namesOf(tx, S, m)).find(
+        (u) => u.id !== before?.id && sameNameKey(u.name) === k,
+      );
+      if (other && !(m === "motorizados" && rec.active === false)) {
+        fail(
+          "DUPLICATE",
+          `Ya hay ${m === "usuarios" ? "una persona" : "un motorizado"} con ese nombre: ${other.name}`,
+          {
+            field: "name",
+            existing: other.name,
+          },
+        );
+      }
+    }
     if (m === "usuarios") {
       if (!rec.initials && rec.name) {
         rec.initials = String(rec.name)
@@ -692,6 +727,10 @@ export class ConfigService {
         channels: await all("canales"),
         printers: await all("impresoras"),
         stations: await all("estaciones"),
+        // Ajustes › Administración › Sistema (nombre, logos y colores; también sin sesión en GET /config/sistema)
+        system: await this.branding.get(),
+        // Ajustes › Pedidos y motorizados (TPV 1.2.217–1.2.233): el botón Pedidos sale solo si delivery está activo
+        delivery: { settings: await one("pedidos"), riders: await all("motorizados") },
       };
     });
   }

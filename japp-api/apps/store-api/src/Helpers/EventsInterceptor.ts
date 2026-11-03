@@ -72,7 +72,23 @@ export class EventsInterceptor implements NestInterceptor {
       return;
     }
     if (path.startsWith("/config") || path.startsWith("/devices/claim-main")) {
-      this.hub.publish(storeId, { event: "config.changed", configVersion: data?.configVersion ?? null });
+      const module = path.startsWith("/config/") ? (path.split("/")[2] ?? null) : null;
+      this.hub.publish(storeId, {
+        event: "config.changed",
+        module,
+        configVersion: data?.configVersion ?? null,
+      });
+      return;
+    }
+    if (path.startsWith("/delivery/")) {
+      // tablero de pedidos: el TPV vuelve a pedir la lista (y suena si es un pedido nuevo y el local tiene sonido)
+      this.hub.publish(storeId, {
+        event: "delivery.changed",
+        id: data?.id ?? null,
+        status: data?.status ?? null,
+        version: data?.version ?? null,
+        isNew: req.method === "POST" && path === "/delivery/orders",
+      });
       return;
     }
     if (path.startsWith("/oot/")) {

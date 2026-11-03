@@ -34,7 +34,7 @@ Las peticiones de las pruebas que cambian funcionalidad se aprueban antes de hac
 
 ## Al diseñar la API de la 1.2.264 (02/11/2026)
 
-Decisiones tomadas para poder dejar el contrato y las tablas listos. Se pueden cambiar antes de programarlas.
+Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están programadas así en la API 1.2.267**: si se decide otra cosa, se cambia el permiso en Ajustes › Perfiles (15, 16) o una línea en el código (17, 18).
 
 | # | Tema | Cómo queda en el contrato | Qué hay que confirmar |
 |---|---|---|---|

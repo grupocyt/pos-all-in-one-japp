@@ -191,7 +191,7 @@ export interface paths {
         };
         /**
          * Paquete de configuración
-         * @description Todo lo que el equipo necesita para trabajar sin más llamadas: restaurante, empresa, facturación, parámetros, áreas con sus mesas, carta (categorías, productos con canales y preguntas, preguntas con respuestas), impuestos, formas de pago, descuentos, motivos, canales, impresoras y estaciones. Solo lo activo. Cabecera ETag = versión de configuración; con If-None-Match igual responde 304 sin cuerpo.
+         * @description Todo lo que el equipo necesita para trabajar sin más llamadas: restaurante, empresa, facturación, parámetros, áreas con sus mesas, carta (categorías, productos con canales y preguntas, preguntas con respuestas), impuestos, formas de pago, descuentos, motivos, canales, impresoras y estaciones, system (= GET /config/sistema) y delivery {settings (Ajustes › Pedidos), riders (motorizados activos)}. Solo lo activo. Cabecera ETag = versión de configuración; con If-None-Match igual responde 304 sin cuerpo.
          *
          *     Lo llama: TPV, PDA
          *
@@ -247,9 +247,9 @@ export interface paths {
          *
          *     Lo llama: TPV
          *
-         *     Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, Pendiente de programar (TPV 1.2.264)): active sí/no Delivery en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; integration · provider · platforms[] Recibir de las plataformas, integrador y plataformas {id, name, active}; autoAccept · askRider · sound sí/no Aceptar solos · pedir motorizado al asignar · aviso sonoro; prepMinutes · amberMinutes · redMinutes 1–240 Preparación y semáforo; rojo > ámbar (VALIDATION). En el TPV: st.cfg.pedidos: activo, integracion, proveedor, plataformas[{id,nombre,activa}], autoAceptar, pedirMoto, sonido, prep, ambar, rojo.
+         *     Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, programado en la API 1.2.267): active sí/no Delivery en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; integration · provider · platforms[] Recibir de las plataformas, integrador y plataformas {id, name, active}; autoAccept · askRider · sound sí/no Aceptar solos · pedir motorizado al asignar · aviso sonoro; prepMinutes · amberMinutes · redMinutes 1–240 Preparación y semáforo; rojo > ámbar (VALIDATION). En el TPV: st.cfg.pedidos: activo, integracion, proveedor, plataformas[{id,nombre,activa}], autoAceptar, pedirMoto, sonido, prep, ambar, rojo.
          *
-         *     Módulo motorizados (Motorizados, tabla delivery_rider, Pendiente de programar (TPV 1.2.264)): name texto ≤ 40 Obligatorio; sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); phone texto ≤ 20; sortOrder entero Orden en la lista. En el TPV: st.cfg.pedidos.motorizados[{nombre, tel, activo}] → un registro por motorizado; quitar = deactivate.
+         *     Módulo motorizados (Motorizados, tabla delivery_rider, programado en la API 1.2.267): name texto ≤ 40 Obligatorio; sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); phone texto ≤ 20; sortOrder entero Orden en la lista. En el TPV: st.cfg.pedidos.motorizados[{nombre, tel, activo}] → un registro por motorizado; quitar = deactivate.
          */
         get: operations["store_GET_config_module"];
         put?: never;
@@ -263,7 +263,7 @@ export interface paths {
          *
          *     Tablas: config_change_log, product_incident, sync_outbox
          *
-         *     Cambio TPV 1.2.260 · 1.2.233 (pendiente de programar): usuarios: no puede haber dos personas con el mismo nombre aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios: el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).
+         *     Cambio TPV 1.2.260 · 1.2.233 (hecho en la API 1.2.267): usuarios: no puede haber dos personas con el mismo nombre aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios: el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -303,7 +303,7 @@ export interface paths {
          *
          *     Tablas: config_change_log, product_incident, sync_outbox
          *
-         *     Cambio TPV 1.2.260 (pendiente de programar): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.
+         *     Cambio TPV 1.2.260 (hecho en la API 1.2.267): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -440,8 +440,6 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: period_summary, sales_target, week_note
-         *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
          */
         get: operations["store_GET_api_v2_reports_week"];
         put?: never;
@@ -471,8 +469,6 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: week_note
-         *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
          */
         put: operations["store_PUT_api_v2_reports_week_notes_date"];
         post?: never;
@@ -1079,7 +1075,7 @@ export interface paths {
          *
          *     Tablas: order_line, order_event
          *
-         *     Cambio TPV 1.2.259 (pendiente de programar): La precuenta se imprime cada vez que se pide, aunque no haya cambios, tras eliminar o tras separar.
+         *     Cambio TPV 1.2.259 (hecho en la API 1.2.267): La precuenta se imprime cada vez que se pide, aunque no haya cambios, tras eliminar o tras separar.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_prebill"];
         delete?: never;
@@ -1183,7 +1179,7 @@ export interface paths {
          *
          *     Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event
          *
-         *     Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING.
+         *     Cambio TPV 1.2.261 (hecho en la API 1.2.267): No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_payments"];
         delete?: never;
@@ -2296,7 +2292,7 @@ export interface paths {
          *
          *     Tablas: dining_table, area_drawing, config_change_log
          *
-         *     Cambio TPV 1.2.261 (pendiente de programar): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos (x, y, ancho, alto en % del plano) se solapan → 422 TABLE_OVERLAP con details {a, b} (números de mesa).
+         *     Cambio TPV 1.2.261 (hecho en la API 1.2.267): Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos (x, y, ancho y alto, en las mismas unidades del plano; sin tamaño cuenta 10) se solapan; se miran las mesas que se mueven contra las demás del área → 422 TABLE_OVERLAP con details {a, b} (números de mesa).
          */
         put: operations["store_PUT_config_areas_areaId_layout"];
         post?: never;
@@ -2375,7 +2371,7 @@ export interface paths {
          *
          *     Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox
          *
-         *     Cambio TPV 1.2.259 (pendiente de programar): La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.
+         *     Cambio TPV 1.2.259 (hecho en la API 1.2.267): La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.
          */
         post: operations["store_POST_orders_orderId_save"];
         delete?: never;
@@ -2429,7 +2425,7 @@ export interface paths {
          *
          *     Tablas: payment, payment_cash_detail, invoice_series, invoice, invoice_tax, verifactu_record, account, orders, order_event, sync_outbox
          *
-         *     Cambio TPV 1.2.261 (pendiente de programar): No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.
+         *     Cambio TPV 1.2.261 (hecho en la API 1.2.267): No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_checkout"];
         delete?: never;
@@ -2455,7 +2451,7 @@ export interface paths {
          *
          *     Tablas: customer_ref
          *
-         *     Cambio TPV 1.2.260 (pendiente de programar): q busca también por correo (además de NIF y nombre). Los datos del cliente escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email (0026).
+         *     Cambio TPV 1.2.260 (hecho en la API 1.2.267): q busca también por correo (además de NIF y nombre). Los datos del cliente escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email (0026).
          */
         get: operations["store_GET_customers"];
         put?: never;
@@ -2488,8 +2484,6 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: delivery_order, delivery_settings
-         *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
          */
         get: operations["store_GET_api_v2_delivery_orders"];
         put?: never;
@@ -2503,15 +2497,13 @@ export interface paths {
          *
          *     Avisa por WebSocket delivery.changed y, con sound, el TPV suena.
          *
-         *     Con externalId repetido no se duplica: 200 con el pedido que ya había.
+         *     Con externalId repetido (misma plataforma) no se duplica: 200 con el pedido que ya había. El integrador manda Authorization: Bearer <STORE_KEY>; desde el TPV, la sesión.
          *
          *     Permiso: funciones.pedidos
          *
          *     Lo llama: Integrador · TPV
          *
          *     Tablas: delivery_order, delivery_order_line, delivery_order_event
-         *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
          *
          *     WebSocket: delivery.changed
          */
@@ -2540,8 +2532,6 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: delivery_order, delivery_order_line, delivery_order_event
-         *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
          */
         get: operations["store_GET_api_v2_delivery_orders_deliveryOrderId"];
         put?: never;
@@ -2579,8 +2569,6 @@ export interface paths {
          *
          *     Tablas: delivery_order, delivery_order_event, delivery_rider
          *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
-         *
          *     WebSocket: delivery.changed
          */
         post: operations["store_POST_api_v2_delivery_orders_deliveryOrderId_advance"];
@@ -2610,8 +2598,6 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: delivery_order, delivery_order_event
-         *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
          *
          *     WebSocket: delivery.changed
          */
@@ -3344,8 +3330,6 @@ export interface paths {
          *     Lo llama: TPV (sin sesión)
          *
          *     Tablas: system_branding
-         *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
          */
         get: operations["store_GET_api_v2_config_sistema"];
         /**
@@ -3361,8 +3345,6 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: system_branding, config_change_log
-         *
-         *     Estado: Pendiente de programar (TPV 1.2.264)
          *
          *     WebSocket: config.changed
          */
@@ -5249,89 +5231,89 @@ export interface operations {
                                 real?: {
                                     sales?: number;
                                     tickets?: number;
-                                    avg?: number;
-                                };
+                                    avg?: number | null;
+                                } | null;
                                 prevWeek?: {
                                     date?: string;
                                     sales?: number;
                                     tickets?: number;
-                                    avg?: number;
+                                    avg?: number | null;
                                 };
                                 lastYear?: {
                                     date?: string;
                                     sales?: number;
                                     tickets?: number;
-                                    avg?: number;
+                                    avg?: number | null;
                                 };
                                 target?: {
                                     sales?: number;
                                     tickets?: number;
-                                    avg?: number;
+                                    avg?: number | null;
                                 };
                                 vsPrevWeek?: {
-                                    sales?: number;
-                                    tickets?: number;
-                                    avg?: number;
+                                    sales?: number | null;
+                                    tickets?: number | null;
+                                    avg?: number | null;
                                 };
                                 vsLastYear?: {
-                                    sales?: number;
-                                    tickets?: number;
-                                    avg?: number;
+                                    sales?: number | null;
+                                    tickets?: number | null;
+                                    avg?: number | null;
                                 };
                                 vsTarget?: {
-                                    sales?: number;
-                                    tickets?: number;
-                                    avg?: number;
+                                    sales?: number | null;
+                                    tickets?: number | null;
+                                    avg?: number | null;
                                 };
-                                note?: string;
+                                note?: string | null;
                             }[];
                             totals?: {
                                 real?: {
                                     sales?: number;
                                     tickets?: number;
-                                    avg?: number;
-                                };
+                                    avg?: number | null;
+                                } | null;
                                 prevWeek?: {
                                     sales?: number;
                                     tickets?: number;
-                                    avg?: number;
+                                    avg?: number | null;
                                 };
                                 lastYear?: {
                                     sales?: number;
                                     tickets?: number;
-                                    avg?: number;
+                                    avg?: number | null;
                                 };
                                 target?: {
                                     sales?: number;
                                     tickets?: number;
-                                    avg?: number;
+                                    avg?: number | null;
                                 };
                                 vsPrevWeek?: {
-                                    sales?: number;
-                                    tickets?: number;
-                                    avg?: number;
+                                    sales?: number | null;
+                                    tickets?: number | null;
+                                    avg?: number | null;
                                 };
                                 vsLastYear?: {
-                                    sales?: number;
-                                    tickets?: number;
-                                    avg?: number;
+                                    sales?: number | null;
+                                    tickets?: number | null;
+                                    avg?: number | null;
                                 };
                                 vsTarget?: {
-                                    sales?: number;
-                                    tickets?: number;
-                                    avg?: number;
+                                    sales?: number | null;
+                                    tickets?: number | null;
+                                    avg?: number | null;
                                 };
                             };
                             notes?: {
                                 date?: string;
                                 note?: string;
                                 version?: number;
-                                updatedBy?: string;
+                                updatedBy?: string | null;
                                 updatedAt?: string;
                             }[];
                             products?: {
                                 rank?: number;
-                                plu?: number;
+                                plu?: number | null;
                                 name?: string;
                                 quantity?: number;
                                 amount?: number;
@@ -5380,6 +5362,7 @@ export interface operations {
                 "application/json": {
                     note?: string;
                     version?: number;
+                    authorization?: string | null;
                 };
             };
         };
@@ -5395,10 +5378,10 @@ export interface operations {
                         type?: "success";
                         data?: {
                             date?: string;
-                            note?: string;
+                            note?: string | null;
                             version?: number;
-                            updatedBy?: string;
-                            updatedAt?: string;
+                            updatedBy?: string | null;
+                            updatedAt?: string | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -11834,22 +11817,22 @@ export interface operations {
                                 id?: string;
                                 platform?: string;
                                 code?: string;
-                                externalId?: string;
+                                externalId?: string | null;
                                 customer?: {
                                     name?: string;
-                                    phone?: string;
+                                    phone?: string | null;
                                 };
-                                address?: string;
-                                paymentNote?: string;
-                                note?: string;
+                                address?: string | null;
+                                paymentNote?: string | null;
+                                note?: string | null;
                                 status?: string;
-                                riderId?: string;
-                                riderName?: string;
+                                riderId?: string | null;
+                                riderName?: string | null;
                                 total?: number;
                                 receivedAt?: string;
                                 finishedAt?: string | null;
                                 waitMinutes?: number;
-                                light?: string;
+                                light?: string | null;
                                 orderId?: string | null;
                                 version?: number;
                             }[];
@@ -11931,24 +11914,76 @@ export interface operations {
                 "application/json": {
                     platform?: string;
                     code?: string;
-                    externalId?: string;
+                    externalId?: string | null;
                     customer?: {
                         name?: string;
-                        phone?: string;
+                        phone?: string | null;
                     };
-                    address?: string;
-                    paymentNote?: string;
-                    note?: string;
+                    address?: string | null;
+                    paymentNote?: string | null;
+                    note?: string | null;
                     lines?: {
-                        plu?: number;
+                        plu?: number | null;
                         name?: string;
                         quantity?: number;
                         unitPrice?: number;
+                        note?: string | null;
                     }[];
                 };
             };
         };
         responses: {
+            /** @description Ya estaba (mismo externalId): el pedido que había, sin duplicarlo */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            platform?: string;
+                            code?: string;
+                            externalId?: string | null;
+                            customer?: {
+                                name?: string;
+                                phone?: string | null;
+                            };
+                            address?: string | null;
+                            paymentNote?: string | null;
+                            note?: string | null;
+                            status?: string;
+                            riderId?: string | null;
+                            riderName?: string | null;
+                            total?: number;
+                            receivedAt?: string;
+                            finishedAt?: string | null;
+                            waitMinutes?: number;
+                            light?: string | null;
+                            orderId?: string | null;
+                            version?: number;
+                            lines?: {
+                                lineNo?: number;
+                                productId?: string | null;
+                                plu?: number | null;
+                                name?: string;
+                                quantity?: number;
+                                unitPrice?: number;
+                                amount?: number;
+                                note?: string | null;
+                            }[];
+                            events?: {
+                                status?: string;
+                                at?: string;
+                                by?: string | null;
+                                note?: string | null;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
             /** @description Creado */
             201: {
                 headers: {
@@ -11962,28 +11997,28 @@ export interface operations {
                             id?: string;
                             platform?: string;
                             code?: string;
-                            externalId?: string;
+                            externalId?: string | null;
                             customer?: {
                                 name?: string;
-                                phone?: string;
+                                phone?: string | null;
                             };
-                            address?: string;
-                            paymentNote?: string;
-                            note?: string;
+                            address?: string | null;
+                            paymentNote?: string | null;
+                            note?: string | null;
                             status?: string;
-                            riderId?: string;
-                            riderName?: string;
+                            riderId?: string | null;
+                            riderName?: string | null;
                             total?: number;
                             receivedAt?: string;
                             finishedAt?: string | null;
                             waitMinutes?: number;
-                            light?: string;
+                            light?: string | null;
                             orderId?: string | null;
                             version?: number;
                             lines?: {
                                 lineNo?: number;
                                 productId?: string | null;
-                                plu?: number;
+                                plu?: number | null;
                                 name?: string;
                                 quantity?: number;
                                 unitPrice?: number;
@@ -11993,7 +12028,8 @@ export interface operations {
                             events?: {
                                 status?: string;
                                 at?: string;
-                                by?: string;
+                                by?: string | null;
+                                note?: string | null;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -12062,28 +12098,28 @@ export interface operations {
                             id?: string;
                             platform?: string;
                             code?: string;
-                            externalId?: string;
+                            externalId?: string | null;
                             customer?: {
                                 name?: string;
-                                phone?: string;
+                                phone?: string | null;
                             };
-                            address?: string;
-                            paymentNote?: string;
-                            note?: string;
+                            address?: string | null;
+                            paymentNote?: string | null;
+                            note?: string | null;
                             status?: string;
-                            riderId?: string;
-                            riderName?: string;
+                            riderId?: string | null;
+                            riderName?: string | null;
                             total?: number;
                             receivedAt?: string;
                             finishedAt?: string | null;
                             waitMinutes?: number;
-                            light?: string;
+                            light?: string | null;
                             orderId?: string | null;
                             version?: number;
                             lines?: {
                                 lineNo?: number;
                                 productId?: string | null;
-                                plu?: number;
+                                plu?: number | null;
                                 name?: string;
                                 quantity?: number;
                                 unitPrice?: number;
@@ -12093,7 +12129,8 @@ export interface operations {
                             events?: {
                                 status?: string;
                                 at?: string;
-                                by?: string;
+                                by?: string | null;
+                                note?: string | null;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -12137,7 +12174,8 @@ export interface operations {
                  *     } */
                 "application/json": {
                     version?: number;
-                    riderId?: string;
+                    riderId?: string | null;
+                    riderName?: string | null;
                 };
             };
         };
@@ -12155,28 +12193,28 @@ export interface operations {
                             id?: string;
                             platform?: string;
                             code?: string;
-                            externalId?: string;
+                            externalId?: string | null;
                             customer?: {
                                 name?: string;
-                                phone?: string;
+                                phone?: string | null;
                             };
-                            address?: string;
-                            paymentNote?: string;
-                            note?: string;
+                            address?: string | null;
+                            paymentNote?: string | null;
+                            note?: string | null;
                             status?: string;
-                            riderId?: string;
-                            riderName?: string;
+                            riderId?: string | null;
+                            riderName?: string | null;
                             total?: number;
                             receivedAt?: string;
                             finishedAt?: string | null;
                             waitMinutes?: number;
-                            light?: string;
+                            light?: string | null;
                             orderId?: string | null;
                             version?: number;
                             lines?: {
                                 lineNo?: number;
                                 productId?: string | null;
-                                plu?: number;
+                                plu?: number | null;
                                 name?: string;
                                 quantity?: number;
                                 unitPrice?: number;
@@ -12186,7 +12224,8 @@ export interface operations {
                             events?: {
                                 status?: string;
                                 at?: string;
-                                by?: string;
+                                by?: string | null;
+                                note?: string | null;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -12249,6 +12288,7 @@ export interface operations {
                 "application/json": {
                     version?: number;
                     note?: string;
+                    authorization?: string | null;
                 };
             };
         };
@@ -12266,20 +12306,20 @@ export interface operations {
                             id?: string;
                             platform?: string;
                             code?: string;
-                            externalId?: string;
+                            externalId?: string | null;
                             customer?: {
                                 name?: string;
-                                phone?: string;
+                                phone?: string | null;
                             };
-                            address?: string;
-                            paymentNote?: string;
-                            note?: string;
+                            address?: string | null;
+                            paymentNote?: string | null;
+                            note?: string | null;
                             status?: string;
-                            riderId?: string;
-                            riderName?: string;
+                            riderId?: string | null;
+                            riderName?: string | null;
                             total?: number;
                             receivedAt?: string;
-                            finishedAt?: string;
+                            finishedAt?: string | null;
                             waitMinutes?: number;
                             light?: string | null;
                             orderId?: string | null;
@@ -12287,7 +12327,7 @@ export interface operations {
                             lines?: {
                                 lineNo?: number;
                                 productId?: string | null;
-                                plu?: number;
+                                plu?: number | null;
                                 name?: string;
                                 quantity?: number;
                                 unitPrice?: number;
@@ -12297,7 +12337,8 @@ export interface operations {
                             events?: {
                                 status?: string;
                                 at?: string;
-                                by?: string;
+                                by?: string | null;
+                                note?: string | null;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -14737,9 +14778,9 @@ export interface operations {
                  *     } */
                 "application/json": {
                     name?: string;
-                    subtitle?: string;
-                    loginGroup?: string;
-                    logo?: string;
+                    subtitle?: string | null;
+                    loginGroup?: string | null;
+                    logo?: string | null;
                     noImage?: string | null;
                     palette?: {
                         hex?: string;
@@ -14751,6 +14792,7 @@ export interface operations {
                         err?: string;
                     };
                     version?: number;
+                    authorization?: string | null;
                 };
             };
         };

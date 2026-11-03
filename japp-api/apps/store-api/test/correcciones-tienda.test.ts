@@ -249,7 +249,9 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     // y se conserva al volver a leer la mesa
     const again = await get(d.id);
     const c1b = again.accounts.find((a: any) => a.name === "Cuenta 1");
-    expect(c1b.lines.find((l: any) => (l.plu ?? l.productId) === PLU.tosta).origin).toEqual({ table: s.table });
+    expect(c1b.lines.find((l: any) => (l.plu ?? l.productId) === PLU.tosta).origin).toEqual({
+      table: s.table,
+    });
     // una cuenta suelta a una mesa ocupada, into main
     const s2 = await open(2);
     await t.call("POST", `/orders/${s2._id}/lines`, { token: sis, body: { plu: PLU.redbull, force: true } });
@@ -605,6 +607,8 @@ describe("cambiar un pase ya marchado (falta de stock)", () => {
   it("con la cuenta cobrada, bajar de lo cobrado → 409 TOTAL_BELOW_PAID y no cambia nada", async () => {
     const m = await menu(true);
     await change(sis, m, { modifiers: [{ plu: LENTEJAS }], reason: "No queda crema" });
+    // 28/10 (1.2.267): con el 2.º en espera no se cobra; se marcha antes
+    await t.call("POST", `/orders/${m.id}/lines/${m.lid}/fire`, { token: sis, body: { course: 2 } });
     const pay = await t.call("POST", `/orders/${m.id}/accounts/${m.acc}/payments`, {
       token: sis,
       body: { method: "card", amount: null },

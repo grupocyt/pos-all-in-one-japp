@@ -7,6 +7,7 @@ import {
   type ExecutionContext,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { assertActiveSession, assertStationAllowed, can, fail, type Actor } from "@japp/domain";
 import { SessionsApplication } from "../Applications/SessionsApplication.js";
 import { CONFIG } from "../Constants/Injection.js";
@@ -23,6 +24,14 @@ import {
 export const PUBLIC = "japp:public";
 /** Ruta sin sesión (health, devices/register, sessions). */
 export const Public = () => SetMetadata(PUBLIC, true);
+export const STORE_KEY = "japp:storeKey";
+/**
+ * Ruta que acepta también la clave de la tienda (STORE_KEY) en vez de una sesión: el integrador de delivery.
+ * Con la clave, req.session queda vacío y req.integration = true; con cualquier otro token, la sesión de siempre.
+ */
+export const AllowStoreKey = () => SetMetadata(STORE_KEY, true);
+
+const sha256 = (x: string) => createHash("sha256").update(x).digest();
 
 export interface Session {
   storeId: string;
@@ -50,6 +59,15 @@ export class AuthGuard implements CanActivate {
     }
     const req = ctx.switchToHttp().getRequest();
     const raw = String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    if (
+      this.cfg.storeKey &&
+      raw &&
+      this.reflector.getAllAndOverride<boolean>(STORE_KEY, [ctx.getHandler(), ctx.getClass()]) &&
+      timingSafeEqual(sha256(raw), sha256(this.cfg.storeKey))
+    ) {
+      req.integration = true;
+      return true;
+    }
     const c = verifyToken<SessionClaims>(this.cfg.sessionSecret, raw, "session");
     if (!c) {
       fail("BAD_PIN", "Sesión caducada o no válida: vuelve a entrar con tu clave");

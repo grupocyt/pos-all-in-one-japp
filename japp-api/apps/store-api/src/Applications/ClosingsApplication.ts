@@ -41,7 +41,14 @@ export class ClosingsApplication {
    */
   async openOrders(storeId: string, periodId: string) {
     // pre_bill: lo de las cuentas en precuenta (todas sus líneas vivas en precuenta), como GET /tables → bill
-    return rows<{ order_id: string; waiter: string; guests: number; total: number; paid: number; pre_bill: number }>(
+    return rows<{
+      order_id: string;
+      waiter: string;
+      guests: number;
+      total: number;
+      paid: number;
+      pre_bill: number;
+    }>(
       this.db,
       sql`SELECT o.id::text order_id, o.opened_by_user_name waiter, o.guests::int guests,
           coalesce(sum(a.total), 0)::float8 total, coalesce(sum(a.paid), 0)::float8 paid,
@@ -87,9 +94,9 @@ export class ClosingsApplication {
   }
 
   /** Productos más vendidos del periodo: lo facturado (menos lo abonado) y lo marcado en mesas abiertas (v186). */
-  async topProducts(storeId: string, periodId: string, limit: number) {
+  async topProducts(storeId: string, periodId: string, limit: number, tx: Tx | null = null) {
     return rows<{ plu: number | null; name: string; quantity: number; amount: number }>(
-      this.db,
+      tx ?? this.db,
       sql`WITH sold AS (
           SELECT l.plu, l.name, sum(l.quantity) qty, sum(l.net_amount) amount FROM order_line l
           JOIN account a ON a.id = l.account_id AND a.store_id = l.store_id
@@ -157,13 +164,14 @@ export class ClosingsApplication {
     s: PeriodSummary & { openedAt: string },
     closedAt: string,
     closedBy: string,
+    byProduct: { plu: number | null; name: string; quantity: number; amount: number }[] = [],
   ) {
     const id = crypto.randomUUID();
     await tx.execute(sql`INSERT INTO period_summary (id, store_id, period_id, business_date, opened_at, closed_at, gross_sales, tax_base, tax_total, tickets, guests, cash_amount, card_amount, other_amount, tips,
-      discount_amount, voids_count, voids_amount, cash_difference, by_hour, by_waiter, by_payment, voids, closed_by_user_name)
+      discount_amount, voids_count, voids_amount, cash_difference, by_hour, by_waiter, by_payment, voids, closed_by_user_name, by_product)
       VALUES (${id}, ${storeId}, ${periodId}, ${s.businessDate}, ${s.openedAt}, ${closedAt}, ${s.grossSales.toFixed(2)}, ${s.taxBase.toFixed(2)}, ${s.taxTotal.toFixed(2)}, ${s.tickets}, ${s.guests},
         ${s.cashAmount.toFixed(2)}, ${s.cardAmount.toFixed(2)}, ${s.otherAmount.toFixed(2)}, ${s.tips.toFixed(2)}, ${s.discountAmount.toFixed(2)}, ${s.voidsCount}, ${s.voidsAmount.toFixed(2)}, ${s.cashDifference.toFixed(2)},
-        ${JSON.stringify(s.byHour)}::jsonb, ${JSON.stringify(s.byWaiter)}::jsonb, ${JSON.stringify(s.byPayment)}::jsonb, ${JSON.stringify(s.voids)}::jsonb, ${closedBy})`);
+        ${JSON.stringify(s.byHour)}::jsonb, ${JSON.stringify(s.byWaiter)}::jsonb, ${JSON.stringify(s.byPayment)}::jsonb, ${JSON.stringify(s.voids)}::jsonb, ${closedBy}, ${JSON.stringify(byProduct)}::jsonb)`);
   }
 
   /** «period.closed» a la cola hacia el Manager. */
@@ -223,6 +231,57 @@ export class ClosingsApplication {
       sql`SELECT business_date::text date, sum(gross_sales)::float8 sales FROM period_summary WHERE store_id = ${storeId}
       AND business_date BETWEEN ${`${year - 1}-01-01`}::date - 7 AND ${`${year}-12-31`}::date + 7 GROUP BY business_date`,
     );
+  }
+
+  /** Resumen semana: venta, transacciones y productos de cada día de negocio entre dos fechas (cierres guardados). */
+  async weekDays(storeId: string, from: string, to: string) {
+    return rows<{ date: string; sales: number; tickets: number; products: any[] }>(
+      this.db,
+      sql`SELECT business_date::text date, sum(gross_sales)::float8 sales, sum(tickets)::int tickets,
+            coalesce(jsonb_agg(p) FILTER (WHERE p IS NOT NULL), '[]'::jsonb) products
+          FROM period_summary ps LEFT JOIN LATERAL jsonb_array_elements(ps.by_product) p ON true
+          WHERE ps.store_id = ${storeId} AND ps.business_date BETWEEN ${from} AND ${to} GROUP BY business_date`,
+    );
+  }
+
+  /** Observaciones de la hoja entre dos fechas. */
+  async weekNotes(storeId: string, from: string, to: string) {
+    return rows<{ date: string; note: string; version: number; updatedBy: string | null; updatedAt: string }>(
+      this.db,
+      sql`SELECT business_date::text date, note, version, updated_by "updatedBy", updated_at "updatedAt"
+          FROM week_note WHERE store_id = ${storeId} AND business_date BETWEEN ${from} AND ${to} ORDER BY business_date`,
+    );
+  }
+
+  /** La observación de un día, bloqueada para cambiarla. */
+  async weekNoteForUpdate(tx: Tx, storeId: string, date: string) {
+    const [r] = await rows<{
+      id: string;
+      note: string;
+      version: number;
+      updatedBy: string | null;
+      updatedAt: string;
+    }>(
+      tx,
+      sql`SELECT id::text, note, version, updated_by "updatedBy", updated_at "updatedAt" FROM week_note
+          WHERE store_id = ${storeId} AND business_date = ${date} FOR UPDATE`,
+    );
+    return r ?? null;
+  }
+
+  async saveWeekNote(tx: Tx, storeId: string, date: string, note: string, version: number, by: string) {
+    const [r] = await rows<{ note: string; version: number; updatedBy: string; updatedAt: string }>(
+      tx,
+      sql`INSERT INTO week_note (id, store_id, business_date, note, version, updated_by)
+          VALUES (${crypto.randomUUID()}, ${storeId}, ${date}, ${note}, ${version}, ${by})
+          ON CONFLICT (store_id, business_date) DO UPDATE SET note = EXCLUDED.note, version = EXCLUDED.version, updated_by = EXCLUDED.updated_by
+          RETURNING note, version, updated_by "updatedBy", updated_at "updatedAt"`,
+    );
+    return r!;
+  }
+
+  async deleteWeekNote(tx: Tx, storeId: string, date: string) {
+    await tx.execute(sql`DELETE FROM week_note WHERE store_id = ${storeId} AND business_date = ${date}`);
   }
 
   /** Objetivos del año (semana 0 = crecimiento general). */

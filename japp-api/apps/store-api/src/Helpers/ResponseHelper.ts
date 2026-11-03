@@ -66,6 +66,11 @@ function loadRoutes() {
   } catch {
     /* sin contrato: se usa el título genérico */
   }
+  // primero las rutas con menos partes variables: /config/sistema antes que /config/{module}
+  routes.sort(
+    (a, b) =>
+      (a.re.source.match(/\[\^\/\]\+/g)?.length ?? 0) - (b.re.source.match(/\[\^\/\]\+/g)?.length ?? 0),
+  );
   return routes;
 }
 
@@ -111,19 +116,19 @@ export class EnvelopeInterceptor implements NestInterceptor {
     const req = ctx.switchToHttp().getRequest();
     const reply = ctx.switchToHttp().getResponse();
     const status = statusOf(ctx);
-    return next
-      .handle()
-      .pipe(
-        map((body) =>
-          reply.statusCode === 304
-            ? undefined
-            : envelope(
-                this.cfg,
-                req,
-                reply.statusCode && reply.statusCode !== 200 ? reply.statusCode : status,
-                body ?? null,
-              ),
-        ),
-      );
+    return next.handle().pipe(
+      map((body) =>
+        reply.statusCode === 304
+          ? undefined
+          : envelope(
+              this.cfg,
+              req,
+              // req.statusOverride: el controlador cambió el código a propósito (p. ej. 200 «ya estaba» en un POST que crea)
+              req.statusOverride ??
+                (reply.statusCode && reply.statusCode !== 200 ? reply.statusCode : status),
+              body ?? null,
+            ),
+      ),
+    );
   }
 }

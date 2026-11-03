@@ -5,7 +5,8 @@ import type { ConfigModule } from "@japp/domain";
  * Ajustes: cada módulo dice qué tabla toca y qué campos expone (nombre de API ↔ columna).
  * Los nombres de tabla y columna salen SOLO de aquí (nunca del cliente), así el SQL dinámico es seguro.
  */
-export type Kind = "s" | "i" | "n" | "b" | "d" | "u";
+/** s texto · i entero · n NUMERIC · b sí/no · d fecha · u UUID · j JSON */
+export type Kind = "s" | "i" | "n" | "b" | "d" | "u" | "j";
 export interface Field {
   col: string;
   kind: Kind;
@@ -419,6 +420,53 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       growthPct: F("growth_pct", "n", z.number(), "Objetivo (%)", { default: 0 }),
       amount: F("amount", "n", z.number().nullish(), "Importe fijo"),
       note: F("note", "s", optStr(200), "Nota"),
+    },
+  },
+  // Ajustes › Pedidos (TPV 1.2.217–1.2.233): un registro por tienda; sin fila = los valores por defecto (se crea al leerlo)
+  pedidos: {
+    table: "delivery_settings",
+    singleton: "store_id",
+    noActive: true,
+    nameField: "provider",
+    order: "store_id",
+    fields: {
+      active: F("active", "b", z.boolean(), "Delivery en este local"),
+      integration: F("integration", "b", z.boolean(), "Recibir de las plataformas"),
+      provider: F("provider", "s", optStr(40), "Integrador"),
+      platforms: F(
+        "platforms",
+        "j",
+        z
+          .array(
+            z
+              .object({
+                id: z.string().regex(/^[a-z0-9_-]{2,20}$/, "minúsculas y números (2–20)"),
+                name: str(40),
+                active: z.boolean(),
+              })
+              .strict(),
+          )
+          .max(20),
+        "Plataformas",
+      ),
+      autoAccept: F("auto_accept", "b", z.boolean(), "Aceptar solos"),
+      askRider: F("ask_rider", "b", z.boolean(), "Pedir motorizado al asignar"),
+      sound: F("sound", "b", z.boolean(), "Aviso sonoro"),
+      prepMinutes: F("prep_minutes", "i", z.number().int(), "Preparación (min)"),
+      amberMinutes: F("amber_minutes", "i", z.number().int(), "Ámbar desde (min)"),
+      redMinutes: F("red_minutes", "i", z.number().int(), "Rojo desde (min)"),
+    },
+  },
+  // Motorizados de la tienda; quitar uno lo desactiva (los pedidos antiguos lo siguen nombrando)
+  motorizados: {
+    table: "delivery_rider",
+    nameField: "name",
+    order: "sort_order, name",
+    search: ["name", "phone"],
+    fields: {
+      name: F("name", "s", str(40), "Nombre", { required: true }),
+      phone: F("phone", "s", optStr(20), "Teléfono"),
+      sortOrder: F("sort_order", "i", z.number().int().min(0).max(999), "Orden", { default: 0 }),
     },
   },
 };

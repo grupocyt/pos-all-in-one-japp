@@ -13,7 +13,11 @@ ajv.addSchema({ $id: "openapi", components: doc.components });
 /** Busca la operación del contrato que corresponde a una ruta real (/api/v2/orders/abc → /api/v2/orders/{orderId}). */
 export function findOperation(method: string, url: string) {
   const path = url.split("?")[0]!;
-  for (const [tpl, item] of Object.entries<any>(doc.paths)) {
+  // primero las rutas con menos partes variables: /config/sistema antes que /config/{module}
+  const tpls = Object.entries<any>(doc.paths).sort(
+    (a, b) => (a[0].match(/\{/g)?.length ?? 0) - (b[0].match(/\{/g)?.length ?? 0),
+  );
+  for (const [tpl, item] of tpls) {
     const re = new RegExp("^" + tpl.replace(/\{[^}]+\}/g, "[^/]+") + "$");
     if (re.test(path) && item[method.toLowerCase()]) return { template: tpl, op: item[method.toLowerCase()] };
   }

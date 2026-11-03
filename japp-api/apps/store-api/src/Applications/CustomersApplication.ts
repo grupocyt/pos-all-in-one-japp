@@ -9,7 +9,7 @@ export class CustomersApplication {
   constructor(@Inject(DATABASE) private readonly database: Database) {}
 
   /**
-   * Clientes activos de la tienda cuyo NIF empieza por `q` o cuyo nombre lo contiene (sin distinguir mayúsculas),
+   * Clientes activos de la tienda cuyo NIF empieza por `q` o cuyo nombre o correo lo contiene (sin distinguir mayúsculas),
    * por nombre, hasta `limit`. Los comodines de LIKE que traiga `q` se buscan como texto.
    */
   async search(storeId: string, q: string, limit: number) {
@@ -21,7 +21,12 @@ export class CustomersApplication {
         and(
           eq(s.customerRef.storeId, storeId),
           eq(s.customerRef.active, true),
-          or(ilike(s.customerRef.taxId, `${lit}%`), ilike(s.customerRef.name, `%${lit}%`)),
+          or(
+            ilike(s.customerRef.taxId, `${lit}%`),
+            ilike(s.customerRef.name, `%${lit}%`),
+            // 28/10: también por correo
+            ilike(s.customerRef.email, `%${lit}%`),
+          ),
         ),
       )
       .orderBy(asc(s.customerRef.name), asc(s.customerRef.taxId))

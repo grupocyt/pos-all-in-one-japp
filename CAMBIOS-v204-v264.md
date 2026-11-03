@@ -19,6 +19,12 @@ El TPV de la v264 ya va construido en `japp-tpv/`. Lo que necesita también la *
 | v261 | Decisiones del 28/10: sin conexión, Cobrar desactivado; **no se cobra un menú con pases por elegir o sin marchar (también en la API)**; en Editar sala no se puede dejar ni crear una mesa encima de otra. | Regla de cobro con pases pendientes en `checkout`/`payments`; validar el solape de mesas en `PUT /config/areas/{id}/layout`. |
 | v262–v263 | Gestiones › **Resumen semana**: lunes a domingo, semana anterior, año anterior, proyección (objetivo de Ajustes › Objetivos), cumplimiento, observaciones por día y productos más vendidos con % de mezcla. «Con servidor sale de los cierres de periodo»; «las observaciones se guardan en el servidor». | Tabla `week_note` y `period_summary.by_product` (**0024**, hechas) · `GET /reports/week` y `PUT /reports/week/notes/{date}` en el contrato, sin programar. |
 
+## Arreglos posteriores
+
+- **v265** · Administración › API backend y Base de datos al día (migraciones 0023–0026 y contrato).
+- **v266** · Pruebas JC01 del 03/11: una mesa «Pendiente de revisar» sin líneas marcadas ya no se queda bloqueada; los botones «Reintentar envío» y «Quedarme con lo del servidor» salen debajo de la cuenta y en el aviso al cobrar.
+- **v267** · La API ya tiene todo lo de la sección 1 de esta lista (Sistema, Resumen semana, Pedidos y Motorizados, tablero de pedidos y las reglas del 28/10) y el TPV lo usa cuando hay servidor. En la PDA, la comanda abierta enseña al momento la incidencia de una mesa retenida.
+
 ## 2 · Solo TPV (diseño y pantallas), ya incluidos en `japp-tpv/`
 
 **Facturas**

@@ -122,6 +122,11 @@ describe("Gestor de cierres", () => {
     expect(Number(ps.voids_count)).toBe(1);
     expect(ps.voids[0]).toMatchObject({ reason: "Error al marcar", by: "Sistemas" });
     expect(ps.by_waiter[0].name).toBe("Mesero");
+    // 1.2.267: lo vendido por producto (Resumen semana › productos más vendidos), sin la tosta anulada
+    const bp = ps.by_product as { plu: number; quantity: number; amount: number }[];
+    expect(bp.length).toBeGreaterThan(0);
+    expect(bp.find((p) => p.plu === PLU.croquetas)?.quantity).toBe(2);
+    expect(bp.reduce((a, p) => a + p.amount, 0)).toBeCloseTo(Number(ps.gross_sales), 2);
     expect(Object.values(ps.by_hour).reduce((a: number, x: any) => a + x, 0)).toBeCloseTo(
       Number(ps.gross_sales),
       2,

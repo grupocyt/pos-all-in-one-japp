@@ -6,6 +6,7 @@ import {
   removeDiscount,
   setCustomer,
   removeEmptyAccount,
+  dropEmptiedAccounts,
   assertVersion,
   changeQuantity,
   deleteLine,
@@ -925,14 +926,19 @@ export class OrdersService {
         const left = applyPresence(l.header.presence, "leave", me, ctx.now).state;
         // otra persona con la mesa viva: quien solo guarda no se la cierra
         const other = liveHolder(left, ctx.now);
-        const released = !other && !liveContentOf(s.next);
         const events: OrderEvent[] = [];
         if (s.sent) {
           events.push(this.ev("linePrinted", `Se envían ${s.sent} líneas`, ctx));
         }
-        let next = s.next;
+        // 28/10: la cuenta que se quedó sin productos porque se eliminó todo desaparece al guardar
+        const d = dropEmptiedAccounts(s.next);
+        for (const a of d.dropped) {
+          events.push(this.ev("accountRemoved", `Se quita la ${a.name} (sin productos)`, ctx));
+        }
+        const released = !other && !liveContentOf(d.order);
+        let next = d.order;
         if (released) {
-          next = this.closeEmpty(l, s.next);
+          next = this.closeEmpty(l, d.order);
           events.push(this.ev("tableClosed", "Se cierra la mesa sin venta", ctx));
         }
         return {
