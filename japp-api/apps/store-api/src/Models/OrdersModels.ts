@@ -110,6 +110,10 @@ export const ListQuery = z.object({
   status: z.enum(["open", "billing", "closed", "cancelled"]).optional(),
   tableId: Uuid.optional(),
 });
+/** Anular un cobro (decisión 19): motivo obligatorio y la clave del encargado si quien pulsa no tiene sistema.autorizar. */
+export const VoidPayment = z
+  .object({ reason: z.string().trim().min(3).max(200), version: z.number().int().nullish(), authorization: auth })
+  .strict();
 export const AuthOnly = z.object({ authorization: auth, print: z.boolean().optional() });
 
 /** Menú por pases: elegir las respuestas de un pase. */

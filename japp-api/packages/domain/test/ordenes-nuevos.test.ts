@@ -31,38 +31,35 @@ const pay = (status: Payment["status"]): Payment => ({
   collectedBy: { user: "Marta", role: "waiter", at: "2026-10-13T12:00:00.000Z" },
 });
 
-describe("reabrir mesa (planReopen)", () => {
+describe("reabrir mesa (planReopen) · regla fija 03/11: nunca", () => {
   const closed = { id: "o-1", status: "cancelled", periodId: "P1" };
-  it("las cuentas anuladas sin factura vuelven a open; las facturadas no", () => {
-    const r = planReopen(
-      { ...closed, status: "closed" },
-      [
-        { id: "a1", status: "invoiced", invoiced: true },
-        { id: "a2", status: "cancelled", invoiced: false },
-        { id: "a3", status: "cancelled", invoiced: true },
-      ],
-      "P1",
-    );
-    expect(r.reopen).toEqual(["a2"]);
+  it("cerrada sin venta o cobrada → siempre ORDER_CLOSED", () => {
+    expect(
+      err(() => planReopen(closed, [{ id: "a1", status: "cancelled", invoiced: false }], "P1")),
+    ).toMatchObject({
+      code: "ORDER_CLOSED",
+      details: { charged: [] },
+    });
+    const mixed = [
+      { id: "a1", status: "invoiced", invoiced: true },
+      { id: "a2", status: "cancelled", invoiced: false, paid: true },
+      { id: "a3", status: "cancelled", invoiced: false },
+    ];
+    expect(err(() => planReopen({ ...closed, status: "closed" }, mixed, "P1"))).toMatchObject({
+      code: "ORDER_CLOSED",
+      details: { charged: ["a1", "a2"] },
+    });
   });
-  it("sin periodo abierto, o de otro periodo → PERIOD_CLOSED", () => {
+  it("sin periodo abierto, o de otro periodo → PERIOD_CLOSED; abierta → TABLE_BUSY", () => {
     const accs = [{ id: "a1", status: "cancelled", invoiced: false }];
     expect(err(() => planReopen(closed, accs, null))).toMatchObject({ code: "PERIOD_CLOSED" });
     expect(err(() => planReopen(closed, accs, "P2"))).toMatchObject({
       code: "PERIOD_CLOSED",
       details: { periodId: "P1" },
     });
-  });
-  it("una mesa abierta no se reabre → TABLE_BUSY; todas facturadas → ACCOUNT_CLOSED", () => {
-    const accs = [{ id: "a1", status: "cancelled", invoiced: false }];
     expect(err(() => planReopen({ ...closed, status: "open" }, accs, "P1"))).toMatchObject({
       code: "TABLE_BUSY",
     });
-    expect(
-      err(() =>
-        planReopen({ ...closed, status: "closed" }, [{ id: "a1", status: "invoiced", invoiced: true }], "P1"),
-      ),
-    ).toMatchObject({ code: "ACCOUNT_CLOSED" });
   });
 });
 

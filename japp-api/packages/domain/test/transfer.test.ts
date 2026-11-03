@@ -40,8 +40,16 @@ describe("pasar una cuenta a otra mesa", () => {
     payments: [pay],
     discounts: [{ id: "d", type: "fixed", value: 1, reason: "x", status: "applied" }],
   });
-  it("a una mesa libre: va entera (cobros y descuentos incluidos) y el origen sigue vivo", () => {
-    const r = transferAccount(order("o7", [c1, c2]), "a2", order("o8", []));
+  it("regla 03/11: con cobro o descuento no se pasa (ACCOUNT_LOCKED); liberada sí, entera", () => {
+    expect(code(() => transferAccount(order("o7", [c1, c2]), "a2", order("o8", [])))).toBe("ACCOUNT_LOCKED");
+  });
+  it("a una mesa libre: va entera y el origen sigue vivo", () => {
+    const free = {
+      ...c2,
+      payments: c2.payments.map((p) => ({ ...p, status: "cancelled" as const })),
+      discounts: c2.discounts.map((d) => ({ ...d, status: "removed" as const })),
+    };
+    const r = transferAccount(order("o7", [c1, free]), "a2", order("o8", []));
     expect(r.from.accounts.map((a) => a.id)).toEqual(["a1"]);
     expect(r.to.accounts).toHaveLength(1);
     expect(r.account).toMatchObject({

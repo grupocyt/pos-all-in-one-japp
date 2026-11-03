@@ -506,7 +506,7 @@ describe("10 · anulaciones con su momento e importe real", () => {
 });
 
 describe("C · línea ya cobrada", () => {
-  it("con un cobro parcial no se puede dejar la cuenta por debajo de lo cobrado; añadir sí", async () => {
+  it("regla 03/11: con un cobro parcial la cuenta queda congelada (ni eliminar, ni cambiar cantidad, ni añadir) → 409 ACCOUNT_LOCKED", async () => {
     const o = await openTable(sis, [PLU.tosta, PLU.croquetas]);
     const acc = (await get(o.orderId)).accounts[0];
     await t.call("POST", `/orders/${o.orderId}/accounts/${o.accountId}/payments`, {
@@ -515,15 +515,17 @@ describe("C · línea ya cobrada", () => {
     });
     const big = acc.lines.reduce((a: any, l: any) => (l.amount > a.amount ? l : a));
     const r = await t.call("POST", `/orders/${o.orderId}/lines/${big.id}/delete`, { token: sis, body: {} });
-    expect([r.status, r.error.code]).toEqual([409, "TOTAL_BELOW_PAID"]);
-    expect(r.error.message).toMatch(/^Ya se ha cobrado \d+,\d{2} €: no se puede dejar la cuenta por debajo$/);
+    expect([r.status, r.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
+    expect(r.error.message).toContain("libera antes la cuenta");
     expect(
       (await t.call("PATCH", `/orders/${o.orderId}/lines/${big.id}`, { token: sis, body: { quantity: 0 } }))
         .error.code,
-    ).toBe("TOTAL_BELOW_PAID");
-    expect(
-      (await t.call("POST", `/orders/${o.orderId}/lines`, { token: sis, body: { plu: PLU.redbull } })).status,
-    ).toBe(201);
+    ).toBe("ACCOUNT_LOCKED");
+    const add = await t.call("POST", `/orders/${o.orderId}/lines`, {
+      token: sis,
+      body: { plu: PLU.redbull },
+    });
+    expect([add.status, add.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
   });
 });
 

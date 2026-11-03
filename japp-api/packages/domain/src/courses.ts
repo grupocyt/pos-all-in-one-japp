@@ -1,5 +1,6 @@
 import { clone, type Ctx } from "./context.js";
 import { fail } from "./errors.js";
+import { assertAccountFree } from "./accounts.js";
 import { assertTotalCoversPaid } from "./totals.js";
 import type { Account, DeletedLine, Line, LineCourse, Modifier } from "./types.js";
 
@@ -227,6 +228,7 @@ export function chooseCourse(acc: Account, lineId: string, course: number, mods:
   if (acc.status !== "open") {
     fail("ACCOUNT_CLOSED", "La cuenta ya está facturada", { accountId: acc.id });
   }
+  assertAccountFree(acc, "cambiar las respuestas de un pase");
   const out = clone(acc);
   const l = out.lines.find((x) => x.id === lineId) ?? fail("NOT_FOUND", "La línea no existe", { lineId });
   const c =
@@ -273,6 +275,8 @@ export function absorbIntoMenu(
   if (c!.state === "fired") {
     fail("VALIDATION", `${courseLabel(input.course)} del menú ya está marchado`, { field: "course" });
   }
+  // 03/11: cambia el contenido de la cuenta → con descuento o cobro parcial, no
+  assertAccountFree(acc, "incluir una bebida en el menú");
   if (src!.courses?.length || src!.modifiers.length) {
     fail("VALIDATION", "Solo se puede incluir un producto sencillo", { field: "sourceLineId" });
   }
@@ -340,6 +344,7 @@ export function changeFiredCourse(
   if (c!.state !== "fired") {
     fail("VALIDATION", `${courseLabel(course)} aún no está marchado`, { field: "course" });
   }
+  assertAccountFree(acc, "cambiar un pase ya marchado");
   if (!mods.length) {
     fail("VALIDATION", `Elige la respuesta nueva de ${courseLabel(course)}`, { field: "modifiers" });
   }

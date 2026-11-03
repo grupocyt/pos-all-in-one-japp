@@ -1,5 +1,6 @@
 import { clone, type Ctx } from "./context.js";
 import { fail } from "./errors.js";
+import { assertAccountFree } from "./accounts.js";
 import { checkWithManager, type Profile, type UserLike } from "./permissions.js";
 import { priceFor } from "./pricing.js";
 import { accountTotals, assertTotalCoversPaid } from "./totals.js";
@@ -68,6 +69,7 @@ export const modKey = (ms: Modifier[]) =>
 
 export function addProduct(acc: Account, input: AddProductInput, ctx: Ctx): Account {
   assertOpen(acc);
+  assertAccountFree(acc, "añadir productos"); // 03/11: con descuento o cobro parcial ya se está cobrando
   const qty = input.quantity ?? 1;
   if (!Number.isInteger(qty) || qty <= 0) {
     fail("VALIDATION", "Cantidad no válida", { field: "quantity" });
@@ -116,6 +118,7 @@ export function addProduct(acc: Account, input: AddProductInput, ctx: Ctx): Acco
 /** Cambiar cantidad: solo líneas «Por enviar». 0 o menos la quita. */
 export function changeQuantity(acc: Account, lineId: string, delta: number): Account {
   assertOpen(acc);
+  assertAccountFree(acc, "cambiar cantidades");
   const out = clone(acc);
   const l = out.lines.find((x) => x.id === lineId) ?? fail("NOT_FOUND", "Línea no encontrada", { lineId });
   if (l.status !== "pendingPrint") {
@@ -167,6 +170,8 @@ export function deleteLine(acc: Account, input: DeleteLineInput, ctx: Ctx): Acco
     fail("VALIDATION", "Cantidad a eliminar no válida", { field: "quantity", max: l.quantity });
   }
   const partial = q < l.quantity;
+  // 03/11: con descuento o cobro parcial no se elimina nada (tampoco lo por enviar ni con motivo «Invitación»)
+  assertAccountFree(acc, "eliminar productos");
   if (!perm) {
     if (partial) {
       l.quantity -= q;
@@ -254,10 +259,17 @@ export function reorderPending(acc: Account, ids: string[]): Account {
 
 /** Clave para juntar unidades iguales al pasar entre cuentas (producto, estado, comentario y modificadores). */
 export const sameKey = (l: Line) =>
-  [l.productId, l.status, l.comment, JSON.stringify(l.modifiers.map((m) => m.name)), l.origin?.table ?? ""].join("|");
+  [
+    l.productId,
+    l.status,
+    l.comment,
+    JSON.stringify(l.modifiers.map((m) => m.name)),
+    l.origin?.table ?? "",
+  ].join("|");
 
 /** Una cuenta se puede tocar al separar si está abierta y no tiene cobros. */
-export const isMovable = (a: Account) => a.status === "open" && a.payments.length === 0;
+export const isMovable = (a: Account) =>
+  a.status === "open" && !a.payments.some((p) => p.status === "confirmed");
 
 /**
  * Pasar unidades entre cuentas (= «Separar cuenta»):
@@ -278,9 +290,10 @@ export function moveUnits(
   const src =
     out.accounts.find((a) => a.id === fromId) ??
     fail("NOT_FOUND", "Cuenta no encontrada", { accountId: fromId });
-  if (!isMovable(src)) {
-    fail("ACCOUNT_CLOSED", "La cuenta de origen ya tiene cobros o está facturada", { accountId: fromId });
+  if (src.status !== "open") {
+    fail("ACCOUNT_CLOSED", "La cuenta de origen está facturada", { accountId: fromId });
   }
+  assertAccountFree(src, "pasar productos a otra cuenta");
   let dest: Account;
   if (target === "new") {
     dest = {
@@ -302,9 +315,10 @@ export function moveUnits(
     if (dest.id === src.id) {
       fail("VALIDATION", "Origen y destino son la misma cuenta");
     }
-    if (!isMovable(dest)) {
-      fail("ACCOUNT_CLOSED", "La cuenta de destino ya tiene cobros o está facturada", { accountId: dest.id });
+    if (dest.status !== "open") {
+      fail("ACCOUNT_CLOSED", "La cuenta de destino está facturada", { accountId: dest.id });
     }
+    assertAccountFree(dest, "pasarle productos de otra cuenta");
   }
   for (const [lid, n] of Object.entries(pick)) {
     if (!n) {

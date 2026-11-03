@@ -44,7 +44,8 @@ export type ErrorCode =
   | "INVALID_TRANSITION"
   | "RIDER_REQUIRED"
   | "DELIVERY_OFF"
-  | "TABLE_OVERLAP";
+  | "TABLE_OVERLAP"
+  | "ACCOUNT_LOCKED";
 
 export const HTTP_STATUS: Record<ErrorCode, number> = {
   VALIDATION: 422,
@@ -95,6 +96,8 @@ export const HTTP_STATUS: Record<ErrorCode, number> = {
   DELIVERY_OFF: 409,
   // editar sala (28/10): una mesa encima de otra
   TABLE_OVERLAP: 422,
+  // cuenta con descuento o cobro parcial (03/11): se libera antes (anular cobros y quitar el descuento)
+  ACCOUNT_LOCKED: 409,
 };
 
 export class DomainError extends Error {

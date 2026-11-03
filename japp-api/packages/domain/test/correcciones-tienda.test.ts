@@ -88,7 +88,12 @@ describe("nombres de cuenta: nunca se repite un «Cuenta N»", () => {
     const came = line({ id: "c1", quantity: 2 });
     const o = order("o", [
       account({ id: "main", name: "Cuenta 1", lines: [mine] }),
-      account({ id: "in", name: "Cuenta 2", lines: [came], origin: { table: "7", by: "Ana", at: T0.toISOString() } }),
+      account({
+        id: "in",
+        name: "Cuenta 2",
+        lines: [came],
+        origin: { table: "7", by: "Ana", at: T0.toISOString() },
+      }),
     ]);
     const r = moveUnits(o, "in", "main", { c1: 2 }, ctx());
     const main = r.order.accounts.find((a) => a.id === "main")!;
@@ -141,6 +146,12 @@ describe("juntar mesas (mergeOrders)", () => {
     });
     const pareja = account({ id: "a2", name: "pareja", lines: [line()] });
     const facturada = account({ id: "a3", name: "Cuenta 3", status: "invoiced", lines: [line()] });
+    // regla 03/11: con cobro o descuento no se junta
+    expect(code(() => mergeOrders(order("o7", [viva, pareja, facturada], 2), destino()))).toBe(
+      "ACCOUNT_LOCKED",
+    );
+    viva.payments = viva.payments.map((p) => ({ ...p, status: "cancelled" as const }));
+    viva.discounts = viva.discounts.map((d) => ({ ...d, status: "removed" as const }));
     const r = mergeOrders(order("o7", [viva, pareja, facturada], 2), destino(), {
       knownNames: ["Cuenta 2"],
       fromNote: "alérgico",
@@ -274,7 +285,7 @@ describe("cambiar un pase ya marchado (falta de stock)", () => {
       ],
       payments: [pay(16.5)],
     });
-    expect(code(() => changeFiredCourse(caro, "m1", 1, [GAZPACHO], T0))).toBe("TOTAL_BELOW_PAID");
+    expect(code(() => changeFiredCourse(caro, "m1", 1, [GAZPACHO], T0))).toBe("ACCOUNT_LOCKED"); // regla 03/11
     expect(
       code(() =>
         changeFiredCourse(account({ status: "invoiced", lines: [menu()] }), "m1", 1, [GAZPACHO], T0),

@@ -79,7 +79,7 @@ describe("separar cuenta (pasar unidades)", () => {
       collectedBy: { user: "x", role: "w", at: "" },
     });
     expect(isMovable(o.accounts[0]!)).toBe(false);
-    expect(code(() => moveUnits(o, "a1", "new", { cana: 1 }, ctx()))).toBe("ACCOUNT_CLOSED");
+    expect(code(() => moveUnits(o, "a1", "new", { cana: 1 }, ctx()))).toBe("ACCOUNT_LOCKED");
   });
   it("misma cuenta como destino → VALIDATION", () =>
     expect(code(() => moveUnits(order(), "a1", "a1", { cana: 1 }, ctx()))).toBe("VALIDATION"));

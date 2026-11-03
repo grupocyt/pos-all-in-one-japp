@@ -53,12 +53,23 @@ const move = (
 ) => t.call("POST", `/orders/${o.orderId}/accounts/${acc}/transfer`, { token: tok, body, headers });
 
 describe("pasar una cuenta a otra mesa", () => {
-  it("a una mesa libre: se abre con la cuenta entera (mismo id, mismos precios, cobro parcial incluido); el origen sigue con la otra", async () => {
+  it("a una mesa libre: se abre con la cuenta entera (mismo id, mismos precios); el origen sigue con la otra", async () => {
     const o = await twoAccounts();
+    // regla 03/11: con un cobro parcial no se pasa (409 ACCOUNT_LOCKED); se libera antes y entonces sí
     await t.call("POST", `/orders/${o.orderId}/accounts/${o.a2}/payments`, {
       token: sis,
       body: { method: "card", amount: 2 },
     });
+    const locked = await move(sis, o, o.a2, {
+      version: (await get(o.orderId)).version,
+      toTableId: await freeTable(t, "BARRA"),
+    });
+    expect([locked.status, locked.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
+    const rel = await t.call("POST", `/orders/${o.orderId}/accounts/${o.a2}/release`, {
+      token: sis,
+      body: { reason: "Cambian de mesa" },
+    });
+    expect(rel.status, JSON.stringify(rel.env)).toBe(200);
     const before = await get(o.orderId);
     const acc = before.accounts.find((a: any) => a.id === o.a2);
     const dest = await freeTable(t, "BARRA"); // misma tarifa (25/10/2026: entre tarifas distintas no se puede)
@@ -72,7 +83,7 @@ describe("pasar una cuenta a otra mesa", () => {
     expect(moved.lines.map((l: any) => [l.productId, l.unitPrice, l.status])).toEqual(
       acc.lines.map((l: any) => [l.productId, l.unitPrice, l.status]),
     );
-    expect(moved.payments.map((p: any) => p.amount)).toEqual([2]);
+    expect(moved.payments.map((p: any) => [p.amount, p.status])).toEqual([[2, "cancelled"]]); // el anulado viaja con ella
     expect(r.body.from.events.map((e: any) => e.description)).toContain(
       `Cuenta 2 pasa a la mesa ${r.body.to.tableData.name}`,
     );

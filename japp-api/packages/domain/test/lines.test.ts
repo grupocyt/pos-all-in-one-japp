@@ -301,7 +301,7 @@ describe("ordenar lo «Por enviar»", () => {
   });
 });
 
-describe("línea ya cobrada (TOTAL_BELOW_PAID)", () => {
+describe("línea ya cobrada · regla 03/11: con un cobro la cuenta queda congelada (ACCOUNT_LOCKED)", () => {
   const paid = (amount: number, lines: ReturnType<typeof line>[]) =>
     account({
       lines,
@@ -327,30 +327,31 @@ describe("línea ya cobrada (TOTAL_BELOW_PAID)", () => {
     }
     return null;
   };
-  it("eliminar o bajar cantidad por debajo de lo cobrado → 409", () => {
-    const a = paid(15, [
-      line({ id: "a", unitPrice: 10, status: "printed" }),
-      line({ id: "b", unitPrice: 10 }),
-    ]);
-    expect(err(() => deleteLine(a, { lineId: "b", actor: LUCIA, profiles: PROFILES }, ctx()))).toEqual([
-      "TOTAL_BELOW_PAID",
-      "Ya se ha cobrado 15,00 €: no se puede dejar la cuenta por debajo",
-    ]);
-    expect(
-      err(() =>
-        deleteLine(a, { lineId: "a", reason: "Error", actor: LUCIA, profiles: PROFILES }, ctx()),
-      )?.[0],
-    ).toBe("TOTAL_BELOW_PAID");
-    expect(err(() => changeQuantity(a, "b", -1))?.[0]).toBe("TOTAL_BELOW_PAID");
-  });
-  it("si sigue cubierto se puede; añadir tras un cobro parcial también", () => {
+  it("eliminar (enviado o por enviar), cambiar cantidad o añadir → ACCOUNT_LOCKED", () => {
     const a = paid(10, [
       line({ id: "a", unitPrice: 10, status: "printed" }),
       line({ id: "b", unitPrice: 10, quantity: 2 }),
     ]);
+    expect(err(() => deleteLine(a, { lineId: "b", actor: LUCIA, profiles: PROFILES }, ctx()))?.[0]).toBe(
+      "ACCOUNT_LOCKED",
+    );
     expect(
-      deleteLine(a, { lineId: "b", quantity: 2, actor: LUCIA, profiles: PROFILES }, ctx()).lines,
-    ).toHaveLength(1);
-    expect(addProduct(a, { product: CANA, area: SALA, force: true }, ctx()).lines).toHaveLength(3);
+      err(() =>
+        deleteLine(a, { lineId: "a", reason: "Invitación", actor: LUCIA, profiles: PROFILES }, ctx()),
+      )?.[0],
+    ).toBe("ACCOUNT_LOCKED");
+    expect(err(() => changeQuantity(a, "b", 1))?.[0]).toBe("ACCOUNT_LOCKED");
+    expect(err(() => changeQuantity(a, "b", -1))?.[0]).toBe("ACCOUNT_LOCKED");
+    const add = err(() => addProduct(a, { product: CANA, area: SALA, force: true }, ctx()));
+    expect(add?.[0]).toBe("ACCOUNT_LOCKED");
+    expect(add?.[1]).toContain("libera antes la cuenta");
+  });
+  it("sin cobros ni descuento todo sigue libre; un cobro anulado no congela", () => {
+    const a = paid(10, [line({ id: "b", unitPrice: 10, quantity: 2 })]);
+    a.payments[0]!.status = "cancelled";
+    expect(
+      deleteLine(a, { lineId: "b", quantity: 1, actor: LUCIA, profiles: PROFILES }, ctx()).lines[0]!.quantity,
+    ).toBe(1);
+    expect(addProduct(a, { product: CANA, area: SALA, force: true }, ctx()).lines).toHaveLength(2);
   });
 });

@@ -17,6 +17,7 @@ import {
   moveUnits,
   preBill,
   registerPayment,
+  voidPayment,
   accountTotals,
   kitchenTicket,
   kitchenVoidTicket,
@@ -47,6 +48,9 @@ import {
   canEnterTable,
   transferAccount,
   mergeOrders,
+  assertOrderMovable,
+  assertAccountFree,
+  releaseAccount,
   newAccountName,
   changeFiredCourse,
   assertMethodAllowed,
@@ -623,6 +627,7 @@ export class OrdersService {
           next = changeQuantity(next, lineId, b.quantity - line.quantity);
         }
         if (b.comment !== undefined) {
+          assertAccountFree(acc, "cambiar comentarios"); // 03/11: cuenta congelada mientras se cobra
           if (line.status !== "pendingPrint") {
             fail("VALIDATION", "Solo se comenta lo que aún no se ha enviado", { lineId });
           }
@@ -1380,6 +1385,131 @@ export class OrdersService {
   }
 
   /**
+   * Anular un cobro (decisión 19, 03/11/2026): la cuenta sigue abierta, el cobro queda «cancelled» y deja de contar en lo pagado
+   * y en la caja. Pide sistema.autorizar (o la clave de un encargado) y motivo; queda en el historial de la mesa con quién y por qué.
+   */
+  async voidPayment(
+    session: Session,
+    orderId: string,
+    accountId: string,
+    paymentId: string,
+    b: { reason: string; version?: number | null; authorization?: string | null },
+  ) {
+    const g = await this.auth.require(session, "sistema.autorizar", b.authorization);
+    const r = await this.command<{ payment: { id: string; method: string; amount: number; kind: string } }>(
+      session,
+      orderId,
+      b.version ?? null,
+      async (l, ctx) => {
+        const acc = this.account(l.order, accountId);
+        const res = voidPayment(acc, paymentId, b.reason);
+        const p = res.payment;
+        const by = g.authorizerActor ? ` · autoriza ${g.authorizerActor.user}` : "";
+        const card = p.kind === "card" ? " · devolver en el datáfono" : "";
+        return {
+          next: this.replace(l.order, res.account),
+          events: [
+            this.ev(
+              "paymentVoided",
+              `Se anula el cobro ${p.method} ${p.amount.toFixed(2)} € · ${b.reason.trim()}${by}${card}`.slice(
+                0,
+                400,
+              ),
+              ctx,
+              acc.id,
+            ),
+          ],
+          extra: { payment: { id: p.id, method: p.method, amount: p.amount, kind: p.kind } },
+        };
+      },
+    );
+    const acc = r.order.accounts.find((a) => a.id === accountId)!;
+    const T = accountTotals(acc);
+    return {
+      payment: { ...r.extra.payment, status: "cancelled" },
+      refund:
+        r.extra.payment.kind === "card"
+          ? "card-terminal"
+          : r.extra.payment.kind === "cash"
+            ? "cash"
+            : "other",
+      totals: { total: T.total, paid: T.paid, pending: T.pending },
+      order: r.transaction,
+    };
+  }
+
+  /**
+   * «Liberar la cuenta y continuar» (03/11/2026): en una sola transacción anula todos los cobros confirmados de la cuenta y quita
+   * el descuento, para seguir con lo que estaba bloqueado (eliminar enviado, mover, cambiar de mesa…). Clave de encargado y motivo.
+   */
+  async releaseAccountCmd(
+    session: Session,
+    orderId: string,
+    accountId: string,
+    b: { reason: string; version?: number | null; authorization?: string | null },
+  ) {
+    const g = await this.auth.require(session, "sistema.autorizar", b.authorization);
+    const r = await this.command<{
+      voided: { id: string; method: string; kind: string; amount: number; tip: number }[];
+      discount: string | null;
+    }>(session, orderId, b.version ?? null, async (l, ctx) => {
+      const acc = this.account(l.order, accountId);
+      const res = releaseAccount(acc, b.reason);
+      const by = g.authorizerActor ? ` · autoriza ${g.authorizerActor.user}` : "";
+      const why = b.reason.trim();
+      const events = [
+        ...res.voided.map((p) =>
+          this.ev(
+            "paymentVoided",
+            `Se anula el cobro ${p.method} ${p.amount.toFixed(2)} € · ${why}${by}${p.kind === "card" ? " · devolver en el datáfono" : ""}`.slice(
+              0,
+              400,
+            ),
+            ctx,
+            acc.id,
+          ),
+        ),
+        ...(res.discount
+          ? [
+              this.ev(
+                "discountRemoved",
+                `Se quita el descuento ${res.discount.reason} · ${why}${by}`.slice(0, 400),
+                ctx,
+                acc.id,
+              ),
+            ]
+          : []),
+      ];
+      return {
+        next: this.replace(l.order, res.account),
+        events,
+        extra: {
+          voided: res.voided.map((p) => ({
+            id: p.id,
+            method: p.method,
+            kind: p.kind,
+            amount: p.amount,
+            tip: p.tip,
+          })),
+          discount: res.discount?.reason ?? null,
+        },
+      };
+    });
+    const acc = r.order.accounts.find((a) => a.id === accountId)!;
+    const T = accountTotals(acc);
+    const sum = (k: string) =>
+      Math.round(r.extra.voided.filter((p) => p.kind === k).reduce((a, p) => a + p.amount + p.tip, 0) * 100) /
+      100;
+    return {
+      voided: r.extra.voided,
+      discountRemoved: r.extra.discount,
+      refund: { cash: sum("cash"), card: sum("card"), other: sum("other") },
+      totals: { total: T.total, paid: T.paid, pending: T.pending },
+      order: r.transaction,
+    };
+  }
+
+  /**
    * Forma de pago de Ajustes (cualquier código: glovo, efectivo2…), permitida en esta estación (regla en @japp/domain),
    * con su tipo (paymentKind) y la propina solo si la admite. Devuelve la entrada de registerPayment y el nombre para el evento.
    */
@@ -1871,45 +2001,21 @@ export class OrdersService {
   }
 
   /**
-   * Reabrir mesa (regla planReopen en @japp/domain): una orden cerrada o cerrada sin venta del periodo abierto vuelve a open
-   * en su misma mesa, si está libre. Las cuentas anuladas sin factura vuelven a open; las facturadas no se tocan.
-   * Bloqueos en el orden de abrir mesa: primero la mesa (FOR UPDATE de dining_table) y luego la orden.
+   * Reabrir mesa · REGLA FIJA del 03/11/2026 (1.2.268): una mesa cerrada no se reabre nunca. Se mantiene el endpoint para
+   * responder con el motivo (planReopen siempre falla: ORDER_CLOSED, TABLE_BUSY o PERIOD_CLOSED). No cambia nada.
    */
   async reopen(session: Session, orderId: string, b: { authorization?: string | null }) {
     await this.auth.require(session, "cobro.reabrir", b.authorization);
-    const ctx = this.ctx(session);
     const S = session.storeId;
     return this.database.withTx(async (tx) => {
       const period = await this.periods.current(tx, S);
-      const head = await this.repo.load(tx, S, orderId);
-      if (head.header.tableId) {
-        await this.tables.lockWithArea(tx, S, head.header.tableId);
-      }
-      const l = await this.repo.load(tx, S, orderId, { lock: true });
+      const l = await this.repo.load(tx, S, orderId);
       const accounts = await this.repo.accountStates(tx, S, orderId);
-      const plan = planReopen(
+      return planReopen(
         { id: l.header.id, status: l.header.status, periodId: l.header.periodId },
         accounts,
         period?.id ?? null,
       );
-      const busy = await this.repo.liveOnTable(tx, S, {
-        tableId: l.header.tableId,
-        tableName: l.header.tableName,
-      });
-      if (busy.length) {
-        fail("TABLE_BUSY", "La mesa está ocupada: no se puede reabrir", { orderId: busy[0]!.id });
-      }
-      await this.repo.reopenAccounts(tx, S, orderId, plan.reopen);
-      await this.repo.markReopened(tx, S, orderId);
-      // se vuelve a cargar con las cuentas ya abiertas; save() sube la versión, deja el evento y la manda a la cola
-      const re = await this.repo.load(tx, S, orderId, { lock: true });
-      const header: OrderHeader = { ...re.header, status: "open" };
-      const v = await this.repo.save(tx, S, re.order, re.order, header, {
-        actor: ctx.actor,
-        events: [this.ev("tableReopened", "Mesa reabierta", ctx)],
-      });
-      const after = await this.repo.load(tx, S, orderId);
-      return this.repo.transaction(tx, { ...after.header, version: v }, after.order);
     });
   }
 
@@ -2049,6 +2155,7 @@ export class OrdersService {
             fail("TABLE_BUSY", "La mesa de destino está ocupada", { orderId: busy.id });
           }
           assertSamePriceList(l.header.priceList, t!.a.priceList); // terraza con terraza, general con general
+          assertOrderMovable(l.order); // 03/11: ninguna cuenta con descuento o cobro parcial
           const from = l.header.tableName;
           const dest = {
             tableId: t!.t.id,

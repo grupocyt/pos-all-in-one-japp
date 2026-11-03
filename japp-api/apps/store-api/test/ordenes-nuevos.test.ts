@@ -255,102 +255,48 @@ describe("POST /orders/{id}/transfer · scope", () => {
   });
 });
 
-describe("POST /orders/{id}/reopen · Reabrir mesa", () => {
-  it("una mesa cerrada sin venta vuelve a abrirse con su cuenta, sube versión, evento y cola", async () => {
+describe("POST /orders/{id}/reopen · regla fija 03/11: una mesa cerrada no se reabre nunca", () => {
+  it("cerrada sin venta → 409 ORDER_CLOSED y no cambia nada (ni versión ni cola)", async () => {
     const o = await newOrder([]);
     const closed = await t.call("POST", `/orders/${o.id}/close`, { token: sis, body: {} });
     expect(closed.body.status).toBe("cancelled");
     const box = await outbox(o.id);
     const r = await t.call("POST", `/orders/${o.id}/reopen`, { token: sis, body: {} });
-    expect(r.status, JSON.stringify(r.env)).toBe(200);
-    expect(r.body.status).toBe("open");
-    expect(r.body.version).toBe(closed.body.version + 1);
-    expect(r.body.accounts.map((a: any) => [a.id, a.status])).toEqual([[o.acc, "open"]]);
-    expect(r.body.events.map((e: any) => e.description)).toContain("Mesa reabierta");
-    const {
-      rows: [row],
-    } = await t.sql.query("SELECT status, closed_at, version FROM orders WHERE id=$1", [o.id]);
-    expect(row).toMatchObject({ status: "open", closed_at: null, version: r.body.version });
-    const acc = await t.sql.query("SELECT status, closed_by_user_name FROM account WHERE id=$1", [o.acc]);
-    expect(acc.rows[0]).toEqual({ status: "open", closed_by_user_name: null });
-    expect(await outbox(o.id)).toBe(box + 1);
-    // y se sigue vendiendo en ella
-    expect(
-      (await t.call("POST", `/orders/${o.id}/lines`, { token: sis, body: { plu: PLU.tosta, force: true } }))
-        .status,
-    ).toBe(201);
+    expect([r.status, r.error.code], JSON.stringify(r.env)).toEqual([409, "ORDER_CLOSED"]);
+    expect(r.error.message).toContain("no se reabre nunca");
+    const after = await get(o.id);
+    expect([after.status, after.version]).toEqual(["cancelled", closed.body.version]);
+    expect(await outbox(o.id)).toBe(box);
   });
 
-  it("cerrada con una cuenta facturada y otra anulada: reabre la anulada; la facturada sigue igual", async () => {
+  it("cobrada y facturada → 409 ORDER_CLOSED con las cuentas cobradas en details", async () => {
     const o = await newOrder();
-    const a2 = (await t.call("POST", `/orders/${o.id}/accounts`, { token: sis, body: {} })).body.accounts[1]
-      .id;
     await t.call("POST", `/orders/${o.id}/accounts/${o.acc}/payments`, {
       token: sis,
       body: { method: "card", amount: null },
     });
     await t.call("POST", `/orders/${o.id}/accounts/${o.acc}/invoice`, { token: sis, body: {} });
-    // 1.2.198: con la otra cuenta vacía, la mesa se cierra sola al facturar (la vacía queda anulada)
     expect((await get(o.id)).status).toBe("closed");
     const r = await t.call("POST", `/orders/${o.id}/reopen`, { token: sis, body: {} });
-    expect(r.status, JSON.stringify(r.env)).toBe(200);
-    expect(r.body.status).toBe("open");
-    expect(r.body.accounts.map((a: any) => [a.id, a.status])).toEqual([
-      [o.acc, "invoiced"],
-      [a2, "open"],
-    ]);
+    expect([r.status, r.error.code]).toEqual([409, "ORDER_CLOSED"]);
+    expect(r.error.details.charged).toEqual([o.acc]);
   });
 
-  it("todas facturadas → 409 ACCOUNT_CLOSED; mesa ocupada → 409 TABLE_BUSY; otro periodo → 409 PERIOD_CLOSED", async () => {
-    const inv = await newOrder();
-    await t.call("POST", `/orders/${inv.id}/accounts/${inv.acc}/payments`, {
-      token: sis,
-      body: { method: "card", amount: null },
-    });
-    await t.call("POST", `/orders/${inv.id}/accounts/${inv.acc}/invoice`, { token: sis, body: {} });
-    const all = await t.call("POST", `/orders/${inv.id}/reopen`, { token: sis, body: {} });
-    expect([all.status, all.error.code]).toEqual([409, "ACCOUNT_CLOSED"]);
-
-    const o = await newOrder([]);
-    await t.call("POST", `/orders/${o.id}/close`, { token: sis, body: {} });
-    const other = await t.call("POST", "/orders", { token: sis, body: { tableId: o.tableId, guests: 1 } });
-    expect(other.status).toBe(201);
-    const busy = await t.call("POST", `/orders/${o.id}/reopen`, { token: sis, body: {} });
+  it("abierta → 409 TABLE_BUSY; otro periodo → 409 PERIOD_CLOSED; sin permiso → 403; no existe → 404", async () => {
+    const open = await newOrder([]);
+    const busy = await t.call("POST", `/orders/${open.id}/reopen`, { token: sis, body: {} });
     expect([busy.status, busy.error.code]).toEqual([409, "TABLE_BUSY"]);
-    const open = await t.call("POST", `/orders/${other.body._id}/reopen`, { token: sis, body: {} });
-    expect([open.status, open.error.code]).toEqual([409, "TABLE_BUSY"]);
-
     const p = await newOrder([]);
     await t.call("POST", `/orders/${p.id}/close`, { token: sis, body: {} });
     await t.sql.query("UPDATE orders SET period_id = NULL WHERE id=$1", [p.id]);
     const per = await t.call("POST", `/orders/${p.id}/reopen`, { token: sis, body: {} });
     expect([per.status, per.error.code]).toEqual([409, "PERIOD_CLOSED"]);
-  });
-
-  it("sin cobro.reabrir → 403; con clave de encargado sí; cuerpo malo → 422; no existe → 404", async () => {
-    const o = await newOrder([]);
-    await t.call("POST", `/orders/${o.id}/close`, { token: sis, body: {} });
-    const no = await t.call("POST", `/orders/${o.id}/reopen`, { token: mesero, body: {} });
-    expect([no.status, no.error.code, no.error.details.permission]).toEqual([
-      403,
-      "PERMISSION_REQUIRED",
-      "cobro.reabrir",
-    ]);
-    const bad = await t.call("POST", `/orders/${o.id}/reopen`, { token: sis, body: { authorization: 5 } });
+    const no = await t.call("POST", `/orders/${p.id}/reopen`, { token: mesero, body: {} });
+    expect([no.status, no.error.code]).toEqual([403, "PERMISSION_REQUIRED"]);
+    const bad = await t.call("POST", `/orders/${p.id}/reopen`, { token: sis, body: { authorization: 5 } });
     expect([bad.status, bad.error.code]).toEqual([422, "VALIDATION"]);
     const missing = await t.call("POST", `/orders/${crypto.randomUUID()}/reopen`, { token: sis, body: {} });
     expect(missing.status).toBe(404);
-    const auth = (
-      await t.call("POST", "/sessions/authorize", {
-        token: mesero,
-        body: { pin: PIN.sistemas, permission: "cobro.reabrir" },
-      })
-    ).body.authorization.token;
-    const ok = await t.call("POST", `/orders/${o.id}/reopen`, {
-      token: mesero,
-      body: { authorization: auth },
-    });
-    expect(ok.status, JSON.stringify(ok.env)).toBe(200);
   });
 });
 

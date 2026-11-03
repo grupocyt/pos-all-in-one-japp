@@ -1,12 +1,12 @@
 import { fail } from "./errors.js";
 
 /**
- * Reabrir mesa (POST /orders/{id}/reopen, decidido 18/10/2026):
- * - solo una orden cerrada (closed) o cerrada sin venta (cancelled), y solo del periodo abierto: lo de un periodo
- *   cerrado ya está en su cierre y no se toca (PERIOD_CLOSED);
- * - las cuentas anuladas sin factura vuelven a open; las facturadas siguen como están (se corrigen con un abono);
- * - si no queda ninguna que reabrir (todas facturadas) → ACCOUNT_CLOSED.
- * Que la mesa esté libre lo comprueba quien llama, con la mesa bloqueada.
+ * Reabrir mesa (POST /orders/{id}/reopen).
+ * REGLA FIJA (03/11/2026, API 1.2.268): una mesa cerrada NO se reabre nunca, se haya cobrado o no. Lo cobrado se corrige
+ * con un abono; lo que no se llegó a cobrar se marca en una mesa nueva. El endpoint se queda para dar el motivo:
+ * - sin periodo abierto o de otro periodo → PERIOD_CLOSED;
+ * - la mesa sigue abierta → TABLE_BUSY;
+ * - cerrada (closed) o cerrada sin venta (cancelled) → ORDER_CLOSED, siempre.
  */
 export interface ReopenOrder {
   id: string;
@@ -18,13 +18,15 @@ export interface ReopenAccount {
   status: string;
   /** tiene factura (aunque el estado diga otra cosa) */
   invoiced: boolean;
+  /** tiene algún cobro confirmado */
+  paid?: boolean;
 }
 
 export function planReopen(
   order: ReopenOrder,
   accounts: ReopenAccount[],
   currentPeriodId: string | null,
-): { reopen: string[] } {
+): never {
   if (!currentPeriodId) {
     fail("PERIOD_CLOSED", "No hay periodo abierto");
   }
@@ -37,11 +39,12 @@ export function planReopen(
       periodId: order.periodId,
     });
   }
-  const reopen = accounts.filter((a) => a.status === "cancelled" && !a.invoiced).map((a) => a.id);
-  if (!reopen.length) {
-    fail("ACCOUNT_CLOSED", "Todas las cuentas de la mesa están facturadas: se corrigen con un abono", {
+  return fail(
+    "ORDER_CLOSED",
+    "Una mesa cerrada no se reabre nunca: abre una mesa nueva (lo cobrado se corrige con un abono)",
+    {
       orderId: order.id,
-    });
-  }
-  return { reopen };
+      charged: accounts.filter((a) => a.invoiced || a.status === "invoiced" || a.paid).map((a) => a.id),
+    },
+  );
 }

@@ -190,8 +190,9 @@ describe("nombres de cuenta: «Cuenta N» nunca se repite", () => {
 });
 
 describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
-  /** Origen: Cuenta 1 (tosta) y Cuenta 2 (croquetas con cobro parcial), 2 comensales, nota y QR de Order on Table. */
-  async function source() {
+  /** Origen: Cuenta 1 (tosta) y Cuenta 2 (croquetas), 2 comensales y nota. Con paid, la Cuenta 2 con un cobro parcial de 2 €
+   *  (regla 03/11: así la mesa no se puede juntar ni cambiar → ACCOUNT_LOCKED). */
+  async function source(paid = false) {
     const o = await open(2);
     await t.call("POST", `/orders/${o._id}/lines`, { token: sis, body: { plu: PLU.tosta, force: true } });
     const a2 = (await t.call("POST", `/orders/${o._id}/accounts`, { token: sis, body: {} })).body.accounts[1]
@@ -201,10 +202,12 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
       body: { plu: PLU.croquetas, accountId: a2, force: true },
     });
     await t.call("POST", `/orders/${o._id}/send`, { token: sis, body: {} });
-    await t.call("POST", `/orders/${o._id}/accounts/${a2}/payments`, {
-      token: sis,
-      body: { method: "card", amount: 2 },
-    });
+    if (paid) {
+      await t.call("POST", `/orders/${o._id}/accounts/${a2}/payments`, {
+        token: sis,
+        body: { method: "card", amount: 2 },
+      });
+    }
     await t.call("PATCH", `/orders/${o._id}`, { token: sis, body: { note: "alérgico" } });
     return { id: o._id as string, a1: o.accounts[0].id as string, a2: a2 as string, table: o.tableData.name };
   }
@@ -225,27 +228,25 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     headers: Record<string, string> = {},
   ) => t.call("POST", `/orders/${id}/transfer`, { token: tok, body: { scope: "table", ...body }, headers });
 
-  it("1.2.195 · into main: lo que llega se une a la cuenta principal; la cuenta con cobros se queda aparte", async () => {
+  it("1.2.195 · into main: lo que llega se une a la cuenta principal (sin cobros ni descuentos, regla 03/11)", async () => {
     const s = await source();
     const d = await dest();
     const v = (await get(s.id)).version;
     const r = await transfer(sis, s.id, { toTableId: d.tableId, version: v, into: "main" });
     expect(r.status, JSON.stringify(r.env)).toBe(200);
     const live = r.body.accounts.filter((a: any) => a.status !== "cancelled");
-    // Cuenta 1 del destino: kaspirinha + tosta (la Cuenta 1 del origen, sin cobros, se une); la de croquetas (con cobro) aparte
+    // Cuenta 1 del destino: kaspirinha + tosta + croquetas (todo se une: ya no puede llegar una cuenta con cobros)
     const byName = Object.fromEntries(
       live.map((a: any) => [a.name, a.lines.map((l: any) => l.plu ?? l.productId).sort()]),
     );
-    expect(live).toHaveLength(2);
-    expect(byName["Cuenta 1"]).toEqual([PLU.kaspirinha, PLU.tosta].sort());
-    expect(Object.values(byName)).toContainEqual([PLU.croquetas]);
+    expect(live).toHaveLength(1);
+    expect(byName["Cuenta 1"]).toEqual([PLU.kaspirinha, PLU.tosta, PLU.croquetas].sort());
     // 1.2.203 · cada línea unida dice de qué mesa viene; la de la mesa no lleva origen; la cuenta aparte, mesa y quién
     const c1 = live.find((a: any) => a.name === "Cuenta 1");
     const lp = (plu: number) => c1.lines.find((l: any) => (l.plu ?? l.productId) === plu);
     expect(lp(PLU.tosta).origin).toEqual({ table: s.table });
     expect(lp(PLU.kaspirinha).origin ?? null).toBeNull();
-    const apart = live.find((a: any) => a.name !== "Cuenta 1");
-    expect(apart.origin).toMatchObject({ table: s.table, by: expect.any(String), at: expect.any(String) });
+    expect(lp(PLU.croquetas).origin).toEqual({ table: s.table });
     // y se conserva al volver a leer la mesa
     const again = await get(d.id);
     const c1b = again.accounts.find((a: any) => a.name === "Cuenta 1");
@@ -266,7 +267,7 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     expect(main.lines.find((l: any) => (l.plu ?? l.productId) === PLU.redbull).origin).toEqual({
       table: s2.tableData.name,
     });
-    expect(a.body.to.accounts.filter((x: any) => x.status !== "cancelled")).toHaveLength(2);
+    expect(a.body.to.accounts.filter((x: any) => x.status !== "cancelled")).toHaveLength(1);
   });
 
   it("las cuentas vivas pasan enteras, renombradas si se repiten; comensales y notas se suman; el origen se cierra y su QR se anula", async () => {
@@ -294,8 +295,7 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     expect(r.body.accounts.filter((a: any) => !a.origin)).toHaveLength(1);
     expect(Object.values(names).sort()).toEqual(["Cuenta 1", "Cuenta 2", "Cuenta 3"]);
     const moved = r.body.accounts.find((a: any) => a.id === s.a2);
-    expect(moved.totals).toEqual(acc2.totals); // mismos precios y su cobro parcial
-    expect(moved.payments.map((p: any) => p.amount)).toEqual([2]);
+    expect(moved.totals).toEqual(acc2.totals); // mismos precios
     expect(r.body.tableData).toMatchObject({ guests: 5, note: "cumpleaños · alérgico", name: d.table });
     expect(r.body.events.map((e: any) => e.description)).toContain(
       `Se junta la mesa ${s.table}: Cuenta 2, Cuenta 3 (Cuenta 1 ahora Cuenta 2, Cuenta 2 ahora Cuenta 3) · 5 comensales`,
@@ -391,6 +391,32 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     expect(b.headers["idempotent-replayed"]).toBe("true");
     const n = await one("SELECT count(*)::int n FROM account WHERE order_id = $1", [d.id]);
     expect(n.n).toBe(3);
+  });
+
+  it("regla 03/11: con un cobro parcial en una cuenta no se junta ni se cambia de mesa (409 ACCOUNT_LOCKED); liberada, sí", async () => {
+    const s = await source(true);
+    const d = await dest();
+    const v = (await get(s.id)).version;
+    const r = await transfer(sis, s.id, { toTableId: d.tableId, version: v });
+    expect([r.status, r.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
+    expect(r.error.details).toMatchObject({
+      accountId: s.a2,
+      payments: [{ amount: 2, method: "card" }],
+      discount: null,
+    });
+    const free = await transfer(sis, s.id, { toTableId: await freeTable(t, "BARRA"), version: v });
+    expect([free.status, free.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
+    expect((await get(s.id)).version).toBe(v);
+    expect((await get(d.id)).accounts).toHaveLength(1);
+    // «Liberar la cuenta y continuar»: anula el cobro (y quitaría el descuento) y ya se junta
+    const rel = await t.call("POST", `/orders/${s.id}/accounts/${s.a2}/release`, {
+      token: sis,
+      body: { reason: "Se juntan con la otra mesa", version: v },
+    });
+    expect(rel.status, JSON.stringify(rel.env)).toBe(200);
+    expect(rel.body.refund).toEqual({ cash: 0, card: 2, other: 0 });
+    const ok = await transfer(sis, s.id, { toTableId: d.tableId, version: rel.body.order.version });
+    expect(ok.status, JSON.stringify(ok.env)).toBe(200);
   });
 
   it("destino libre: como siempre (la orden cambia de mesa)", async () => {
@@ -604,7 +630,7 @@ describe("cambiar un pase ya marchado (falta de stock)", () => {
     );
   });
 
-  it("con la cuenta cobrada, bajar de lo cobrado → 409 TOTAL_BELOW_PAID y no cambia nada", async () => {
+  it("regla 03/11: con la cuenta cobrada no se cambia un pase marchado → 409 ACCOUNT_LOCKED y no cambia nada", async () => {
     const m = await menu(true);
     await change(sis, m, { modifiers: [{ plu: LENTEJAS }], reason: "No queda crema" });
     // 28/10 (1.2.267): con el 2.º en espera no se cobra; se marcha antes
@@ -620,7 +646,7 @@ describe("cambiar un pase ya marchado (falta de stock)", () => {
       reason: "Vuelve a haber crema",
       version: v,
     });
-    expect([r.status, r.error.code]).toEqual([409, "TOTAL_BELOW_PAID"]);
+    expect([r.status, r.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
     expect((await get(m.id)).version).toBe(v);
   });
 });

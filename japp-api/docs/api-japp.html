@@ -16130,7 +16130,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: orders, account, order_line, order_event, sync_outbox&#x27;
+        Tablas: orders, account, order_line, order_event, sync_outbox
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede pasarla a otra mesa → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas
+        de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_transfer
       security:
       - session: []
@@ -17109,7 +17114,9 @@ paths:
             (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName,
             until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · PERIOD_CLOSED: No hay periodo
             abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma
-            Idempotency-Key sigue en curso: reintentar en unos segundos.&#x27;
+            Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un
+            cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action,
+            payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -17655,7 +17662,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_line_modifier, order_event, account&#x27;
+        Tablas: order_line, order_line_modifier, order_event, account
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede añadir productos (la cuenta queda congelada: ya se está cobrando) → 409 ACCOUNT_LOCKED.
+        Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.&#x27;
       operationId: store_POST_orders_orderId_lines
       security:
       - session: []
@@ -17686,7 +17698,9 @@ paths:
             La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos
             de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE
             · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS:
-            Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.&#x27;
+            Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta
+            tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId,
+            accountName, action, payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -17779,7 +17793,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_event&#x27;
+        Tablas: order_line, order_event
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede cambiar cantidades ni comentarios → 409 ACCOUNT_LOCKED. Se aplica por cuenta
+        (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.&#x27;
       operationId: store_PATCH_orders_orderId_lines_lineId
       security:
       - session: []
@@ -17810,7 +17829,8 @@ paths:
             trae la transacción actual; el equipo la pinta y reintenta. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta:
             no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona
             (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir
-            y enviar).&#x27;
+            y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release
+            (details: accountId, accountName, action, payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -17877,7 +17897,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_event&#x27;
+        Tablas: order_line, order_event
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede eliminar ningún producto, ni lo por enviar (tampoco con motivo «Invitación»)
+        → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.&#x27;
       operationId: store_POST_orders_orderId_lines_lineId_delete
       security:
       - session: []
@@ -17907,7 +17932,9 @@ paths:
           description: &#x27;REASON_REQUIRED: REASON_REQUIRED · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra
             o crear una nueva. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo
             cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName,
-            until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).&#x27;
+            until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta
+            tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId,
+            accountName, action, payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -17994,7 +18021,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_line_modifier, order_event&#x27;
+        Tablas: order_line, order_line_modifier, order_event
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede cambiar las respuestas de un pase (marchado o no) → 409 ACCOUNT_LOCKED. Se
+        aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.&#x27;
       operationId: store_PUT_orders_orderId_lines_lineId_answers
       security:
       - session: []
@@ -18042,7 +18074,9 @@ paths:
         &#x27;409&#x27;:
           description: &#x27;VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo
             la pinta y reintenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.
-            · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).&#x27;
+            · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).
+            · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release
+            (details: accountId, accountName, action, payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -18782,7 +18816,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_line_modifier, order_event&#x27;
+        Tablas: order_line, order_line_modifier, order_event
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede incluir una bebida en el menú → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las
+        demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.&#x27;
       operationId: store_POST_orders_orderId_lines_lineId_absorb
       security:
       - session: []
@@ -18850,7 +18889,9 @@ paths:
           description: &#x27;VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo
             la pinta y reintenta. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de
             lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName,
-            until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).&#x27;
+            until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta
+            tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId,
+            accountName, action, payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -19025,7 +19066,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, account, order_event&#x27;
+        Tablas: order_line, account, order_event
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede pasar productos desde ni hacia ella → 409 ACCOUNT_LOCKED. Se aplica por cuenta
+        (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.&#x27;
       operationId: store_POST_orders_orderId_lines_move
       security:
       - session: []
@@ -19055,7 +19101,8 @@ paths:
           description: &#x27;ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · VERSION_CONFLICT:
             Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. ·
             TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada
-            solo se puede Guardar (añadir y enviar).&#x27;
+            solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera
+            antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -19811,7 +19858,27 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: account_discount, account, order_event&#x27;
+        Tablas: account_discount, account, order_event
+
+
+        Mientras haya cobros en la cuenta no se aplica, cambia ni quita un descuento (422 VALIDATION): primero se anulan con
+        POST …/payments/{paymentId}/void (1.2.268).
+
+
+        Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar,
+        eliminar con motivo «Invitación» (1.2.268).
+
+
+        Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar,
+        eliminar con motivo «Invitación» (1.2.268).
+
+
+        Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar,
+        eliminar con motivo «Invitación» (1.2.268).
+
+
+        Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar,
+        eliminar con motivo «Invitación» (1.2.268).&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_discounts
       security:
       - session: []
@@ -19923,7 +19990,11 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: account_discount, order_event&#x27;
+        Tablas: account_discount, order_event
+
+
+        Mientras haya cobros en la cuenta no se aplica, cambia ni quita un descuento (422 VALIDATION): primero se anulan con
+        POST …/payments/{paymentId}/void (1.2.268).&#x27;
       operationId: store_DELETE_orders_orderId_accounts_accountId_discounts_discountId
       security:
       - session: []
@@ -26126,7 +26197,13 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: orders, account, order_line, order_event, sync_outbox&#x27;
+        Tablas: orders, account, order_line, order_event, sync_outbox
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede cambiar ni juntar la mesa si alguna de sus cuentas (o de la mesa de destino)
+        la tiene → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST
+        …/accounts/{accountId}/release.&#x27;
       operationId: store_POST_orders_orderId_transfer
       security:
       - session: []
@@ -26158,7 +26235,9 @@ paths:
             mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra
             persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar
             (añadir y enviar). · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición
-            con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.&#x27;
+            con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento
+            o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName,
+            action, payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -26898,26 +26977,27 @@ paths:
     post:
       tags:
       - API de tienda v2 · Órdenes y cuentas
-      summary: Reabrir mesa
-      description: &#x27;Vuelve a abrir una mesa cerrada sin venta o con cuentas sin facturar (status cancelled o closed del periodo
-        abierto) en su misma mesa, si está libre. Las cuentas anuladas sin facturar vuelven a open; las facturadas siguen
-        bloqueadas (se corrigen con un abono). Mesa ocupada → 409 TABLE_BUSY; todas facturadas → 409 ACCOUNT_CLOSED. Sin permiso,
-        clave de encargado en authorization.
+      summary: Reabrir mesa (no se permite)
+      description: &#x27;REGLA FIJA del 03/11/2026 (API 1.2.268): una mesa cerrada NO se reabre nunca, se haya cobrado o no. Lo
+        cobrado se corrige con un abono (POST /invoices/{invoiceId}/credit); lo que no se llegó a cobrar se marca en una mesa
+        nueva. El endpoint se mantiene solo para dar el motivo y no cambia nada: cerrada o cerrada sin venta → 409 ORDER_CLOSED
+        (details.charged = cuentas cobradas o facturadas); sigue abierta → 409 TABLE_BUSY; de otro periodo → 409 PERIOD_CLOSED.
+        Ya no responde 200.
 
 
         Permiso: cobro.reabrir
 
 
-        Lo llama: TPV
+        Lo llama: nadie (el TPV ya no ofrece «Reabrir mesa»)
 
 
-        Tablas: orders, account, order_event, sync_outbox&#x27;
+        Tablas: ninguna (solo lee)&#x27;
       operationId: store_POST_orders_orderId_reopen
       security:
       - session: []
       responses:
         &#x27;200&#x27;:
-          description: Transacción actualizada (en data)
+          description: Ya no se da (regla fija del 03/11/2026)
           content:
             application/json:
               schema:
@@ -26938,8 +27018,7 @@ paths:
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
         &#x27;409&#x27;:
-          description: &#x27;TABLE_BUSY: La mesa de destino está ocupada. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada:
-            elegir otra o crear una nueva. · PERIOD_CLOSED: No hay periodo abierto.&#x27;
+          description: &#x27;ORDER_CLOSED: una mesa cerrada no se reabre nunca · TABLE_BUSY · PERIOD_CLOSED&#x27;
           content:
             application/json:
               schema:
@@ -26950,10 +27029,12 @@ paths:
                 status: 409
                 data: null
                 errors:
-                - code: TABLE_BUSY
-                  message: La mesa de destino está ocupada.
+                - code: ORDER_CLOSED
+                  message: &#x27;Una mesa cerrada no se reabre nunca: abre una mesa nueva (lo cobrado se corrige con un abono)&#x27;
                   field: null
-                  details: {}
+                  details:
+                    orderId: …
+                    charged: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
@@ -31175,7 +31256,12 @@ paths:
         Lo llama: Order on Table
 
 
-        Tablas: oot_token, orders, account, order_line, order_line_printer, order_event, sync_outbox&#x27;
+        Tablas: oot_token, orders, account, order_line, order_line_printer, order_event, sync_outbox
+
+
+        Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y
+        la cuenta queda congelada: no se puede recibir pedidos del cliente por el QR en esa cuenta → 409 ACCOUNT_LOCKED. Se
+        aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.&#x27;
       operationId: store_POST_oot_token_lines
       security:
       - session: []
@@ -31273,7 +31359,8 @@ paths:
         &#x27;409&#x27;:
           description: &#x27;COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase
             por elegir no se puede marchar. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en
-            curso: reintentar en unos segundos.&#x27;
+            curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera
+            antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount)&#x27;
           content:
             application/json:
               schema:
@@ -34908,6 +34995,442 @@ paths:
         description: bytes=inicio-fin (opcional)
         schema:
           type: string
+  /api/v2/orders/{orderId}/accounts/{accountId}/payments/{paymentId}/void:
+    post:
+      tags:
+      - API de tienda v2 · Cobro y factura
+      summary: Anular un cobro
+      description: &#x27;Anula un cobro hecho (parcial o no) mientras la cuenta NO está facturada; ya facturada se devuelve con
+        un abono (POST /invoices/{invoiceId}/credit).
+
+
+        El cobro no se borra: queda status cancelled y deja de contar en lo pagado, en lo pendiente y en la caja (que solo
+        suma cobros confirmed). En el historial de la mesa queda paymentVoided con quién, quién autorizó y el motivo.
+
+
+        refund dice cómo se devuelve el dinero: cash (el cajero lo entrega), card-terminal (devolución en el datáfono: la
+        API no toca la tarjeta) u other.
+
+
+        Después, la cuenta se cobra de nuevo con la forma correcta. Mientras queden cobros, no se cambia ni se quita el descuento
+        (422 VALIDATION): primero se anulan.
+
+
+        Permiso: sistema.autorizar (o authorization de POST /sessions/authorize con la clave de un encargado)
+
+
+        Lo llama: TPV, PDA
+
+
+        Tablas: payment, account, order_event
+
+
+        Decisión 19 (PENDIENTE-DE-DECIDIR.md), hecho en la API 1.2.268&#x27;
+      operationId: store_POST_api_v2_orders_orderId_accounts_accountId_payments_paymentId_void
+      security:
+      - session: []
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: paymentId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 200
+                version:
+                  type:
+                  - integer
+                  - &#x27;null&#x27;
+                authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+            example:
+              reason: Cobrado en efectivo, era con tarjeta
+              version: 11
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      payment:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          method:
+                            type: string
+                          amount:
+                            type: number
+                          kind:
+                            type: string
+                          status:
+                            type: string
+                      refund:
+                        type: string
+                        enum:
+                        - cash
+                        - card-terminal
+                        - other
+                      totals:
+                        type: object
+                        properties:
+                          total:
+                            type: number
+                          paid:
+                            type: number
+                          pending:
+                            type: number
+                      order:
+                        type: object
+              example:
+                title: Anular un cobro
+                type: success
+                status: 200
+                data:
+                  payment:
+                    id: 5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11
+                    method: cash
+                    amount: 5.0
+                    kind: cash
+                    status: cancelled
+                  refund: cash
+                  totals:
+                    total: 16.95
+                    paid: 0.0
+                    pending: 16.95
+                  order:
+                    _id: …
+                    version: 12
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;ACCOUNT_CLOSED: La cuenta ya está facturada: para devolver dinero haz un abono (ORDER_CLOSED si la
+            mesa ya se cerró) · INVALID_TRANSITION: el cobro ya está anulado o rechazado · VERSION_CONFLICT&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Anular un cobro
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: ACCOUNT_CLOSED
+                  message: &#x27;La cuenta ya está facturada: para devolver dinero haz un abono (ORDER_CLOSED si la mesa ya se
+                    cerró) · INVALID_TRANSITION: el cobro ya está anulado o rechazado · VERSION_CONFLICT&#x27;
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Falta el motivo (3–200 caracteres)&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Anular un cobro
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Falta el motivo (3–200 caracteres)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: La mesa, la cuenta o el cobro no existen&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Anular un cobro
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: La mesa, la cuenta o el cobro no existen
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Hace falta la clave de un encargado (details.permission = sistema.autorizar)&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Anular un cobro
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Hace falta la clave de un encargado (details.permission = sistema.autorizar)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+  /api/v2/orders/{orderId}/accounts/{accountId}/release:
+    post:
+      tags:
+      - API de tienda v2 · Cobro y factura
+      summary: Liberar la cuenta
+      description: &#x27;«Liberar la cuenta y continuar» (03/11/2026): en UNA transacción anula todos los cobros confirmados de
+        la cuenta y quita su descuento, para seguir con lo que ACCOUNT_LOCKED bloqueaba (eliminar algo enviado, mover productos,
+        pasar la cuenta, cambiar o juntar la mesa, cambiar un pase marchado). Solo sin facturar; motivo obligatorio. Nada
+        se borra: cobros cancelled y descuento removed, con un paso en el historial por cada uno (quién, quién autorizó y
+        por qué). No se vuelve a poner nada solo: después se pone el descuento y se cobra otra vez si hace falta.
+
+
+        refund: lo que hay que devolver al cliente por forma de pago (card = en el datáfono).
+
+
+        Permiso: sistema.autorizar (o authorization con la clave de un encargado)
+
+
+        Lo llama: TPV, PDA
+
+
+        Tablas: payment, account_discount, account, order_event&#x27;
+      operationId: store_POST_api_v2_orders_orderId_accounts_accountId_release
+      security:
+      - session: []
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 200
+                version:
+                  type:
+                  - integer
+                  - &#x27;null&#x27;
+                authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+            example:
+              reason: Cambian de mesa
+              version: 14
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      voided:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            method:
+                              type: string
+                            kind:
+                              type: string
+                            amount:
+                              type: number
+                            tip:
+                              type: number
+                      discountRemoved:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      refund:
+                        type: object
+                        properties:
+                          cash:
+                            type: number
+                          card:
+                            type: number
+                          other:
+                            type: number
+                      totals:
+                        type: object
+                        properties:
+                          total:
+                            type: number
+                          paid:
+                            type: number
+                          pending:
+                            type: number
+                      order:
+                        type: object
+              example:
+                title: Liberar la cuenta
+                type: success
+                status: 200
+                data:
+                  voided:
+                  - id: …
+                    method: cash
+                    kind: cash
+                    amount: 2.0
+                    tip: 0.0
+                  discountRemoved: Cliente habitual
+                  refund:
+                    cash: 2.0
+                    card: 0.0
+                    other: 0.0
+                  totals:
+                    total: 18.0
+                    paid: 0.0
+                    pending: 18.0
+                  order:
+                    _id: …
+                    version: 15
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;ACCOUNT_CLOSED: la cuenta ya está facturada (abono) · VERSION_CONFLICT&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Liberar la cuenta
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: ACCOUNT_CLOSED
+                  message: &#x27;La cuenta ya está facturada: para devolver dinero haz un abono (ORDER_CLOSED si la mesa ya se
+                    cerró) · INVALID_TRANSITION: el cobro ya está anulado o rechazado · VERSION_CONFLICT&#x27;
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: falta el motivo, o la cuenta no tiene cobros ni descuento&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Liberar la cuenta
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Falta el motivo (3–200 caracteres)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: La mesa, la cuenta o el cobro no existen&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Liberar la cuenta
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: La mesa, la cuenta o el cobro no existen
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Hace falta la clave de un encargado (details.permission = sistema.autorizar)&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Liberar la cuenta
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Hace falta la clave de un encargado (details.permission = sistema.autorizar)
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
 components:
   securitySchemes:
     session:
@@ -35484,6 +36007,7 @@ components:
           - RIDER_REQUIRED
           - DELIVERY_OFF
           - TABLE_OVERLAP
+          - ACCOUNT_LOCKED
         message:
           type: string
         field:

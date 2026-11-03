@@ -2,15 +2,29 @@
 
 ```
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0026, consultas de control · 76 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 106 endpoints, todos programados · 312 pruebas de dominio + 332 de integración
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 108 endpoints, todos programados · 318 pruebas de dominio + 340 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.267 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.268 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.267).
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.268). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist).
+
+## 1.2.268 (03/11/2026): reglas de descuento, cobro parcial y mesas cerradas
+
+Decididas con el dueño el 03/11 y aplicadas en la API **y** en el TPV (caja y PDA). Detalle con checklist en `Japp-reglas-de-cobro-1.2.268.pdf`.
+
+- **Cuenta con descuento o con un cobro parcial = ya se está cobrando → queda congelada.** Va por cuenta: las otras cuentas de la mesa siguen libres. No se tica, no se cambian cantidades, comentarios ni pases, no se elimina nada (tampoco lo «por enviar» ni con «Invitación»), no se pasan productos a ni desde ella, no se pasa a otra mesa y no se cambia ni se junta la mesa. La API responde `409 ACCOUNT_LOCKED` con los cobros y el descuento en `details`.
+- **Sí se puede:** cobrar lo que falta, datos del cliente y factura, anular un cobro, y quitar el descuento si no hay cobros.
+- **«Liberar la cuenta y continuar»** (`POST /orders/{id}/accounts/{accountId}/release`): anula todos los cobros y quita el descuento en una sola operación, con **un motivo y una clave de encargado**, y sigue con lo que se estaba haciendo. No se vuelve a poner nada solo. Tarjeta: la devolución se hace en el datáfono. Ya facturada: abono.
+- **Anular un cobro** (`POST …/payments/{paymentId}/void`, decisión 19): botón «Anular» en cada cobro de la ventana de cobro, con motivo y clave de encargado.
+- **Un descuento no puede dejar la cuenta a 0 €**: aviso y no se aplica (para invitar, eliminar con «Invitación»).
+- **Regla fija: una mesa cerrada no se reabre nunca** (se haya cobrado o no). «Reabrir mesa» ya no está en Gestiones y `POST /orders/{id}/reopen` responde `409 ORDER_CLOSED`.
+- Arreglo: el velo «Enviando al servidor…» ya no se queda encima cuando el cobro se para con un aviso.
+
+**Actualizar JC01 a la 1.2.268:** igual que la 1.2.267 (cambian API y TPV, no hay migraciones nuevas): guarda los `.env`, descomprime encima, `npm install`, `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
 
 ## 1.2.267 (03/11/2026): la API ya tiene todo lo que usa el TPV
 
@@ -38,7 +52,7 @@ Probado contra la API y PostgreSQL de este zip (tienda JC01): corte simulado, re
 
 ## TPV 1.2.265 (02/11/2026): qué cambia respecto a la 1.2.203
 
-- `japp-tpv/` trae el TPV **1.2.266** (la 1.2.264 recuperada del artefacto «TPV Japp», la documentación de Administración al día y los arreglos del 03/11). Los cambios están en `CAMBIOS-v204-v264.md`.
+- `japp-tpv/` trae el TPV **1.2.266** (la 1.2.264 recuperada del artefacto «TPV Japp», la documentación de Administración al día y los arreglos del 03/11). Los cambios están en `CAMBIOS-v204-v268.md`.
 - **La base ya está lista:** `japp-db` trae las migraciones **0023–0026** (Sistema, Resumen semana, Delivery y reglas del 28/10) con sus pruebas (76 en verde). `npm run db:init` las aplica sin borrar nada.
 - **El contrato ya está listo:** `japp-api/docs/openapi.yaml` y `docs/api-japp.html` (sección «4 · Nuevo en el TPV 1.2.264») traen los 9 endpoints nuevos, los módulos `pedidos` y `motorizados` y las reglas nuevas. Lo mismo en el TPV, en Administración › API backend (29 «nuevos» y 28 que «cambian») y Base de datos (72 tablas).
 - **Programado en la 1.2.267** (ver arriba). Antes, Sistema, Delivery y Resumen semana solo guardaban en el equipo.

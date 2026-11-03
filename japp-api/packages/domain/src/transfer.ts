@@ -1,5 +1,6 @@
 import { clone } from "./context.js";
 import { fail } from "./errors.js";
+import { assertAccountFree } from "./accounts.js";
 import { nextAccountName } from "./accountNames.js";
 import type { Account, Order } from "./types.js";
 
@@ -45,6 +46,7 @@ export function transferAccount(
   if (!acc.lines.length) {
     fail("NOTHING_TO_TRANSFER", "La cuenta no tiene productos: no hay nada que pasar", { accountId });
   }
+  assertAccountFree(acc, "pasarla a otra mesa");
   const name = arrivingName(acc, to, knownNames);
   const moved: Account = { ...clone(acc), name };
   const rest = from.accounts.filter((a) => a.id !== accountId).map((a) => clone(a));
@@ -106,11 +108,19 @@ export function mergeOrders(
   if (!live.some((a) => a.lines.length)) {
     fail("VALIDATION", "La mesa no tiene productos: no hay nada que transferir", { field: "orderId" });
   }
+  // 03/11: ninguna cuenta de las dos mesas con descuento o cobro parcial (se liberan antes)
+  for (const a of [...live, ...to.accounts.filter((x) => x.status === "open")]) {
+    assertAccountFree(a, "juntar o cambiar de mesa");
+  }
   const dest: Order = { ...clone(to), accounts: to.accounts.map((a) => clone(a)) };
   const moved: MergeResult["moved"] = [];
   const dropped: string[] = [];
   for (const acc of live) {
-    if (!acc.lines.length && !acc.deletedLines.length && !acc.payments.length) {
+    if (
+      !acc.lines.length &&
+      !acc.deletedLines.length &&
+      !acc.payments.some((p) => p.status === "confirmed")
+    ) {
       dropped.push(acc.id);
       continue;
     }
@@ -149,5 +159,12 @@ export function assertSamePriceList(from: string | null | undefined, to: string 
       fromPriceList: f,
       toPriceList: t,
     });
+  }
+}
+
+/** Cambiar la mesa entera a una mesa libre (03/11): ninguna cuenta con descuento o cobro parcial. */
+export function assertOrderMovable(order: Order): void {
+  for (const a of order.accounts.filter((x) => x.status === "open")) {
+    assertAccountFree(a, "cambiar de mesa");
   }
 }

@@ -43,3 +43,13 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | 17 | Cancelar un pedido de delivery | Pide clave de encargado (`sistema.autorizar`) y un motivo | ¿Puede cancelar cualquiera? ¿Hay que avisar a la plataforma? |
 | 18 | Nombre, logo y colores del sistema | `GET /config/sistema` sin sesión (la pantalla de acceso lo enseña antes de entrar) | Que no es un dato reservado (solo nombre, textos, logo y colores) |
 
+## Decidido el 03/11/2026 con el dueño (hecho en la 1.2.268)
+
+| # | Tema | Decisión |
+|---|---|---|
+| 19 | Anular un cobro parcial | Hecho: «Anular» en cada cobro mientras la cuenta no está facturada, con motivo obligatorio y clave de encargado. El cobro queda anulado (no se borra). Tarjeta: devolución en el datáfono. Facturada: abono |
+| 20 | Cuenta con descuento o cobro parcial | Se entiende que ya se está cobrando: la cuenta queda **congelada** (por cuenta, no por mesa). No se tica, ni se cambia, ni se elimina nada (tampoco lo por enviar), ni se pasan productos, ni se pasa la cuenta, ni se cambia o junta la mesa |
+| 21 | Reabrir una mesa ya cobrada o cerrada | **Regla fija: nunca.** Tampoco una cerrada sin cobrar. Lo cobrado se corrige con un abono |
+| 22 | Cómo se sigue con una cuenta congelada | «Liberar la cuenta y continuar»: anula todos los cobros y quita el descuento en un paso, con **un motivo y una clave** de encargado; no se vuelve a poner nada solo |
+| 23 | Descuento que deja la cuenta a 0 € | Aviso y no se aplica. Para invitar: eliminar con «Invitación» |
+

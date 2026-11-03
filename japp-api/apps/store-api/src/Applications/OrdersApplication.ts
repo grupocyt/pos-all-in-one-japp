@@ -716,6 +716,9 @@ export class OrdersApplication {
     const prevDiscMap = new Map(before.accounts.flatMap((a) => a.discounts.map((d) => [d.id, d] as const)));
     const prevDisc = new Set(prevDiscMap.keys());
     const prevPay = new Set(before.accounts.flatMap((a) => a.payments.map((p) => p.id)));
+    const prevPayStatus = new Map(
+      before.accounts.flatMap((a) => a.payments.map((p) => [p.id, p.status] as const)),
+    );
     for (const a of after.accounts) {
       const sub = accountTotals(a).sub;
       for (const d of a.discounts) {
@@ -759,6 +762,12 @@ export class OrdersApplication {
             status: p.status,
             ...actorCols("collectedBy", p.collectedBy),
           } as any);
+        } else if (prevPayStatus.get(p.id) !== p.status) {
+          // cobro anulado (voidPayment): cambia el estado; quién, cuándo y por qué quedan en order_event
+          await tx
+            .update(s.payment)
+            .set({ status: p.status } as any)
+            .where(and(eq(s.payment.id, p.id), eq(s.payment.storeId, storeId)));
         }
       }
     }
@@ -1005,10 +1014,24 @@ export class OrdersApplication {
       .from(s.account)
       .leftJoin(s.invoice, and(eq(s.invoice.accountId, s.account.id), eq(s.invoice.storeId, storeId)))
       .where(and(eq(s.account.orderId, orderId), eq(s.account.storeId, storeId)));
+    // 1.2.268 · regla fija: una mesa ya cobrada no se reabre nunca (planReopen mira también los cobros confirmados)
+    const paid = await tx
+      .select({ accountId: s.payment.accountId })
+      .from(s.payment)
+      .innerJoin(s.account, eq(s.account.id, s.payment.accountId))
+      .where(
+        and(
+          eq(s.account.orderId, orderId),
+          eq(s.account.storeId, storeId),
+          eq(s.payment.status, "confirmed"),
+        ),
+      );
+    const paidSet = new Set(paid.map((p) => p.accountId));
     return rows.map((r) => ({
       id: r.id,
       status: r.status,
       invoiced: r.status === "invoiced" || !!r.invoiceId,
+      paid: paidSet.has(r.id),
     }));
   }
 

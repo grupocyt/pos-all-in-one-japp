@@ -171,3 +171,33 @@ export function equalParts(total: number, parts: number): number[] {
   res[parts - 1] = r2(D(total).minus(each.times(parts - 1)));
   return res;
 }
+
+/**
+ * Anular un cobro hecho (decisión 19, 03/11/2026): solo mientras la cuenta no está facturada (después, abono) y con motivo.
+ * El cobro no se borra: queda «cancelled» y deja de contar en lo pagado y en la caja. Con tarjeta, la devolución se hace en el datáfono.
+ */
+export function voidPayment(
+  acc: Account,
+  paymentId: string,
+  reason: string,
+): { account: Account; payment: Payment } {
+  if (acc.status !== "open") {
+    fail("ACCOUNT_CLOSED", "La cuenta ya está facturada: para devolver dinero haz un abono", {
+      accountId: acc.id,
+    });
+  }
+  if ((reason ?? "").trim().length < 3) {
+    fail("VALIDATION", "Escribe el motivo de la anulación", { field: "reason" });
+  }
+  const p = acc.payments.find((x) => x.id === paymentId);
+  if (!p) {
+    fail("NOT_FOUND", "Ese cobro no es de esta cuenta", { paymentId });
+  }
+  if (p!.status !== "confirmed") {
+    fail("INVALID_TRANSITION", "Ese cobro ya no cuenta (anulado o rechazado)", { status: p!.status });
+  }
+  const out = clone(acc);
+  const q = out.payments.find((x) => x.id === paymentId)!;
+  q.status = "cancelled";
+  return { account: out, payment: q };
+}
