@@ -2,7 +2,7 @@
 
 ```
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0026, consultas de control · 76 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 107 endpoints, todos programados · 318 pruebas de dominio + 340 de integración
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 107 endpoints, todos programados · 319 pruebas de dominio + 340 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
 japp-tpv/         el TPV (PWA) 1.2.268 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
@@ -16,12 +16,13 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 
 Decididas con el dueño el 03/11 y aplicadas en la API **y** en el TPV (caja y PDA). Detalle con checklist en `Japp-reglas-de-cobro-1.2.268.pdf`.
 
-- **Cuenta con descuento o con un cobro parcial = ya se está cobrando.** Va por cuenta: las otras cuentas de la mesa siguen libres. En el TPV **solo quedan activos Cobrar, Precuenta y Guardar**; todo lo demás sale desactivado (productos, categorías, buscador, líneas, «Cambiar», Eliminar, Separar, Transferir, Order on Table, comensales y nota), con un aviso arriba de la cuenta. La API responde `409 ACCOUNT_LOCKED` a todo lo que cambiaría la cuenta.
+- **Cuenta con descuento o con un cobro parcial = ya se está cobrando.** Va por cuenta: las otras cuentas de la mesa siguen libres. En el TPV **solo quedan activos Cobrar, Precuenta y Guardar**; todo lo demás sale desactivado (productos, categorías, buscador, líneas, «Cambiar», Eliminar, Separar, Transferir, Order on Table y comensales), con un aviso en rojo abajo, en la zona de avisos de la cuenta. Si en la mesa hay otras cuentas sin cobros, Separar (y cobrar) y Transferir siguen activos: en Transferir solo se puede mover una cuenta libre (ni «toda la mesa» ni la que está en cobro). La nota de la mesa se puede escribir siempre. La API responde `409 ACCOUNT_LOCKED` a todo lo que cambiaría la cuenta.
 - **Para volver a pedir:** anular los cobros (Cobrar › «Anular», motivo y clave de encargado) y quitar el descuento. Al quedar sin cobros ni descuento, todo vuelve a estar activo. No hay «liberar la cuenta» de un paso.
 - **Anular un cobro** (`POST …/payments/{paymentId}/void`, decisión 19): tarjeta, devolución en el datáfono; ya facturada, abono.
 - **Un descuento no puede dejar la cuenta a 0 €**: aviso y no se aplica (para invitar, eliminar con «Invitación»).
 - **Regla fija: una mesa cerrada no se reabre nunca** (se haya cobrado o no). «Reabrir mesa» ya no está en Gestiones y `POST /orders/{id}/reopen` responde `409 ORDER_CLOSED`.
 - **Gestiones › Facturas:** pestaña nueva «Historial» con todo lo que pasó en la cuenta (productos, descuentos puestos y quitados con quién autorizó, cobros y anulaciones). **Reimprimir ya no abre el cajón.**
+- **Precuenta:** desde la barra de la mesa imprime y vuelve al plano de mesas; desde Cobrar imprime y la ventana de Cobrar sigue abierta. El ticket enseña el descuento con su importe y, con un cobro parcial, lo pagado a cuenta y lo que falta (el «por persona» es de lo que falta).
 - Arreglo: el velo «Enviando al servidor…» ya no se queda encima cuando el cobro se para con un aviso.
 
 **Actualizar JC01 a la 1.2.268:** cambian API y TPV, no hay migraciones nuevas: guarda los `.env`, descomprime encima, `npm install`, `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.

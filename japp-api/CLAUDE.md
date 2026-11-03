@@ -177,6 +177,8 @@ Pruebas: `packages/domain/test/anular-cobro.test.ts`, `apps/store-api/test/anula
 4. **Regla fija: una mesa cerrada no se reabre nunca** · `planReopen` siempre falla (`ORDER_CLOSED`, o `TABLE_BUSY` / `PERIOD_CLOSED`); `reopen()` solo lee y no cambia nada. No volver a permitirlo.
 5. **Facturas** · `GET /invoices/{id}` trae `history` (eventos de la cuenta y de la mesa) y `discounts` con `status`, `base` y `amount`. `POST /invoices/{id}/reprint` nunca abre el cajón (`printInvoice(…, reprint = true)`).
 
+6. **Precuenta** · `preBillTicket` añade, con cobros confirmados, «A cuenta · forma» por cobro y «PENDIENTE»; el «por persona» es de lo pendiente.
+
 `STORE_VERSION` = 1.2.268. Sin migraciones nuevas (`payment.status` ya admitía `cancelled`).
 
 ## Hecho el 03/11/2026 (API 1.2.267): el encargo del TPV 1.2.264

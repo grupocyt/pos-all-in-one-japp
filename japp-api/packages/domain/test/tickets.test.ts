@@ -247,3 +247,21 @@ describe("ESC/POS", () => {
     expect(k.some((_, i) => k[i] === 0x1d && k[i + 1] === 0x21 && k[i + 2] === 0x11)).toBe(true); // doble ancho y alto
   });
 });
+
+describe("precuenta con cobro parcial (03/11, 1.2.268)", () => {
+  it("sale el descuento, lo pagado a cuenta y lo que falta", () => {
+    const acc0 = account({
+      name: "Cuenta 1",
+      lines: [line({ name: "Croquetas", unitPrice: 10, status: "printed" })],
+      discounts: [{ id: "d", type: "percentage", value: 10, reason: "Cliente habitual", status: "applied" }],
+    });
+    const acc = registerPayment(acc0, { method: "cash", kind: "cash", amount: 2 }, ctx()).account;
+    const t = renderText(preBillTicket(acc, tctx)).split("\n");
+    expect(t).toContain(lr("Descuento 10,00 % Cliente habitual", "-1,00 €"));
+    expect(t).toContain(lr("Comensales: 2", "Por persona: 3,50 €")); // de lo que falta
+    expect(t).toContain(lr("A cuenta · Efectivo", "-2,00 €"));
+    expect(t).toContain(lr("PENDIENTE", "7,00 €"));
+    // sin cobros, no sale nada de eso
+    expect(renderText(preBillTicket(acc0, tctx))).not.toContain("PENDIENTE");
+  });
+});

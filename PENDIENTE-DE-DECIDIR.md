@@ -53,4 +53,5 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | 22 | Cómo se sigue con una cuenta congelada | Anular los cobros (motivo y clave de encargado) y quitar el descuento; entonces todo vuelve a estar activo. Sin «liberar la cuenta» de un paso |
 | 23 | Descuento que deja la cuenta a 0 € | Aviso y no se aplica. Para invitar: eliminar con «Invitación» |
 | 24 | Facturas: historial y reimprimir | Pestaña «Historial» en Gestiones › Facturas; reimprimir nunca abre el cajón |
+| 25 | Precuenta | Desde la barra: imprime y vuelve a mesas. Desde Cobrar: imprime y sigue en Cobrar. Lleva descuento, lo pagado a cuenta y lo que falta |
 

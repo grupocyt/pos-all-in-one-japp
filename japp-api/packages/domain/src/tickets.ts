@@ -324,7 +324,18 @@ export function creditTicket(c: CreditTicket, ctx: TicketContext): TicketLine[] 
 export function preBillTicket(acc: Account, ctx: TicketContext): TicketLine[] {
   const out = head("PRECUENTA", `${acc.name}`, `${ctx.table.area}/${ctx.table.name}`, ctx);
   out.push(...body(acc));
-  const total = accountTotals(acc).total;
+  const tt = accountTotals(acc);
+  // con cobros a cuenta, el reparto por comensal es de lo que falta
+  const total = tt.paid > 0 ? tt.pending : tt.total;
+  // 03/11 (1.2.268): con un cobro parcial, lo pagado a cuenta y lo que falta
+  const paid = acc.payments.filter((p) => p.status === "confirmed");
+  if (paid.length) {
+    for (const p of paid) {
+      const m = p.kind === "cash" ? "Efectivo" : p.kind === "card" ? "Tarjeta" : p.method;
+      out.push(T(lr(`A cuenta · ${m}`, "-" + eur(p.amount))));
+    }
+    out.push(R("-"), T(lr("PENDIENTE", eur(tt.pending)), { bold: true }), R("="));
+  }
   if (ctx.guests && ctx.guests > 1) {
     out.push(
       T(lr(`Comensales: ${ctx.guests}`, `Por persona: ${eur(Math.round((total / ctx.guests) * 100) / 100)}`)),
