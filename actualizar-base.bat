@@ -14,6 +14,8 @@ set "PROYECTO=%~dp0"
 REM ------------------------------------------------------------
 
 setlocal
+REM psql en Windows: las opciones van ANTES de la base (si no, las ignora y abre su consola). chcp 1252 quita el aviso de codigo de pagina
+chcp 1252 >nul
 cd /d "%PROYECTO%"
 echo.
 echo  Japp - actualizar la base de datos (sin borrar nada)
@@ -49,7 +51,7 @@ if errorlevel 1 (
 )
 
 echo  Antes:
-"%PGBIN%\psql.exe" "%DBURL%" -At -c "SELECT '   ultima migracion aplicada: ' || coalesce(max(version),'ninguna') FROM schema_migrations"
+"%PGBIN%\psql.exe" -X -w -A -t -c "SELECT '   ultima migracion aplicada: ' || coalesce(max(version),'ninguna') FROM schema_migrations" -d "%DBURL%"
 if errorlevel 1 (
   echo  [X] No puedo conectar con la base. Arranca PostgreSQL y revisa DATABASE_URL en japp-db\.env.
   goto :fin
@@ -102,7 +104,7 @@ cd /d "%PROYECTO%"
 
 echo.
 echo  [3/3] Listo.
-"%PGBIN%\psql.exe" "%DBURL%" -At -c "SELECT '   ultima migracion aplicada: ' || max(version) FROM schema_migrations"
+"%PGBIN%\psql.exe" -X -w -A -t -c "SELECT '   ultima migracion aplicada: ' || max(version) FROM schema_migrations" -d "%DBURL%"
 echo.
 echo  Ahora:
 echo    1. Arranca la API:      cd "%PROYECTO%japp-api"  y  npm start
