@@ -393,7 +393,7 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     expect(n.n).toBe(3);
   });
 
-  it("regla 03/11: con un cobro parcial en una cuenta no se junta ni se cambia de mesa (409 ACCOUNT_LOCKED); liberada, sí", async () => {
+  it("regla 03/11: con un cobro parcial en una cuenta no se junta ni se cambia de mesa (409 ACCOUNT_LOCKED); anulado el cobro, sí", async () => {
     const s = await source(true);
     const d = await dest();
     const v = (await get(s.id)).version;
@@ -408,14 +408,15 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     expect([free.status, free.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
     expect((await get(s.id)).version).toBe(v);
     expect((await get(d.id)).accounts).toHaveLength(1);
-    // «Liberar la cuenta y continuar»: anula el cobro (y quitaría el descuento) y ya se junta
-    const rel = await t.call("POST", `/orders/${s.id}/accounts/${s.a2}/release`, {
+    // anulado el cobro, ya se junta
+    const pid = (await get(s.id)).accounts.find((a: any) => a.id === s.a2).payments[0].id;
+    const rel = await t.call("POST", `/orders/${s.id}/accounts/${s.a2}/payments/${pid}/void`, {
       token: sis,
-      body: { reason: "Se juntan con la otra mesa", version: v },
+      body: { reason: "Se juntan con la otra mesa" },
     });
     expect(rel.status, JSON.stringify(rel.env)).toBe(200);
-    expect(rel.body.refund).toEqual({ cash: 0, card: 2, other: 0 });
-    const ok = await transfer(sis, s.id, { toTableId: d.tableId, version: rel.body.order.version });
+    expect(rel.body.refund).toBe("card-terminal");
+    const ok = await transfer(sis, s.id, { toTableId: d.tableId, version: (await get(s.id)).version });
     expect(ok.status, JSON.stringify(ok.env)).toBe(200);
   });
 

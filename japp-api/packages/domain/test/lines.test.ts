@@ -344,7 +344,7 @@ describe("línea ya cobrada · regla 03/11: con un cobro la cuenta queda congela
     expect(err(() => changeQuantity(a, "b", -1))?.[0]).toBe("ACCOUNT_LOCKED");
     const add = err(() => addProduct(a, { product: CANA, area: SALA, force: true }, ctx()));
     expect(add?.[0]).toBe("ACCOUNT_LOCKED");
-    expect(add?.[1]).toContain("libera antes la cuenta");
+    expect(add?.[1]).toContain("anula antes sus cobros");
   });
   it("sin cobros ni descuento todo sigue libre; un cobro anulado no congela", () => {
     const a = paid(10, [line({ id: "b", unitPrice: 10, quantity: 2 })]);

@@ -713,7 +713,7 @@ export interface paths {
          *
          *     Tablas: orders, account, order_line, order_event, sync_outbox
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede pasarla a otra mesa → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede pasarla a otra mesa → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_transfer"];
         delete?: never;
@@ -849,7 +849,7 @@ export interface paths {
          *
          *     Tablas: order_line, order_line_modifier, order_event, account
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede añadir productos (la cuenta queda congelada: ya se está cobrando) → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede añadir productos (la cuenta queda congelada: ya se está cobrando) → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         post: operations["store_POST_orders_orderId_lines"];
         delete?: never;
@@ -881,7 +881,7 @@ export interface paths {
          *
          *     Tablas: order_line, order_event
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede cambiar cantidades ni comentarios → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede cambiar cantidades ni comentarios → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         patch: operations["store_PATCH_orders_orderId_lines_lineId"];
         trace?: never;
@@ -905,7 +905,7 @@ export interface paths {
          *
          *     Tablas: order_line, order_event
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede eliminar ningún producto, ni lo por enviar (tampoco con motivo «Invitación») → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede eliminar ningún producto, ni lo por enviar (tampoco con motivo «Invitación») → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         post: operations["store_POST_orders_orderId_lines_lineId_delete"];
         delete?: never;
@@ -930,7 +930,7 @@ export interface paths {
          *
          *     Tablas: order_line, order_line_modifier, order_event
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede cambiar las respuestas de un pase (marchado o no) → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede cambiar las respuestas de un pase (marchado o no) → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         put: operations["store_PUT_orders_orderId_lines_lineId_answers"];
         post?: never;
@@ -983,7 +983,7 @@ export interface paths {
          *
          *     Tablas: order_line, order_line_modifier, order_event
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede incluir una bebida en el menú → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede incluir una bebida en el menú → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         post: operations["store_POST_orders_orderId_lines_lineId_absorb"];
         delete?: never;
@@ -1035,7 +1035,7 @@ export interface paths {
          *
          *     Tablas: order_line, account, order_event
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede pasar productos desde ni hacia ella → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede pasar productos desde ni hacia ella → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         post: operations["store_POST_orders_orderId_lines_move"];
         delete?: never;
@@ -1118,6 +1118,10 @@ export interface paths {
          *     Tablas: account_discount, account, order_event
          *
          *     Mientras haya cobros en la cuenta no se aplica, cambia ni quita un descuento (422 VALIDATION): primero se anulan con POST …/payments/{paymentId}/void (1.2.268).
+         *
+         *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
+         *
+         *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
          *
          *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
          *
@@ -1280,6 +1284,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: invoice, invoice_tax, order_line, payment, invoice_credit_line
+         *
+         *     1.2.268: discounts trae cada descuento de la cuenta (también los quitados) con reason, type, value, status, base y amount; history es el historial de la cuenta y de la mesa entera (type, at, description, user, device, account) para la pestaña «Historial» de Gestiones › Facturas.
          */
         get: operations["store_GET_invoices_invoiceId"];
         put?: never;
@@ -1306,6 +1312,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: order_event
+         *
+         *     Reimprimir nunca abre el cajón (03/11/2026, API 1.2.268), aunque la factura se cobrara en efectivo.
          */
         post: operations["store_POST_invoices_invoiceId_reprint"];
         delete?: never;
@@ -2373,7 +2381,7 @@ export interface paths {
          *
          *     Tablas: orders, account, order_line, order_event, sync_outbox
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede cambiar ni juntar la mesa si alguna de sus cuentas (o de la mesa de destino) la tiene → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede cambiar ni juntar la mesa si alguna de sus cuentas (o de la mesa de destino) la tiene → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         post: operations["store_POST_orders_orderId_transfer"];
         delete?: never;
@@ -3049,7 +3057,7 @@ export interface paths {
          *
          *     Tablas: oot_token, orders, account, order_line, order_line_printer, order_event, sync_outbox
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede recibir pedidos del cliente por el QR en esa cuenta → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: POST …/accounts/{accountId}/release.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede recibir pedidos del cliente por el QR en esa cuenta → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          */
         post: operations["store_POST_oot_token_lines"];
         delete?: never;
@@ -3490,34 +3498,6 @@ export interface paths {
          *     Decisión 19 (PENDIENTE-DE-DECIDIR.md), hecho en la API 1.2.268
          */
         post: operations["store_POST_api_v2_orders_orderId_accounts_accountId_payments_paymentId_void"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/orders/{orderId}/accounts/{accountId}/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Liberar la cuenta
-         * @description «Liberar la cuenta y continuar» (03/11/2026): en UNA transacción anula todos los cobros confirmados de la cuenta y quita su descuento, para seguir con lo que ACCOUNT_LOCKED bloqueaba (eliminar algo enviado, mover productos, pasar la cuenta, cambiar o juntar la mesa, cambiar un pase marchado). Solo sin facturar; motivo obligatorio. Nada se borra: cobros cancelled y descuento removed, con un paso en el historial por cada uno (quién, quién autorizó y por qué). No se vuelve a poner nada solo: después se pone el descuento y se cobra otra vez si hace falta.
-         *
-         *     refund: lo que hay que devolver al cliente por forma de pago (card = en el datáfono).
-         *
-         *     Permiso: sistema.autorizar (o authorization con la clave de un encargado)
-         *
-         *     Lo llama: TPV, PDA
-         *
-         *     Tablas: payment, account_discount, account, order_event
-         */
-        post: operations["store_POST_api_v2_orders_orderId_accounts_accountId_release"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6709,7 +6689,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · PERIOD_CLOSED: No hay periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · PERIOD_CLOSED: No hay periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7016,7 +6996,7 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7065,7 +7045,7 @@ export interface operations {
                     } & components["schemas"]["Envelope"];
                 };
             };
-            /** @description LINE_ALREADY_SENT: LINE_ALREADY_SENT · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description LINE_ALREADY_SENT: LINE_ALREADY_SENT · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7123,7 +7103,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description REASON_REQUIRED: REASON_REQUIRED · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description REASON_REQUIRED: REASON_REQUIRED · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7195,7 +7175,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7537,7 +7517,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TOTAL_BELOW_PAID: Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7673,7 +7653,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -11357,7 +11337,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description TABLE_BUSY: La mesa de destino está ocupada. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description TABLE_BUSY: La mesa de destino está ocupada. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13527,7 +13507,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: se libera antes con POST …/accounts/{accountId}/release (details: accountId, accountName, action, payments, discount) */
+            /** @description COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -15239,101 +15219,6 @@ export interface operations {
                 };
             };
             /** @description VALIDATION: Falta el motivo (3–200 caracteres) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    store_POST_api_v2_orders_orderId_accounts_accountId_release: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                orderId: string;
-                accountId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /** @example {
-                 *       "reason": "Cambian de mesa",
-                 *       "version": 14
-                 *     } */
-                "application/json": {
-                    reason: string;
-                    version?: number | null;
-                    authorization?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Correcto */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            voided?: {
-                                id?: string;
-                                method?: string;
-                                kind?: string;
-                                amount?: number;
-                                tip?: number;
-                            }[];
-                            discountRemoved?: string | null;
-                            refund?: {
-                                cash?: number;
-                                card?: number;
-                                other?: number;
-                            };
-                            totals?: {
-                                total?: number;
-                                paid?: number;
-                                pending?: number;
-                            };
-                            order?: Record<string, never>;
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-            /** @description PERMISSION_REQUIRED: Hace falta la clave de un encargado (details.permission = sistema.autorizar) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description NOT_FOUND: La mesa, la cuenta o el cobro no existen */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description ACCOUNT_CLOSED: la cuenta ya está facturada (abono) · VERSION_CONFLICT */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description VALIDATION: falta el motivo, o la cuenta no tiene cobros ni descuento */
             422: {
                 headers: {
                     [name: string]: unknown;

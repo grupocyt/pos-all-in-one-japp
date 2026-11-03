@@ -134,16 +134,13 @@ export class OrdersController {
     @Param("paymentId") pid: string,
     @Body() b: unknown,
   ) {
-    return this.svc.voidPayment(se, parse(uuid, id), parse(uuid, aid), parse(uuid, pid), parse(VoidPayment, b));
-  }
-  /** «Liberar la cuenta y continuar»: anula sus cobros y quita el descuento en una operación (clave de encargado y motivo). */
-  @Post(":orderId/accounts/:accountId/release") @HttpCode(200) release(
-    @CurrentSession() se: Session,
-    @Param("orderId") id: string,
-    @Param("accountId") aid: string,
-    @Body() b: unknown,
-  ) {
-    return this.svc.releaseAccountCmd(se, parse(uuid, id), parse(uuid, aid), parse(VoidPayment, b));
+    return this.svc.voidPayment(
+      se,
+      parse(uuid, id),
+      parse(uuid, aid),
+      parse(uuid, pid),
+      parse(VoidPayment, b),
+    );
   }
   @Post(":orderId/accounts/:accountId/invoice") @HttpCode(201) invoice(
     @CurrentSession() se: Session,

@@ -171,11 +171,11 @@ Regla de capas (comprobación): `grep -nE "tx\.(select|insert|update|delete|exec
 
 Pruebas: `packages/domain/test/anular-cobro.test.ts`, `apps/store-api/test/anular-cobro.test.ts` y `apps/store-api/test/reglas-03-11.test.ts`. TPV: `fix268` (caja y PDA, probado contra la API).
 
-1. **Cuenta congelada** · con un cobro `confirmed` o un descuento `applied`, la cuenta (y solo ella) no admite cambios: `assertAccountFree(acc, acción)` → `409 ACCOUNT_LOCKED` con `details { accountId, accountName, action, payments, discount }`. Se llama en `addProduct`, `changeQuantity`, `deleteLine` (todas, también «por enviar»), `chooseCourse`, `changeFiredCourse`, `absorbIntoMenu`, `moveUnits` (origen y destino), `transferAccount`, `mergeOrders` y `assertOrderMovable` (cambiar de mesa), y en `patchLine` para el comentario. Sí se permite: cobrar lo pendiente, cliente, factura, anular cobros y quitar el descuento sin cobros. Order on Table hacia esa cuenta también da 409.
-2. **Liberar la cuenta** · `POST /orders/{id}/accounts/{accountId}/release` (`sistema.autorizar`, motivo 3–200): `releaseAccount` pone los cobros `cancelled` y el descuento `removed` en una transacción, un evento por cada uno y `refund {cash, card, other}`. Nada se vuelve a aplicar solo.
-3. **Anular un cobro** · `POST …/payments/{paymentId}/void` (`voidPayment`, `sistema.autorizar`, motivo). Con cobros no se pone, cambia ni quita el descuento.
-4. **Descuento a 0 €** · `applyDiscount` rechaza 100 % o importe ≥ subtotal → `422 VALIDATION` field `value`.
-5. **Regla fija: una mesa cerrada no se reabre nunca** · `planReopen` siempre falla (`ORDER_CLOSED`, o `TABLE_BUSY` / `PERIOD_CLOSED`); `reopen()` solo lee y no cambia nada. No volver a permitirlo.
+1. **Cuenta congelada** · con un cobro `confirmed` o un descuento `applied`, la cuenta (y solo ella) no admite cambios: `assertAccountFree(acc, acción)` → `409 ACCOUNT_LOCKED` con `details { accountId, accountName, action, payments, discount }`. Se llama en `addProduct`, `changeQuantity`, `deleteLine` (todas, también «por enviar»), `chooseCourse`, `changeFiredCourse`, `absorbIntoMenu`, `moveUnits` (origen y destino), `transferAccount`, `mergeOrders` y `assertOrderMovable` (cambiar de mesa), y en `patchLine` para el comentario. Sí: cobrar lo pendiente, cliente, factura, anular cobros y quitar el descuento sin cobros. En el TPV solo quedan activos Cobrar, Precuenta y Guardar.
+2. **Para seguir** · anular cada cobro (`POST …/payments/{paymentId}/void`, `voidPayment`, `sistema.autorizar`, motivo) y quitar el descuento. **No hay «liberar la cuenta» de un paso** (se probó y se descartó el 03/11).
+3. **Descuento a 0 €** · `applyDiscount` rechaza 100 % o importe ≥ subtotal → `422 VALIDATION` field `value`.
+4. **Regla fija: una mesa cerrada no se reabre nunca** · `planReopen` siempre falla (`ORDER_CLOSED`, o `TABLE_BUSY` / `PERIOD_CLOSED`); `reopen()` solo lee y no cambia nada. No volver a permitirlo.
+5. **Facturas** · `GET /invoices/{id}` trae `history` (eventos de la cuenta y de la mesa) y `discounts` con `status`, `base` y `amount`. `POST /invoices/{id}/reprint` nunca abre el cajón (`printInvoice(…, reprint = true)`).
 
 `STORE_VERSION` = 1.2.268. Sin migraciones nuevas (`payment.status` ya admitía `cancelled`).
 

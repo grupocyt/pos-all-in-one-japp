@@ -1,12 +1,6 @@
 import { registerPayment, voidPayment } from "../src/payments.js";
 import { accountTotals } from "../src/totals.js";
-import {
-  removeDiscount,
-  applyDiscount,
-  assertAccountFree,
-  releaseAccount,
-  accountLock,
-} from "../src/accounts.js";
+import { removeDiscount, applyDiscount, assertAccountFree, accountLock } from "../src/accounts.js";
 import { addProduct, changeQuantity, deleteLine } from "../src/lines.js";
 import { DomainError } from "../src/errors.js";
 import { account, line, ctx, CANA, SALA, LUCIA, PROFILES } from "./helpers.js";
@@ -80,12 +74,11 @@ describe("regla 03/11: con descuento o cobro parcial la cuenta queda congelada (
         discount: { reason: "Habitual" },
       });
     }
-    const r = releaseAccount(p.account, "Cambian de mesa");
-    expect(r.voided.map((x) => x.status)).toEqual(["cancelled"]);
-    expect(r.discount?.status).toBe("removed");
-    expect(accountLock(r.account)).toBeNull();
-    expect(code(() => releaseAccount(r.account, "Otra vez"))).toBe("VALIDATION");
-    expect(code(() => releaseAccount(p.account, " "))).toBe("VALIDATION");
+    // para seguir: anular el cobro y quitar el descuento (sin «liberar la cuenta»)
+    const v = voidPayment(p.account, p.payment.id, "Cambian de mesa");
+    expect(accountLock(v.account)).toMatchObject({ payments: [], discount: { reason: "Habitual" } });
+    const free = removeDiscount(v.account, v.account.discounts[0]!.id);
+    expect(accountLock(free)).toBeNull();
   });
   it("un descuento no puede dejar la cuenta a 0 € (100 % o importe ≥ total)", () => {
     expect(code(() => applyDiscount(base(), { type: "percentage", value: 100, reason: "x" }, ctx()))).toBe(

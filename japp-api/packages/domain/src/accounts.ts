@@ -164,7 +164,7 @@ export function dropEmptiedAccounts(order: Order): { order: Order; dropped: Acco
  * Cuenta con descuento o cobro parcial (reglas del 03/11/2026, por cuenta y no por mesa): se entiende que ya se está cobrando y
  * la cuenta queda CONGELADA. No se tica nada más, no se cambian cantidades, comentarios ni respuestas, no se elimina nada (ni lo
  * por enviar), no se cambia un pase marchado, no se pasan productos a ni desde ella, no se pasa a otra mesa ni se cambia o junta
- * la mesa. Sí: cobrar lo que falta, facturar, datos de cliente, anular cobros y quitar el descuento (sin cobros). Para seguir, se libera antes (releaseAccount: anular sus cobros y quitar el descuento).
+ * la mesa. Sí: cobrar lo que falta, facturar, datos de cliente, anular cobros y quitar el descuento (sin cobros). Para seguir: anular sus cobros (voidPayment) y quitar el descuento. Sin «liberar la cuenta» (decidido el 03/11).
  */
 export function accountLock(acc: Account): { payments: Payment[]; discount: Discount | null } | null {
   if (acc.status !== "open") {
@@ -187,7 +187,7 @@ export function assertAccountFree(acc: Account, action: string): void {
     .join(" y ");
   fail(
     "ACCOUNT_LOCKED",
-    `La ${acc.name} tiene ${what}: para ${action}, libera antes la cuenta (anular cobros y quitar el descuento)`,
+    `La ${acc.name} tiene ${what}: no se puede ${action}. Para seguir, anula antes sus cobros y quita el descuento`,
     {
       accountId: acc.id,
       accountName: acc.name,
@@ -204,46 +204,6 @@ export function assertAccountFree(acc: Account, action: string): void {
         : null,
     },
   );
-}
-
-/**
- * «Liberar la cuenta y continuar» (03/11/2026): en UNA operación se anulan todos sus cobros confirmados y se quita el descuento,
- * para poder seguir con lo que estaba bloqueado. Solo con la cuenta sin facturar y con motivo; nada se borra (cobros cancelled,
- * descuento removed). No se vuelve a poner nada solo.
- */
-export function releaseAccount(
-  acc: Account,
-  reason: string,
-): { account: Account; voided: Payment[]; discount: Discount | null } {
-  if (acc.status !== "open") {
-    fail("ACCOUNT_CLOSED", "La cuenta ya está facturada: para devolver dinero haz un abono", {
-      accountId: acc.id,
-    });
-  }
-  if ((reason ?? "").trim().length < 3) {
-    fail("VALIDATION", "Escribe el motivo", { field: "reason" });
-  }
-  const l = accountLock(acc);
-  if (!l) {
-    fail("VALIDATION", "La cuenta no tiene cobros ni descuento: no hay nada que liberar", {
-      accountId: acc.id,
-    });
-  }
-  const out = clone(acc);
-  const ids = new Set(l!.payments.map((p) => p.id));
-  out.payments.forEach((p) => {
-    if (ids.has(p.id)) {
-      p.status = "cancelled";
-    }
-  });
-  let discount: Discount | null = null;
-  out.discounts.forEach((d) => {
-    if (d.status === "applied") {
-      d.status = "removed";
-      discount = d;
-    }
-  });
-  return { account: out, voided: out.payments.filter((p) => ids.has(p.id)), discount };
 }
 
 export { accountTotals };

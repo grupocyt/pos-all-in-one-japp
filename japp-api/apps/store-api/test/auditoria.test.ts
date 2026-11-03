@@ -516,7 +516,7 @@ describe("C · línea ya cobrada", () => {
     const big = acc.lines.reduce((a: any, l: any) => (l.amount > a.amount ? l : a));
     const r = await t.call("POST", `/orders/${o.orderId}/lines/${big.id}/delete`, { token: sis, body: {} });
     expect([r.status, r.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
-    expect(r.error.message).toContain("libera antes la cuenta");
+    expect(r.error.message).toContain("anula antes sus cobros");
     expect(
       (await t.call("PATCH", `/orders/${o.orderId}/lines/${big.id}`, { token: sis, body: { quantity: 0 } }))
         .error.code,

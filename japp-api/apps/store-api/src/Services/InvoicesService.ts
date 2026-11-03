@@ -138,6 +138,7 @@ export class InvoicesService {
       lines: [] as unknown[],
       discounts: [] as unknown[],
       payments: [] as unknown[],
+      history: [] as unknown[],
       rectifies: null as string | null,
       credits: [] as unknown[],
       creditable: 0,
@@ -169,6 +170,17 @@ export class InvoicesService {
     }
     const T = accountTotals(acc);
     const credits = await this.invoices.creditsOf(se.storeId, i.id);
+    // 03/11 (1.2.268): historial de la cuenta (lo suyo y lo de la mesa entera) para la 4.ª pestaña de Gestiones › Facturas
+    const history = (await this.repo.events(se.storeId, i.orderId!))
+      .filter((e) => !e.accountId || e.accountId === acc.id)
+      .map((e) => ({
+        type: e.type,
+        at: new Date(e.at).toISOString(),
+        description: e.description ?? "",
+        user: e.userName ?? "",
+        device: e.device ?? "",
+        account: e.accountId ? acc.name : null,
+      }));
     return {
       ...base,
       lines: acc.lines.map((x) => ({
@@ -184,9 +196,16 @@ export class InvoicesService {
         })),
         credited: done?.qty[x.id] ?? 0,
       })),
-      discounts: acc.discounts
-        .filter((d) => d.status === "applied")
-        .map((d) => ({ reason: d.reason, type: d.type, value: d.value })),
+      // 03/11 (1.2.268): cada descuento con su importe y estado (también los quitados), base = subtotal antes del descuento
+      discounts: acc.discounts.map((d) => ({
+        reason: d.reason,
+        type: d.type,
+        value: d.value,
+        status: d.status,
+        base: r2(T.sub),
+        amount: d.status === "applied" ? r2(T.disc) : 0,
+      })),
+      history,
       discountTotal: r2(T.disc),
       payments: acc.payments
         .filter((p) => p.status === "confirmed")
@@ -219,7 +238,7 @@ export class InvoicesService {
       printed = await this.reprintCredit(se, i!.orderId!, id, i!.rectifiedInvoiceId);
       description = `Reimpresión del abono ${i!.num}`;
     } else {
-      printed = await this.orders.printInvoice(se, i!.orderId!, i!.accountId!);
+      printed = await this.orders.printInvoice(se, i!.orderId!, i!.accountId!, true); // reimprimir no abre el cajón
     }
     const a = se.actor(this.clock());
     await this.invoices.addReprintedEvent(se.storeId, i!.orderId!, i!.accountId!, description, a);

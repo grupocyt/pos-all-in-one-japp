@@ -132,10 +132,10 @@ describe("reimprimir un abono", () => {
     });
     expect(c.status, JSON.stringify(c.env)).toBe(201);
     t.printer.jobs.length = 0;
-    // la original sí abre el cajón (hubo efectivo); el abono no
+    // 03/11 (1.2.268): reimprimir no abre el cajón, ni la original ni el abono
     const ro = await t.call("POST", `/invoices/${orig.id}/reprint`, { token: sistemas });
     expect(ro.body).toEqual({ printed: true });
-    expect(t.printer.jobs[0]!.openDrawer).toBe(true);
+    expect(t.printer.jobs[0]!.openDrawer).toBeFalsy(); // 03/11: reimprimir nunca abre el cajón
     t.printer.jobs.length = 0;
     const r = await t.call("POST", `/invoices/${c.body.id}/reprint`, { token: sistemas });
     expect([r.status, r.body]).toEqual([200, { printed: true }]);

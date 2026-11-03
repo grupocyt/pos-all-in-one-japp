@@ -48,8 +48,9 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | # | Tema | Decisión |
 |---|---|---|
 | 19 | Anular un cobro parcial | Hecho: «Anular» en cada cobro mientras la cuenta no está facturada, con motivo obligatorio y clave de encargado. El cobro queda anulado (no se borra). Tarjeta: devolución en el datáfono. Facturada: abono |
-| 20 | Cuenta con descuento o cobro parcial | Se entiende que ya se está cobrando: la cuenta queda **congelada** (por cuenta, no por mesa). No se tica, ni se cambia, ni se elimina nada (tampoco lo por enviar), ni se pasan productos, ni se pasa la cuenta, ni se cambia o junta la mesa |
+| 20 | Cuenta con descuento o cobro parcial | Se entiende que ya se está cobrando (por cuenta, no por mesa): **solo Cobrar, Precuenta y Guardar** activos; todo lo demás desactivado con un aviso. Tampoco se pasan productos, ni la cuenta, ni se cambia o junta la mesa |
 | 21 | Reabrir una mesa ya cobrada o cerrada | **Regla fija: nunca.** Tampoco una cerrada sin cobrar. Lo cobrado se corrige con un abono |
-| 22 | Cómo se sigue con una cuenta congelada | «Liberar la cuenta y continuar»: anula todos los cobros y quita el descuento en un paso, con **un motivo y una clave** de encargado; no se vuelve a poner nada solo |
+| 22 | Cómo se sigue con una cuenta congelada | Anular los cobros (motivo y clave de encargado) y quitar el descuento; entonces todo vuelve a estar activo. Sin «liberar la cuenta» de un paso |
 | 23 | Descuento que deja la cuenta a 0 € | Aviso y no se aplica. Para invitar: eliminar con «Invitación» |
+| 24 | Facturas: historial y reimprimir | Pestaña «Historial» en Gestiones › Facturas; reimprimir nunca abre el cajón |
 

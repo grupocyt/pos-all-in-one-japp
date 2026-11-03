@@ -55,7 +55,7 @@ const move = (
 describe("pasar una cuenta a otra mesa", () => {
   it("a una mesa libre: se abre con la cuenta entera (mismo id, mismos precios); el origen sigue con la otra", async () => {
     const o = await twoAccounts();
-    // regla 03/11: con un cobro parcial no se pasa (409 ACCOUNT_LOCKED); se libera antes y entonces sí
+    // regla 03/11: con un cobro parcial no se pasa (409 ACCOUNT_LOCKED); se anula el cobro y entonces sí
     await t.call("POST", `/orders/${o.orderId}/accounts/${o.a2}/payments`, {
       token: sis,
       body: { method: "card", amount: 2 },
@@ -65,7 +65,8 @@ describe("pasar una cuenta a otra mesa", () => {
       toTableId: await freeTable(t, "BARRA"),
     });
     expect([locked.status, locked.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
-    const rel = await t.call("POST", `/orders/${o.orderId}/accounts/${o.a2}/release`, {
+    const pid = (await get(o.orderId)).accounts.find((a: any) => a.id === o.a2).payments[0].id;
+    const rel = await t.call("POST", `/orders/${o.orderId}/accounts/${o.a2}/payments/${pid}/void`, {
       token: sis,
       body: { reason: "Cambian de mesa" },
     });

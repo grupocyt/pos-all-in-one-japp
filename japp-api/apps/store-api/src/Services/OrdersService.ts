@@ -50,7 +50,6 @@ import {
   mergeOrders,
   assertOrderMovable,
   assertAccountFree,
-  releaseAccount,
   newAccountName,
   changeFiredCourse,
   assertMethodAllowed,
@@ -1411,7 +1410,7 @@ export class OrdersService {
           events: [
             this.ev(
               "paymentVoided",
-              `Se anula el cobro ${p.method} ${p.amount.toFixed(2)} € · ${b.reason.trim()}${by}${card}`.slice(
+              `Se anula el cobro ${p.kind === "cash" ? "Efectivo" : p.kind === "card" ? "Tarjeta" : p.method} ${p.amount.toFixed(2)} € · ${b.reason.trim()}${by}${card}`.slice(
                 0,
                 400,
               ),
@@ -1433,77 +1432,6 @@ export class OrdersService {
           : r.extra.payment.kind === "cash"
             ? "cash"
             : "other",
-      totals: { total: T.total, paid: T.paid, pending: T.pending },
-      order: r.transaction,
-    };
-  }
-
-  /**
-   * «Liberar la cuenta y continuar» (03/11/2026): en una sola transacción anula todos los cobros confirmados de la cuenta y quita
-   * el descuento, para seguir con lo que estaba bloqueado (eliminar enviado, mover, cambiar de mesa…). Clave de encargado y motivo.
-   */
-  async releaseAccountCmd(
-    session: Session,
-    orderId: string,
-    accountId: string,
-    b: { reason: string; version?: number | null; authorization?: string | null },
-  ) {
-    const g = await this.auth.require(session, "sistema.autorizar", b.authorization);
-    const r = await this.command<{
-      voided: { id: string; method: string; kind: string; amount: number; tip: number }[];
-      discount: string | null;
-    }>(session, orderId, b.version ?? null, async (l, ctx) => {
-      const acc = this.account(l.order, accountId);
-      const res = releaseAccount(acc, b.reason);
-      const by = g.authorizerActor ? ` · autoriza ${g.authorizerActor.user}` : "";
-      const why = b.reason.trim();
-      const events = [
-        ...res.voided.map((p) =>
-          this.ev(
-            "paymentVoided",
-            `Se anula el cobro ${p.method} ${p.amount.toFixed(2)} € · ${why}${by}${p.kind === "card" ? " · devolver en el datáfono" : ""}`.slice(
-              0,
-              400,
-            ),
-            ctx,
-            acc.id,
-          ),
-        ),
-        ...(res.discount
-          ? [
-              this.ev(
-                "discountRemoved",
-                `Se quita el descuento ${res.discount.reason} · ${why}${by}`.slice(0, 400),
-                ctx,
-                acc.id,
-              ),
-            ]
-          : []),
-      ];
-      return {
-        next: this.replace(l.order, res.account),
-        events,
-        extra: {
-          voided: res.voided.map((p) => ({
-            id: p.id,
-            method: p.method,
-            kind: p.kind,
-            amount: p.amount,
-            tip: p.tip,
-          })),
-          discount: res.discount?.reason ?? null,
-        },
-      };
-    });
-    const acc = r.order.accounts.find((a) => a.id === accountId)!;
-    const T = accountTotals(acc);
-    const sum = (k: string) =>
-      Math.round(r.extra.voided.filter((p) => p.kind === k).reduce((a, p) => a + p.amount + p.tip, 0) * 100) /
-      100;
-    return {
-      voided: r.extra.voided,
-      discountRemoved: r.extra.discount,
-      refund: { cash: sum("cash"), card: sum("card"), other: sum("other") },
       totals: { total: T.total, paid: T.paid, pending: T.pending },
       order: r.transaction,
     };
@@ -1807,7 +1735,13 @@ export class OrdersService {
   }
 
   /** Imprime (o reimprime) la factura de una cuenta en la impresora de tickets; abre el cajón si hubo efectivo. */
-  async printInvoice(session: Session, orderId: string, accountId: string): Promise<boolean> {
+  /** reprint = true: reimpresión desde Gestiones › Facturas → nunca abre el cajón (03/11/2026). */
+  async printInvoice(
+    session: Session,
+    orderId: string,
+    accountId: string,
+    reprint = false,
+  ): Promise<boolean> {
     return this.database.withTx(async (tx) => {
       const l = await this.repo.load(tx, session.storeId, orderId);
       const acc = l.order.accounts.find((a) => a.id === accountId);
@@ -1824,7 +1758,7 @@ export class OrdersService {
         connection: p.connection,
         title: acc.invoice.invoiceNumber,
         ticket: invoiceTicket(acc, await this.ticketCtx(tx, session, l, new Date(acc.invoice.issuedAt))),
-        openDrawer: cash && opens,
+        openDrawer: !reprint && cash && opens,
       });
       return res.ok;
     });

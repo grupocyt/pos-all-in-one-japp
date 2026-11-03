@@ -20,7 +20,6 @@ export {
   dropEmptiedAccounts,
   accountLock,
   assertAccountFree,
-  releaseAccount,
   isValidSpanishTaxId,
   type DiscountInput,
 } from "./accounts.js";

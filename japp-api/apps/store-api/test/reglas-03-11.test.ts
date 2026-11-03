@@ -2,7 +2,7 @@ import { setup, ensurePeriod, freeTable, PIN, PLU, type T } from "./helpers.js";
 
 /**
  * Reglas del 03/11/2026 (API 1.2.268): una cuenta con descuento o con un cobro parcial queda CONGELADA (ya se está cobrando).
- * Por cuenta, no por mesa. Para seguir: «Liberar la cuenta y continuar» (POST …/accounts/{id}/release).
+ * Por cuenta, no por mesa. Para seguir: anular los cobros (POST …/payments/{id}/void) y quitar el descuento.
  */
 let t: T;
 let sis: string;
@@ -177,113 +177,82 @@ describe("cuenta congelada con descuento o cobro parcial (409 ACCOUNT_LOCKED)", 
   });
 });
 
-describe("POST …/accounts/{accountId}/release · Liberar la cuenta y continuar", () => {
-  it("anula todos los cobros y quita el descuento en una operación, con motivo y clave de encargado; después se tica", async () => {
+describe("para seguir: anular los cobros y quitar el descuento (sin «liberar la cuenta»)", () => {
+  it("anulado el cobro sigue congelada por el descuento; quitado el descuento, se tica", async () => {
     const m = await mesa();
     await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/discounts`, {
       token: sis,
       body: { type: "fixed", value: 1, reason: "Cliente habitual" },
     });
-    await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/payments`, {
+    const pay = await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/payments`, {
       token: barra,
       body: { method: "cash", amount: 2 },
     });
-    await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/payments`, {
-      token: barra,
-      body: { method: "card", amount: 3 },
-    });
-    const before = (await t.call("GET", "/cash/summary", { token: sis })).body;
-    // el cajero no tiene sistema.autorizar
-    const no = await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/release`, {
-      token: barra,
-      body: { reason: "Cambian de mesa" },
-    });
-    expect([no.status, no.error.code, no.error.details.permission]).toEqual([
-      403,
-      "PERMISSION_REQUIRED",
-      "sistema.autorizar",
-    ]);
-    const auth = (
-      await t.call("POST", "/sessions/authorize", {
-        token: barra,
-        body: { pin: PIN.sistemas, permission: "sistema.autorizar" },
-      })
-    ).body.authorization.token;
-    const noReason = await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/release`, {
-      token: barra,
-      body: { reason: "", authorization: auth },
-    });
-    expect(noReason.status).toBe(422);
-    const auth2 = (
-      await t.call("POST", "/sessions/authorize", {
-        token: barra,
-        body: { pin: PIN.sistemas, permission: "sistema.autorizar" },
-      })
-    ).body.authorization.token;
-    const r = await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/release`, {
-      token: barra,
-      body: { reason: "Cambian de mesa", authorization: auth2 },
-    });
-    expect(r.status, JSON.stringify(r.env)).toBe(200);
-    expect(r.body.voided.map((p: any) => p.amount).sort()).toEqual([2, 3]);
-    expect(r.body.discountRemoved).toBe("Cliente habitual");
-    expect(r.body.refund).toEqual({ cash: 2, card: 3, other: 0 });
-    expect(r.body.totals.paid).toBe(0);
-    // en la base y el historial: cobros cancelled, descuento removed, quién autorizó
-    const pays = (await t.sql.query("SELECT status FROM payment WHERE account_id = $1", [m.a1])).rows.map(
-      (x: any) => x.status,
-    );
-    expect(pays).toEqual(["cancelled", "cancelled"]);
-    const evs = (
-      await t.sql.query(
-        "SELECT type, description FROM order_event WHERE order_id = $1 AND type IN ('paymentVoided','discountRemoved')",
-        [m.id],
-      )
-    ).rows;
-    expect(evs.filter((e: any) => e.type === "paymentVoided")).toHaveLength(2);
-    expect(evs.some((e: any) => e.type === "discountRemoved")).toBe(true);
-    expect(evs.every((e: any) => e.description.includes("Cambian de mesa"))).toBe(true);
-    expect((await t.call("GET", "/cash/summary", { token: sis })).body.expectedCash).toBe(
-      before.expectedCash - 2,
-    );
-    // libre: se tica y se cambia de mesa; nada se vuelve a poner solo
-    expect(
-      (
-        await t.call("POST", `/orders/${m.id}/lines`, {
-          token: sis,
-          body: { plu: PLU.redbull, accountId: m.a1 },
-        })
-      ).status,
-    ).toBe(201);
-    const acc = (await get(m.id)).accounts.find((a: any) => a.id === m.a1);
-    expect(acc.discounts.filter((d: any) => d.status === "applied")).toHaveLength(0);
-    // otra vez: ya no hay nada que liberar
-    const again = await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/release`, {
+    const v = await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/payments/${pay.body.payment.id}/void`, {
       token: sis,
-      body: { reason: "Otra vez" },
+      body: { reason: "Piden más" },
     });
-    expect(code(again)).toEqual([422, "VALIDATION"]);
+    expect(v.status, JSON.stringify(v.env)).toBe(200);
+    const still = await t.call("POST", `/orders/${m.id}/lines`, {
+      token: sis,
+      body: { plu: PLU.redbull, accountId: m.a1 },
+    });
+    expect(code(still)).toEqual([409, "ACCOUNT_LOCKED"]);
+    expect(still.error.details.discount).toMatchObject({ reason: "Cliente habitual" });
+    const disc = (await get(m.id)).accounts
+      .find((a: any) => a.id === m.a1)
+      .discounts.find((d: any) => d.status === "applied").id;
+    expect(
+      (await t.call("DELETE", `/orders/${m.id}/accounts/${m.a1}/discounts/${disc}`, { token: sis })).status,
+    ).toBe(200);
+    const ok = await t.call("POST", `/orders/${m.id}/lines`, {
+      token: sis,
+      body: { plu: PLU.redbull, accountId: m.a1 },
+    });
+    expect(ok.status, JSON.stringify(ok.env)).toBe(201);
   });
+});
 
-  it("cuenta facturada → 409 (abono); no existe → 404", async () => {
+describe("Gestiones › Facturas (03/11): historial de la cuenta, descuentos detallados y reimprimir sin cajón", () => {
+  it("GET /invoices/{id} trae history y discounts con importe; POST …/reprint no abre el cajón", async () => {
     const m = await mesa();
     await t.call("POST", `/orders/${m.id}/send`, { token: sis, body: {} });
-    await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/payments`, {
+    await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/discounts`, {
       token: sis,
-      body: { method: "card" },
+      body: { type: "percentage", value: 10, reason: "Cliente habitual" },
     });
-    const inv = await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/invoice`, { token: sis, body: {} });
+    const pay = await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/payments`, {
+      token: barra,
+      body: { method: "cash", amount: null, cashGiven: 50 },
+    });
+    expect(pay.status, JSON.stringify(pay.env)).toBe(201);
+    const inv = await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/invoice`, { token: barra, body: {} });
     expect(inv.status, JSON.stringify(inv.env)).toBe(201);
-    const late = await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/release`, {
-      token: sis,
-      body: { reason: "Tarde" },
-    });
-    expect(late.status).toBe(409);
-    expect(["ACCOUNT_CLOSED", "ORDER_CLOSED"]).toContain(late.error.code);
-    const ghost = await t.call("POST", `/orders/${m.id}/accounts/${crypto.randomUUID()}/release`, {
-      token: sis,
-      body: { reason: "No existe" },
-    });
-    expect(ghost.status).toBe(404);
+    expect(t.printer.jobs.at(-1)!.openDrawer).toBe(true); // al cobrar en efectivo, sí
+    const list = (await t.call("GET", "/invoices", { token: sis })).body.items;
+    const invId = list.find((x: any) => x.invoiceNumber === inv.body.invoice.invoiceNumber).id;
+    const d = await t.call("GET", `/invoices/${invId}`, { token: sis });
+    expect(d.status, JSON.stringify(d.env)).toBe(200);
+    expect(d.body.discounts).toEqual([
+      expect.objectContaining({
+        reason: "Cliente habitual",
+        type: "percentage",
+        value: 10,
+        status: "applied",
+      }),
+    ]);
+    expect(d.body.discounts[0].amount).toBe(d.body.discountTotal);
+    expect(d.body.discounts[0].amount).toBeGreaterThan(0);
+    const types = d.body.history.map((e: any) => e.type);
+    expect(types).toContain("discountApplied");
+    expect(types).toContain("tableOpened"); // lo de la mesa entera también
+    // nada de la Cuenta 1
+    expect(d.body.history.every((e: any) => e.account === null || e.account === "Cuenta 2")).toBe(true);
+    const n = t.printer.jobs.length;
+    const r = await t.call("POST", `/invoices/${invId}/reprint`, { token: barra, body: {} });
+    expect(r.status, JSON.stringify(r.env)).toBe(200);
+    const job = t.printer.jobs.slice(n).find((j: any) => j.kind === "invoice");
+    expect(job).toBeTruthy();
+    expect(job!.openDrawer).toBeFalsy();
   });
 });
