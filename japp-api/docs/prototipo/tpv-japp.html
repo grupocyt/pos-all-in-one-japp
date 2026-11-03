@@ -11149,9 +11149,12 @@ function lkApply(){
   if(!on){ document.querySelectorAll(".lk-banner").forEach(x => x.remove()); return; }
   document.querySelectorAll(LK_OFF).forEach(b => { b.disabled = true; b.setAttribute("aria-disabled", "true"); b.title = t("lkBanner"); });
   if(accPaid(acc)) document.querySelectorAll(".dx").forEach(b => { b.disabled = true; b.title = t("lkBanner"); }); // sin cobros, la ✕ del descuento sigue: es el camino para liberarla
-  const box = document.querySelector("#lines") || document.querySelector(".pd-wrap");
-  if(box && !box.querySelector(".lk-banner")){ const d = document.createElement("div"); d.className = "lk-banner"; d.setAttribute("role", "status");
-    d.innerHTML = `<b>🔒 ${esc(t("lkTitle", { c: acc.name }))}</b><span>${esc(t("lkBanner"))}</span>`; box.prepend(d); }
+  // aviso rojo y compacto: en la cuenta, justo antes de la línea del descuento (si no hay descuento, al final de las líneas)
+  const lines = document.querySelector("#lines"), box = lines || document.querySelector(".pd-wrap");
+  if(box && !box.querySelector(".lk-banner")){ const d = document.createElement("div"); d.className = "lk-banner"; d.setAttribute("role", "alert");
+    d.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>${esc(t("lkBanner"))}</span>`;
+    const disc = lines?.querySelector(".dsc");
+    if(disc) disc.before(d); else if(lines) lines.append(d); else box.prepend(d); }
 }
 { const r0 = render; render = function(...a){ const out = r0.apply(this, a); try{ lkApply(); }catch(e){} return out; }; }
 { const m0 = showModal; showModal = function(...a){ const out = m0.apply(this, a); try{ lkApply(); }catch(e){} return out; }; }
@@ -11168,20 +11171,20 @@ reopenView = function(){ closeModal();
   $("#sx").addEventListener("click", closeModal); $("#nrok").addEventListener("click", closeModal); };
 { const css = document.createElement("style"); css.textContent = `.lk-list{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px}.lk-list>div{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border:1px solid var(--line,#E2E7EC);border-radius:10px}.lk-list b{font-variant-numeric:tabular-nums}#vreason{font:inherit;width:100%}
 body.acc-locked :is(.pb,.cb,.pd-p,.pd-cat,#pd-q,.lnx .acts2 button,[data-crs-el],[data-crs-fire],#t-split,#t-move,#t-oot,#h-pax,#h-note,[data-del],[data-note],[data-mv],[data-dq],#pd-mvgo,.dx:disabled){opacity:.38;filter:grayscale(.7);cursor:not-allowed;pointer-events:none}
-.lk-banner{display:flex;flex-direction:column;gap:2px;margin:8px 10px;padding:9px 12px;border-radius:10px;background:#fdf1dc;border:1px solid #e8c48a;color:#6b4a12;font-size:.86em;line-height:1.35}.lk-banner b{font-size:1.02em}`; document.head.appendChild(css); }
-Object.assign(I18N.es, { lkBanner: "Solo se puede Cobrar, pedir la Precuenta o Guardar. Para volver a pedir o cambiar algo, anula los cobros (Cobrar › «Anular») y quita el descuento.", lkTitle: "La {c} ya se está cobrando", lkWhat: "Tiene descuento o un cobro parcial: no se puede {a}. No se tica, ni se cambia, ni se elimina nada en esta cuenta.",
+.lk-banner{display:flex;align-items:center;gap:8px;margin:6px 10px;padding:7px 10px;border-radius:8px;background:#fdecea;border:1px solid #f1b0ab;border-left:4px solid #c62828;color:#b3261e;font-size:.82em;font-weight:600;line-height:1.3}.lk-banner svg{flex:0 0 18px;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}`; document.head.appendChild(css); }
+Object.assign(I18N.es, { lkBanner: "Cuenta en cobro: solo Cobrar, Precuenta o Guardar. Para pedir más, anula los cobros y quita el descuento.", lkTitle: "La {c} ya se está cobrando", lkWhat: "Tiene descuento o un cobro parcial: no se puede {a}. No se tica, ni se cambia, ni se elimina nada en esta cuenta.",
   lkPay: "Cobro con {m}", lkDisc: "Descuento: {r}", lkHow: "Para seguir pidiendo, anula antes los cobros (Cobrar › «Anular», con la clave de un encargado) y después quita el descuento.", lkOk: "Entendido",
   lkAdd: "añadir productos", lkQty: "cambiar cantidades", lkDel: "eliminar productos", lkNote: "cambiar comentarios", lkCourse: "cambiar un pase del menú", lkMenu: "incluir una bebida en el menú",
   lkMove: "pasar productos a otra cuenta", lkTable: "cambiar o juntar la mesa", lkAccTable: "pasar la cuenta a otra mesa", lkJoin: "juntar con esa mesa",
   discZeroTitle: "Ese descuento deja la cuenta a 0 €", discZero: "Un descuento no puede dejar la cuenta a 0,00 €. Para invitar, elimina los productos con el motivo «Invitación».",
   noReopenTitle: "Una mesa cerrada no se reabre", noReopen: "Regla fija: una mesa cerrada no se reabre nunca. Si hay que devolver dinero, haz un abono; si hay que seguir sirviendo, abre una mesa nueva." });
-Object.assign(I18N.ca || {}, { lkBanner: "Només es pot Cobrar, demanar la Precompte o Desar. Per tornar a demanar o canviar res, anul·la els cobraments (Cobrar › «Anul·lar») i treu el descompte.", lkTitle: "El {c} ja s'està cobrant", lkWhat: "Té descompte o un cobrament parcial: no es pot {a}. No s'hi marca, ni es canvia, ni s'elimina res en aquest compte.",
+Object.assign(I18N.ca || {}, { lkBanner: "Compte en cobrament: només Cobrar, Precompte o Desar. Per demanar més, anul·la els cobraments i treu el descompte.", lkTitle: "El {c} ja s'està cobrant", lkWhat: "Té descompte o un cobrament parcial: no es pot {a}. No s'hi marca, ni es canvia, ni s'elimina res en aquest compte.",
   lkPay: "Cobrament amb {m}", lkDisc: "Descompte: {r}", lkHow: "Per continuar, anul·la abans els cobraments (Cobrar › «Anul·lar», amb la clau d'un encarregat) i després treu el descompte.", lkOk: "Entesos",
   lkAdd: "afegir productes", lkQty: "canviar quantitats", lkDel: "eliminar productes", lkNote: "canviar comentaris", lkCourse: "canviar un plat del menú", lkMenu: "incloure una beguda al menú",
   lkMove: "passar productes a un altre compte", lkTable: "canviar o ajuntar la taula", lkAccTable: "passar el compte a una altra taula", lkJoin: "ajuntar amb aquella taula",
   discZeroTitle: "Aquest descompte deixa el compte a 0 €", discZero: "Un descompte no pot deixar el compte a 0,00 €. Per convidar, elimina els productes amb el motiu «Invitació».",
   noReopenTitle: "Una taula tancada no es reobre", noReopen: "Regla fixa: una taula tancada no es reobre mai. Per tornar diners, fes un abonament; per continuar servint, obre una taula nova." });
-Object.assign(I18N.en || {}, { lkBanner: "You can only Charge, print the Pre-bill or Save. To order or change anything, void the payments (Charge › «Void») and remove the discount.", lkTitle: "{c} is already being charged", lkWhat: "It has a discount or a partial payment: you can't {a}. Nothing can be added, changed or deleted on this account.",
+Object.assign(I18N.en || {}, { lkBanner: "Account being charged: only Charge, Pre-bill or Save. To order more, void the payments and remove the discount.", lkTitle: "{c} is already being charged", lkWhat: "It has a discount or a partial payment: you can't {a}. Nothing can be added, changed or deleted on this account.",
   lkPay: "Payment by {m}", lkDisc: "Discount: {r}", lkHow: "To keep ordering, void the payments first (Charge › «Void», with a manager PIN) and then remove the discount.", lkOk: "OK",
   lkAdd: "add products", lkQty: "change quantities", lkDel: "delete products", lkNote: "change comments", lkCourse: "change a menu course", lkMenu: "include a drink in the menu",
   lkMove: "move products to another account", lkTable: "change or join the table", lkAccTable: "move the account to another table", lkJoin: "join with that table",
