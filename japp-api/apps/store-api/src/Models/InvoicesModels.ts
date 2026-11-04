@@ -30,3 +30,25 @@ export const CreditModel = z.object({
   authorization: z.string().nullish(),
 });
 export type CreditInput = z.infer<typeof CreditModel>;
+
+/** POST /invoices/{id}/full: factura completa (F3) que sustituye a una simplificada, con los datos del cliente. */
+export const SubstituteModel = z
+  .object({
+    customer: z.object({
+      type: z.enum(["person", "company"]).default("company"),
+      taxId: z.string().trim().min(5).max(20),
+      name: z.string().trim().min(1).max(120),
+      email: z.string().email().nullish(),
+      address: z
+        .object({
+          street: z.string().max(120).optional(),
+          postalCode: z.string().max(10).optional(),
+          city: z.string().max(60).optional(),
+          province: z.string().max(60).optional(),
+          country: z.string().length(2).optional(),
+        })
+        .nullish(),
+    }),
+    print: z.boolean().nullish(),
+  })
+  .strict();

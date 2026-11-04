@@ -112,17 +112,23 @@ export class PrintersService {
       store: {
         legalName: st.issuerName,
         tradeName: st.name,
+        // N1 · «cadena · local» en una línea, cada parte según el formato
+        chain: st.chainName ?? undefined,
+        local: st.name,
         taxId: st.nif,
         address: st.address ?? undefined,
         city: st.city ?? undefined,
         phone: st.phone ?? undefined,
         header: st.ticketHeader ?? undefined,
         footer: st.ticketFooter ?? undefined,
+        reviewsUrl: st.reviewsUrl ?? undefined,
       },
       table: { name: b.table, area: b.area },
       waiter: b.waiter,
       guests: b.guests,
       at: now,
+      showTip: st.printTip,
+      formats: st.ticketFormats, // N1 · la prueba de impresoras sale con el formato guardado
     };
     if (b.kind === "kitchen") {
       return kitchenTicket(

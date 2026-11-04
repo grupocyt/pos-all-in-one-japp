@@ -9,6 +9,8 @@ export interface CashMovement {
 export interface CashPayment {
   kind: "cash" | "card" | "other";
   amount: number;
+  /** N3 (04/11): la propina en efectivo también está en el cajón (no es venta) */
+  tip?: number;
   refund?: boolean;
 }
 
@@ -23,6 +25,7 @@ export function expectedCash(opening: number, payments: CashPayment[], moves: Ca
   const card = sum(
     payments.filter((p) => p.kind !== "cash").map((p) => (p.refund ? -Math.abs(p.amount) : p.amount)),
   );
+  const cashTips = sum(payments.filter((p) => p.kind === "cash" && !p.refund).map((p) => p.tip ?? 0));
   const out = sum(moves.filter((m) => m.type === "retiro").map((m) => m.amount));
   const inn = sum(moves.filter((m) => m.type === "ingreso").map((m) => m.amount));
   return {
@@ -31,7 +34,8 @@ export function expectedCash(opening: number, payments: CashPayment[], moves: Ca
     card: r2(card),
     withdrawals: r2(out),
     deposits: r2(inn),
-    expected: r2(D(opening).plus(cash).minus(out).plus(inn)),
+    cashTips: r2(cashTips),
+    expected: r2(D(opening).plus(cash).plus(cashTips).minus(out).plus(inn)),
   };
 }
 

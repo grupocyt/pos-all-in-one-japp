@@ -102,7 +102,10 @@ export interface CustomerData {
 }
 
 export interface Invoice {
-  type: "F1" | "F2";
+  /** F3 (04/11): factura completa que sustituye a una simplificada (no se guarda en la cuenta: la cuenta sigue con su F2) */
+  type: "F1" | "F2" | "F3";
+  /** F3: número de la simplificada a la que sustituye */
+  substitutes?: string;
   series: string;
   sequence: number;
   invoiceNumber: string;
@@ -126,6 +129,8 @@ export interface Account {
   parts?: number;
   /** Llegó de otra mesa como cuenta nueva (juntar o transferir a una mesa ocupada, 1.2.203). */
   origin?: AccountOrigin | null;
+  /** N7 (04/11): normal u order_on_table (los pedidos del cliente por el QR van a su propia cuenta). Sin él, normal. */
+  kind?: "normal" | "order_on_table";
 }
 
 export interface Order {

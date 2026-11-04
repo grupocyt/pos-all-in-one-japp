@@ -13,6 +13,25 @@ export class SystemApplication {
     await this.database.db.execute(sql`select 1`);
   }
 
+  /**
+   * C1 (04/11): ¿hay internet? Lo dice la cola hacia el Manager (el agente de sincronización es lo único que sale a internet):
+   * down = lo pendiente ya falló al menos una vez (sin internet o el Manager no responde); ok = no hay nada fallando.
+   */
+  async internet(storeId: string) {
+    const r = await this.database.db.execute(sql`
+      SELECT (SELECT max(sent_at) FROM sync_outbox WHERE store_id = ${storeId}) AS last_sent,
+             (SELECT min(created_at) FROM sync_outbox WHERE store_id = ${storeId} AND sent_at IS NULL AND attempts > 0 AND last_error IS NOT NULL) AS failing_since,
+             (SELECT last_error FROM sync_outbox WHERE store_id = ${storeId} AND sent_at IS NULL AND attempts > 0 AND last_error IS NOT NULL ORDER BY id DESC LIMIT 1) AS last_error`);
+    const x = (r.rows as Record<string, unknown>[])[0] ?? {};
+    const iso = (d: unknown) => (d == null ? null : new Date(d as string).toISOString());
+    return {
+      status: x.failing_since ? ("down" as const) : ("ok" as const),
+      lastSentAt: iso(x.last_sent),
+      failingSince: iso(x.failing_since),
+      lastError: (x.last_error as string) ?? null,
+    };
+  }
+
   /** Mensajes de la cola sin enviar. */
   async outboxPending(storeId: string) {
     const [pending] = await this.database.db

@@ -45,6 +45,10 @@ export type ErrorCode =
   | "RIDER_REQUIRED"
   | "DELIVERY_OFF"
   | "TABLE_OVERLAP"
+  | "RECONNECTION_PENDING"
+  | "ZERO_PRICE"
+  | "SIMPLIFIED_LIMIT"
+  | "RECONNECTION_DECIDED"
   | "ACCOUNT_LOCKED";
 
 export const HTTP_STATUS: Record<ErrorCode, number> = {
@@ -96,6 +100,10 @@ export const HTTP_STATUS: Record<ErrorCode, number> = {
   DELIVERY_OFF: 409,
   // editar sala (28/10): una mesa encima de otra
   TABLE_OVERLAP: 422,
+  RECONNECTION_PENDING: 409,
+  ZERO_PRICE: 422,
+  SIMPLIFIED_LIMIT: 422,
+  RECONNECTION_DECIDED: 409,
   // cuenta con descuento o cobro parcial (03/11): se libera antes (anular cobros y quitar el descuento)
   ACCOUNT_LOCKED: 409,
 };

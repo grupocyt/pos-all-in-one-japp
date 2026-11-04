@@ -146,12 +146,7 @@ describe("juntar mesas (mergeOrders)", () => {
     });
     const pareja = account({ id: "a2", name: "pareja", lines: [line()] });
     const facturada = account({ id: "a3", name: "Cuenta 3", status: "invoiced", lines: [line()] });
-    // regla 03/11: con cobro o descuento no se junta
-    expect(code(() => mergeOrders(order("o7", [viva, pareja, facturada], 2), destino()))).toBe(
-      "ACCOUNT_LOCKED",
-    );
-    viva.payments = viva.payments.map((p) => ({ ...p, status: "cancelled" as const }));
-    viva.discounts = viva.discounts.map((d) => ({ ...d, status: "removed" as const }));
+    // 04/11: con cobro o descuento también se junta (la cuenta pasa entera)
     const r = mergeOrders(order("o7", [viva, pareja, facturada], 2), destino(), {
       knownNames: ["Cuenta 2"],
       fromNote: "alérgico",

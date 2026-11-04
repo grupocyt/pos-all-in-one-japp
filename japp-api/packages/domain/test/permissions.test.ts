@@ -19,7 +19,7 @@ describe("permisos", () => {
       "sistema",
     ]);
     expect(new Set(ALL_PERMISSIONS).size).toBe(ALL_PERMISSIONS.length);
-    expect(ALL_PERMISSIONS).toHaveLength(53);
+    expect(ALL_PERMISSIONS).toHaveLength(54); // + pedido.reconexiones (0028)
     expect(ALL_PERMISSIONS).toContain("mesas.entrarOcupada");
     expect(ALL_PERMISSIONS).toContain("mesas.orderOnTable");
     expect(ALL_PERMISSIONS.filter((p) => p.startsWith("ajustes."))).toHaveLength(22);

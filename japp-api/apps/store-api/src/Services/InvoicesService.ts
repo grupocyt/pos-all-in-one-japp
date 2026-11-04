@@ -15,6 +15,8 @@ import {
   type CreditPlan,
   type CreditTicket,
   type Invoice,
+  setCustomer,
+  invoiceTicket,
 } from "@japp/domain";
 import { CLOCK, DATABASE, PRINTER, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
@@ -26,7 +28,7 @@ import { InvoicesApplication } from "../Applications/InvoicesApplication.js";
 import { OrdersApplication } from "../Applications/OrdersApplication.js";
 import { StoreApplication } from "../Applications/StoreApplication.js";
 import type { PrinterPort } from "../Clases/Printers.js";
-import { CreditModel, DAY, InvoiceIdModel, InvoicesFilterModel } from "../Models/InvoicesModels.js";
+import { CreditModel, DAY, InvoiceIdModel, InvoicesFilterModel, SubstituteModel } from "../Models/InvoicesModels.js";
 
 /** Lo que hace falta del abono para imprimirlo después del COMMIT. */
 interface IssuedCredit {
@@ -91,7 +93,9 @@ export class InvoicesService {
         table: r.table ?? "",
         waiter: r.waiter ?? "",
         rectifiedInvoiceId: r.i.rectifiedInvoiceId ?? null,
+        substitutedInvoiceId: r.i.substitutedInvoiceId ?? null,
         status: r.i.status,
+        emailStatus: r.i.emailStatus ?? "not_sent",
         issuedAt: new Date(r.i.issuedAt).toISOString(),
         total: Number(r.i.total),
         customer: r.i.customerName,
@@ -117,6 +121,10 @@ export class InvoicesService {
       taxTotal: Number(i!.taxTotal),
       customer: i!.customerTaxId ? { name: i!.customerName, taxId: i!.customerTaxId } : null,
       verifactuQr: i!.verifactuQr,
+      status: i!.status,
+      // 10 (04/11): no se envían correos; el estado queda en not_sent
+      emailStatus: i!.emailStatus ?? "not_sent",
+      substitutes: i!.substitutedInvoiceId ? await this.invoices.numberOf(se.storeId, i!.substitutedInvoiceId) : null,
       taxes: taxes
         .map((t) => ({ rate: Number(t.rate), base: Number(t.base), tax: Number(t.tax) }))
         .sort((a, b) => a.rate - b.rate),
@@ -237,6 +245,8 @@ export class InvoicesService {
     if (i!.rectifiedInvoiceId) {
       printed = await this.reprintCredit(se, i!.orderId!, id, i!.rectifiedInvoiceId);
       description = `Reimpresión del abono ${i!.num}`;
+    } else if (i!.type === "F3") {
+      printed = await this.printSubstitute(se, id); // F3: su propio ticket, sin cajón
     } else {
       printed = await this.orders.printInvoice(se, i!.orderId!, i!.accountId!, true); // reimprimir no abre el cajón
     }
@@ -297,6 +307,11 @@ export class InvoicesService {
       const acc = l.order.accounts.find((a) => a.id === orig?.accountId);
       if (!orig || !acc) {
         fail("NOT_FOUND", "La factura no existe", { invoiceId: rawId });
+      }
+      if (orig!.status === "substituted") {
+        fail("INVALID_TRANSITION", "Esa factura simplificada ya se sustituyó por una completa: abona la completa", {
+          invoiceId: rawId,
+        });
       }
       const type = creditTypeFor(orig!.type);
       const done = await this.invoices.creditedSoFar(tx, se.storeId, orig!.id);
@@ -461,6 +476,202 @@ export class InvoicesService {
       verifactuQr: issued.verifactuQr,
       printed,
     };
+  }
+
+  /**
+   * F1 (04/11/2026) · Factura completa que sustituye a una simplificada (F3). La simplificada no se edita: queda
+   * «substituted» y la F3 apunta a ella; misma cuenta, mismas líneas, importes e IVA, con los datos del cliente y la
+   * serie de facturas completas. No mueve dinero (los cobros siguen siendo los de la cuenta). VeriFactu: registro F3 en
+   * la cadena. Solo una F2 emitida, sin abonos y que no se haya sustituido ya.
+   */
+  async substitute(se: Session, rawId: string, body: unknown) {
+    await this.auth.require(se, "funciones.facturas");
+    await this.auth.require(se, "cobro.clientes");
+    const id = parse(InvoiceIdModel, rawId);
+    const b = parse(SubstituteModel, body);
+    const ref = await this.invoices.ref(se.storeId, id);
+    if (!ref?.orderId || !ref.accountId) {
+      fail("NOT_FOUND", "La factura no existe", { invoiceId: rawId });
+    }
+    const store = await this.stores.store();
+    const out = await this.database.withTx(async (tx) => {
+      const l = await this.repo.load(tx, se.storeId, ref!.orderId!, { lock: true });
+      const orig = await this.invoices.lockInvoice(tx, se.storeId, id);
+      const acc = l.order.accounts.find((a) => a.id === orig?.accountId);
+      if (!orig || !acc) {
+        fail("NOT_FOUND", "La factura no existe", { invoiceId: rawId });
+      }
+      if (orig!.type !== "F2" || orig!.status !== "issued") {
+        fail(
+          "INVALID_TRANSITION",
+          orig!.status === "substituted"
+            ? "Esa factura ya se sustituyó por una completa"
+            : "Solo una factura simplificada emitida se puede sustituir por una completa",
+          { invoiceId: rawId, type: orig!.type, status: orig!.status },
+        );
+      }
+      const done = await this.invoices.creditedSoFar(tx, se.storeId, orig!.id);
+      if (done.total !== 0) {
+        fail("INVALID_TRANSITION", "Esa factura tiene abonos: no se puede sustituir", { invoiceId: rawId });
+      }
+      // los datos del cliente con las mismas reglas que al cobrar (NIF válido, etc.)
+      // la cuenta ya está facturada (no se toca): se validan los datos sobre una copia abierta
+      const withC = setCustomer({ ...acc!, status: "open", invoice: null }, {
+        type: b.customer.type,
+        taxId: b.customer.taxId,
+        name: b.customer.name,
+        email: b.customer.email ?? undefined,
+        ...(b.customer.address ?? {}),
+      });
+      const c = withC.customerData!;
+      const customer = { ...c, id: undefined };
+      await this.repo.lockInvoiceChain(tx, se.storeId);
+      const now = this.clock();
+      const actor = se.actor(now);
+      const series = store.serieF;
+      const row = await this.repo.lockSeries(tx, se.storeId, series);
+      if (!row) {
+        fail("NOT_FOUND", `No existe la serie ${series}`, { series });
+      }
+      const sequence = row!.lastSequence + 1;
+      const invoiceNumber = formatInvoiceNumber(series, sequence);
+      await this.repo.setSeriesSequence(tx, se.storeId, series, sequence);
+      const taxes = (await this.invoices.taxes(se.storeId, orig!.id)).map((t) => ({
+        rate: Number(t.rate),
+        base: Number(t.base),
+        tax: Number(t.tax),
+      }));
+      const total = Number(orig!.total);
+      const verifactuQr = verifactuQrUrl(store.nif, invoiceNumber, now, total);
+      const inv = {
+        type: "F3",
+        series,
+        sequence,
+        invoiceNumber,
+        issuedAt: actor.at,
+        total,
+        taxes,
+        customer,
+        verifactuQr,
+        substitutes: orig!.invoiceNumber,
+      } as unknown as Invoice;
+      const fullId = crypto.randomUUID();
+      // primero la simplificada deja de estar «issued» (índice uq_invoice_account_issued) y después se emite la F3
+      await this.invoices.markSubstituted(tx, se.storeId, orig!.id);
+      await this.repo.insertInvoice(tx, {
+        id: fullId,
+        storeId: se.storeId,
+        accountId: acc!.id,
+        orderId: l.order.id,
+        inv,
+        issuer: { nif: store.nif, name: store.issuerName },
+        taxBase: orig!.taxBase,
+        taxTotal: orig!.taxTotal,
+        actor,
+      });
+      await this.invoices.setSubstitutes(tx, se.storeId, fullId, orig!.id);
+      await this.repo.insertInvoiceTaxes(tx, se.storeId, fullId, taxes);
+      const prev = await this.repo.verifactuTail(tx, se.storeId);
+      const hash = verifactuHash({
+        nif: store.nif,
+        invoiceNumber,
+        issuedAt: actor.at,
+        type: "F3",
+        taxTotal: orig!.taxTotal,
+        total: total.toFixed(2),
+        previousHash: prev?.hash ?? "",
+        generatedAt: actor.at,
+      });
+      await this.repo.insertVerifactuRecord(tx, {
+        storeId: se.storeId,
+        invoiceId: fullId,
+        issuerTaxId: store.nif,
+        inv,
+        taxTotal: orig!.taxTotal,
+        previous: prev,
+        hash,
+        generatedAt: actor.at,
+      });
+      await this.repo.save(tx, se.storeId, l.order, l.order, l.header, {
+        actor,
+        events: [
+          {
+            type: "invoiceIssued",
+            description: `Factura completa ${invoiceNumber} a ${c.name} (${c.taxId}) que sustituye a la simplificada ${orig!.invoiceNumber}`,
+            accountId: acc!.id,
+            actor,
+          },
+        ],
+      });
+      return { id: fullId, invoiceNumber, substitutes: orig!.invoiceNumber, issuedAt: actor.at, total, taxes, customer, verifactuQr };
+    });
+    const printed = b.print === false ? false : await this.printSubstitute(se, out.id).catch(() => false);
+    return {
+      id: out.id,
+      type: "F3",
+      invoiceNumber: out.invoiceNumber,
+      substitutes: out.substitutes,
+      issuedAt: out.issuedAt,
+      total: out.total,
+      taxes: out.taxes,
+      customer: { name: out.customer.name, taxId: out.customer.taxId },
+      verifactuQr: out.verifactuQr,
+      printed,
+    };
+  }
+
+  /** Ticket de la F3 con lo guardado: la cuenta (líneas y cobros) y la factura completa; nunca abre el cajón. */
+  private async printSubstitute(se: Session, fullId: string): Promise<boolean> {
+    const f = await this.invoices.get(se.storeId, fullId);
+    if (!f?.orderId || !f.accountId) {
+      return false;
+    }
+    const subst = f.substitutedInvoiceId ? await this.invoices.numberOf(se.storeId, f.substitutedInvoiceId) : null;
+    const taxes = (await this.invoices.taxes(se.storeId, fullId)).map((t) => ({
+      rate: Number(t.rate),
+      base: Number(t.base),
+      tax: Number(t.tax),
+    }));
+    return this.database.withTx(async (tx) => {
+      const l = await this.repo.load(tx, se.storeId, f.orderId!);
+      const acc = l.order.accounts.find((a) => a.id === f.accountId);
+      if (!acc) {
+        return false;
+      }
+      const inv = {
+        type: "F3",
+        series: f.series,
+        sequence: f.sequence,
+        invoiceNumber: f.invoiceNumber,
+        issuedAt: new Date(f.issuedAt).toISOString(),
+        total: Number(f.total),
+        taxes,
+        customer: {
+          type: (f.customerType ?? undefined) as "person" | "company" | undefined,
+          name: f.customerName ?? "",
+          taxId: f.customerTaxId ?? "",
+          email: f.customerEmail ?? undefined,
+          street: f.customerStreet ?? undefined,
+          postalCode: f.customerPostalCode ?? undefined,
+          city: f.customerCity ?? undefined,
+          province: f.customerProvince ?? undefined,
+          country: f.customerCountry ?? undefined,
+        },
+        verifactuQr: f.verifactuQr ?? "",
+        substitutes: subst ?? undefined,
+      } as unknown as Invoice;
+      const p = await this.orders.ticketPrinter(tx, se, f.orderId!);
+      const res = await this.printer.print({
+        kind: "invoice",
+        channel: p.channel,
+        printer: p.name,
+        connection: p.connection,
+        title: f.invoiceNumber,
+        ticket: invoiceTicket({ ...acc, invoice: inv }, await this.orders.ticketCtx(tx, se, l, new Date(f.issuedAt))),
+        openDrawer: false,
+      });
+      return res.ok;
+    });
   }
 
   /** Motivo del abono: el de Ajustes › Motivos (tipo credit) o el texto. Hace falta uno. */

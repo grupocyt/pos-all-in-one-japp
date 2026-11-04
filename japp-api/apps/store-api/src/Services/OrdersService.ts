@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { sql } from "drizzle-orm";
 import type { Database, Tx } from "@japp/db";
 import {
   addProduct,
@@ -50,6 +51,7 @@ import {
   mergeOrders,
   assertOrderMovable,
   assertAccountFree,
+  accountLock,
   newAccountName,
   changeFiredCourse,
   assertMethodAllowed,
@@ -1366,6 +1368,7 @@ export class OrdersService {
       async (l, ctx, tx) => {
         const pm = await this.paymentInput(tx, session, b);
         const acc = this.account(l.order, accountId);
+        await this.assertNoReconnection(tx, session.storeId, orderId, acc);
         const c = b.id ? { ...ctx, newId: () => b.id! } : ctx;
         const res = registerPayment(acc, pm.input, c);
         return {
@@ -1488,6 +1491,7 @@ export class OrdersService {
       null,
       async (l, ctx0, tx) => {
         const acc = this.openAccount(l.order, accountId);
+        await this.assertNoReconnection(tx, session.storeId, orderId, acc);
         const { made, inv, ctx } = await this.emitInvoice(
           tx,
           session,
@@ -1523,6 +1527,25 @@ export class OrdersService {
     return acc;
   }
 
+  /**
+   * Regla del 04/11 (N2/C2, API 1.2.268): con algo ticado sin conexión pendiente de validar en la cuenta (order_reconnection),
+   * no se cobra ni se factura → 409 RECONNECTION_PENDING con lo que falta. Las que no tienen cuenta cuentan para todas.
+   */
+  private async assertNoReconnection(tx: Tx, storeId: string, orderId: string, acc: Account) {
+    const r = await tx.execute(
+      sql`SELECT id::text, name, quantity FROM order_reconnection
+          WHERE store_id = ${storeId} AND order_id = ${orderId} AND status = 'pending' AND (account_id = ${acc.id} OR account_id IS NULL)`,
+    );
+    const items = r.rows as { id: string; name: string; quantity: number }[];
+    if (items.length) {
+      fail(
+        "RECONNECTION_PENDING",
+        `La ${acc.name} tiene ${items.length === 1 ? "1 cosa ticada" : `${items.length} cosas ticadas`} sin conexión por validar: valida o descarta antes de cobrar`,
+        { accountId: acc.id, accountName: acc.name, items },
+      );
+    }
+  }
+
   private invoiceEvent(inv: NonNullable<Account["invoice"]>, ctx: Ctx, accountId: string): OrderEvent {
     return this.ev(
       "invoiceIssued",
@@ -1552,6 +1575,17 @@ export class OrdersService {
     await this.repo.lockInvoiceChain(tx, session.storeId);
     const now = this.clock();
     const ctx: Ctx = { ...ctx0, now, actor: session.actor(now) };
+    // F3 (04/11): por encima del límite configurado, la factura simplificada no vale: hacen falta los datos del cliente
+    if (!acc.customerData && store.simplifiedLimit > 0) {
+      const total = accountTotals(acc).total;
+      if (total > store.simplifiedLimit + 0.004) {
+        fail(
+          "SIMPLIFIED_LIMIT",
+          `Más de ${store.simplifiedLimit.toFixed(2).replace(".", ",")} €: hace falta factura completa con los datos del cliente`,
+          { field: "customer", limit: store.simplifiedLimit, total },
+        );
+      }
+    }
     const series = acc.customerData ? store.serieF : store.serieT;
     const row = await this.repo.lockSeries(tx, session.storeId, series);
     if (!row) {
@@ -1629,6 +1663,7 @@ export class OrdersService {
       change: number;
     }>(session, orderId, b.version, async (l, ctx0, tx) => {
       const acc = this.openAccount(l.order, accountId);
+      await this.assertNoReconnection(tx, session.storeId, orderId, acc);
       const inputs: { input: PaymentInput; name: string }[] = [];
       for (const [i, p] of b.payments.entries()) {
         inputs.push(await this.atRow(i, () => this.paymentInput(tx, session, p)));
@@ -1719,18 +1754,24 @@ export class OrdersService {
       store: {
         legalName: st.issuerName,
         tradeName: st.name,
+        // N1 · «cadena · local» en una línea, cada parte según el formato
+        chain: st.chainName ?? undefined,
+        local: st.name,
         taxId: st.nif,
         address: st.address ?? undefined,
         city: st.city ?? undefined,
         phone: st.phone ?? undefined,
         header: st.ticketHeader ?? undefined,
         footer: st.ticketFooter ?? undefined,
+        reviewsUrl: st.reviewsUrl ?? undefined,
       },
       table: { name: l.header.tableName, area: l.header.zone ?? "" },
       waiter: l.header.openedBy.user,
       guests: l.order.guests,
       at,
       paymentNames,
+      showTip: st.printTip,
+      formats: st.ticketFormats, // N1 · Ajustes › Formatos de ticket (0029)
     };
   }
 
@@ -1749,6 +1790,7 @@ export class OrdersService {
         return false;
       }
       const p = await this.ticketPrinter(tx, session, orderId);
+      const st = await this.stores.store();
       const cash = acc.payments.some((x) => x.status === "confirmed" && x.kind === "cash");
       const opens = await this.printers.stationOpensDrawer(tx, session.storeId, session.station.id);
       const res = await this.printer.print({
@@ -1758,7 +1800,8 @@ export class OrdersService {
         connection: p.connection,
         title: acc.invoice.invoiceNumber,
         ticket: invoiceTicket(acc, await this.ticketCtx(tx, session, l, new Date(acc.invoice.issuedAt))),
-        openDrawer: !reprint && cash && opens,
+        // N1 · «Abrir el cajón» de Formatos › Factura (por defecto, sí)
+        openDrawer: !reprint && cash && opens && st.ticketFormats.invoice?.cajon !== false,
       });
       return res.ok;
     });
@@ -2258,8 +2301,8 @@ export class OrdersService {
       return {
         id: busy.id,
         ids: new Set(l.order.accounts.map((a) => a.id)),
-        // la principal: la primera abierta sin cobros (a una cuenta con cobros no se le pueden pasar productos)
-        main: l.order.accounts.find((a) => a.status === "open" && !a.payments.length)?.id ?? null,
+        // la principal: la primera abierta sin cobros ni descuento (a una cuenta en cobro no se le pasan productos, 03/11)
+        main: l.order.accounts.find((a) => a.status === "open" && !accountLock(a))?.id ?? null,
       };
     });
     const r = await run();
@@ -2274,14 +2317,8 @@ export class OrdersService {
         let order = l.order;
         const names: string[] = [];
         for (const a of l.order.accounts) {
-          const discounted = (a.discounts ?? []).some((d) => d.status === "applied");
-          if (
-            pre.ids.has(a.id) ||
-            a.status !== "open" ||
-            !a.lines.length ||
-            a.payments.length ||
-            discounted
-          ) {
+          // las que llegan en cobro (descuento o cobro parcial) se quedan aparte: no se mezclan con la principal
+          if (pre.ids.has(a.id) || a.status !== "open" || !a.lines.length || accountLock(a)) {
             continue;
           }
           const pick = Object.fromEntries(a.lines.map((x) => [x.id, x.quantity]));
@@ -2534,11 +2571,20 @@ export class OrdersService {
         }
         const events: OrderEvent[] = [];
         let order = l.order;
-        let acc = order.accounts.find((a) => a.status === "open" && a.name === b.accountName);
+        // N7 (04/11): los pedidos del cliente van a su propia cuenta (tipo order_on_table). Si esa cuenta ya se está cobrando
+        // (descuento o cobro parcial) o está cobrada, se abre otra «Order on Table 2…»: el pedido nunca se pierde.
+        const isOot = (a: Account) => a.kind === "order_on_table" || a.name === b.accountName;
+        let acc = order.accounts.find((a) => a.status === "open" && isOot(a) && !accountLock(a));
         if (!acc) {
+          const used = new Set(order.accounts.map((a) => a.name));
+          let name = b.accountName;
+          for (let n = 2; used.has(name); n++) {
+            name = `${b.accountName} ${n}`;
+          }
           acc = {
             id: ctx.newId(),
-            name: b.accountName,
+            name,
+            kind: "order_on_table",
             status: "open",
             lines: [],
             deletedLines: [],
@@ -2548,7 +2594,7 @@ export class OrdersService {
             invoice: null,
           };
           order = { ...order, accounts: [...order.accounts, acc] };
-          events.push(this.ev("accountOpened", `Se abre la ${b.accountName}`, ctx, acc.id));
+          events.push(this.ev("accountOpened", `Se abre la cuenta ${acc.name} (pedidos del cliente)`, ctx, acc.id));
         }
         let accepted = 0;
         for (const it of b.items) {
@@ -2605,5 +2651,73 @@ export class OrdersService {
       version: r.transaction.version,
       printed,
     };
+  }
+
+  /**
+   * Reconexiones (04/11, API 1.2.268): validar lo ticado sin conexión. Añade la línea a su cuenta (o a la primera abierta si
+   * se marcó sin cuenta) y la envía en el mismo comando, como POST …/lines + POST …/send. Las reglas son las de siempre:
+   * mesa cerrada → ORDER_CLOSED, cuenta cobrada → ACCOUNT_CLOSED, cuenta en cobro → ACCOUNT_LOCKED (sigue pendiente y se puede
+   * descartar). `record` marca la reconexión como aceptada en la misma transacción. Imprime después del COMMIT (sin 503).
+   */
+  async addAndSendReconnection(
+    session: Session,
+    orderId: string,
+    b: {
+      lineId: string;
+      accountId: string | null;
+      plu: number;
+      quantity: number;
+      comment?: string | null;
+      modifiers?: { questionId?: string | null; plu: number; quantity?: number }[];
+      note: string;
+    },
+    record: (tx: Tx) => Promise<void>,
+  ) {
+    const r = await this.command<{ accountId: string; jobs: KitchenJob[] }>(
+      session,
+      orderId,
+      null,
+      async (l, ctx, tx) => {
+        const acc0 = this.openAccount(l.order, this.account(l.order, b.accountId).id);
+        const { product, modifiers, courses } = await this.lineInput(tx, session.storeId, b);
+        const acc1 = addProduct(
+          acc0,
+          {
+            product,
+            area: { id: "", name: l.header.zone ?? "", priceList: l.header.priceList },
+            quantity: b.quantity,
+            modifiers,
+            courses,
+            comment: b.comment ?? "",
+            force: true,
+            dupWindowMin: 0,
+          },
+          { ...ctx, newId: () => b.lineId },
+        );
+        const sent = sendWithCourses(acc1, { now: ctx.now });
+        const retry = await this.pendingKitchenJobs(tx, session, l, ctx);
+        const plan = await this.planKitchen(tx, session, l, ctx, sent.items);
+        return {
+          next: this.replace(l.order, sent.account),
+          events: [
+            this.ev("lineAdded", `Se añade ${product.name} x${b.quantity} (${b.note})`, ctx, acc0.id),
+            this.ev("linePrinted", `Se envían ${sent.sent.length} líneas`, ctx, acc0.id),
+          ],
+          extra: { accountId: acc0.id, jobs: [...plan.jobs, ...retry] },
+          afterSave: async (t: Tx) => {
+            await plan.record(t);
+            await record(t);
+          },
+        };
+      },
+      { kind: "save" },
+    );
+    const printed = await this.printKitchen(session, r.extra.jobs).catch((e) => {
+      if (e instanceof DomainError && e.code === "PRINTER_OFFLINE") {
+        return e.details.printed as Printed[];
+      }
+      throw e;
+    });
+    return { accountId: r.extra.accountId, printed, order: r.transaction };
   }
 }

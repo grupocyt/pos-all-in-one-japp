@@ -90,6 +90,9 @@ import { OrdersBatchService } from "./Services/OrdersBatchService.js";
 import { OrderIncidentsController } from "./Controllers/OrderIncidentsController.js";
 import { OrderIncidentsService } from "./Services/OrderIncidentsService.js";
 import { OrderIncidentsApplication } from "./Applications/OrderIncidentsApplication.js";
+import { ReconnectionsController } from "./Controllers/ReconnectionsController.js";
+import { ReconnectionsService } from "./Services/ReconnectionsService.js";
+import { ReconnectionsApplication } from "./Applications/ReconnectionsApplication.js";
 import { ServiceSlaController } from "./Controllers/ServiceSlaController.js";
 import { ServiceSlaService } from "./Services/ServiceSlaService.js";
 import { ServiceSlaApplication } from "./Applications/ServiceSlaApplication.js";
@@ -132,6 +135,7 @@ class AppModule {
         DevicesController,
         IncidentsController,
         OrderIncidentsController,
+        ReconnectionsController,
         ServiceSlaController,
         OrdersBatchController,
         DeliveryController,
@@ -194,6 +198,8 @@ class AppModule {
         IncidentsApplication,
         OrderIncidentsService,
         OrderIncidentsApplication,
+        ReconnectionsService,
+        ReconnectionsApplication,
         ServiceSlaService,
         ServiceSlaApplication,
         { provide: APP_FILTER, useClass: ErrorsFilter },

@@ -3,6 +3,7 @@ import { setup, PIN, type T } from "./helpers.js";
 let t: T;
 let admin: string;
 let mesero: string;
+let barra: string; // 0030 (04/11): el tablero de delivery es de cajero y encargado
 const KEY = "clave-tienda-pruebas-delivery";
 
 const pedido = (over: Record<string, unknown> = {}) => ({
@@ -24,6 +25,7 @@ beforeAll(async () => {
   t = await setup({ storeKey: KEY });
   admin = await t.login(PIN.sistemas);
   mesero = await t.login(PIN.mesero);
+  barra = await t.login(PIN.barra);
 });
 afterAll(async () => {
   await t.close();
@@ -130,38 +132,38 @@ describe("Tablero de pedidos (delivery)", () => {
   });
 
   it("siguiente paso hasta asignar: con askRider pide quién lo lleva; con versión vieja → 409", async () => {
-    const a = await t.call("POST", `/delivery/orders/${id}/advance`, { token: mesero, body: { version } });
+    const a = await t.call("POST", `/delivery/orders/${id}/advance`, { token: barra, body: { version } });
     expect(a.body.status).toBe("received");
-    const old = await t.call("POST", `/delivery/orders/${id}/advance`, { token: mesero, body: { version } });
+    const old = await t.call("POST", `/delivery/orders/${id}/advance`, { token: barra, body: { version } });
     expect([old.status, old.error.code]).toEqual([409, "VERSION_CONFLICT"]);
     expect(old.error.details.current.status).toBe("received");
     const b = await t.call("POST", `/delivery/orders/${id}/advance`, {
-      token: mesero,
+      token: barra,
       body: { version: a.body.version },
     });
     expect(b.body.status).toBe("to_assign");
     const nr = await t.call("POST", `/delivery/orders/${id}/advance`, {
-      token: mesero,
+      token: barra,
       body: { version: b.body.version },
     });
     expect([nr.status, nr.error.code]).toEqual([422, "RIDER_REQUIRED"]);
     const ghost = await t.call("POST", `/delivery/orders/${id}/advance`, {
-      token: mesero,
+      token: barra,
       body: { version: b.body.version, riderId: crypto.randomUUID() },
     });
     expect([ghost.status, ghost.error.code]).toEqual([404, "NOT_FOUND"]);
     const rider = (await t.call("GET", "/config/motorizados", { token: admin })).body.items[0];
     const c = await t.call("POST", `/delivery/orders/${id}/advance`, {
-      token: mesero,
+      token: barra,
       body: { version: b.body.version, riderId: rider.id },
     });
     expect(c.body).toMatchObject({ status: "assigned", riderId: rider.id, riderName: "Carlos M." });
     const d = await t.call("POST", `/delivery/orders/${id}/advance`, {
-      token: mesero,
+      token: barra,
       body: { version: c.body.version },
     });
     const e = await t.call("POST", `/delivery/orders/${id}/advance`, {
-      token: mesero,
+      token: barra,
       body: { version: d.body.version },
     });
     expect(e.body).toMatchObject({ status: "delivered", light: null });
@@ -175,7 +177,7 @@ describe("Tablero de pedidos (delivery)", () => {
       "delivered",
     ]);
     const done = await t.call("POST", `/delivery/orders/${id}/advance`, {
-      token: mesero,
+      token: barra,
       body: { version: e.body.version },
     });
     expect([done.status, done.error.code]).toEqual([409, "INVALID_TRANSITION"]);
@@ -211,13 +213,13 @@ describe("Tablero de pedidos (delivery)", () => {
   it("cancelar pide clave de encargado; queda el motivo; tablero con pendientes, terminados y semáforo", async () => {
     const r = await t.call("POST", "/delivery/orders", { token: admin, body: pedido({ platform: "just" }) });
     const no = await t.call("POST", `/delivery/orders/${r.body.id}/cancel`, {
-      token: mesero,
+      token: barra,
       body: { version: r.body.version, note: "No contesta" },
     });
     expect([no.status, no.error.details.permission]).toEqual([403, "sistema.autorizar"]);
     // el reloj avanza: el pedido de Just Eat pasa a rojo
     t.clock.now = new Date(Date.now() + 31 * 60_000);
-    const board = await t.call("GET", "/delivery/orders", { token: mesero });
+    const board = await t.call("GET", "/delivery/orders", { token: barra });
     expect(board.status).toBe(200);
     const it = board.body.items.find((x: any) => x.id === r.body.id);
     expect(it).toMatchObject({ light: "red" });
@@ -238,9 +240,9 @@ describe("Tablero de pedidos (delivery)", () => {
     expect([again.status, again.error.code]).toEqual([409, "INVALID_TRANSITION"]);
     const fin = await t.call("GET", "/delivery/orders?scope=finished", { token: admin });
     expect(fin.body.items.map((x: any) => x.status)).toContain("cancelled");
-    const one = await t.call("GET", `/delivery/orders/${r.body.id}`, { token: mesero });
+    const one = await t.call("GET", `/delivery/orders/${r.body.id}`, { token: barra });
     expect(one.body.lines).toHaveLength(2);
-    expect((await t.call("GET", `/delivery/orders/${crypto.randomUUID()}`, { token: mesero })).status).toBe(
+    expect((await t.call("GET", `/delivery/orders/${crypto.randomUUID()}`, { token: barra })).status).toBe(
       404,
     );
   });

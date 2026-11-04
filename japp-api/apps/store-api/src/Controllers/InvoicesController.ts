@@ -39,6 +39,13 @@ export class InvoicesController {
     return this.invoices.credit(se, id, body);
   }
 
+  /** F1 (04/11): factura completa (F3) que sustituye a una simplificada, con los datos del cliente. No mueve dinero. */
+  @Post("invoices/:invoiceId/full")
+  @HttpCode(201)
+  async substitute(@CurrentSession() se: Session, @Param("invoiceId") id: string, @Body() body: unknown) {
+    return this.invoices.substitute(se, id, body);
+  }
+
   /** Estado VeriFactu del registro de la factura. */
   @Get("invoices/:invoiceId/verifactu")
   async verifactu(@CurrentSession() se: Session, @Param("invoiceId") id: string) {

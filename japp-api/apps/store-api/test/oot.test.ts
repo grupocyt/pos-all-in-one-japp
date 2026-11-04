@@ -410,4 +410,24 @@ describe("Order on Table · sistema externo", () => {
     expect([x.status, y.status]).toEqual([201, 201]);
     expect(await n()).toBe(3);
   });
+
+  it("N7 (04/11): los pedidos del cliente van a su propia cuenta (kind order_on_table); si esa se está cobrando, se abre otra", async () => {
+    const o = await newOrder();
+    const r = await qr(o.id, { print: false });
+    expect(r.status, JSON.stringify(r.env)).toBeLessThan(300);
+    const pedir = () => ext("POST", `/oot/${r.body.token}/lines`, { items: [{ plu: PLU.croquetas }], requestId: crypto.randomUUID() });
+    expect((await pedir()).status).toBeLessThan(300);
+    const get = async () => (await t.call("GET", `/orders/${o.id}`, { token: sistemas })).body;
+    let ord = await get();
+    const oot = ord.accounts.find((a: any) => a.kind === "order_on_table");
+    expect(oot?.name).toBe("Order on Table");
+    expect(ord.accounts.find((a: any) => a.id === o.acc).kind).toBe("normal");
+    // la cuenta del cliente se pone en cobro: el siguiente pedido no se rechaza, va a «Order on Table 2»
+    const pay = await t.call("POST", `/orders/${o.id}/accounts/${oot.id}/payments`, { token: sistemas, body: { method: "card", amount: 1 } });
+    expect(pay.status, JSON.stringify(pay.env)).toBe(201);
+    const p2 = await pedir();
+    expect(p2.status, JSON.stringify(p2.env)).toBeLessThan(300);
+    ord = await get();
+    expect(ord.accounts.filter((a: any) => a.kind === "order_on_table").map((a: any) => a.name)).toEqual(["Order on Table", "Order on Table 2"]);
+  });
 });

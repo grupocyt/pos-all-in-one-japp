@@ -1,6 +1,5 @@
 import { clone } from "./context.js";
 import { fail } from "./errors.js";
-import { assertAccountFree } from "./accounts.js";
 import { nextAccountName } from "./accountNames.js";
 import type { Account, Order } from "./types.js";
 
@@ -46,7 +45,7 @@ export function transferAccount(
   if (!acc.lines.length) {
     fail("NOTHING_TO_TRANSFER", "La cuenta no tiene productos: no hay nada que pasar", { accountId });
   }
-  assertAccountFree(acc, "pasarla a otra mesa");
+  // 04/11: cambiar de mesa no toca la cuenta: se pasa entera, también con descuento o cobros (la regla es por cuenta)
   const name = arrivingName(acc, to, knownNames);
   const moved: Account = { ...clone(acc), name };
   const rest = from.accounts.filter((a) => a.id !== accountId).map((a) => clone(a));
@@ -108,10 +107,7 @@ export function mergeOrders(
   if (!live.some((a) => a.lines.length)) {
     fail("VALIDATION", "La mesa no tiene productos: no hay nada que transferir", { field: "orderId" });
   }
-  // 03/11: ninguna cuenta de las dos mesas con descuento o cobro parcial (se liberan antes)
-  for (const a of [...live, ...to.accounts.filter((x) => x.status === "open")]) {
-    assertAccountFree(a, "juntar o cambiar de mesa");
-  }
+  // 04/11: juntar mesas no toca las cuentas: cada una pasa entera, también con descuento o cobros
   const dest: Order = { ...clone(to), accounts: to.accounts.map((a) => clone(a)) };
   const moved: MergeResult["moved"] = [];
   const dropped: string[] = [];
@@ -162,9 +158,8 @@ export function assertSamePriceList(from: string | null | undefined, to: string 
   }
 }
 
-/** Cambiar la mesa entera a una mesa libre (03/11): ninguna cuenta con descuento o cobro parcial. */
-export function assertOrderMovable(order: Order): void {
-  for (const a of order.accounts.filter((x) => x.status === "open")) {
-    assertAccountFree(a, "cambiar de mesa");
-  }
-}
+/**
+ * Cambiar la mesa entera (04/11/2026): se permite siempre, también con cuentas con descuento o cobro parcial (la regla de
+ * «cuenta en cobro» es por cuenta y cambiar de mesa no cambia lo que hay en ella). Se deja para que quien llame no cambie.
+ */
+export function assertOrderMovable(_order: Order): void {}

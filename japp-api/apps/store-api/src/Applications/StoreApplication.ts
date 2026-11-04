@@ -1,3 +1,4 @@
+import type { TicketFormats } from "@japp/domain";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, inArray } from "drizzle-orm";
 import { schema as s, type Database, type Tx, type Db } from "@japp/db";
@@ -30,6 +31,14 @@ export interface StoreInfo {
   serieT: string;
   serieF: string;
   duplicateMinutes: number;
+  /** 0027 · imprimir la propina en el ticket de la factura */
+  printTip: boolean;
+  /** 0029 · N1: formatos de precuenta y factura (Ajustes › Formatos de ticket) */
+  ticketFormats: TicketFormats;
+  /** Enlace de reseñas de Google (QR al final de precuenta y factura) */
+  reviewsUrl: string | null;
+  /** F3 (0030): importe máximo de una factura simplificada (0 = sin límite) */
+  simplifiedLimit: number;
   cashFloat: number;
   cashDiffThreshold: number;
   pinAttempts: number;
@@ -109,6 +118,10 @@ export class StoreApplication {
       serieT: r.b.seriesSimplified,
       serieF: r.b.seriesFull,
       duplicateMinutes: r.p.duplicateMinutes,
+      printTip: r.p.printTip !== false,
+      ticketFormats: (r.p.ticketFormats ?? {}) as TicketFormats,
+      reviewsUrl: r.st.reviewsUrl ?? null,
+      simplifiedLimit: Number(r.b.simplifiedLimit ?? 0),
       cashFloat: Number(r.p.cashFloat),
       cashDiffThreshold: Number(r.p.cashDiffThreshold),
       pinAttempts: r.p.pinAttempts,

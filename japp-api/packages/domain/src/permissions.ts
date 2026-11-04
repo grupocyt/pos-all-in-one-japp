@@ -39,6 +39,7 @@ export const PERMISSION_TREE = {
     "elimPrecuenta",
     "historial",
     "transaccion",
+    "reconexiones", // 0028 · resolver lo ticado sin conexión
   ],
   cobro: ["cobrar", "descuentos", "clientes", "reabrir"],
   funciones: ["facturas", "abonar", "informes", "kpi", "caja", "abrirCajon", "periodo", "pedidos"], // pedidos = tablero de delivery (0025)

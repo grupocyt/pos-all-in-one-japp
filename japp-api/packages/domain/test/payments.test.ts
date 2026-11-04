@@ -36,11 +36,9 @@ describe("cobro en efectivo", () => {
       ),
     ).toBe("VALIDATION");
   });
-  it("en efectivo no hay propina", () => {
-    expect(
-      registerPayment(acc(), { method: "cash", kind: "cash", amount: 23.5, cashGiven: 30, tip: 3 }, ctx())
-        .payment.tip,
-    ).toBe(0);
+  it("N3 (04/11): en efectivo también hay propina; el cambio descuenta la propina", () => {
+    const p = registerPayment(acc(), { method: "cash", kind: "cash", amount: 23.5, cashGiven: 30, tip: 3 }, ctx()).payment;
+    expect([p.tip, p.change]).toEqual([3, 3.5]);
   });
 });
 

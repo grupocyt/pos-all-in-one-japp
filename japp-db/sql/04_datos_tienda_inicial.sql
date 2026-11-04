@@ -12,7 +12,7 @@ UPDATE company SET legal_name='DAILY FOOD VENTURES S.L.', trade_name='Grupo Cañ
 UPDATE billing_settings SET establishment='022', emission_point='050', series_simplified='T2026', series_full='F2026', series_credit='AB2026', billing_email='info@japp-tech.es';
 
 -- Parámetros
-UPDATE store_parameters SET lock_seconds=7, lock_seconds_pda=10, duplicate_minutes=3, cash_float=150, cash_diff_threshold=5, idle_table_minutes=45, prebill_to_pay_minutes=6, kpi_min_tables=20, pin_attempts=3, pin_lock_seconds=30;
+UPDATE store_parameters SET lock_seconds=10, lock_seconds_pda=10, duplicate_minutes=3, cash_float=150, cash_diff_threshold=5, idle_table_minutes=45, prebill_to_pay_minutes=6, kpi_min_tables=20, pin_attempts=3, pin_lock_seconds=30;
 
 -- Usuarios (los PIN de prueba se cambian en el TPV antes de producción)
 UPDATE app_user SET initials='SI', profile_id=(SELECT id FROM user_profile WHERE code='ADMIN'), can_charge=TRUE, can_delete_printed=TRUE, can_delete_prebill=TRUE, active=TRUE WHERE name='Sistemas';
@@ -177,12 +177,21 @@ SELECT p.id, v.code, p.store_id FROM (VALUES
   ('sistema.autorizar', 'CAPITAN')
 ) AS v(code, profile) JOIN user_profile p ON p.code = v.profile JOIN permission x ON x.code = v.code;
 -- 1.2.267: los permisos de las migraciones posteriores (0025 delivery) que el DELETE de arriba quitaría en una tienda nueva:
--- Ajustes › Pedidos a quien tiene Restaurante y el tablero de pedidos a todos los perfiles (igual que la migración 0025)
+-- Ajustes › Pedidos a quien tiene Restaurante (0025) y el tablero de pedidos solo a cajero y encargado (0030, 04/11/2026):
+-- los perfiles que abren o cierran el periodo o autorizan
 INSERT INTO profile_permission (profile_id, permission_code, store_id)
   SELECT profile_id, 'ajustes.pedidos', store_id FROM profile_permission WHERE permission_code = 'ajustes.restaurante'
 ON CONFLICT DO NOTHING;
+DELETE FROM profile_permission pp WHERE pp.permission_code = 'funciones.pedidos'
+  AND NOT EXISTS (SELECT 1 FROM profile_permission x WHERE x.profile_id = pp.profile_id AND x.permission_code IN ('cobro.cobrar', 'funciones.periodo', 'sistema.autorizar'));
 INSERT INTO profile_permission (profile_id, permission_code, store_id)
-  SELECT id, 'funciones.pedidos', store_id FROM user_profile
+  SELECT DISTINCT profile_id, 'funciones.pedidos', store_id FROM profile_permission WHERE permission_code IN ('cobro.cobrar', 'funciones.periodo', 'sistema.autorizar')
+ON CONFLICT DO NOTHING;
+-- 0030: propina con todas las formas de pago (menos las de descuento)
+UPDATE payment_method SET allows_tip = TRUE WHERE kind <> 'discount';
+-- 0028: «Resolver reconexiones» a quien puede autorizar (igual que la migración)
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT profile_id, 'pedido.reconexiones', store_id FROM profile_permission WHERE permission_code = 'sistema.autorizar'
 ON CONFLICT DO NOTHING;
 
 -- Impresoras y canales: BARRA pasa a llamarse BEBIDA y se crea COMIDA (impresora LINEA)

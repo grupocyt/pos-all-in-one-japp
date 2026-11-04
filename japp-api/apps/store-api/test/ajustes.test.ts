@@ -528,7 +528,7 @@ describe("Ajustes · reglas de cada módulo", () => {
       ).status,
     ).toBe(200);
     // vuelve a los 7 s de los datos de arranque (otras pruebas los esperan)
-    await t.sql.query("UPDATE store_parameters SET lock_seconds = 7");
+    await t.sql.query("UPDATE store_parameters SET lock_seconds = 10"); // los datos de arranque (0027: 7 s → 10 s)
     const rest = (await t.call("GET", "/config/restaurante/current", { token: sis })).body;
     const r2 = await t.call("PATCH", "/config/restaurante/current", {
       token: sis,

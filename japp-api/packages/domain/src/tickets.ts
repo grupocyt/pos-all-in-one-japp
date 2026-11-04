@@ -81,14 +81,51 @@ export function madridParts(d: Date) {
 
 export interface StoreHeader {
   legalName: string;
+  /** Nombre comercial en una línea (si no vienen chain/local). */
   tradeName?: string;
+  /** Cadena («Cañas y Tapas») y local («Plaza Norte»): una línea «cadena · local», cada parte según el formato. */
+  chain?: string;
+  local?: string;
   taxId: string;
   address?: string;
   city?: string;
   phone?: string;
+  /** Texto de la cabecera del local (Ajustes › Restaurante): sale abajo, grande, como despedida (igual que el TPV). */
   header?: string;
   footer?: string;
   logo?: boolean;
+  /** Enlace de reseñas de Google: QR al final si el formato lo pide. */
+  reviewsUrl?: string;
+}
+
+/**
+ * N1 (04/11, 1.2.268) · Formato de precuenta y factura de Ajustes › Formatos de ticket (store_parameters.ticket_formats).
+ * Cada opción apagada (false) quita esa parte; lo que no viene, sale (los mismos valores por defecto que el TPV).
+ * En la factura el nombre fiscal y el NIF salen siempre (obligatorios).
+ */
+export interface TicketFormat {
+  logo?: boolean;
+  cadena?: boolean;
+  local?: boolean;
+  razon?: boolean;
+  nif?: boolean;
+  direccion?: boolean;
+  telefono?: boolean;
+  mesero?: boolean;
+  desglose?: boolean;
+  porPersona?: boolean;
+  pie?: boolean;
+  despedida?: boolean;
+  despTxt?: string;
+  qrResenas?: boolean;
+  qrTxt?: string;
+  qrTrib?: boolean;
+  cajon?: boolean;
+  propina?: boolean;
+}
+export interface TicketFormats {
+  prebill?: TicketFormat;
+  invoice?: TicketFormat;
 }
 export interface TicketContext {
   store: StoreHeader;
@@ -97,7 +134,12 @@ export interface TicketContext {
   guests?: number;
   at: Date;
   paymentNames?: Record<string, string>; // cash → Efectivo
+  /** Imprimir la propina en la factura (Ajustes › Formatos; 0027). La propina nunca es parte de la factura. */
+  showTip?: boolean;
+  /** N1 · formatos de Ajustes (precuenta y factura). Sin ellos, todo sale. */
+  formats?: TicketFormats;
 }
+const fmtOn = (f: TicketFormat | undefined, k: keyof TicketFormat) => f?.[k] !== false;
 
 const T = (text: string, o: Omit<Extract<TicketLine, { k: "text" }>, "k" | "text"> = {}): TicketLine => ({
   k: "text",
@@ -106,26 +148,62 @@ const T = (text: string, o: Omit<Extract<TicketLine, { k: "text" }>, "k" | "text
 });
 const R = (ch: "=" | "-"): TicketLine => ({ k: "rule", ch });
 
-/** Cabecera de la tienda: logo, nombre fiscal, NIF y dirección (obligatorio en factura). */
-function storeBlock(s: StoreHeader): TicketLine[] {
+/** Cabecera de la tienda: logo, nombre comercial, nombre fiscal, NIF y dirección; cada línea según el formato (en factura, nombre fiscal y NIF siempre). */
+function storeBlock(s: StoreHeader, f?: TicketFormat, invoice = false): TicketLine[] {
   const out: TicketLine[] = [];
-  if (s.logo !== false) {
+  if (s.logo !== false && fmtOn(f, "logo")) {
     out.push({ k: "logo" });
   }
-  if (s.tradeName) {
-    out.push(T(s.tradeName, { align: "center", bold: true }));
+  let trade = s.tradeName ?? "";
+  if (s.chain || s.local) {
+    const chain = s.chain && fmtOn(f, "cadena") ? s.chain : "";
+    let local = s.local && fmtOn(f, "local") ? s.local : "";
+    if (chain && local) {
+      // «Cañas y Tapas · Plaza Norte» (sin repetir la cadena si el nombre del local ya empieza por ella)
+      local = local.replace(new RegExp("^" + chain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[·\\-–]?\\s*", "i"), "");
+    }
+    trade = [chain, local].filter(Boolean).join(" · ");
   }
-  out.push(T(s.legalName, { align: "center" }), T(`NIF: ${s.taxId}`, { align: "center" }));
-  if (s.address) {
+  if (trade) {
+    wrap(trade, WIDTH).forEach((x) => out.push(T(x, { align: "center", bold: true })));
+  }
+  if (invoice || fmtOn(f, "razon")) {
+    out.push(T(s.legalName, { align: "center" }));
+  }
+  if (invoice || fmtOn(f, "nif")) {
+    out.push(T(`NIF: ${s.taxId}`, { align: "center" }));
+  }
+  if (s.address && fmtOn(f, "direccion")) {
     wrap(s.address, WIDTH).forEach((x) => out.push(T(x, { align: "center" })));
   }
-  if (s.city || s.phone) {
-    out.push(T([s.city, s.phone && `Tel. ${s.phone}`].filter(Boolean).join(" · "), { align: "center" }));
-  }
-  if (s.header) {
-    wrap(s.header, WIDTH).forEach((x) => out.push(T(x, { align: "center" })));
+  const city = fmtOn(f, "direccion") ? s.city : undefined;
+  const phone = fmtOn(f, "telefono") ? s.phone : undefined;
+  if (city || phone) {
+    out.push(T([city, phone && `Tel. ${phone}`].filter(Boolean).join(" · "), { align: "center" }));
   }
   out.push({ k: "feed" });
+  return out;
+}
+
+/** Final de precuenta y factura (como el TPV): pie, despedida (texto del formato o la cabecera del local) y QR de reseñas. */
+function footBlock(s: StoreHeader, f?: TicketFormat): TicketLine[] {
+  const out: TicketLine[] = [];
+  if (s.footer && fmtOn(f, "pie")) {
+    out.push({ k: "feed" });
+    wrap(s.footer, WIDTH).forEach((x) => out.push(T(x, { align: "center" })));
+  }
+  const bye = (f?.despTxt || s.header || "").trim();
+  if (bye && fmtOn(f, "despedida")) {
+    out.push({ k: "feed" });
+    wrap(bye, WIDTH / 2).forEach((x) => out.push(T(x, { align: "center", bold: true, size: "w" })));
+  }
+  if (s.reviewsUrl && fmtOn(f, "qrResenas")) {
+    out.push({ k: "feed" });
+    if ((f?.qrTxt ?? "").trim()) {
+      wrap(f!.qrTxt!.trim(), WIDTH).forEach((x) => out.push(T(x, { align: "center" })));
+    }
+    out.push({ k: "qr", data: s.reviewsUrl });
+  }
   return out;
 }
 
@@ -135,7 +213,7 @@ function storeBlock(s: StoreHeader): TicketLine[] {
  * los pases del menú no se listan (decidido tras las pruebas en tienda, 23/10/2026): son desglose interno de cocina y
  * al cliente solo le importa qué paga por cada producto. La comanda (kitchenTicket) sí los sigue mostrando.
  */
-function body(acc: Account): TicketLine[] {
+function body(acc: Account, f?: TicketFormat): TicketLine[] {
   const out: TicketLine[] = [T(lr("Uds.   Producto", "Importe")), R("-")];
   const AMT = 11;
   const NAME = WIDTH - 7 - AMT;
@@ -149,14 +227,11 @@ function body(acc: Account): TicketLine[] {
   const tt = accountTotals(acc);
   for (const d of acc.discounts.filter((x) => x.status === "applied")) {
     const amt = discountAmount(d, tt.sub);
-    out.push(
-      T(
-        lr(
-          `Descuento ${d.type === "percentage" ? pct(d.value) + " % " : ""}${d.reason}`.trim(),
-          "-" + eur(amt),
-        ),
-      ),
-    );
+    // N5 (04/11): un nombre de descuento largo se parte en varias líneas (antes se recortaba); el importe va en la primera
+    const right = "-" + eur(amt);
+    const parts = wrap(`Descuento ${d.type === "percentage" ? pct(d.value) + " % " : ""}${d.reason}`.trim(), WIDTH - right.length - 1);
+    out.push(T(lr(parts[0]!, right)));
+    parts.slice(1).forEach((p) => out.push(T(p)));
   }
   if (tt.disc) {
     out.push(R("-"));
@@ -164,26 +239,35 @@ function body(acc: Account): TicketLine[] {
   // desglose de IVA: «  10,00 %: Base:      7,27 € Cuota:       0,73 €»
   const base = (rate: string, b: number, c: number, label = "Cuota:") =>
     padL(rate, 16) + padL(eur(b), 12) + " " + label + padL(eur(c), 13);
-  for (const x of tt.taxes) {
-    out.push(T(base(`${pct(x.rate)} %: Base:`, x.base, x.tax)));
+  if (fmtOn(f, "desglose")) {
+    for (const x of tt.taxes) {
+      out.push(T(base(`${pct(x.rate)} %: Base:`, x.base, x.tax)));
+    }
+    const sb = r2(sum(tt.taxes.map((x) => x.base)));
+    const sc = r2(sum(tt.taxes.map((x) => x.tax)));
+    out.push(T(base("Total:", sb, sc, "Total:"), { bold: true }), R("-"));
   }
-  const sb = r2(sum(tt.taxes.map((x) => x.base)));
-  const sc = r2(sum(tt.taxes.map((x) => x.tax)));
-  out.push(T(base("Total:", sb, sc, "Total:"), { bold: true }), R("-"));
   out.push(T(lr("Total (Impuestos Incl.)", eur(tt.total)), { bold: true }), R("="));
   return out;
 }
 
-function head(title: string, opLeft: string, opRight: string, ctx: TicketContext): TicketLine[] {
+function head(
+  title: string,
+  opLeft: string,
+  opRight: string,
+  ctx: TicketContext,
+  f?: TicketFormat,
+  invoice = false,
+): TicketLine[] {
   const when = madridParts(ctx.at);
   return [
-    ...storeBlock(ctx.store),
+    ...storeBlock(ctx.store, f, invoice),
     R("="),
     T(title, { align: "center" }),
     R("-"),
     T(lr(opLeft, opRight), { bold: true }),
     R("-"),
-    T(lr(`${when.date} ${when.hm}`, ctx.waiter)),
+    T(lr(`${when.date} ${when.hm}`, fmtOn(f, "mesero") ? ctx.waiter : "")),
     R("="),
   ];
 }
@@ -202,12 +286,19 @@ export function invoiceTicket(acc: Account, ctx: TicketContext): TicketLine[] {
   if (!inv) {
     throw new Error("La cuenta no tiene factura");
   }
+  const f = ctx.formats?.invoice;
   const out = head(
-    inv.type === "F1" ? "FACTURA" : "FACTURA SIMPLIFICADA",
+    inv.type === "F2" ? "FACTURA SIMPLIFICADA" : "FACTURA",
     `Nº Op.:    ${inv.invoiceNumber}`,
     `${ctx.table.area}/${ctx.table.name}`,
     { ...ctx, at: new Date(inv.issuedAt) },
+    f,
+    true,
   );
+  if (inv.type === "F3" && inv.substitutes) {
+    // F1 (04/11): factura completa que sustituye a una simplificada (no mueve dinero)
+    out.push(T(`Sustituye a la factura simplificada ${inv.substitutes}`, { bold: true }), R("-"));
+  }
   if (inv.customer) {
     const c = inv.customer;
     out.push(T("Cliente:", { bold: true }), T(c.name), T(`NIF: ${c.taxId}`));
@@ -219,7 +310,7 @@ export function invoiceTicket(acc: Account, ctx: TicketContext): TicketLine[] {
     }
     out.push(R("="));
   }
-  out.push(...body(acc));
+  out.push(...body(acc, f));
   const pays = acc.payments.filter((p: Payment) => p.status === "confirmed");
   const cash = pays.filter((p) => p.kind === "cash");
   if (cash.length) {
@@ -235,22 +326,21 @@ export function invoiceTicket(acc: Account, ctx: TicketContext): TicketLine[] {
     );
   }
   const tips = pays.reduce((a, p) => a + p.tip, 0);
-  if (tips) {
+  if (tips && ctx.showTip !== false && fmtOn(f, "propina")) {
     out.push(T(lr("Propina", eur(tips))));
   }
-  out.push(
-    R("="),
-    { k: "feed" },
-    { k: "qr", data: inv.verifactuQr },
-    T("QR tributario:", { align: "center" }),
-    T("Factura verificable en la sede", { align: "center" }),
-    T("electrónica de la AEAT", { align: "center" }),
-    T("VERI*FACTU", { align: "center", bold: true }),
-  );
-  if (ctx.store.footer) {
-    out.push({ k: "feed" });
-    wrap(ctx.store.footer, WIDTH).forEach((x) => out.push(T(x, { align: "center" })));
+  out.push(R("="));
+  if (fmtOn(f, "qrTrib")) {
+    out.push(
+      { k: "feed" },
+      { k: "qr", data: inv.verifactuQr },
+      T("QR tributario:", { align: "center" }),
+      T("Factura verificable en la sede", { align: "center" }),
+      T("electrónica de la AEAT", { align: "center" }),
+      T("VERI*FACTU", { align: "center", bold: true }),
+    );
   }
+  out.push(...footBlock(ctx.store, f));
   out.push({ k: "feed", n: 2 }, { k: "cut" });
   return out;
 }
@@ -274,11 +364,14 @@ export interface CreditTicket {
 
 /** Ticket del abono: «FACTURA RECTIFICATIVA», a qué factura rectifica, líneas y total en negativo, IVA y QR VeriFactu. */
 export function creditTicket(c: CreditTicket, ctx: TicketContext): TicketLine[] {
+  const f = ctx.formats?.invoice;
   const out = head(
     "FACTURA RECTIFICATIVA",
     `Nº Op.:    ${c.invoiceNumber}`,
     `${ctx.table.area}/${ctx.table.name}`,
     { ...ctx, at: new Date(c.issuedAt) },
+    f,
+    true,
   );
   out.push(T(`Rectifica a: ${c.rectifies}`, { bold: true }));
   if (c.reason) {
@@ -312,18 +405,16 @@ export function creditTicket(c: CreditTicket, ctx: TicketContext): TicketLine[] 
     T("electrónica de la AEAT", { align: "center" }),
     T("VERI*FACTU", { align: "center", bold: true }),
   );
-  if (ctx.store.footer) {
-    out.push({ k: "feed" });
-    wrap(ctx.store.footer, WIDTH).forEach((x) => out.push(T(x, { align: "center" })));
-  }
+  out.push(...footBlock(ctx.store, f));
   out.push({ k: "feed", n: 2 }, { k: "cut" });
   return out;
 }
 
 /** Precuenta: el mismo formato que la factura, sin número ni pagos, y la advertencia de que no es factura. */
 export function preBillTicket(acc: Account, ctx: TicketContext): TicketLine[] {
-  const out = head("PRECUENTA", `${acc.name}`, `${ctx.table.area}/${ctx.table.name}`, ctx);
-  out.push(...body(acc));
+  const f = ctx.formats?.prebill;
+  const out = head("PRECUENTA", `${acc.name}`, `${ctx.table.area}/${ctx.table.name}`, ctx, f);
+  out.push(...body(acc, f));
   const tt = accountTotals(acc);
   // con cobros a cuenta, el reparto por comensal es de lo que falta
   const total = tt.paid > 0 ? tt.pending : tt.total;
@@ -336,16 +427,13 @@ export function preBillTicket(acc: Account, ctx: TicketContext): TicketLine[] {
     }
     out.push(R("-"), T(lr("PENDIENTE", eur(tt.pending)), { bold: true }), R("="));
   }
-  if (ctx.guests && ctx.guests > 1) {
+  if (ctx.guests && ctx.guests > 1 && fmtOn(f, "porPersona")) {
     out.push(
       T(lr(`Comensales: ${ctx.guests}`, `Por persona: ${eur(Math.round((total / ctx.guests) * 100) / 100)}`)),
     );
   }
   out.push(T("*** NO VÁLIDO COMO FACTURA ***", { align: "center", bold: true }));
-  if (ctx.store.footer) {
-    out.push({ k: "feed" });
-    wrap(ctx.store.footer, WIDTH).forEach((x) => out.push(T(x, { align: "center" })));
-  }
+  out.push(...footBlock(ctx.store, f));
   out.push({ k: "feed", n: 2 }, { k: "cut" });
   return out;
 }
@@ -481,6 +569,10 @@ export interface CutTicketData {
   /** número de cierre (solo Z), si lo hay */
   closingNumber?: number | null;
   user: string;
+  /** 11 (04/11): en el Z, lo contado al cerrar, la diferencia con lo esperado y el motivo */
+  counted?: { cash: number; card?: number | null; difference: number; note?: string | null } | null;
+  /** N3: propinas en efectivo (están en el cajón, no son venta) */
+  cashTips?: number;
 }
 
 /**
@@ -524,9 +616,21 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
     T(lr("Total ventas", eur(total)), { bold: true }),
     T(lr("Tickets", String(c.tickets))),
     R("="),
+    ...(c.cashTips ? [T(lr("Propinas en efectivo", eur(c.cashTips)))] : []),
     T(lr("Efectivo esperado", eur(c.expectedCash)), { bold: true }),
-    R("="),
   );
+  if (c.counted) {
+    out.push(T(lr("Efectivo contado", eur(c.counted.cash))));
+    if (c.counted.card != null) {
+      out.push(T(lr("Tarjeta contada", eur(c.counted.card))));
+    }
+    const d = c.counted.difference;
+    out.push(T(lr("Diferencia", Math.abs(d) < 0.005 ? "cuadra" : (d > 0 ? "+" : "") + eur(d)), { bold: true }));
+    if ((c.counted.note ?? "").trim()) {
+      wrap(`Motivo: ${c.counted.note!.trim()}`, WIDTH).forEach((x) => out.push(T(x)));
+    }
+  }
+  out.push(R("="));
   out.push({ k: "feed", n: 3 }, { k: "cut" });
   return out;
 }

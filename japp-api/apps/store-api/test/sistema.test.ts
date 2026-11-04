@@ -18,6 +18,19 @@ describe("sistema y sesiones", () => {
     expect(typeof r.body.version).toBe("string");
     expect(typeof r.body.period.open).toBe("boolean");
   });
+  it("C1 (04/11): /health dice si hay internet según la cola hacia el Manager (down si lo pendiente ya falló)", async () => {
+    expect((await t.call("GET", "/health")).body.internet.status).toBe("ok");
+    const st = (await t.sql.query("SELECT id FROM store LIMIT 1")).rows[0].id;
+    const ins = await t.sql.query(
+      `INSERT INTO sync_outbox (store_id, entity, entity_id, payload, attempts, last_error) VALUES ($1,'test',gen_random_uuid(),'{}'::jsonb,2,'getaddrinfo ENOTFOUND manager') RETURNING id`,
+      [st],
+    );
+    const r = (await t.call("GET", "/health")).body.internet;
+    expect(r).toMatchObject({ status: "down", lastError: "getaddrinfo ENOTFOUND manager" });
+    expect(r.failingSince).toBeTruthy();
+    await t.sql.query("DELETE FROM sync_outbox WHERE id = $1", [ins.rows[0].id]);
+    expect((await t.call("GET", "/health")).body.internet.status).toBe("ok");
+  });
   it("registro de equipo: el móvil recibe la PDA1 y repetir devuelve la misma", async () => {
     const a = await t.call("POST", "/devices/register", {
       body: { deviceUuid: "pda-0001-aaaa", kind: "mobile" },
@@ -37,7 +50,7 @@ describe("sistema y sesiones", () => {
     expect(r.body.permissions).not.toContain("cobro.cobrar");
     expect(r.body.overrides.canCharge).toBe(false);
     const j = await t.call("POST", "/sessions", { body: { pin: PIN.jeison } });
-    expect(j.body.permissions).toHaveLength(53); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada)
+    expect(j.body.permissions).toHaveLength(54); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada)
   });
   it("PIN mal formado → 422 VALIDATION; incorrecto → 401 BAD_PIN", async () => {
     expect((await t.call("POST", "/sessions", { body: { pin: "12" } })).error.code).toBe("VALIDATION");
@@ -79,7 +92,7 @@ describe("sistema y sesiones", () => {
       body: { pin: PIN.mesero },
       headers: { "x-station-id": "CAJA1" },
     });
-    expect(tpv.body.lockSeconds).toBe(7);
+    expect(tpv.body.lockSeconds).toBe(10); // 0027: los 7 s de arranque pasan a 10
     try {
       await t.sql.query("UPDATE app_user SET lock_seconds=15 WHERE name='Mesero'");
       expect((await t.call("GET", "/sessions/current", { token: tpv.body.token })).body.lockSeconds).toBe(15);
@@ -109,7 +122,7 @@ describe("sistema y sesiones", () => {
             headers: { "x-station-id": "CAJA1" },
           })
         ).body.lockSeconds,
-      ).toBe(7);
+      ).toBe(10);
     } finally {
       await t.sql.query("UPDATE app_user SET lock_seconds=NULL WHERE name='Mesero'");
     }

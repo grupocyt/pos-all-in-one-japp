@@ -107,7 +107,7 @@ describe("cuenta congelada con descuento o cobro parcial (409 ACCOUNT_LOCKED)", 
     ).toBe(201);
   });
 
-  it("con cobro parcial: no se pasan productos a ni desde ella, ni se pasa la cuenta ni se cambia la mesa; sí cliente y cobrar lo que falta", async () => {
+  it("con cobro parcial: no se pasan productos a ni desde ella; sí cambiar de mesa (04/11), cliente y cobrar lo que falta", async () => {
     const m = await mesa();
     const pay = await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/payments`, {
       token: barra,
@@ -126,16 +126,6 @@ describe("cuenta congelada con descuento o cobro parcial (409 ACCOUNT_LOCKED)", 
       body: { lines: [{ lineId: c2, quantity: 1 }], toAccountId: m.a1 },
     });
     expect(code(into)).toEqual([409, "ACCOUNT_LOCKED"]);
-    const acc = await t.call("POST", `/orders/${m.id}/accounts/${m.a1}/transfer`, {
-      token: sis,
-      body: { toTableId: await freeTable(t, "BARRA"), version: v },
-    });
-    expect(code(acc)).toEqual([409, "ACCOUNT_LOCKED"]);
-    const tbl = await t.call("POST", `/orders/${m.id}/transfer`, {
-      token: sis,
-      body: { scope: "table", toTableId: await freeTable(t, "BARRA"), version: v },
-    });
-    expect(code(tbl)).toEqual([409, "ACCOUNT_LOCKED"]);
     expect((await get(m.id)).version).toBe(v);
     // la Cuenta 2 sí se pasa a otra mesa
     const ok2 = await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/transfer`, {
@@ -254,5 +244,47 @@ describe("Gestiones › Facturas (03/11): historial de la cuenta, descuentos det
     const job = t.printer.jobs.slice(n).find((j: any) => j.kind === "invoice");
     expect(job).toBeTruthy();
     expect(job!.openDrawer).toBeFalsy();
+  });
+});
+
+describe("propina (04/11): fuera de la factura y de VeriFactu; Ajustes decide si se imprime", () => {
+  it("la factura y su registro VeriFactu no llevan la propina; printTip = false la quita del ticket", async () => {
+    const m = await mesa();
+    await t.call("POST", `/orders/${m.id}/send`, { token: sis, body: {} });
+    const total = (await get(m.id)).accounts.find((a: any) => a.id === m.a2).totals.total;
+    const pay = await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/payments`, {
+      token: sis,
+      body: { method: "card", amount: null, tip: 3 },
+    });
+    expect(pay.status, JSON.stringify(pay.env)).toBe(201);
+    const inv = await t.call("POST", `/orders/${m.id}/accounts/${m.a2}/invoice`, { token: sis, body: {} });
+    expect(inv.status, JSON.stringify(inv.env)).toBe(201);
+    expect(inv.body.invoice.total).toBe(total);
+    const vf = (
+      await t.sql.query(
+        "SELECT v.total::float t FROM verifactu_record v JOIN invoice i ON i.id = v.invoice_id WHERE i.invoice_number = $1",
+        [inv.body.invoice.invoiceNumber],
+      )
+    ).rows[0];
+    expect(vf.t).toBe(total);
+    expect(t.printer.jobs.at(-1)!.text).toContain("Propina");
+    // Ajustes › Parámetros: printTip = false → la reimpresión ya no la enseña
+    const cur = (await t.call("GET", "/config/parametros/current", { token: sis })).body;
+    const p = await t.call("PATCH", "/config/parametros/current", {
+      token: sis,
+      body: { printTip: false, version: cur.version },
+    });
+    expect(p.status, JSON.stringify(p.env)).toBe(200);
+    const list = (await t.call("GET", "/invoices", { token: sis })).body.items;
+    const invId = list.find((x: any) => x.invoiceNumber === inv.body.invoice.invoiceNumber).id;
+    const n = t.printer.jobs.length;
+    expect((await t.call("POST", `/invoices/${invId}/reprint`, { token: sis, body: {} })).status).toBe(200);
+    const job = t.printer.jobs.slice(n).find((j: any) => j.kind === "invoice")!;
+    expect(job.text).not.toContain("Propina");
+    const back = (await t.call("GET", "/config/parametros/current", { token: sis })).body;
+    await t.call("PATCH", "/config/parametros/current", {
+      token: sis,
+      body: { printTip: true, version: back.version },
+    });
   });
 });

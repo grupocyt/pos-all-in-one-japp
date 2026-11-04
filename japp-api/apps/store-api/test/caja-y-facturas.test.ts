@@ -178,10 +178,15 @@ describe("caja y periodo", () => {
     expect([bad.status, bad.error.details.field]).toEqual([422, "note"]);
     const ok = await t.call("POST", `/periods/${p}/close`, {
       token: sistemas,
-      body: { countedCash: sum.expectedCash, countedCard: sum.cardSales, nextFloat: 150 },
+      body: { countedCash: sum.expectedCash, countedCard: sum.cardSales, nextFloat: 150, note: "Cuadra a la primera" },
     });
     expect(ok.status, JSON.stringify(ok.body)).toBe(200);
     expect(ok.body.zReport).toMatchObject({ printed: true });
+    // 11 (04/11): el Z lleva lo contado, la diferencia y el motivo escrito al cerrar
+    const zt = JSON.stringify(ok.body.zReport.ticket);
+    expect(zt).toContain("Efectivo contado");
+    expect(zt).toContain("cuadra");
+    expect(zt).toContain("Motivo: Cuadra a la primera");
     expect(ok.body.incidentRequest).toMatch(/^REQ-\d{4}$/);
     expect((await t.call("GET", "/incidents", { token: sistemas })).body.items).toEqual([]);
     const closedList = (await t.call("GET", "/orders?status=closed", { token: sistemas })).body.items;

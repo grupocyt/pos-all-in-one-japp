@@ -265,3 +265,90 @@ describe("precuenta con cobro parcial (03/11, 1.2.268)", () => {
     expect(renderText(preBillTicket(acc0, tctx))).not.toContain("PENDIENTE");
   });
 });
+
+describe("propina (04/11, 1.2.268): fuera de la factura y opcional en el ticket", () => {
+  const conPropina = () => {
+    const acc = account({ lines: [line({ name: "Croquetas", unitPrice: 10, taxRate: 10 })] });
+    const paid = registerPayment(
+      acc,
+      { method: "card", kind: "card", amount: 10, tip: 2 },
+      ctx({ now: at }),
+    ).account;
+    return issueInvoice(paid, 34, { serieF: "F", serieT: "T", nif: "B02891075" }, ctx({ now: at }));
+  };
+  it("la factura, su IVA y el QR VeriFactu no llevan la propina", () => {
+    const acc = conPropina();
+    expect(acc.invoice!.total).toBe(10);
+    expect(acc.invoice!.verifactuQr).toContain("importe=10.00");
+  });
+  it("se imprime por defecto; con showTip = false no sale", () => {
+    const acc = conPropina();
+    expect(renderText(invoiceTicket(acc, tctx))).toContain(lr("Propina", "2,00 €"));
+    const sin = renderText(invoiceTicket(acc, { ...tctx, showTip: false }));
+    expect(sin).not.toContain("Propina");
+    expect(sin).toContain(lr("Total (Impuestos Incl.)", "10,00 €"));
+  });
+});
+
+describe("N5 (04/11): nombre de descuento largo", () => {
+  it("se parte en varias líneas sin perder texto y el importe queda en la primera", async () => {
+    const { lr: _lr, wrap: w } = await import("../src/tickets.js");
+    void _lr;
+    const txt = "Descuento 10,00 % Cliente habitual de la casa con tarjeta de fidelización";
+    const parts = w(txt, 30);
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.join(" ")).toBe(txt);
+  });
+});
+
+describe("N1 (04/11): formatos de Ajustes › Formatos de ticket al imprimir desde el servidor", () => {
+  const store = { ...STORE, phone: "910000000", header: "¡Gracias por venir!", reviewsUrl: "https://g.page/r/x/review" };
+  const all = renderText(invoiceTicket(ejemplo(), { ...tctx, store }));
+  it("sin formato sale todo (como el TPV): mesero, desglose, pie, despedida y QR de reseñas", () => {
+    expect(all).toContain("Pedro");
+    expect(all).toContain("Base:");
+    expect(all).toContain("IVA incluido · Gracias por su visita");
+    expect(all).toContain("Tel. 910000000");
+    expect(all.match(/\[QR/g)).toHaveLength(2); // tributario + reseñas
+  });
+  it("apagando opciones desaparecen; en la factura el nombre fiscal y el NIF salen siempre", () => {
+    const f = { mesero: false, desglose: false, pie: false, despedida: false, qrResenas: false, telefono: false, razon: false, nif: false, logo: false };
+    const t = invoiceTicket(ejemplo(), { ...tctx, store, formats: { invoice: f } });
+    const txt = renderText(t);
+    expect(txt).not.toContain("Pedro");
+    expect(txt).not.toContain("Base:");
+    expect(txt).not.toContain("Gracias por su visita");
+    expect(txt).not.toContain("Tel.");
+    expect(txt.match(/\[QR/g)).toHaveLength(1); // solo el tributario
+    expect(txt).toContain("DAILY FOOD VENTURES S.L.");
+    expect(txt).toContain("NIF: B02891075");
+    expect(t.some((l) => l.k === "logo")).toBe(false);
+  });
+  it("precuenta: sin «por persona», sin razón social ni NIF si se apagan; despedida con texto propio", () => {
+    const acc = account({ lines: [line({ productId: 2, name: "Coca Cola", quantity: 2, unitPrice: 3, taxRate: 10 })] });
+    const txt = renderText(
+      preBillTicket(acc, { ...tctx, store, formats: { prebill: { porPersona: false, razon: false, nif: false, despTxt: "Hasta pronto" } } }),
+    );
+    expect(txt).not.toContain("Por persona");
+    expect(txt).not.toContain("NIF:");
+    expect(txt).not.toContain("DAILY FOOD");
+    expect(txt).toContain("Hasta pronto");
+    expect(txt).not.toContain("¡Gracias por venir!");
+    expect(renderText(preBillTicket(acc, { ...tctx, store }))).toContain("Por persona");
+  });
+  it("sin QR tributario si se apaga (factura sin VeriFactu)", () => {
+    const txt = renderText(invoiceTicket(ejemplo(), { ...tctx, formats: { invoice: { qrTrib: false } } }));
+    expect(txt).not.toContain("VERI*FACTU");
+  });
+});
+
+describe("cierre de facturación (04/11): F3 y corte Z", () => {
+  it("la F3 sale como FACTURA y dice a qué simplificada sustituye", () => {
+    const inv = ejemplo();
+    const f3 = { ...inv, invoice: { ...inv.invoice!, type: "F3" as const, substitutes: "T-000033", customer: { name: "Eventos Madrid SL", taxId: "B12345674" } as any } };
+    const txt = renderText(invoiceTicket(f3, tctx));
+    expect(txt).toContain("FACTURA");
+    expect(txt).not.toContain("FACTURA SIMPLIFICADA");
+    expect(txt).toContain("Sustituye a la factura simplificada T-000033");
+  });
+});

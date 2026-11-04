@@ -81,6 +81,7 @@ export class InvoicesApplication {
         orderId: s.invoice.orderId,
         accountId: s.invoice.accountId,
         num: s.invoice.invoiceNumber,
+        type: s.invoice.type,
         rectifiedInvoiceId: s.invoice.rectifiedInvoiceId,
       })
       .from(s.invoice)
@@ -248,6 +249,19 @@ export class InvoicesApplication {
   }
 
   /** La factura abonada entera pasa a «rectified». */
+  /** F1 (04/11): la simplificada queda sustituida por una completa (F3) y la F3 apunta a ella. */
+  async markSubstituted(tx: Tx, storeId: string, simplifiedId: string) {
+    await tx
+      .update(s.invoice)
+      .set({ status: "substituted" } as any)
+      .where(and(eq(s.invoice.storeId, storeId), eq(s.invoice.id, simplifiedId)));
+  }
+  async setSubstitutes(tx: Tx, storeId: string, fullId: string, simplifiedId: string) {
+    await tx
+      .update(s.invoice)
+      .set({ substitutedInvoiceId: simplifiedId } as any)
+      .where(and(eq(s.invoice.storeId, storeId), eq(s.invoice.id, fullId)));
+  }
   async markRectified(tx: Tx, storeId: string, invoiceId: string) {
     await tx
       .update(s.invoice)

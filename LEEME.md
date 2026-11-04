@@ -1,8 +1,8 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0026, consultas de control · 76 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 107 endpoints, todos programados · 319 pruebas de dominio + 340 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0030, consultas de control · 80 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 112 endpoints, todos programados · 332 pruebas de dominio + 356 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
 japp-tpv/         el TPV (PWA) 1.2.268 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
@@ -10,22 +10,52 @@ japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API:
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.268). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist).
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.268). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+
+## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
+
+- **Servidor de la tienda caído:** mientras la API no responde **no se cobra ni se factura**; los equipos solo pueden ticar en las mesas ya abiertas. Es así a propósito: la numeración y el registro de cada factura los lleva el servidor. Qué hacer para recuperarlo (arranque automático, batería, servidor de reserva) queda en el Plan de contingencia de `PENDIENTE-DE-DECIDIR.md`.
+- **Pedidos de delivery (N9):** hoy no generan factura en la tienda. Quién los factura, la tienda o la plataforma (Glovo, Uber…), **se verá a futuro**.
+- **Envío de VeriFactu a la AEAT (K1):** VeriFactu es configurable; el envío **se verá a futuro**.
+- **Factura por email (10):** **no se envían correos.** El email del cliente se guarda en la factura completa y la factura lleva un estado de envío que queda en «no enviada»; ahí termina el flujo.
+
+**Cierre de la versión de facturación (programado el 04/11/2026, migración 0030):**
+
+- **Factura completa después del ticket (F1):** Gestiones › Facturas › «Factura completa» sobre una simplificada. Se emite una factura completa nueva (tipo F3, serie de completas) con los datos del cliente que **sustituye** a la simplificada: la simplificada no se edita (queda «Sustituida»), no se cobra nada otra vez y en las ventas cuenta una sola vez. Se imprime sin abrir el cajón. Para devolver dinero se abona la completa.
+- **Límite de la factura simplificada (F3):** Ajustes › Facturación, **3.000 € por defecto** (lo máximo en hostelería; 0 = sin límite). Por encima, el TPV pide los datos del cliente y la API no deja hacer la simplificada (`422 SIMPLIFIED_LIMIT`).
+- **Nada a 0 € (9):** no se tica un producto que valga 0 € (con sus respuestas); en el TPV sale gris y avisa. Los calificativos («con hielo», «sin limón»…) se configuran como opciones del producto en Ajustes › Productos (es configuración de la carta).
+- **Propina con todas las formas de pago (N3):** también en efectivo (lo entregado cubre cuenta + propina y el cambio es lo que sobra; esa propina cuenta en el efectivo esperado del cajón). Sigue fuera de la factura y de VeriFactu.
+- **Corte Z (11):** lleva lo contado (efectivo y tarjeta), la diferencia y el motivo escrito al cerrar.
+- **Order on Table (N7):** los pedidos del cliente van a su propia cuenta (tipo `order_on_table`, en violeta). Si esa cuenta ya se está cobrando, el pedido va a «Order on Table 2» en vez de rechazarse.
+- **Tablero de delivery (16):** solo para cajero y encargado (al resto se le quita; se puede volver a dar en Ajustes › Accesos).
+- **Reglas fijas:** nada de lo facturado se edita (para corregir algo, incluida la forma de pago: abono completo y volver a ticar y cobrar); los descuentos son solo al total de la cuenta, uno por cuenta (no hay descuento por producto); una mesa cerrada no se reabre nunca.
 
 ## 1.2.268 (03/11/2026): reglas de descuento, cobro parcial y mesas cerradas
 
 Decididas con el dueño el 03/11 y aplicadas en la API **y** en el TPV (caja y PDA). Detalle con checklist en `Japp-reglas-de-cobro-1.2.268.pdf`.
 
-- **Cuenta con descuento o con un cobro parcial = ya se está cobrando.** Va por cuenta: las otras cuentas de la mesa siguen libres. En el TPV **solo quedan activos Cobrar, Precuenta y Guardar**; todo lo demás sale desactivado (productos, categorías, buscador, líneas, «Cambiar», Eliminar, Separar, Transferir, Order on Table y comensales), con un aviso en rojo abajo, en la zona de avisos de la cuenta. Si en la mesa hay otras cuentas sin cobros, Separar (y cobrar) y Transferir siguen activos: en Transferir solo se puede mover una cuenta libre (ni «toda la mesa» ni la que está en cobro). La nota de la mesa se puede escribir siempre. La API responde `409 ACCOUNT_LOCKED` a todo lo que cambiaría la cuenta.
+- **Cuenta con descuento o con un cobro parcial = ya se está cobrando.** Va por cuenta: las otras cuentas de la mesa siguen libres. En el TPV **solo quedan activos Cobrar, Precuenta y Guardar**; todo lo demás sale desactivado (productos, categorías, buscador, líneas, «Cambiar», Eliminar, Separar, Transferir, Order on Table y comensales), con un aviso en rojo abajo, en la zona de avisos de la cuenta. Si en la mesa hay otras cuentas sin cobros, Separar (y cobrar) sigue activo; Transferir, siempre. La nota de la mesa se puede escribir siempre. La API responde `409 ACCOUNT_LOCKED` a todo lo que cambiaría la cuenta. **Cambiar o juntar mesa se puede siempre** (decidido el 04/11): la cuenta en cobro pasa entera, con sus cobros y su descuento, y llega como cuenta aparte (nunca se une a la principal).
 - **Para volver a pedir:** anular los cobros (Cobrar › «Anular», motivo y clave de encargado) y quitar el descuento. Al quedar sin cobros ni descuento, todo vuelve a estar activo. No hay «liberar la cuenta» de un paso.
 - **Anular un cobro** (`POST …/payments/{paymentId}/void`, decisión 19): tarjeta, devolución en el datáfono; ya facturada, abono.
 - **Un descuento no puede dejar la cuenta a 0 €**: aviso y no se aplica (para invitar, eliminar con «Invitación»).
 - **Regla fija: una mesa cerrada no se reabre nunca** (se haya cobrado o no). «Reabrir mesa» ya no está en Gestiones y `POST /orders/{id}/reopen` responde `409 ORDER_CLOSED`.
 - **Gestiones › Facturas:** pestaña nueva «Historial» con todo lo que pasó en la cuenta (productos, descuentos puestos y quitados con quién autorizó, cobros y anulaciones). **Reimprimir ya no abre el cajón.**
 - **Precuenta:** desde la barra de la mesa imprime y vuelve al plano de mesas; desde Cobrar imprime y la ventana de Cobrar sigue abierta. El ticket enseña el descuento con su importe y, con un cobro parcial, lo pagado a cuenta y lo que falta (el «por persona» es de lo que falta).
+- **Ajustes › Pedidos:** apagar delivery ya no da «No se ha guardado en el servidor Delivery «current»: Este módulo no se desactiva» (se manda como un cambio más).
+- **Propina:** nunca forma parte de la factura (ni del total, ni del IVA, ni del registro VeriFactu ni de su QR): es un dato interno de cada cobro. En Ajustes › Formatos de ticket › Factura, la casilla «Propina» decide si se imprime (por defecto, sí); se guarda en el servidor (migración 0027, `store_parameters.print_tip`) y lo respeta también la impresión desde la API.
+- **Ajustes › Parámetros:** el bloqueo de 7 s de los datos de arranque no cumplía la regla del 28/10 (0 o 10–3600 s) y la API rechazaba **cualquier** cambio de Parámetros. La migración 0027 lo sube a 10 s.
 - Arreglo: el velo «Enviando al servidor…» ya no se queda encima cuando el cobro se para con un aviso.
 
-**Actualizar JC01 a la 1.2.268:** cambian API y TPV, no hay migraciones nuevas: guarda los `.env`, descomprime encima, `npm install`, `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
+**Conexión (decidido el 04/11).** Sin internet pero con la red del local (casos 1 y 2) todo sigue igual; solo sale un aviso azul informativo «Sin internet» (`GET /health` → `internet`). Si el equipo pierde el wifi o el servidor de la tienda no responde (casos 3 y 4), en el TPV y en la PDA:
+
+- **No se abren mesas nuevas** (las libres salen en gris). En una mesa abierta solo se tica, se cambia de cuenta y se corrige lo ticado sin conexión. Separar, Transferir, Cobrar, Precuenta, Descuento, Eliminar lo enviado, Order on Table, Marchar, comensales y nota quedan inactivos, con un aviso naranja que dice el motivo («Este equipo no tiene wifi» o «El servidor de la tienda no responde»).
+- **Guardar no imprime la comanda**: lo ticado queda en rojo, «sin conexión · por validar».
+- **Reconexiones de la orden** (migración 0028, tabla `order_reconnection`): al volver la conexión, lo ticado sin conexión **no entra en la cuenta**: sale en rojo dentro de la cuenta y en Gestiones › Reconexiones. Quien tenga «Resolver reconexiones» (Ajustes › Accesos; por defecto quien puede autorizar; sin él, con la clave de un encargado) lo **valida** —entra en la cuenta y sale la comanda— o lo **descarta** con motivo. **Mientras haya algo pendiente, esa cuenta no se cobra** (`409 RECONNECTION_PENDING`). Queda guardado quién lo marcó, en qué equipo, cuándo, por qué no había conexión y quién decidió.
+- Con la cuenta en cobro ya se puede **marchar un pase** (no cambia el importe).
+- Ticket: el nombre de un descuento largo se parte en varias líneas (antes se recortaba).
+- **Formatos de ticket en el servidor** (N1, migración 0029): lo que se marca en Ajustes › Formatos de ticket para la precuenta y la factura (logo, cadena, local, razón social, NIF, dirección, teléfono, camarero, desglose de IVA, por persona, pie, despedida, QR de reseñas, QR tributario, abrir el cajón y propina) se guarda en el servidor, lo ven todos los equipos y la API imprime con ello. En la factura el nombre fiscal y el NIF salen siempre.
+
+**Actualizar JC01 a la 1.2.268:** cambian API, TPV **y base (migraciones 0027 a 0030)**: guarda los `.env`, descomprime encima, `npm install`, doble clic en **`actualizar-base.bat`** (copia de seguridad + 0027 a 0030; no borra nada), `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
 
 ## 1.2.267 (03/11/2026): la API ya tiene todo lo que usa el TPV
 

@@ -123,6 +123,7 @@ export class PeriodsService {
           deposit: b.deposit,
           grossSales: c.totalSales,
           guests: c.guests,
+          note: b.note ?? null,
         },
         a,
       );

@@ -230,6 +230,8 @@ export class CashService {
           ...(s.otherAmount ? [{ name: "Otros", amount: r2(s.otherAmount) }] : []),
         ];
     const now = this.clock();
+    // 11 (04/11): el Z lleva lo contado, la diferencia y el motivo del cierre (si el periodo ya está cerrado)
+    const closing = kind === "Z" ? await this.periods.closingOf(se.storeId, pid!) : null;
     const ticket: TicketLine[] = cutTicket({
       kind,
       store: { tradeName: store.name, legalName: store.issuerName, taxId: store.nif },
@@ -241,6 +243,15 @@ export class CashService {
       expectedCash: c.expected,
       closingNumber: null,
       user: se.user.name,
+      cashTips: c.cashTips,
+      counted: closing
+        ? {
+            cash: Number(closing.countedCash),
+            card: closing.countedCard == null ? null : Number(closing.countedCard),
+            difference: Number(closing.difference),
+            note: closing.note ?? null,
+          }
+        : null,
     });
     const out = {
       kind,

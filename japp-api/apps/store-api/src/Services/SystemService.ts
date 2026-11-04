@@ -31,8 +31,10 @@ export class SystemService {
     let outboxPending = 0;
     let lastInvoiceAt: string | null = null;
     let period: { open: boolean; openedAt: string | null; openedBy: string | null } | null = null;
+    let internet: Awaited<ReturnType<SystemApplication["internet"]>> | null = null;
     if (store) {
       outboxPending = await this.system.outboxPending(store.id);
+      internet = await this.system.internet(store.id).catch(() => null);
       lastInvoiceAt = await this.system.lastInvoiceAt(store.id);
       // el equipo lo enseña en la pantalla de clave antes de entrar (1.2.199; antes decía «periodo cerrado» sin saberlo)
       const p = await this.periods.current(null, store.id).catch(() => null);
@@ -47,6 +49,7 @@ export class SystemService {
       outboxPending,
       lastInvoiceAt,
       period,
+      internet,
       time: new Date().toISOString(),
     };
   }

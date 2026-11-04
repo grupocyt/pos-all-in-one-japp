@@ -393,31 +393,29 @@ describe("juntar mesas: transferir la mesa entera a una ocupada", () => {
     expect(n.n).toBe(3);
   });
 
-  it("regla 03/11: con un cobro parcial en una cuenta no se junta ni se cambia de mesa (409 ACCOUNT_LOCKED); anulado el cobro, sí", async () => {
+  it("04/11: con un cobro parcial también se junta (into main): la cuenta en cobro llega aparte con su cobro; la libre se une", async () => {
     const s = await source(true);
     const d = await dest();
     const v = (await get(s.id)).version;
-    const r = await transfer(sis, s.id, { toTableId: d.tableId, version: v });
-    expect([r.status, r.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
-    expect(r.error.details).toMatchObject({
-      accountId: s.a2,
-      payments: [{ amount: 2, method: "card" }],
-      discount: null,
-    });
-    const free = await transfer(sis, s.id, { toTableId: await freeTable(t, "BARRA"), version: v });
-    expect([free.status, free.error.code]).toEqual([409, "ACCOUNT_LOCKED"]);
-    expect((await get(s.id)).version).toBe(v);
-    expect((await get(d.id)).accounts).toHaveLength(1);
-    // anulado el cobro, ya se junta
-    const pid = (await get(s.id)).accounts.find((a: any) => a.id === s.a2).payments[0].id;
-    const rel = await t.call("POST", `/orders/${s.id}/accounts/${s.a2}/payments/${pid}/void`, {
-      token: sis,
-      body: { reason: "Se juntan con la otra mesa" },
-    });
-    expect(rel.status, JSON.stringify(rel.env)).toBe(200);
-    expect(rel.body.refund).toBe("card-terminal");
-    const ok = await transfer(sis, s.id, { toTableId: d.tableId, version: (await get(s.id)).version });
-    expect(ok.status, JSON.stringify(ok.env)).toBe(200);
+    const r = await transfer(sis, s.id, { toTableId: d.tableId, version: v, into: "main" });
+    expect(r.status, JSON.stringify(r.env)).toBe(200);
+    const live = r.body.accounts.filter((a: any) => a.status === "open");
+    const paid = live.find((a: any) => a.id === s.a2);
+    expect(paid.payments.map((p: any) => [p.amount, p.status])).toEqual([[2, "confirmed"]]);
+    const main = live.find((a: any) => a.name === "Cuenta 1");
+    expect(main.lines.map((l: any) => l.plu ?? l.productId).sort()).toEqual(
+      [PLU.kaspirinha, PLU.tosta].sort(),
+    );
+    expect(live).toHaveLength(2);
+  });
+
+  it("04/11: con un cobro parcial la mesa entera también cambia a una libre", async () => {
+    const s = await source(true);
+    const to = await freeTable(t, "BARRA");
+    const r = await transfer(sis, s.id, { toTableId: to, version: (await get(s.id)).version });
+    expect(r.status, JSON.stringify(r.env)).toBe(200);
+    expect(r.body.tableData.tableId).toBe(to);
+    expect(r.body.accounts.find((a: any) => a.id === s.a2).payments).toHaveLength(1);
   });
 
   it("destino libre: como siempre (la orden cambia de mesa)", async () => {

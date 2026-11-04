@@ -130,6 +130,8 @@ describe("menú del día por pases", () => {
 
   it("«inclúyeme el agua en el menú»: el agua enviada sale de la cuenta con motivo y la bebida del menú queda marchada", async () => {
     const o = await open();
+    // 04/11: nada a 0 € (ZERO_PRICE): en la carta de pruebas el agua vale 0 €; para pedirla suelta se le pone precio
+    await t.sql.query("UPDATE product SET price = 1.5 WHERE plu = $1", [AGUA]);
     await t.call("POST", `/orders/${o._id}/lines`, { token: tok, body: { plu: AGUA } });
     await t.call("POST", `/orders/${o._id}/send`, { token: tok, body: {} });
     // menú sin bebida aún elegida no se puede pedir (bebida obligatoria) → se pide con otra y luego se cambia por la ya pedida

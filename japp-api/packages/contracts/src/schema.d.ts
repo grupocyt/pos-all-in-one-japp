@@ -174,6 +174,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: sales_period, cash_closing, incident_request, product_incident, sync_outbox
+         *
+         *     11 (04/11, API 1.2.268): el corte Z lleva lo contado al cerrar (efectivo y tarjeta), la diferencia con lo esperado y el motivo escrito al cerrar (cash_closing.note). Las propinas en efectivo salen aparte y cuentan en el efectivo esperado.
          */
         post: operations["store_POST_periods_periodId_close"];
         delete?: never;
@@ -250,6 +252,10 @@ export interface paths {
          *     Módulo pedidos (Pedidos · Delivery, tabla delivery_settings, programado en la API 1.2.267): active sí/no Delivery en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; integration · provider · platforms[] Recibir de las plataformas, integrador y plataformas {id, name, active}; autoAccept · askRider · sound sí/no Aceptar solos · pedir motorizado al asignar · aviso sonoro; prepMinutes · amberMinutes · redMinutes 1–240 Preparación y semáforo; rojo > ámbar (VALIDATION). En el TPV: st.cfg.pedidos: activo, integracion, proveedor, plataformas[{id,nombre,activa}], autoAceptar, pedirMoto, sonido, prep, ambar, rojo.
          *
          *     Módulo motorizados (Motorizados, tabla delivery_rider, programado en la API 1.2.267): name texto ≤ 40 Obligatorio; sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); phone texto ≤ 20; sortOrder entero Orden en la lista. En el TPV: st.cfg.pedidos.motorizados[{nombre, tel, activo}] → un registro por motorizado; quitar = deactivate.
+         *
+         *     parametros.ticketFormats (0029, N1 · 04/11): formatos de precuenta y factura de Ajustes › Formatos de ticket, {prebill:{…}, invoice:{…}} con logo, cadena, local, razon, nif, direccion, telefono, mesero, desglose, porPersona, pie, despedida, despTxt, qrResenas, qrTxt, qrTrib, cajon y propina (cada uno opcional; lo que falta, sale). La API los aplica al imprimir; en la factura el nombre fiscal y el NIF salen siempre.
+         *
+         *     facturacion.simplifiedLimit (0030, 04/11): importe máximo de una factura simplificada (IVA incl.); 0 = sin límite; por defecto 3.000 € (hostelería).
          */
         get: operations["store_GET_config_module"];
         put?: never;
@@ -713,7 +719,7 @@ export interface paths {
          *
          *     Tablas: orders, account, order_line, order_event, sync_outbox
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede pasarla a otra mesa → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
+         *     04/11/2026 (API 1.2.268): también con cuentas con descuento o cobro parcial: pasan enteras, con sus cobros, y llegan como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_transfer"];
         delete?: never;
@@ -850,6 +856,8 @@ export interface paths {
          *     Tablas: order_line, order_line_modifier, order_event, account
          *
          *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede añadir productos (la cuenta queda congelada: ya se está cobrando) → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
+         *
+         *     Regla del 04/11 (API 1.2.268): no se tica nada que valga 0 € → 422 ZERO_PRICE.
          */
         post: operations["store_POST_orders_orderId_lines"];
         delete?: never;
@@ -1130,6 +1138,8 @@ export interface paths {
          *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
          *
          *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
+         *
+         *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_discounts"];
         delete?: never;
@@ -1210,6 +1220,10 @@ export interface paths {
          *     Tablas: payment, payment_cash_detail, payment_bank_data, account, order_event
          *
          *     Cambio TPV 1.2.261 (hecho en la API 1.2.267): No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING.
+         *
+         *     Regla del 04/11 (API 1.2.268): con algo ticado sin conexión pendiente de validar en la cuenta (GET /reconnections) no se cobra → 409 RECONNECTION_PENDING.
+         *
+         *     N3 (04/11, API 1.2.268): la propina (tip) se admite con cualquier forma de pago que la permita (allowsTip; desde la 0030, todas menos las de descuento). En efectivo, cashGiven cubre importe + propina y el cambio es lo que sobra; la propina en efectivo cuenta en el efectivo esperado del cajón. Nunca es parte de la factura ni de VeriFactu.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_payments"];
         delete?: never;
@@ -1236,6 +1250,10 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: invoice_series, invoice, invoice_tax, verifactu_record, account, orders, order_event, sync_outbox
+         *
+         *     Regla del 04/11 (API 1.2.268): con algo ticado sin conexión pendiente de validar en la cuenta (GET /reconnections) no se cobra → 409 RECONNECTION_PENDING.
+         *
+         *     Regla del 04/11 (API 1.2.268): sin datos del cliente y por encima del límite de la factura simplificada → 422 SIMPLIFIED_LIMIT.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_invoice"];
         delete?: never;
@@ -1258,6 +1276,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: invoice
+         *
+         *     04/11 (API 1.2.268): emailStatus = not_sent (no se envían correos; queda el estado y termina el flujo). status puede ser substituted (una simplificada sustituida por una completa F3); en la F3, substitutes = número de la simplificada.
          */
         get: operations["store_GET_invoices"];
         put?: never;
@@ -1286,6 +1306,8 @@ export interface paths {
          *     Tablas: invoice, invoice_tax, order_line, payment, invoice_credit_line
          *
          *     1.2.268: discounts trae cada descuento de la cuenta (también los quitados) con reason, type, value, status, base y amount; history es el historial de la cuenta y de la mesa entera (type, at, description, user, device, account) para la pestaña «Historial» de Gestiones › Facturas.
+         *
+         *     04/11 (API 1.2.268): emailStatus = not_sent (no se envían correos; queda el estado y termina el flujo). status puede ser substituted (una simplificada sustituida por una completa F3); en la F3, substitutes = número de la simplificada.
          */
         get: operations["store_GET_invoices_invoiceId"];
         put?: never;
@@ -1558,6 +1580,8 @@ export interface paths {
          * @description Lo mismo que el latido que se envía al Manager: versión (la de la tienda, 1.2.x), base de datos, impresoras, cola pendiente y hora de la última factura. period: si hay periodo abierto, desde cuándo y quién lo abrió (el TPV lo enseña en la pantalla de clave antes de entrar).
          *
          *     Lo llama: Agente, TPV
+         *
+         *     internet (04/11): ok o down según la cola hacia el Manager; el TPV lo enseña como aviso informativo (en el local todo sigue funcionando).
          */
         get: operations["store_GET_health"];
         put?: never;
@@ -2381,7 +2405,7 @@ export interface paths {
          *
          *     Tablas: orders, account, order_line, order_event, sync_outbox
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede cambiar ni juntar la mesa si alguna de sus cuentas (o de la mesa de destino) la tiene → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
+         *     04/11/2026 (API 1.2.268): también con cuentas con descuento o cobro parcial: pasan enteras, con sus cobros, y llegan como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
          */
         post: operations["store_POST_orders_orderId_transfer"];
         delete?: never;
@@ -2462,6 +2486,10 @@ export interface paths {
          *     Tablas: payment, payment_cash_detail, invoice_series, invoice, invoice_tax, verifactu_record, account, orders, order_event, sync_outbox
          *
          *     Cambio TPV 1.2.261 (hecho en la API 1.2.267): No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.
+         *
+         *     Regla del 04/11 (API 1.2.268): con algo ticado sin conexión pendiente de validar en la cuenta (GET /reconnections) no se cobra → 409 RECONNECTION_PENDING.
+         *
+         *     Regla del 04/11 (API 1.2.268): sin datos del cliente y por encima del límite de la factura simplificada → 422 SIMPLIFIED_LIMIT.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_checkout"];
         delete?: never;
@@ -2662,6 +2690,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: invoice_series, invoice, invoice_tax, invoice_credit_line, verifactu_record, sync_outbox
+         *
+         *     04/11: una simplificada sustituida por una completa (status substituted) no se abona → 409 INVALID_TRANSITION: se abona la completa (F3 → R1).
          */
         post: operations["store_POST_invoices_invoiceId_credit"];
         delete?: never;
@@ -3057,7 +3087,9 @@ export interface paths {
          *
          *     Tablas: oot_token, orders, account, order_line, order_line_printer, order_event, sync_outbox
          *
-         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede recibir pedidos del cliente por el QR en esa cuenta → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
+         *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: los pedidos del cliente van a su propia cuenta. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
+         *
+         *     N7 (04/11, API 1.2.268): los pedidos del cliente van a su propia cuenta (kind = order_on_table, «Order on Table»). Si esa cuenta ya se está cobrando (descuento o cobro parcial) o está cobrada, se abre otra («Order on Table 2»…): el pedido nunca se rechaza por otra cuenta en cobro. Las cuentas de la transacción llevan kind (normal u order_on_table).
          */
         post: operations["store_POST_oot_token_lines"];
         delete?: never;
@@ -3252,6 +3284,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: invoice, payment, cash_movement
+         *
+         *     11 (04/11, API 1.2.268): el corte Z lleva lo contado al cerrar (efectivo y tarjeta), la diferencia con lo esperado y el motivo escrito al cerrar (cash_closing.note). Las propinas en efectivo salen aparte y cuentan en el efectivo esperado.
          */
         post: operations["store_POST_periods_periodId_z_report_print"];
         delete?: never;
@@ -3498,6 +3532,128 @@ export interface paths {
          *     Decisión 19 (PENDIENTE-DE-DECIDIR.md), hecho en la API 1.2.268
          */
         post: operations["store_POST_api_v2_orders_orderId_accounts_accountId_payments_paymentId_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/orders/{orderId}/reconnections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Guardar lo ticado sin conexión
+         * @description Regla del 04/11 (API 1.2.268): lo que un equipo ticó sin conexión con el servidor (sin wifi o servidor caído) nunca entra directo en la cuenta; queda pendiente aquí hasta que alguien con «Resolver reconexiones» (pedido.reconexiones, configurable en Ajustes › Accesos; sin él, con la clave de un encargado) lo valida o lo descarta con motivo. Con algo pendiente, esa cuenta no se cobra (409 RECONNECTION_PENDING). El equipo lo manda al volver la conexión: items con clientId propio (repetir no duplica), plu, nombre, cantidad, precio que vio, comentario y respuestas; accountId de la cuenta donde se ticó (sin cuenta = cuenta para todas); offlineReason = lo que vio el equipo (sin red, servidor sin respuesta). Quién y en qué equipo sale de la sesión. No imprime nada: la comanda sale al validar.
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: order_reconnection
+         */
+        post: operations["store_POST_orders_orderId_reconnections"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/reconnections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reconexiones
+         * @description Regla del 04/11 (API 1.2.268): lo que un equipo ticó sin conexión con el servidor (sin wifi o servidor caído) nunca entra directo en la cuenta; queda pendiente aquí hasta que alguien con «Resolver reconexiones» (pedido.reconexiones, configurable en Ajustes › Accesos; sin él, con la clave de un encargado) lo valida o lo descarta con motivo. Con algo pendiente, esa cuenta no se cobra (409 RECONNECTION_PENDING). status = pending (por defecto) o all; orderId para las de una mesa. La más antigua primero, hasta 500. Es la lista de Gestiones › Reconexiones y la de cada cuenta.
+         *
+         *     Lo llama: TPV, PDA, Manager
+         *
+         *     Tablas: order_reconnection
+         */
+        get: operations["store_GET_reconnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/reconnections/{reconnectionId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validar una reconexión
+         * @description Regla del 04/11 (API 1.2.268): lo que un equipo ticó sin conexión con el servidor (sin wifi o servidor caído) nunca entra directo en la cuenta; queda pendiente aquí hasta que alguien con «Resolver reconexiones» (pedido.reconexiones, configurable en Ajustes › Accesos; sin él, con la clave de un encargado) lo valida o lo descarta con motivo. Con algo pendiente, esa cuenta no se cobra (409 RECONNECTION_PENDING). Validar = la línea pasa a su cuenta (o a la primera abierta si se marcó sin cuenta) y se envía: sale la comanda, como POST …/lines + POST …/send, en una transacción. Las reglas de siempre: mesa cerrada → 409 ORDER_CLOSED, cuenta cobrada → 409 ACCOUNT_CLOSED, cuenta en cobro (descuento o cobro parcial) → 409 ACCOUNT_LOCKED; en esos casos sigue pendiente y se puede descartar. Repetir sobre una ya aceptada la devuelve igual; sobre una descartada → 409 RECONNECTION_DECIDED. Queda en el historial de la mesa quién la ticó, en qué equipo y quién la validó.
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: order_reconnection, order_line, order_event
+         */
+        post: operations["store_POST_reconnections_reconnectionId_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/reconnections/{reconnectionId}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Descartar una reconexión
+         * @description Regla del 04/11 (API 1.2.268): lo que un equipo ticó sin conexión con el servidor (sin wifi o servidor caído) nunca entra directo en la cuenta; queda pendiente aquí hasta que alguien con «Resolver reconexiones» (pedido.reconexiones, configurable en Ajustes › Accesos; sin él, con la clave de un encargado) lo valida o lo descarta con motivo. Con algo pendiente, esa cuenta no se cobra (409 RECONNECTION_PENDING). Descartar = no entra en la cuenta ni sale comanda; reason es obligatorio (3–200). Repetir no hace nada; sobre una ya validada → 409 RECONNECTION_DECIDED.
+         *
+         *     Lo llama: TPV, PDA
+         *
+         *     Tablas: order_reconnection
+         */
+        post: operations["store_POST_reconnections_reconnectionId_discard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/invoices/{invoiceId}/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Factura completa que sustituye a una simplificada
+         * @description F1 (decidido el 04/11/2026, API 1.2.268): el cliente pide la factura con sus datos cuando ya se le hizo la simplificada. Nada de lo facturado se edita: la simplificada queda status = substituted y se emite una factura completa nueva (tipo F3, serie de facturas completas) con los datos del cliente, las mismas líneas, importes e IVA y su registro VeriFactu. No mueve dinero. Solo una F2 emitida, sin abonos y no sustituida (si no → 409 INVALID_TRANSITION). NIF con las reglas de siempre (422). La simplificada sustituida no cuenta en las ventas (cuenta la F3). Imprime la F3 sin abrir el cajón (print = false para no imprimir).
+         *
+         *     Permiso: funciones.facturas y cobro.clientes
+         *
+         *     Lo llama: TPV (Gestiones › Facturas)
+         *
+         *     Tablas: invoice, invoice_tax, verifactu_record
+         */
+        post: operations["store_POST_invoices_invoiceId_full"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4007,7 +4163,7 @@ export interface components {
         };
         ErrorItem: {
             /** @enum {string} */
-            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP" | "ACCOUNT_LOCKED";
+            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP" | "ACCOUNT_LOCKED" | "RECONNECTION_PENDING" | "RECONNECTION_DECIDED" | "ZERO_PRICE" | "SIMPLIFIED_LIMIT";
             message: string;
             /** @description Campo con el problema, si lo hay */
             field: string | null;
@@ -6689,7 +6845,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · PERIOD_CLOSED: No hay periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
+            /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · PERIOD_CLOSED: No hay periodo abierto. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6998,6 +7154,15 @@ export interface operations {
             };
             /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description ZERO_PRICE: El producto (con sus respuestas) vale 0 €: no se tica (regla del 04/11; los calificativos van como opciones de un producto) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8209,7 +8374,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description METHOD_NOT_ALLOWED: Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta). · AMOUNT_EXCEEDS_PENDING: El importe supera lo pendiente (details.pending). Nunca se recorta. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            /** @description METHOD_NOT_ALLOWED: Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta). · AMOUNT_EXCEEDS_PENDING: El importe supera lo pendiente (details.pending). Nunca se recorta. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · RECONNECTION_PENDING: La cuenta tiene cosas ticadas sin conexión por validar: valida o descarta antes de cobrar (details: accountId, accountName, items) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8279,8 +8444,17 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description PENDING_NOT_ZERO: No se puede facturar con importe pendiente. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · ACCOUNT_INVOICED: ACCOUNT_INVOICED · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
+            /** @description PENDING_NOT_ZERO: No se puede facturar con importe pendiente. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · ACCOUNT_INVOICED: ACCOUNT_INVOICED · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · RECONNECTION_PENDING: La cuenta tiene cosas ticadas sin conexión por validar: valida o descarta antes de cobrar (details: accountId, accountName, items) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description SIMPLIFIED_LIMIT: La cuenta supera el límite de la factura simplificada (Ajustes › Facturación, simplifiedLimit; 3.000 € por defecto): hacen falta los datos del cliente (details: limit, total) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8968,6 +9142,14 @@ export interface operations {
                                 openedBy?: unknown;
                             };
                             time?: string;
+                            /** @description C1 (04/11, API 1.2.268): si hay internet, según la cola hacia el Manager. down = lo pendiente ya falló (sin internet o el Manager no responde): todo lo del local sigue funcionando; solo esperan el envío al Manager y a la AEAT, el delivery y el cobro con tarjeta si el datáfono necesita internet. */
+                            internet?: {
+                                /** @enum {string} */
+                                status?: "ok" | "down";
+                                lastSentAt?: string | null;
+                                failingSince?: string | null;
+                                lastError?: string | null;
+                            } | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -11337,7 +11519,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description TABLE_BUSY: La mesa de destino está ocupada. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
+            /** @description TABLE_BUSY: La mesa de destino está ocupada. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_CHARGING: Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador). · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · ORDER_CLOSED: La mesa se cerró desde otro equipo. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -11785,7 +11967,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description PENDING_NOT_ZERO: No se puede facturar con importe pendiente. · AMOUNT_EXCEEDS_PENDING: El importe supera lo pendiente (details.pending). Nunca se recorta. · METHOD_NOT_ALLOWED: Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta). · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            /** @description PENDING_NOT_ZERO: No se puede facturar con importe pendiente. · AMOUNT_EXCEEDS_PENDING: El importe supera lo pendiente (details.pending). Nunca se recorta. · METHOD_NOT_ALLOWED: Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta). · COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · RECONNECTION_PENDING: La cuenta tiene cosas ticadas sin conexión por validar: valida o descarta antes de cobrar (details: accountId, accountName, items) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -11794,7 +11976,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · SIMPLIFIED_LIMIT: La cuenta supera el límite de la factura simplificada (Ajustes › Facturación, simplifiedLimit; 3.000 € por defecto): hacen falta los datos del cliente (details: limit, total) */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -12517,7 +12699,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. */
+            /** @description IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · INVALID_TRANSITION: La simplificada ya se sustituyó por una completa: abona la completa */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -15219,6 +15401,462 @@ export interface operations {
                 };
             };
             /** @description VALIDATION: Falta el motivo (3–200 caracteres) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_orders_orderId_reconnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "accountId": "…",
+                 *       "offlineReason": "Sin red (wifi)",
+                 *       "items": [
+                 *         {
+                 *           "clientId": "pda1-1730730000000-1",
+                 *           "plu": 101,
+                 *           "name": "Caña",
+                 *           "quantity": 2,
+                 *           "unitPrice": 2.2,
+                 *           "markedAt": "2026-11-04T20:10:00.000Z"
+                 *         }
+                 *       ]
+                 *     } */
+                "application/json": {
+                    accountId?: string | null;
+                    offlineReason?: string | null;
+                    items: {
+                        clientId: string;
+                        plu: number;
+                        name: string;
+                        quantity: number;
+                        unitPrice?: number;
+                        comment?: string | null;
+                        modifiers?: unknown[];
+                        markedAt?: string | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            items?: {
+                                id: string;
+                                clientId?: string;
+                                orderId: string;
+                                tableName?: string | null;
+                                accountId?: string | null;
+                                accountName?: string | null;
+                                plu: number;
+                                name: string;
+                                quantity: number;
+                                unitPrice?: number;
+                                comment?: string | null;
+                                modifiers?: unknown[];
+                                /** @enum {string} */
+                                status: "pending" | "accepted" | "discarded";
+                                offlineReason?: string | null;
+                                markedBy: {
+                                    user?: string | null;
+                                    device?: string | null;
+                                    at?: string;
+                                };
+                                decidedBy?: {
+                                    user?: string | null;
+                                    authorizedBy?: string | null;
+                                    at?: string;
+                                    reason?: string | null;
+                                } | null;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: No existe esa mesa o esa reconexión */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_reconnections: {
+        parameters: {
+            query?: {
+                status?: "pending" | "all";
+                orderId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            items?: {
+                                id: string;
+                                clientId?: string;
+                                orderId: string;
+                                tableName?: string | null;
+                                accountId?: string | null;
+                                accountName?: string | null;
+                                plu: number;
+                                name: string;
+                                quantity: number;
+                                unitPrice?: number;
+                                comment?: string | null;
+                                modifiers?: unknown[];
+                                /** @enum {string} */
+                                status: "pending" | "accepted" | "discarded";
+                                offlineReason?: string | null;
+                                markedBy: {
+                                    user?: string | null;
+                                    device?: string | null;
+                                    at?: string;
+                                };
+                                decidedBy?: {
+                                    user?: string | null;
+                                    authorizedBy?: string | null;
+                                    at?: string;
+                                    reason?: string | null;
+                                } | null;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_reconnections_reconnectionId_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reconnectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                /** @example {} */
+                "application/json": {
+                    authorization?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            reconnection?: {
+                                id: string;
+                                clientId?: string;
+                                orderId: string;
+                                tableName?: string | null;
+                                accountId?: string | null;
+                                accountName?: string | null;
+                                plu: number;
+                                name: string;
+                                quantity: number;
+                                unitPrice?: number;
+                                comment?: string | null;
+                                modifiers?: unknown[];
+                                /** @enum {string} */
+                                status: "pending" | "accepted" | "discarded";
+                                offlineReason?: string | null;
+                                markedBy: {
+                                    user?: string | null;
+                                    device?: string | null;
+                                    at?: string;
+                                };
+                                decidedBy?: {
+                                    user?: string | null;
+                                    authorizedBy?: string | null;
+                                    at?: string;
+                                    reason?: string | null;
+                                } | null;
+                            };
+                            printed?: unknown[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Hace falta «Resolver reconexiones» (pedido.reconexiones) o la clave de un encargado */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe esa mesa o esa reconexión */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description RECONNECTION_DECIDED: Esa reconexión ya se decidió de otra forma (aceptada no se puede descartar ni al revés) · ORDER_CLOSED: La mesa ya está cerrada: no entra; se puede descartar · ACCOUNT_CLOSED: La cuenta ya está cobrada · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_reconnections_reconnectionId_discard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reconnectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "reason": "Ya se había servido"
+                 *     } */
+                "application/json": {
+                    reason: string;
+                    authorization?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            reconnection?: {
+                                id: string;
+                                clientId?: string;
+                                orderId: string;
+                                tableName?: string | null;
+                                accountId?: string | null;
+                                accountName?: string | null;
+                                plu: number;
+                                name: string;
+                                quantity: number;
+                                unitPrice?: number;
+                                comment?: string | null;
+                                modifiers?: unknown[];
+                                /** @enum {string} */
+                                status: "pending" | "accepted" | "discarded";
+                                offlineReason?: string | null;
+                                markedBy: {
+                                    user?: string | null;
+                                    device?: string | null;
+                                    at?: string;
+                                };
+                                decidedBy?: {
+                                    user?: string | null;
+                                    authorizedBy?: string | null;
+                                    at?: string;
+                                    reason?: string | null;
+                                } | null;
+                            };
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Hace falta «Resolver reconexiones» (pedido.reconexiones) o la clave de un encargado */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: No existe esa mesa o esa reconexión */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description RECONNECTION_DECIDED: Esa reconexión ya se decidió de otra forma (aceptada no se puede descartar ni al revés) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_invoices_invoiceId_full: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "customer": {
+                 *         "type": "company",
+                 *         "taxId": "B12345674",
+                 *         "name": "Eventos Madrid SL",
+                 *         "email": "admin@eventos.es"
+                 *       }
+                 *     } */
+                "application/json": {
+                    customer: {
+                        /** @enum {string} */
+                        type?: "person" | "company";
+                        taxId: string;
+                        name: string;
+                        email?: string | null;
+                        address?: Record<string, never> | null;
+                    };
+                    print?: boolean | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            /** @constant */
+                            type?: "F3";
+                            invoiceNumber?: string;
+                            substitutes?: string;
+                            issuedAt?: string;
+                            total?: number;
+                            taxes?: unknown[];
+                            customer?: Record<string, never>;
+                            verifactuQr?: string;
+                            printed?: boolean;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Hace falta funciones.facturas y cobro.clientes */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: La factura no existe */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INVALID_TRANSITION: Solo una factura simplificada emitida, sin abonos y no sustituida */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: NIF u otros datos del cliente no válidos */
             422: {
                 headers: {
                     [name: string]: unknown;

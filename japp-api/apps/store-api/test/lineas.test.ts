@@ -256,7 +256,12 @@ describe("separar cuenta", () => {
 
   it("cuenta a 0,00 € → 409 NOTHING_TO_CHARGE en precuenta, cobro y factura", async () => {
     const o = await newOrder(sistemas);
-    await add(o.id, { plu: 1534 }, sistemas); // CAMBIO LECHE, 0,00 €
+    // 04/11: ya no se tica nada a 0 € (ZERO_PRICE); una cuenta a 0 € se da con un producto que se pone a 0 € después
+    await t.sql.query("UPDATE product SET price = 0.5 WHERE plu = 1534");
+    await add(o.id, { plu: 1534 }, sistemas); // CAMBIO LECHE
+    await t.sql.query("UPDATE product SET price = 0 WHERE plu = 1534");
+    await t.sql.query("UPDATE order_line SET unit_price = 0 WHERE order_id = $1", [o.id]);
+    await t.sql.query("UPDATE account SET subtotal = 0, total = 0, pending = 0 WHERE order_id = $1", [o.id]);
     await t.call("POST", `/orders/${o.id}/send`, { token: sistemas, body: {} });
     const pre = await t.call("POST", `/orders/${o.id}/accounts/${o.acc}/prebill`, {
       token: sistemas,

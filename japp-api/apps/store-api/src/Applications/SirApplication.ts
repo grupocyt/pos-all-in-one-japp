@@ -63,7 +63,7 @@ export class SirApplication {
           i.issued_at, i.issued_by_user_name issued_by
         FROM invoice i JOIN orders o ON o.id = i.order_id AND o.store_id = i.store_id
         LEFT JOIN account a ON a.id = i.account_id AND a.store_id = i.store_id
-        WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.status <> 'cancelled'
+        WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.status NOT IN ('cancelled','substituted')
         ORDER BY i.issued_at`,
     );
   }

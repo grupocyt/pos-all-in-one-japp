@@ -38,6 +38,31 @@ const color = z
   .regex(/^#[0-9a-fA-F]{3,8}$/, "Color #RRGGBB")
   .nullish();
 const money = z.number().min(0).max(100000);
+/** 0029 · N1: un formato de ticket (precuenta o factura). Cada opción en false quita esa parte; lo que no viene, sale. */
+const ticketFormat = z
+  .object({
+    logo: z.boolean(),
+    cadena: z.boolean(),
+    local: z.boolean(),
+    razon: z.boolean(),
+    nif: z.boolean(),
+    direccion: z.boolean(),
+    telefono: z.boolean(),
+    mesero: z.boolean(),
+    desglose: z.boolean(),
+    porPersona: z.boolean(),
+    pie: z.boolean(),
+    despedida: z.boolean(),
+    despTxt: z.string().max(200),
+    qrResenas: z.boolean(),
+    qrTxt: z.string().max(200),
+    qrTrib: z.boolean(),
+    cajon: z.boolean(),
+    propina: z.boolean(),
+  })
+  .partial()
+  .strict();
+const ticketFormats = z.object({ prebill: ticketFormat, invoice: ticketFormat }).partial().strict();
 const F = (col: string, kind: Kind, zz: z.ZodTypeAny, label: string, o: Partial<Field> = {}): Field => ({
   col,
   kind,
@@ -112,6 +137,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       seriesSimplified: F("series_simplified", "s", str(20), "Serie simplificada"),
       seriesFull: F("series_full", "s", str(20), "Serie completa"),
       seriesCredit: F("series_credit", "s", str(20), "Serie rectificativa"),
+      // 0030 · F3: importe máximo de una factura simplificada (0 = sin límite); por encima, factura completa
+      simplifiedLimit: F("simplified_limit", "n", money, "Límite de la factura simplificada"),
       // segundos sin tocar tras los que el TPV y la PDA mandan la tanda de la mesa (migración 0016)
       batchSendSeconds: F(
         "batch_send_seconds",
@@ -137,6 +164,10 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       kpiMinTables: F("kpi_min_tables", "i", z.number().int(), "Mesas mínimas KPI"),
       pinAttempts: F("pin_attempts", "i", z.number().int(), "Intentos de PIN"),
       pinLockSeconds: F("pin_lock_seconds", "i", z.number().int(), "Bloqueo de PIN (s)"),
+      // 0027 · solo impresión: la propina nunca entra en la factura ni en VeriFactu
+      printTip: F("print_tip", "b", z.boolean(), "Propina en el ticket de la factura"),
+      // 0029 · N1: formatos de precuenta y factura (Ajustes › Formatos de ticket); la API los aplica al imprimir
+      ticketFormats: F("ticket_formats", "j", ticketFormats, "Formatos de ticket"),
     },
   },
   usuarios: {

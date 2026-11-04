@@ -39,7 +39,7 @@ describe("migraciones", () => {
     await expect(c.query("UPDATE app_user SET lock_seconds=-1 WHERE id=$1", [u.id])).rejects.toMatchObject({ code: "23514" });
     await c.query("ROLLBACK TO SAVEPOINT s");
     const p = await one(c, "SELECT lock_seconds, lock_seconds_pda FROM store_parameters");
-    expect([p.lock_seconds, p.lock_seconds_pda]).toEqual([7, 10]);
+    expect([p.lock_seconds, p.lock_seconds_pda]).toEqual([10, 10]); // 0027: 7 s → 10 s (regla 0 o 10–3600);
   }));
   it("0003: orden de las líneas en la cuenta (sort_order ≥ 0, por defecto 0)", () => rollback(c, async () => {
     const col = await one(c, "SELECT data_type, column_default, is_nullable FROM information_schema.columns WHERE table_name='order_line' AND column_name='sort_order'");
@@ -260,8 +260,9 @@ describe("migraciones", () => {
     await c.query("UPDATE delivery_order SET status='delivered', finished_at=now()");
     const perms = (await all(c, "SELECT code FROM permission WHERE code IN ('ajustes.pedidos','funciones.pedidos') ORDER BY 1")).map(r => r.code);
     expect(perms).toEqual(["ajustes.pedidos", "funciones.pedidos"]);
-    const sinTablero = await all(c, "SELECT p.code FROM user_profile p WHERE NOT EXISTS (SELECT 1 FROM profile_permission x WHERE x.profile_id=p.id AND x.permission_code='funciones.pedidos')");
-    expect(sinTablero).toEqual([]);
+    // 0030 (04/11): el tablero de pedidos ya solo lo tienen cajero y encargado
+    const sinTablero = (await all(c, "SELECT p.code FROM user_profile p WHERE NOT EXISTS (SELECT 1 FROM profile_permission x WHERE x.profile_id=p.id AND x.permission_code='funciones.pedidos') ORDER BY 1")).map(r => r.code);
+    expect(sinTablero).toEqual(["MESERO"]);
   }));
   it("0026: no hay dos personas con el mismo nombre aunque cambien mayúsculas o espacios; búsqueda de clientes por correo", () => rollback(c, async () => {
     const u = await one(c, "SELECT store_id, profile_id FROM app_user WHERE name='Mesero'");
@@ -269,5 +270,42 @@ describe("migraciones", () => {
     await c.query("ROLLBACK");
     expect(await one(c, "SELECT 1 x FROM pg_indexes WHERE indexname='ix_customer_ref_store_id_email'")).toEqual({ x: 1 });
     await c.query("BEGIN");
+  }));
+  it("0027: print_tip en store_parameters (por defecto true; solo impresión) y bloqueo de 7 s → 10 s", () => rollback(c, async () => {
+    const r = await one(c, "SELECT print_tip FROM store_parameters LIMIT 1");
+    expect(r.print_tip).toBe(true);
+    // el bloqueo de 7 s de los datos de arranque pasa a 10 (regla 0 o 10–3600 s)
+    expect((await one(c, "SELECT lock_seconds FROM store_parameters LIMIT 1")).lock_seconds).toBe(10);
+    await c.query("UPDATE store_parameters SET print_tip = false");
+    expect((await one(c, "SELECT print_tip FROM store_parameters LIMIT 1")).print_tip).toBe(false);
+  }));
+  it("0029: ticket_formats en store_parameters (formatos de precuenta y factura; vacío = todo sale)", () => rollback(c, async () => {
+    expect((await one(c, "SELECT ticket_formats FROM store_parameters LIMIT 1")).ticket_formats).toEqual({});
+    await c.query(`UPDATE store_parameters SET ticket_formats = '{"invoice":{"mesero":false}}'::jsonb`);
+    expect((await one(c, "SELECT ticket_formats->'invoice'->>'mesero' m FROM store_parameters LIMIT 1")).m).toBe("false");
+  }));
+  it("0030: cierre de facturación (tablero de delivery, estado de envío, límite de simplificada, F3, tipo de cuenta, propina, nota del cierre)", () => rollback(c, async () => {
+    const tab = (await all(c, "SELECT p.code FROM user_profile p JOIN profile_permission x ON x.profile_id=p.id AND x.permission_code='funciones.pedidos' ORDER BY 1")).map(r => r.code);
+    expect(tab).toEqual(["ADMIN", "ADMIN_LOCAL", "CAJERO", "CAPITAN"]);
+    expect((await one(c, "SELECT simplified_limit FROM billing_settings LIMIT 1")).simplified_limit).toBe("3000.00");
+    expect((await all(c, "SELECT DISTINCT allows_tip FROM payment_method WHERE kind <> 'discount'")).map(r => r.allows_tip)).toEqual([true]);
+    expect((await one(c, "SELECT column_default d FROM information_schema.columns WHERE table_name='invoice' AND column_name='email_status'")).d).toMatch(/not_sent/);
+    expect((await one(c, "SELECT column_default d FROM information_schema.columns WHERE table_name='account' AND column_name='kind'")).d).toMatch(/normal/);
+    expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='cash_closing' AND column_name='note'")).toEqual({ x: 1 });
+    expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='invoice' AND column_name='substituted_invoice_id'")).toEqual({ x: 1 });
+  }));
+  it("0028: order_reconnection (lo ticado sin conexión, una vez por client_id) y el permiso «Resolver reconexiones» a quien puede autorizar", () => rollback(c, async () => {
+    const o = await one(c, "SELECT id, store_id FROM orders LIMIT 1");
+    if (o) {
+      const ins = "INSERT INTO order_reconnection (id, store_id, order_id, client_id, plu, name, quantity, marked_at) VALUES ($1,$2,$3,'pda1-x',1,'Caña',1,now())";
+      await c.query(ins, [uuid(), o.store_id, o.id]);
+      expect((await one(c, "SELECT status FROM order_reconnection WHERE client_id='pda1-x'")).status).toBe("pending");
+      await expect(c.query(ins, [uuid(), o.store_id, o.id])).rejects.toMatchObject({ code: "23505" });
+      await c.query("ROLLBACK"); await c.query("BEGIN");
+    }
+    expect((await one(c, "SELECT name FROM permission WHERE code='pedido.reconexiones'")).name).toBe("Resolver reconexiones");
+    const sin = await all(c, `SELECT DISTINCT a.profile_id::text FROM profile_permission a WHERE a.permission_code='sistema.autorizar'
+      AND NOT EXISTS (SELECT 1 FROM profile_permission b WHERE b.profile_id=a.profile_id AND b.permission_code='pedido.reconexiones')`);
+    expect(sin).toEqual([]);
   }));
 });

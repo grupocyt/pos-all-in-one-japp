@@ -132,17 +132,18 @@ export function registerPayment(
   let change: number | null = null;
   let cashGiven: number | null = null;
   let tip = 0;
+  // N3 (04/11): propina con cualquier forma de pago (la forma de pago la admite o no: allows_tip). Nunca es parte de la factura.
+  tip = r2(input.tip ?? 0);
+  if (tip < 0) {
+    fail("VALIDATION", "Propina negativa", { field: "tip" });
+  }
   if (input.kind === "cash") {
-    cashGiven = r2(input.cashGiven ?? a);
-    if (cashGiven < a) {
-      fail("VALIDATION", "El efectivo entregado no llega", { field: "cashGiven", required: a });
+    // en efectivo lo entregado cubre la cuenta y la propina; el cambio es lo que sobra
+    cashGiven = r2(input.cashGiven ?? D(a).plus(tip).toNumber());
+    if (cashGiven < r2(D(a).plus(tip).toNumber())) {
+      fail("VALIDATION", "El efectivo entregado no llega", { field: "cashGiven", required: r2(D(a).plus(tip).toNumber()) });
     }
-    change = r2(D(cashGiven).minus(a));
-  } else if (input.kind === "card") {
-    tip = r2(input.tip ?? 0);
-    if (tip < 0) {
-      fail("VALIDATION", "Propina negativa", { field: "tip" });
-    }
+    change = r2(D(cashGiven).minus(a).minus(tip));
   }
   const payment: Payment = {
     id: ctx.newId(),

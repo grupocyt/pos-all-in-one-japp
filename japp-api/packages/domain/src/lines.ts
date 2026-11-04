@@ -83,8 +83,16 @@ export function addProduct(acc: Account, input: AddProductInput, ctx: Ctx): Acco
       });
     }
   }
-  const out = clone(acc);
   const mods = input.modifiers ?? [];
+  // 9 (04/11, regla del dueño): no se tica nada que valga 0 € (ni el producto ni sus respuestas). Los calificativos
+  // («CON HIELO», «SIN LIMÓN»…) van como opciones de un producto, no como líneas de 0 €.
+  const unit = priceFor(input.product, input.area) + mods.reduce((a, m) => a + (m.unitPrice ?? 0) * (m.quantity ?? 1), 0);
+  if (!(unit > 0)) {
+    fail("ZERO_PRICE", `${input.product.name} vale 0 €: no se puede ticar (ponlo como opción de un producto)`, {
+      plu: input.product.plu,
+    });
+  }
+  const out = clone(acc);
   const comment = (input.comment ?? "").trim();
   // se juntan las líneas «Por enviar» iguales: mismo producto, mismo comentario y mismas respuestas (también con preguntas)
   const merge = out.lines.find(

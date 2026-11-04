@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { schema as s, type Database, type Db, type Tx } from "@japp/db";
 import { D, expectedCash, paymentKind, r2, sum, type Actor } from "@japp/domain";
 import { DATABASE } from "../Constants/Injection.js";
@@ -101,6 +101,8 @@ export class PeriodsApplication {
       deposit: number;
       grossSales: number;
       guests: number;
+      /** 11 (04/11): motivo del descuadre, para el corte Z */
+      note?: string | null;
     },
     a: Actor,
   ) {
@@ -116,12 +118,22 @@ export class PeriodsApplication {
       deposit: c.deposit.toFixed(2),
       grossSales: c.grossSales.toFixed(2),
       guests: c.guests,
+      note: c.note?.trim() ? c.note.trim().slice(0, 300) : null,
       byUserId: a.userId,
       byUserName: a.user,
       byRole: a.role,
       byDevice: a.device,
       byAt: a.at,
     } as any);
+  }
+
+  /** 11 (04/11): el cierre de caja del periodo (lo contado, la diferencia y el motivo), o null si aún no se ha cerrado. */
+  async closingOf(storeId: string, periodId: string) {
+    const [r] = await this.database.db
+      .select()
+      .from(s.cashClosing)
+      .where(and(eq(s.cashClosing.storeId, storeId), eq(s.cashClosing.periodId, periodId)));
+    return r ?? null;
   }
 
   /** Marca el periodo como cerrado (open_flag NULL deja abrir otro). */
@@ -174,7 +186,7 @@ export class PeriodsApplication {
     const float = floats.length ? r2(sum(floats.map((m) => m.amount))) : defaultFloat;
     const r = expectedCash(
       float,
-      pays.map((p) => ({ kind: paymentKind(p.kind, p.method), amount: Number(p.amount) })),
+      pays.map((p) => ({ kind: paymentKind(p.kind, p.method), amount: Number(p.amount), tip: Number(p.tip ?? 0) })),
       moves
         .filter((m) => m.kind === "withdrawal" || m.kind === "deposit")
         .map((m) => ({
@@ -191,7 +203,7 @@ export class PeriodsApplication {
         and(
           eq(s.invoice.storeId, storeId),
           eq(s.orders.periodId, periodId),
-          ne(s.invoice.status, "cancelled"),
+          notInArray(s.invoice.status, ["cancelled", "substituted"]), // F3 (04/11): la sustituida no cuenta dos veces
         ),
       );
     const orderIds = [...new Set(inv.map((i) => i.orderId!).filter(Boolean))];

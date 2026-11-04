@@ -133,7 +133,7 @@ export class ClosingsApplication {
     const inv = await rows(
       q,
       sql`SELECT i.issued_at, i.total::float8 total, i.tax_base::float8 base, i.tax_total::float8 tax, i.type, o.opened_by_user_name waiter, o.opened_by_user_id::text waiter_id, o.table_name, o.id::text order_id, o.guests
-      FROM invoice i JOIN orders o ON o.id = i.order_id WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.status <> 'cancelled' ORDER BY i.issued_at`,
+      FROM invoice i JOIN orders o ON o.id = i.order_id WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.status NOT IN ('cancelled','substituted') ORDER BY i.issued_at`,
     );
     const pays = await rows(
       q,

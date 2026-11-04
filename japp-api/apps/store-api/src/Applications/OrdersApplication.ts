@@ -338,6 +338,7 @@ export class OrdersApplication {
           })(),
           invoice,
           ...(a.origin && typeof a.origin === "object" ? { origin: a.origin as AccountOrigin } : {}),
+          ...(a.kind === "order_on_table" ? { kind: "order_on_table" as const } : {}),
         };
       });
     const header: OrderHeader = {
@@ -523,6 +524,7 @@ export class OrdersApplication {
           orderId: after.id,
           name: a.name,
           status: a.status,
+          kind: a.kind ?? "normal",
           ...actorCols("openedBy", ctx.actor),
           ...totals,
         } as typeof s.account.$inferInsert);
@@ -854,6 +856,7 @@ export class OrdersApplication {
         id: a.id,
         name: a.name,
         status: a.status,
+        kind: a.kind ?? "normal",
         origin: a.origin ?? null,
         closedBy: null,
         note: null,
