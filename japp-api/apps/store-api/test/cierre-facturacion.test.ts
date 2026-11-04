@@ -3,7 +3,7 @@ import { setup, ensurePeriod, freeTable, PIN, PLU, type T } from "./helpers.js";
 /**
  * Cierre de la versión de facturación (decidido con el dueño el 04/11/2026, API 1.2.268, migración 0030):
  * F1 factura completa que sustituye a una simplificada · F3 límite de la simplificada · 10 estado de envío ·
- * 9 nada a 0 € · N3 propina con todas las formas de pago · N7 Order on Table en su propia cuenta · 16 tablero de delivery.
+ * 9 productos de 0 € se tican · N3 propina con todas las formas de pago · N7 Order on Table en su propia cuenta · 16 tablero de delivery.
  */
 let t: T;
 let sis: string;
@@ -30,11 +30,12 @@ const invoiceIdOf = async (num: string) =>
 const CUST = { type: "company", taxId: "B12345674", name: "Eventos Madrid SL", email: "admin@eventos.es" };
 
 describe("cierre de facturación (04/11)", () => {
-  it("9 · no se tica nada a 0 €", async () => {
+  it("9 · un producto de 0 € se tica; la cuenta solo con él no se cobra", async () => {
     const m = await mesa();
     const zero = (await t.sql.query("SELECT plu FROM product WHERE price = 0 AND active LIMIT 1")).rows[0].plu;
     const r = await t.call("POST", `/orders/${m.id}/lines`, { token: sis, body: { plu: zero, force: true } });
-    expect(code(r)).toEqual([422, "ZERO_PRICE"]);
+    expect(r.status, JSON.stringify(r.env)).toBe(201);
+    expect(r.body.accounts[0].lines.some((l: any) => l.productId === zero && l.unitPrice === 0)).toBe(true);
   });
 
   it("10 · la factura lleva su estado de envío: no enviada", async () => {

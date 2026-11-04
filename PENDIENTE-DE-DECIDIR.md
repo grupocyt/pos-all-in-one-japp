@@ -58,7 +58,7 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | F4 | Descuento por producto | **No existe:** los descuentos son solo al total de la cuenta (uno por cuenta) | Cerrado (ya funciona así) |
 | 1–5, 8, 12, 14 | Agotado, activar o desactivar productos, incidencias, canales de impresión de la carta | **Son configuración** (Ajustes › Productos y Canales): no se programa nada | Cerrado |
 | 7, 13 | Plano de una tienda nueva y número de mesa nueva | **Son configuración** (Editar sala: se colocan las mesas y se escribe el número, avisa si ya existe) | Cerrado |
-| 9 (calificativos) | «CON HIELO», «SIN LIMÓN»… como productos de 0 € | **No se tica nada a 0 €** (422 ZERO_PRICE; en el TPV, gris y aviso). Los calificativos se configuran como opciones del producto (Ajustes › Productos) | **Hecho 1.2.268** · pasar los calificativos a opciones es configuración de la carta |
+| 9 (calificativos) | «CON HIELO», «SIN LIMÓN»… como productos de 0 € | **Se pueden ticar productos a 0 €** (calificativos, salen en la comanda); lo que no se cobra ni factura es una cuenta a 0 € (409 NOTHING_TO_CHARGE). Rectificado el 04/11 por la noche (antes se bloqueaban) | **Hecho 1.2.268** · pasar los calificativos a opciones es configuración de la carta |
 | 9 | Servidor de la tienda caído | Correcto como está: sin servidor no se cobra ni se factura (escrito en el LEEME). Lo de recuperarlo sigue en el Plan de contingencia | Cerrado · contingencia pendiente |
 | 10 | Factura por email | **No se envían correos.** La factura lleva un estado de envío que queda en «no enviada» y ahí termina el flujo | **Hecho 1.2.268** (0030: `invoice.email_status`) |
 | N9 | Facturar los pedidos de delivery | **A futuro** (escrito en el LEEME) | A futuro |

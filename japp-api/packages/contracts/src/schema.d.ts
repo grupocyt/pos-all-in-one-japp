@@ -857,7 +857,7 @@ export interface paths {
          *
          *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: no se puede añadir productos (la cuenta queda congelada: ya se está cobrando) → 409 ACCOUNT_LOCKED. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          *
-         *     Regla del 04/11 (API 1.2.268): no se tica nada que valga 0 € → 422 ZERO_PRICE.
+         *     Regla del 04/11 (API 1.2.268): los productos de 0 € (calificativos) se tican; una cuenta a 0 € no se cobra ni se factura (409 NOTHING_TO_CHARGE).
          */
         post: operations["store_POST_orders_orderId_lines"];
         delete?: never;
@@ -4163,7 +4163,7 @@ export interface components {
         };
         ErrorItem: {
             /** @enum {string} */
-            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP" | "ACCOUNT_LOCKED" | "RECONNECTION_PENDING" | "RECONNECTION_DECIDED" | "ZERO_PRICE" | "SIMPLIFIED_LIMIT";
+            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP" | "ACCOUNT_LOCKED" | "RECONNECTION_PENDING" | "RECONNECTION_DECIDED" | "SIMPLIFIED_LIMIT";
             message: string;
             /** @description Campo con el problema, si lo hay */
             field: string | null;
@@ -7154,15 +7154,6 @@ export interface operations {
             };
             /** @description ACCOUNT_CLOSED: La cuenta ya está cobrada o facturada: elegir otra o crear una nueva. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · DUPLICATE_SUSPECTED: Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro. · QUESTION_INCOMPLETE: QUESTION_INCOMPLETE · SOLD_OUT: SOLD_OUT · DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount) */
             409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description ZERO_PRICE: El producto (con sus respuestas) vale 0 €: no se tica (regla del 04/11; los calificativos van como opciones de un producto) */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };

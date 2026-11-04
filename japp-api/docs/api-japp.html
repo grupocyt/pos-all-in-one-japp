@@ -19502,7 +19502,8 @@ paths:
         y quitar el descuento.
 
 
-        Regla del 04/11 (API 1.2.268): no se tica nada que valga 0 € → 422 ZERO_PRICE.&#x27;
+        Regla del 04/11 (API 1.2.268): los productos de 0 € (calificativos) se tican; una cuenta a 0 € no se cobra ni se factura
+        (409 NOTHING_TO_CHARGE).&#x27;
       operationId: store_POST_orders_orderId_lines
       security:
       - session: []
@@ -19770,27 +19771,6 @@ paths:
                 errors:
                 - code: ACCOUNT_CLOSED
                   message: &#x27;La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.&#x27;
-                  field: null
-                  details: {}
-                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
-                author: Api Japp Grupo Cañas y Tapas
-                mode: developer
-        &#x27;422&#x27;:
-          description: &#x27;ZERO_PRICE: El producto (con sus respuestas) vale 0 €: no se tica (regla del 04/11; los calificativos
-            van como opciones de un producto)&#x27;
-          content:
-            application/json:
-              schema:
-                $ref: &#x27;#/components/schemas/Error&#x27;
-              example:
-                title: Añadir producto
-                type: error
-                status: 422
-                data: null
-                errors:
-                - code: ZERO_PRICE
-                  message: &#x27;El producto (con sus respuestas) vale 0 €: no se tica (regla del 04/11; los calificativos van
-                    como opciones de un producto)&#x27;
                   field: null
                   details: {}
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
@@ -43054,7 +43034,6 @@ components:
           - ACCOUNT_LOCKED
           - RECONNECTION_PENDING
           - RECONNECTION_DECIDED
-          - ZERO_PRICE
           - SIMPLIFIED_LIMIT
         message:
           type: string

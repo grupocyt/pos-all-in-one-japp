@@ -10,7 +10,7 @@ japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API:
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.268). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.268). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
 
 ## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
 
@@ -23,7 +23,7 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 
 - **Factura completa después del ticket (F1):** Gestiones › Facturas › «Factura completa» sobre una simplificada. Se emite una factura completa nueva (tipo F3, serie de completas) con los datos del cliente que **sustituye** a la simplificada: la simplificada no se edita (queda «Sustituida»), no se cobra nada otra vez y en las ventas cuenta una sola vez. Se imprime sin abrir el cajón. Para devolver dinero se abona la completa.
 - **Límite de la factura simplificada (F3):** Ajustes › Facturación, **3.000 € por defecto** (lo máximo en hostelería; 0 = sin límite). Por encima, el TPV pide los datos del cliente y la API no deja hacer la simplificada (`422 SIMPLIFIED_LIMIT`).
-- **Nada a 0 € (9):** no se tica un producto que valga 0 € (con sus respuestas); en el TPV sale gris y avisa. Los calificativos («con hielo», «sin limón»…) se configuran como opciones del producto en Ajustes › Productos (es configuración de la carta).
+- **Productos de 0 € (9):** los calificativos de 0 € («con hielo», «sin jamón»…) se tican y salen en la comanda de cocina o barra (rectificado el 04/11 por la noche). Lo que no se cobra ni se factura es una **cuenta a 0 €** (precuenta, cobro y factura → aviso, 409 NOTHING_TO_CHARGE).
 - **Propina con todas las formas de pago (N3):** también en efectivo (lo entregado cubre cuenta + propina y el cambio es lo que sobra; esa propina cuenta en el efectivo esperado del cajón). Sigue fuera de la factura y de VeriFactu.
 - **Corte Z (11):** lleva lo contado (efectivo y tarjeta), la diferencia y el motivo escrito al cerrar.
 - **Order on Table (N7):** los pedidos del cliente van a su propia cuenta (tipo `order_on_table`, en violeta). Si esa cuenta ya se está cobrando, el pedido va a «Order on Table 2» en vez de rechazarse.

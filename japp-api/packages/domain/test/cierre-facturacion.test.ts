@@ -1,13 +1,13 @@
 import { addProduct, registerPayment, expectedCash, cutTicket, renderText } from "../src/index.js";
 import { account, line, ctx } from "./helpers.js";
 
-/** Cierre de facturación (04/11/2026): nada a 0 €, propina con todas las formas de pago y corte Z con lo contado. */
+/** Cierre de facturación (04/11/2026): productos de 0 € que se tican, propina con todas las formas de pago y corte Z con lo contado. */
 const P = (price: number) => ({ plu: 9001, name: "CON HIELO", price, taxRate: 10 }) as any;
 const AREA = { id: "", name: "Barra", priceList: 1 } as any;
 
-describe("9 · nada a 0 €", () => {
-  it("un producto de 0 € no se tica; con respuestas de pago sí", () => {
-    expect(() => addProduct(account(), { product: P(0), area: AREA, quantity: 1 }, ctx())).toThrow(/0 €/);
+describe("9 · los productos de 0 € se tican", () => {
+  it("un calificativo de 0 € entra en la cuenta (solo o con respuestas)", () => {
+    expect(addProduct(account(), { product: P(0), area: AREA, quantity: 1 }, ctx()).lines).toHaveLength(1);
     const a = addProduct(account(), { product: P(0), area: AREA, quantity: 1, modifiers: [{ name: "Ron", unitPrice: 6, quantity: 1 }] as any }, ctx());
     expect(a.lines).toHaveLength(1);
   });
