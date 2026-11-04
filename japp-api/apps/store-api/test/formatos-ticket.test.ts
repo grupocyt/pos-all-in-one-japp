@@ -70,4 +70,21 @@ describe("formatos de ticket en el servidor (N1)", () => {
     expect(pb2).toContain("Base:");
     expect(pb2).toContain("Por persona");
   });
+
+  it("0031: el logo del local (preparado por el TPV) sale en la precuenta en vez del de la cadena", async () => {
+    // GS v 0 de 8 × 1 puntos (1 byte por fila, 1 fila) en base64
+    const raster = Buffer.from([0x1d, 0x76, 0x30, 0x00, 0x01, 0x00, 0x01, 0x00, 0xff]).toString("base64");
+    const cur = await params();
+    const bad = await t.call("PATCH", "/config/parametros/current", { token: sis, body: { ticketLogo: "data:image/png;base64,xx", version: cur.version } });
+    expect(bad.status).toBe(422);
+    const ok = await t.call("PATCH", "/config/parametros/current", { token: sis, body: { ticketLogo: raster, version: cur.version } });
+    expect(ok.status, JSON.stringify(ok.env)).toBe(200);
+    const m = await mesaCobrada();
+    const n = t.printer.jobs.length;
+    await t.call("POST", `/orders/${m.id}/accounts/${m.acc}/prebill`, { token: sis, body: {} });
+    const job = lastJob(n, "prebill");
+    expect(job.ticket.find((l: any) => l.k === "logo")).toEqual({ k: "logo", raster });
+    const back = await params();
+    await t.call("PATCH", "/config/parametros/current", { token: sis, body: { ticketLogo: null, version: back.version } });
+  });
 });

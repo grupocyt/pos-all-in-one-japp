@@ -18,7 +18,7 @@ export type TicketLine =
   | { k: "rule"; ch: "=" | "-" }
   | { k: "feed"; n?: number }
   | { k: "qr"; data: string }
-  | { k: "logo" }
+  | { k: "logo"; raster?: string }
   | { k: "cut" };
 
 export const WIDTH = 48;
@@ -96,6 +96,8 @@ export interface StoreHeader {
   logo?: boolean;
   /** Enlace de reseñas de Google: QR al final si el formato lo pide. */
   reviewsUrl?: string;
+  /** 0031 · logo del local para la impresora (GS v 0 en base64, lo prepara el TPV); sin él, el de la cadena */
+  logoRaster?: string;
 }
 
 /**
@@ -152,7 +154,7 @@ const R = (ch: "=" | "-"): TicketLine => ({ k: "rule", ch });
 function storeBlock(s: StoreHeader, f?: TicketFormat, invoice = false): TicketLine[] {
   const out: TicketLine[] = [];
   if (s.logo !== false && fmtOn(f, "logo")) {
-    out.push({ k: "logo" });
+    out.push(s.logoRaster ? { k: "logo", raster: s.logoRaster } : { k: "logo" });
   }
   let trade = s.tradeName ?? "";
   if (s.chain || s.local) {
@@ -775,7 +777,8 @@ export function renderEscPos(lines: TicketLine[], o: EscPosOptions = {}): Uint8A
       // logo de la cadena en imagen (GS v 0), igual que la vista previa; logoFromPrinter=false → sin logo
       if (o.logoFromPrinter !== false) {
         align("center");
-        b.push(...(o.logoRaster ?? chainLogoRaster()), LF);
+        const own = l.raster ? Uint8Array.from(atob(l.raster), (c) => c.charCodeAt(0)) : null;
+        b.push(...(own ?? o.logoRaster ?? chainLogoRaster()), LF);
       }
     } else if (l.k === "qr") {
       const d = encodeCp858(l.data);

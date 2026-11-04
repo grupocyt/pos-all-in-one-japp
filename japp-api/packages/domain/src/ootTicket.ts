@@ -3,7 +3,7 @@ import { lr, madridParts, wrap, WIDTH, type TicketLine } from "./tickets.js";
 /** Lo que lleva el ticket del QR de Order on Table. */
 export interface OotQrContext {
   /** chain = nombre comercial de la cadena (Ajustes › Empresa); name = nombre del local (Ajustes › Restaurante). */
-  store: { chain?: string | null; name?: string | null; tradeName?: string; legalName: string };
+  store: { chain?: string | null; name?: string | null; tradeName?: string; legalName: string; logoRaster?: string | null };
   table: { name: string; area: string };
   url: string;
   /** Token del QR: en el ticket solo sale el «código de mesa» (4 primeros y 4 últimos). */
@@ -31,7 +31,7 @@ export function ootQrTicket(ctx: OotQrContext): TicketLine[] {
   const head = [chain, local].filter(Boolean).join(" · ") || s.legalName;
   const area = String(ctx.table.area || "").toUpperCase();
   const tk = ctx.token ?? "";
-  const out: TicketLine[] = [{ k: "logo" }];
+  const out: TicketLine[] = [s.logoRaster ? { k: "logo", raster: s.logoRaster } : { k: "logo" }]; // 0031 · el logo del local
   wrap(head, WIDTH).forEach((x) => out.push(T(x, { align: "center" })));
   out.push({ k: "rule", ch: "=" });
   out.push(T("PIDE DESDE TU MÓVIL", { align: "center", bold: true, size: "w" }));

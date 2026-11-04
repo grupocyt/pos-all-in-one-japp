@@ -122,6 +122,7 @@ export class PrintersService {
         header: st.ticketHeader ?? undefined,
         footer: st.ticketFooter ?? undefined,
         reviewsUrl: st.reviewsUrl ?? undefined,
+        logoRaster: st.ticketLogo ?? undefined, // 0031 · el logo del local, no el de la cadena
       },
       table: { name: b.table, area: b.area },
       waiter: b.waiter,
@@ -207,7 +208,7 @@ export class PrintersService {
     }
     if (b.kind === "oot") {
       return ootQrTicket({
-        store: { chain: st.chainName, name: st.name, legalName: st.issuerName },
+        store: { logoRaster: st.ticketLogo ?? null, chain: st.chainName, name: st.name, legalName: st.issuerName },
         table: tctx.table,
         url: ootUrl("https://japp.grupocyt.com.es/", "PRUEBAxTOKENxDExMESA"),
         token: "PRUEBAxTOKENxDExMESA",

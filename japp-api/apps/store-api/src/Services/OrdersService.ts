@@ -1764,6 +1764,7 @@ export class OrdersService {
         header: st.ticketHeader ?? undefined,
         footer: st.ticketFooter ?? undefined,
         reviewsUrl: st.reviewsUrl ?? undefined,
+        logoRaster: st.ticketLogo ?? undefined, // 0031 · el logo del local, no el de la cadena
       },
       table: { name: l.header.tableName, area: l.header.zone ?? "" },
       waiter: l.header.openedBy.user,

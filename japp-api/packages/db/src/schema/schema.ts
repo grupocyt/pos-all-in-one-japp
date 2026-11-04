@@ -973,6 +973,7 @@ export const storeParameters = pgTable("store_parameters", {
 	pinLockSeconds: smallint("pin_lock_seconds").default(30).notNull(),
 	printTip: boolean("print_tip").default(true).notNull(),
 	ticketFormats: jsonb("ticket_formats").default({}).notNull(),
+	ticketLogo: text("ticket_logo"),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),

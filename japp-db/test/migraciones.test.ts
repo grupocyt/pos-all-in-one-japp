@@ -294,6 +294,9 @@ describe("migraciones", () => {
     expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='cash_closing' AND column_name='note'")).toEqual({ x: 1 });
     expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='invoice' AND column_name='substituted_invoice_id'")).toEqual({ x: 1 });
   }));
+  it("0031: ticket_logo en store_parameters (vacío = logo de la cadena)", () => rollback(c, async () => {
+    expect((await one(c, "SELECT ticket_logo FROM store_parameters LIMIT 1")).ticket_logo).toBeNull();
+  }));
   it("0028: order_reconnection (lo ticado sin conexión, una vez por client_id) y el permiso «Resolver reconexiones» a quien puede autorizar", () => rollback(c, async () => {
     const o = await one(c, "SELECT id, store_id FROM orders LIMIT 1");
     if (o) {

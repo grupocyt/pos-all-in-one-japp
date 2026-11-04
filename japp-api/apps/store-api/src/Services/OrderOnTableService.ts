@@ -130,7 +130,7 @@ export class OrderOnTableService {
       connection: p.connection,
       title: `QR mesa ${table.name}`,
       ticket: ootQrTicket({
-        store: { chain: st.chainName, name: st.name, legalName: st.issuerName },
+        store: { logoRaster: st.ticketLogo ?? null, chain: st.chainName, name: st.name, legalName: st.issuerName },
         table,
         url,
         token,

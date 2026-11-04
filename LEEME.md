@@ -1,8 +1,8 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0030, consultas de control · 80 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 112 endpoints, todos programados · 332 pruebas de dominio + 356 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0031, consultas de control · 81 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 112 endpoints, todos programados · 333 pruebas de dominio + 357 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
 japp-tpv/         el TPV (PWA) 1.2.268 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
@@ -28,6 +28,11 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Corte Z (11):** lleva lo contado (efectivo y tarjeta), la diferencia y el motivo escrito al cerrar.
 - **Order on Table (N7):** los pedidos del cliente van a su propia cuenta (tipo `order_on_table`, en violeta). Si esa cuenta ya se está cobrando, el pedido va a «Order on Table 2» en vez de rechazarse.
 - **Tablero de delivery (16):** solo para cajero y encargado (al resto se le quita; se puede volver a dar en Ajustes › Accesos).
+
+**Pruebas en JC01 (04/11, tarde):**
+
+- **Logo en el papel:** la impresora sacaba el logo de la cadena (o ninguno) aunque el local tuviera el suyo. Ahora el TPV prepara el logo de la vista previa (Ajustes › Restaurante) para la impresora y lo guarda en el servidor (migración 0031); la API lo imprime en precuenta, factura, abono y QR de Order on Table. Hace falta abrir el TPV una vez con un usuario que tenga Ajustes › Parámetros (lo sube solo).
+- **Pantalla del cliente › «Imprimir ticket»:** solo avisaba en el TPV; ahora imprime la factura de esa cuenta (con servidor la reimprime la API, sin abrir el cajón).
 - **Reglas fijas:** nada de lo facturado se edita (para corregir algo, incluida la forma de pago: abono completo y volver a ticar y cobrar); los descuentos son solo al total de la cuenta, uno por cuenta (no hay descuento por producto); una mesa cerrada no se reabre nunca.
 
 ## 1.2.268 (03/11/2026): reglas de descuento, cobro parcial y mesas cerradas
@@ -55,7 +60,7 @@ Decididas con el dueño el 03/11 y aplicadas en la API **y** en el TPV (caja y P
 - Ticket: el nombre de un descuento largo se parte en varias líneas (antes se recortaba).
 - **Formatos de ticket en el servidor** (N1, migración 0029): lo que se marca en Ajustes › Formatos de ticket para la precuenta y la factura (logo, cadena, local, razón social, NIF, dirección, teléfono, camarero, desglose de IVA, por persona, pie, despedida, QR de reseñas, QR tributario, abrir el cajón y propina) se guarda en el servidor, lo ven todos los equipos y la API imprime con ello. En la factura el nombre fiscal y el NIF salen siempre.
 
-**Actualizar JC01 a la 1.2.268:** cambian API, TPV **y base (migraciones 0027 a 0030)**: guarda los `.env`, descomprime encima, `npm install`, doble clic en **`actualizar-base.bat`** (copia de seguridad + 0027 a 0030; no borra nada), `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
+**Actualizar JC01 a la 1.2.268:** cambian API, TPV **y base (migraciones 0027 a 0031)**: guarda los `.env`, descomprime encima, `npm install`, doble clic en **`actualizar-base.bat`** (copia de seguridad + 0027 a 0031; no borra nada), `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
 
 ## 1.2.267 (03/11/2026): la API ya tiene todo lo que usa el TPV
 

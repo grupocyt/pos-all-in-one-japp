@@ -168,6 +168,17 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       printTip: F("print_tip", "b", z.boolean(), "Propina en el ticket de la factura"),
       // 0029 · N1: formatos de precuenta y factura (Ajustes › Formatos de ticket); la API los aplica al imprimir
       ticketFormats: F("ticket_formats", "j", ticketFormats, "Formatos de ticket"),
+      // 0031 · el logo del local ya preparado para la impresora (GS v 0 en base64) por el TPV; vacío = el de la cadena
+      ticketLogo: F(
+        "ticket_logo",
+        "s",
+        z
+          .string()
+          .max(40000)
+          .regex(/^HXYw[A-Za-z0-9+/=]+$/, "Logo GS v 0 en base64")
+          .nullish(),
+        "Logo del ticket",
+      ),
     },
   },
   usuarios: {

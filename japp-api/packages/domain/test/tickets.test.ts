@@ -352,3 +352,13 @@ describe("cierre de facturación (04/11): F3 y corte Z", () => {
     expect(txt).toContain("Sustituye a la factura simplificada T-000033");
   });
 });
+
+describe("0031: logo del local en ESC/POS", () => {
+  it("con raster propio se imprimen sus bytes, no los de la cadena", () => {
+    const raster = btoa(String.fromCharCode(0x1d, 0x76, 0x30, 0x00, 0x01, 0x00, 0x01, 0x00, 0xff));
+    const own = renderEscPos([{ k: "logo", raster }]);
+    const chain = renderEscPos([{ k: "logo" }]);
+    expect(own.length).toBeLessThan(chain.length);
+    expect(Array.from(own)).toEqual(expect.arrayContaining([0x1d, 0x76, 0x30, 0x00, 0x01, 0x00, 0x01, 0x00, 0xff]));
+  });
+});

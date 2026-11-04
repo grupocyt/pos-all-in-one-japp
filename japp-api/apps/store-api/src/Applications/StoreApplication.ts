@@ -39,6 +39,8 @@ export interface StoreInfo {
   reviewsUrl: string | null;
   /** F3 (0030): importe máximo de una factura simplificada (0 = sin límite) */
   simplifiedLimit: number;
+  /** 0031 · logo del local para la impresora (GS v 0 en base64); null = el de la cadena */
+  ticketLogo: string | null;
   cashFloat: number;
   cashDiffThreshold: number;
   pinAttempts: number;
@@ -122,6 +124,7 @@ export class StoreApplication {
       ticketFormats: (r.p.ticketFormats ?? {}) as TicketFormats,
       reviewsUrl: r.st.reviewsUrl ?? null,
       simplifiedLimit: Number(r.b.simplifiedLimit ?? 0),
+      ticketLogo: r.p.ticketLogo ?? null,
       cashFloat: Number(r.p.cashFloat),
       cashDiffThreshold: Number(r.p.cashDiffThreshold),
       pinAttempts: r.p.pinAttempts,
