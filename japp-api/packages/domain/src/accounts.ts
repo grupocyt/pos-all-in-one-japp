@@ -63,6 +63,7 @@ export function applyDiscount(acc: Account, d: DiscountInput, ctx: Ctx): Account
     value: d.value,
     reason: d.reason.trim(),
     status: "applied",
+    appliedBy: { user: ctx.actor.user, role: ctx.actor.role, device: ctx.actor.device ?? "", at: ctx.actor.at },
   });
   return out;
 }

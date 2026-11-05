@@ -31,14 +31,14 @@ export class ReportsService {
 
   /** Gestiones › Resumen semana (regla weekSummary del dominio). */
   async week(se: Session, date?: string) {
-    await this.auth.require(se, "funciones.informes");
+    await this.auth.require(se, "funciones.semana"); // 0032
     return this.closings.week(se.storeId, date);
   }
 
   /** Observación de un día de la hoja: escribir, cambiar o borrar (note vacía), con version. */
   async weekNote(se: Session, date: string, body: unknown) {
     const b = parse(WeekNoteModel, body);
-    await this.auth.require(se, "funciones.informes", b.authorization);
+    await this.auth.require(se, "funciones.semana", b.authorization); // 0032
     const today = madridDay(this.clock()).date;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)) || date > today) {
       fail("VALIDATION", "date futura o no válida (AAAA-MM-DD)", { field: "date" });
@@ -81,7 +81,7 @@ export class ReportsService {
 
   /** Eliminaciones: qué se quitó después de enviar, en qué momento (enviado o precuenta), quién, por qué y quién lo autorizó (regla voidsOf). */
   async deletions(se: Session) {
-    await this.auth.require(se, "funciones.informes");
+    await this.auth.require(se, "funciones.eliminaciones"); // 0032
     const rows = await this.reports.deletedLines(se.storeId);
     const mods = await this.reports.lineModifiers(
       se.storeId,

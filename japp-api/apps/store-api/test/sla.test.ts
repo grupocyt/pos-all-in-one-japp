@@ -88,12 +88,12 @@ describe("Ajustes › SLA de atención", () => {
     expect((await getSla()).version).toBe(version);
   });
 
-  it("configurar pide ajustes.parametros y ver la pantalla funciones.kpi", async () => {
+  it("configurar pide ajustes.parametros y ver la pantalla funciones.servicio (0032)", async () => {
     const { version } = await getSla();
     const r = await putSla({ version, shifts: [], rules: [STORE] }, mesero);
     expect([r.status, r.error.code]).toEqual([403, "PERMISSION_REQUIRED"]);
     const l = await t.call("GET", "/service/live", { token: mesero });
-    expect([l.status, l.error.details.permission]).toEqual([403, "funciones.kpi"]);
+    expect([l.status, l.error.details.permission]).toEqual([403, "funciones.servicio"]);
   });
 });
 

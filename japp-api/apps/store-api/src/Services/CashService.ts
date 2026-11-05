@@ -219,7 +219,8 @@ export class CashService {
       }
       pid = p!.id;
     }
-    const s = await this.closings.summarize(null, se.storeId, pid!);
+    const { summary: s, voids } = await this.closings.cutDetail(se.storeId, pid!);
+    const extras = await this.closingsData.cutExtras(se.storeId, pid!);
     const c = await this.periods.cashState(null, se.storeId, pid!, store.cashFloat);
     const NAMES: Record<string, string> = { cash: "Efectivo", card: "Tarjeta", other: "Otros" };
     const byMethod = (s.byPayment ?? []).length
@@ -234,7 +235,29 @@ export class CashService {
     const closing = kind === "Z" ? await this.periods.closingOf(se.storeId, pid!) : null;
     const ticket: TicketLine[] = cutTicket({
       kind,
-      store: { tradeName: store.name, legalName: store.issuerName, taxId: store.nif },
+      // 05/11 · cabecera como la precuenta: logo del local (0031), cadena · local; el resto según Ajustes › Formatos
+      store: {
+        tradeName: store.name,
+        legalName: store.issuerName,
+        taxId: store.nif,
+        chain: store.chainName ?? undefined,
+        local: store.name,
+        address: store.address ?? undefined,
+        city: store.city ?? undefined,
+        phone: store.phone ?? undefined,
+        logoRaster: store.ticketLogo ?? undefined,
+      },
+      format: kind === "X" ? store.ticketFormats.cutx : store.ticketFormats.cutz,
+      guests: s.guests,
+      gross: r2(s.grossSales),
+      tax: r2(s.taxTotal),
+      byArea: extras.byArea,
+      byWaiter: s.byWaiter.map((w) => ({ name: w.name, tickets: w.tickets, amount: w.sales })),
+      discounts: extras.discounts,
+      voids,
+      credits: extras.credits,
+      tips: r2(s.tips),
+      cash: { float: c.opening, cashSales: c.cashSales, withdrawals: c.withdrawals, deposits: c.deposits, card: r2(c.card + c.other), creditsCash: extras.creditsCash },
       station: se.station.name,
       from: new Date(s.openedAt),
       to: now,

@@ -91,7 +91,7 @@ export class ServiceSlaService {
 
   /** Gestiones › Mesas en servicio. */
   async live(se: Session) {
-    await this.auth.require(se, "funciones.kpi");
+    await this.auth.require(se, "funciones.servicio"); // 0032 · Gestiones › Mesas en servicio
     const now = this.clock();
     const { shifts, rules } = await this.config(se.storeId);
     const [open, closed] = await Promise.all([

@@ -9,7 +9,7 @@ import {
 import { PROFILES, MARTA, PABLO, LUCIA, JEISON } from "./helpers.js";
 
 describe("permisos", () => {
-  it("árbol completo: 6 grupos, 53 códigos «módulo.tecla» sin repetir, 21 módulos de Ajustes + acceso", () => {
+  it("árbol completo: 6 grupos, 58 códigos «módulo.tecla» sin repetir, 21 módulos de Ajustes + acceso", () => {
     expect(Object.keys(PERMISSION_TREE)).toEqual([
       "mesas",
       "pedido",
@@ -19,7 +19,7 @@ describe("permisos", () => {
       "sistema",
     ]);
     expect(new Set(ALL_PERMISSIONS).size).toBe(ALL_PERMISSIONS.length);
-    expect(ALL_PERMISSIONS).toHaveLength(54); // + pedido.reconexiones (0028)
+    expect(ALL_PERMISSIONS).toHaveLength(59); // + pedido.reconexiones (0028), + historialDev y 4 de Gestiones (0032)
     expect(ALL_PERMISSIONS).toContain("mesas.entrarOcupada");
     expect(ALL_PERMISSIONS).toContain("mesas.orderOnTable");
     expect(ALL_PERMISSIONS.filter((p) => p.startsWith("ajustes."))).toHaveLength(22);

@@ -1386,6 +1386,7 @@ export const orders = pgTable("orders", {
 	priceList: varchar("price_list", { length: 30 }).default('general').notNull(),
 	guests: smallint().default(1).notNull(),
 	note: varchar({ length: 300 }),
+	notes: jsonb().default([]).notNull(),
 	openedByUserId: uuid("opened_by_user_id"),
 	openedByUserName: varchar("opened_by_user_name", { length: 60 }).notNull(),
 	openedByRole: varchar("opened_by_role", { length: 30 }),

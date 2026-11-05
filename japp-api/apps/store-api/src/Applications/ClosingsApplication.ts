@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 import type { Database, Tx } from "@japp/db";
-import type { PeriodSummary } from "@japp/domain";
+import { r2, type PeriodSummary } from "@japp/domain";
 import { DATABASE } from "../Constants/Injection.js";
 
 type Q = Tx | Database["db"];
@@ -144,7 +144,7 @@ export class ClosingsApplication {
     // eliminadas con sus modificadores: el servicio aplica voidsOf (sin «Pasada a…» ni «Incluida en menú»)
     const deleted = await rows(
       q,
-      sql`SELECT l.id::text id, l.deleted_by_at, l.name, l.quantity::text quantity, l.unit_price::text unit_price, l.delete_reason, l.deleted_stage, l.printed, l.deleted_by_user_name, l.delete_authorized_by_user_name, o.opened_by_user_name waiter, o.opened_by_user_id::text waiter_id,
+      sql`SELECT l.id::text id, l.deleted_by_at, l.name, l.quantity::text quantity, l.unit_price::text unit_price, l.delete_reason, l.deleted_stage, l.printed, l.deleted_by_user_name, l.delete_authorized_by_user_name, o.table_name, o.opened_by_user_name waiter, o.opened_by_user_id::text waiter_id,
         coalesce((SELECT json_agg(json_build_object('unitPrice', m.unit_price::text, 'quantity', m.quantity::text)) FROM order_line_modifier m WHERE m.line_id = l.id AND m.store_id = l.store_id), '[]') mods
       FROM order_line l JOIN orders o ON o.id = l.order_id AND o.store_id = l.store_id WHERE l.store_id = ${storeId} AND o.period_id = ${periodId} AND l.deleted ORDER BY l.deleted_by_at`,
     );
@@ -156,6 +156,45 @@ export class ClosingsApplication {
     return { inv, pays, deleted, discountAmount: disc?.n ?? 0 };
   }
 
+  /** 05/11 · Corte X/Z: ventas por área, descuentos por nombre y abonos del periodo (lo demás sale del resumen). */
+  async cutExtras(storeId: string, periodId: string) {
+    const q: Q = this.db;
+    const byArea = await rows(
+      q,
+      sql`SELECT coalesce(nullif(o.zone, ''), '—') name, count(*) FILTER (WHERE i.type NOT LIKE 'R%')::int tickets, sum(i.total)::float8 amount
+      FROM invoice i JOIN orders o ON o.id = i.order_id WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.status NOT IN ('cancelled','substituted')
+      GROUP BY 1 ORDER BY 3 DESC`,
+    );
+    const discounts = await rows(
+      q,
+      sql`SELECT coalesce(nullif(d.reason, ''), 'Descuento') name, d.amount::float8 amount, o.table_name, d.applied_by_user_name by, d.applied_by_at at,
+        (SELECT i.invoice_number FROM invoice i WHERE i.account_id = a.id AND i.type IN ('F1','F2','F3') ORDER BY i.issued_at DESC LIMIT 1) number
+      FROM account_discount d JOIN account a ON a.id = d.account_id JOIN orders o ON o.id = a.order_id
+      WHERE d.store_id = ${storeId} AND o.period_id = ${periodId} AND d.status = 'applied' AND a.status <> 'cancelled' ORDER BY d.applied_by_at`,
+    );
+    const credits = await rows(
+      q,
+      sql`SELECT i.invoice_number number, i.total::float8 amount, r.invoice_number ref,
+        coalesce((SELECT sum(p.amount) FROM payment p LEFT JOIN payment_method pm ON pm.id = p.payment_method_id
+                  WHERE p.account_id = i.account_id AND p.status = 'confirmed' AND p.amount < 0 AND (pm.kind = 'cash' OR p.method = 'cash')), 0)::float8 cash
+      FROM invoice i JOIN orders o ON o.id = i.order_id LEFT JOIN invoice r ON r.id = i.rectified_invoice_id
+      WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.type LIKE 'R%' AND i.status <> 'cancelled' ORDER BY i.issued_at`,
+    );
+    const dm = new Map<string, { name: string; count: number; amount: number; items: { at: Date; number: string; table: string; amount: number; by: string }[] }>();
+    for (const r of discounts as any[]) {
+      const g = dm.get(r.name) ?? { name: String(r.name), count: 0, amount: 0, items: [] };
+      g.count++;
+      g.amount = r2(g.amount + Number(r.amount));
+      g.items.push({ at: new Date(r.at), number: String(r.number ?? "—"), table: String(r.table_name ?? ""), amount: r2(Number(r.amount)), by: String(r.by ?? "—") });
+      dm.set(r.name, g);
+    }
+    return {
+      byArea: byArea.map((r: any) => ({ name: String(r.name), tickets: Number(r.tickets), amount: r2(Number(r.amount)) })),
+      discounts: [...dm.values()].sort((a, b) => b.amount - a.amount),
+      credits: credits.map((r: any) => ({ number: String(r.number), amount: r2(-Math.abs(Number(r.amount))), ref: r.ref ? String(r.ref) : null })),
+      creditsCash: r2(Math.abs((credits as any[]).reduce((x, r) => x + Number(r.cash || 0), 0))),
+    };
+  }
   /** Guarda el resumen del periodo cerrado. */
   async insertSummary(
     tx: Tx,

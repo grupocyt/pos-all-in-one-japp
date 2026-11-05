@@ -23,7 +23,7 @@ export class SirService {
   ) {}
 
   async sales(se: Session, periodId?: string) {
-    await this.auth.require(se, "funciones.periodo");
+    await this.auth.require(se, "funciones.sir"); // 0032 · Gestiones › Enviar ventas al SIR
     const q = parse(PeriodQueryModel, { periodId: periodId || undefined });
     const p = await this.sir.period(se.storeId, q.periodId);
     if (!p) {

@@ -73,6 +73,8 @@ export interface Discount {
   value: number;
   reason: string;
   status: "applied" | "removed";
+  /** 05/11 · quién lo aplicó y cuándo (lo enseña la ventana de Descuento) */
+  appliedBy?: { user: string; role?: string; device?: string; at: string } | null;
 }
 
 export interface Payment {

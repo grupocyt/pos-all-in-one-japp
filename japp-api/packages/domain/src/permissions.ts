@@ -40,9 +40,25 @@ export const PERMISSION_TREE = {
     "historial",
     "transaccion",
     "reconexiones", // 0028 · resolver lo ticado sin conexión
+    "historialDev", // 0032 · Historial › pestaña Developer
   ],
   cobro: ["cobrar", "descuentos", "clientes", "reabrir"],
-  funciones: ["facturas", "abonar", "informes", "kpi", "caja", "abrirCajon", "periodo", "pedidos"], // pedidos = tablero de delivery (0025)
+  // pedidos = tablero de delivery (0025); 0032 · un permiso por botón de Gestiones: semana, eliminaciones, servicio (Mesas en
+  // servicio) y sir (Enviar ventas al SIR), que antes iban con informes, kpi y periodo
+  funciones: [
+    "facturas",
+    "abonar",
+    "informes",
+    "kpi",
+    "caja",
+    "abrirCajon",
+    "periodo",
+    "pedidos",
+    "semana",
+    "eliminaciones",
+    "servicio",
+    "sir",
+  ],
   ajustes: ["acceso", ...SETTINGS_MODULES],
   sistema: ["autorizar"],
 } as const;

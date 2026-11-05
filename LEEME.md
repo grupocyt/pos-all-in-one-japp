@@ -1,8 +1,8 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0031, consultas de control · 81 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 112 endpoints, todos programados · 333 pruebas de dominio + 357 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0032, consultas de control · 82 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 112 endpoints, todos programados · 337 pruebas de dominio + 366 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
 japp-tpv/         el TPV (PWA) 1.2.268 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
@@ -35,6 +35,16 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Pantalla del cliente › «Imprimir ticket»:** solo avisaba en el TPV; ahora imprime la factura de esa cuenta (con servidor la reimprime la API, sin abrir el cajón).
 - **Reglas fijas:** nada de lo facturado se edita (para corregir algo, incluida la forma de pago: abono completo y volver a ticar y cobrar); los descuentos son solo al total de la cuenta, uno por cuenta (no hay descuento por producto); una mesa cerrada no se reabre nunca.
 
+**Decidido el 05/11 (pruebas en JC01, migración 0032):**
+
+- **Notas de la mesa:** se pueden dejar varias; cada una queda con quién la dejó, desde qué equipo y a qué hora. **No se borran ni se cambian** (regla del dueño). Salen arriba en Cuentas, Cambiar mesa, Separar, Cobrar y Descuento (una franja que se despliega). Al juntar mesas llegan las de las dos.
+- **Historial de la mesa:** filtros por persona y, si hay más de una cuenta, por cuenta. La pestaña **Developer** solo la ve quien tiene el permiso «Historial › Developer» (por defecto, solo el Administrador; se da en Ajustes › Perfiles).
+- **Cobrar y Descuento con tamaño fijo:** añadir el cliente o un descuento no cambia el tamaño; lo que no cabe hace scroll. Debajo del descuento aplicado: «Aplicado por … · hora».
+- **Cliente en Cobrar:** tarjeta nueva con el tipo de factura, el nombre, el NIF, la dirección y el email, con «Editar» y «Quitar cliente».
+- **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
+- **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
+- **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
 ## 1.2.268 (03/11/2026): reglas de descuento, cobro parcial y mesas cerradas
 
 Decididas con el dueño el 03/11 y aplicadas en la API **y** en el TPV (caja y PDA). Detalle con checklist en `Japp-reglas-de-cobro-1.2.268.pdf`.
@@ -60,7 +70,7 @@ Decididas con el dueño el 03/11 y aplicadas en la API **y** en el TPV (caja y P
 - Ticket: el nombre de un descuento largo se parte en varias líneas (antes se recortaba).
 - **Formatos de ticket en el servidor** (N1, migración 0029): lo que se marca en Ajustes › Formatos de ticket para la precuenta y la factura (logo, cadena, local, razón social, NIF, dirección, teléfono, camarero, desglose de IVA, por persona, pie, despedida, QR de reseñas, QR tributario, abrir el cajón y propina) se guarda en el servidor, lo ven todos los equipos y la API imprime con ello. En la factura el nombre fiscal y el NIF salen siempre.
 
-**Actualizar JC01 a la 1.2.268:** cambian API, TPV **y base (migraciones 0027 a 0031)**: guarda los `.env`, descomprime encima, `npm install`, doble clic en **`actualizar-base.bat`** (copia de seguridad + 0027 a 0031; no borra nada), `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
+**Actualizar JC01 a la 1.2.268:** cambian API, TPV **y base (migraciones 0027 a 0032)**: guarda los `.env`, descomprime encima, `npm install`, doble clic en **`actualizar-base.bat`** (copia de seguridad + 0027 a 0031; no borra nada), `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
 
 ## 1.2.267 (03/11/2026): la API ya tiene todo lo que usa el TPV
 

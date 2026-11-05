@@ -59,10 +59,35 @@ const ticketFormat = z
     qrTrib: z.boolean(),
     cajon: z.boolean(),
     propina: z.boolean(),
+    // 05/11 · corte X y Z
+    comensales: z.boolean(),
+    ticketMedio: z.boolean(),
+    iva: z.boolean(),
+    formasPago: z.boolean(),
+    areas: z.boolean(),
+    camareros: z.boolean(),
+    descuentos: z.boolean(),
+    eliminaciones: z.boolean(),
+    abonos: z.boolean(),
+    propinas: z.boolean(),
+    caja: z.boolean(),
+    contado: z.boolean(),
+    // 05/11 · comanda de anulación
+    dibujo: z.boolean(),
+    camarero: z.boolean(),
+    hora: z.boolean(),
+    momento: z.boolean(),
+    motivo: z.boolean(),
+    autoriza: z.boolean(),
+    grande: z.boolean(),
+    noPreparar: z.boolean(),
   })
   .partial()
   .strict();
-const ticketFormats = z.object({ prebill: ticketFormat, invoice: ticketFormat }).partial().strict();
+const ticketFormats = z
+  .object({ prebill: ticketFormat, invoice: ticketFormat, cutx: ticketFormat, cutz: ticketFormat, void: ticketFormat })
+  .partial()
+  .strict();
 const F = (col: string, kind: Kind, zz: z.ZodTypeAny, label: string, o: Partial<Field> = {}): Field => ({
   col,
   kind,

@@ -90,6 +90,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: app_user, store_parameters
+         *
+         *     0032 (05/11): un permiso por botón de Gestiones. Nuevos: funciones.semana (Resumen semana), funciones.eliminaciones (Eliminaciones), funciones.servicio (Mesas en servicio) y funciones.sir (Enviar ventas al SIR), y pedido.historialDev (Historial › Developer, solo el Administrador). Reparto inicial: Administrador todo; Encargado todo menos el SIR; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo y Cerrar periodo; Mesero nada.
          */
         get: operations["store_GET_sessions_current"];
         put?: never;
@@ -292,6 +294,8 @@ export interface paths {
          *     Permiso: ajustes.{module}
          *
          *     Lo llama: TPV
+         *
+         *     parametros.ticketFormats (05/11, API 1.2.268): además de prebill e invoice, cutx y cutz (corte X y Z: logo, cadena, local, razon, nif, direccion, telefono, comensales, ticketMedio, iva, formasPago, areas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, contado) y void (comanda de anulación: dibujo, camarero, hora, momento, motivo, autoriza, grande, noPreparar). Lo que no viene, sale.
          */
         get: operations["store_GET_config_module_id"];
         put?: never;
@@ -310,6 +314,8 @@ export interface paths {
          *     Tablas: config_change_log, product_incident, sync_outbox
          *
          *     Cambio TPV 1.2.260 (hecho en la API 1.2.267): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.
+         *
+         *     parametros.ticketFormats (05/11, API 1.2.268): además de prebill e invoice, cutx y cutz (corte X y Z: logo, cadena, local, razon, nif, direccion, telefono, comensales, ticketMedio, iva, formasPago, areas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, contado) y void (comanda de anulación: dibujo, camarero, hora, momento, motivo, autoriza, grande, noPreparar). Lo que no viene, sale.
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -441,7 +447,7 @@ export interface paths {
          *
          *     La regla va en el dominio (weekSummary) para que el TPV sin servidor calcule lo mismo.
          *
-         *     Permiso: funciones.informes
+         *     Permiso: funciones.semana
          *
          *     Lo llama: TPV
          *
@@ -470,7 +476,7 @@ export interface paths {
          *
          *     Borrar responde 200 con note: null y version: 0.
          *
-         *     Permiso: funciones.informes
+         *     Permiso: funciones.semana
          *
          *     Lo llama: TPV
          *
@@ -666,12 +672,14 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Comensales o nota de la mesa
+         * Comensales o añadir una nota a la mesa
          * @description Permiso: pedido.comensales | pedido.notaMesa
          *
          *     Lo llama: TPV, PDA
          *
          *     Tablas: orders, order_event
+         *
+         *     05/11 (API 1.2.268, migración 0032, regla del dueño): note AÑADE una nota a la mesa con quién la dejó y cuándo (tableData.notes); las notas no se borran ni se cambian: note vacía o null → 422 VALIDATION field note. tableData.note queda con todas juntas. Al juntar mesas, la de destino se queda con las notas de las dos.
          */
         patch: operations["store_PATCH_orders_orderId"];
         trace?: never;
@@ -1431,7 +1439,7 @@ export interface paths {
         };
         /**
          * Eliminaciones
-         * @description Permiso: funciones.informes
+         * @description Permiso: funciones.eliminaciones
          *
          *     Lo llama: TPV
          *
@@ -2766,6 +2774,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: invoice, payment, cash_movement, orders
+         *
+         *     05/11 (API 1.2.268): el corte lleva el logo del local (Parámetros › ticketLogo, 0031) y el mismo contenido que la vista previa del TPV (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, lo contado), cada parte según Ajustes › Formatos (ticketFormats.cutx / cutz).
          */
         get: operations["store_GET_cash_x_report"];
         put?: never;
@@ -3189,7 +3199,7 @@ export interface paths {
          * Mesas en servicio (SLA en vivo)
          * @description Gestiones › Mesas en servicio. Cada mesa abierta medida con lo que ya guarda la base, contra los límites de Ajustes › SLA de atención que le tocan (tienda, zona o mesa y el turno en que se abrió; manda lo más concreto y lo vacío se hereda; source dice de dónde sale cada límite). metrics: firstOrder (de abrir a marcar lo primero; done=true cuando ya se marcó), unsent (lo marcado más antiguo sin enviar a cocina), idle (desde el último envío, sin nada pendiente ni precuenta), prebillPay (de la precuenta al cobro) y total; null si ese paso no aplica todavía. status = ok, warn (desde warnPercent del límite) o late (pasado). stage = waiting (nada marcado), ordering (marcado sin enviar), service (todo enviado) o billing (precuenta). Lo peor primero. today = medias y % dentro del SLA de las mesas cerradas del periodo abierto (y la toma de las abiertas); staff = por camarero (quien abrió la mesa).
          *
-         *     Permiso: funciones.kpi
+         *     Permiso: funciones.servicio
          *
          *     Lo llama: TPV
          *
@@ -3258,6 +3268,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: invoice, payment, cash_movement
+         *
+         *     05/11 (API 1.2.268): el corte lleva el logo del local (Parámetros › ticketLogo, 0031) y el mismo contenido que la vista previa del TPV (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, lo contado), cada parte según Ajustes › Formatos (ticketFormats.cutx / cutz).
          */
         post: operations["store_POST_cash_x_report_print"];
         delete?: never;
@@ -3305,7 +3317,7 @@ export interface paths {
          * Interfaz de ventas al SIR
          * @description Lo que MaxPoint mandaba al SIR al cerrar el periodo (interface.USP_InterfaceSistemaGerente, rama NORMAL), para probar el fin de periodo: el último periodo cerrado si no viene periodId. Cada bloque es un XML (FOR XML RAW) en UTF-16LE con BOM FFFE, en hexadecimal «0x…»: CierreCajas (TOTAL y canal 1: venta bruta/neta/IVA de facturas menos rectificativas, base al 0 %, descuentos, transacciones, comensales; los campos reservados 1…7 como en MaxPoint), DinTrans (por cajero y forma de pago —id de integración de la forma de pago o su código— y la fila -1 con lo facturado por cajero), VentaHora (por hora de Madrid), PlusTrans (por PLU, producto y respuestas, menos lo abonado y con su parte del descuento) y HorasCajero (horas de sesión por usuario y día). Lo que la tienda aún no tiene va como 0x00000000 (Depositos, CajaChica, CxCEmpleado, ConsumoRecarga, CreditoAutoconsumo, Agregadores, AnulacionBoletas, Cortesias). cod_restaurante = Ajustes › Restaurante › sirCode (si no, el código de la tienda); lc_fecha = día de negocio dd/mm/aaaa. xml = los mismos bloques sin codificar (null = vacío), para revisarlos.
          *
-         *     Permiso: funciones.periodo
+         *     Permiso: funciones.sir
          *
          *     Lo llama: TPV
          *
@@ -3333,7 +3345,7 @@ export interface paths {
          * Enviar las ventas al SIR
          * @description Manda el sobre SOAP interfaceVentasAgregadores (el mismo soap de GET /interface/sir/sales) a la URL de Ajustes › Restaurante › sirUrl con POST text/xml (SOAPAction = SIR_SOAP_ACTION, vacío por defecto) y responde lo que pasó: ok, código HTTP, tiempo, la respuesta del SIR (hasta 20 000 caracteres) y error (sin conexión, tiempo agotado a los 20 s, HTTP ≠ 2xx o SOAP Fault). sir = lo que el SIR contesta en <return> ({Respuesta, Mensaje}); accepted = true si Respuesta es «1», false si es «0» (p. ej. «El Menu Mix ya se encuetra Asentado»), null si no se puede leer. Un fallo del SIR no es un error de la API: responde 200 con ok = false. Sin URL configurada → 422 VALIDATION (field sirUrl).
          *
-         *     Permiso: funciones.periodo
+         *     Permiso: funciones.sir
          *
          *     Lo llama: TPV
          *
@@ -3971,7 +3983,17 @@ export interface components {
                     at?: string;
                 } | null;
                 lastExit?: unknown;
-                note?: unknown;
+                /** @description Todas las notas de la mesa juntas («alérgico · trona»), para comandas y equipos antiguos */
+                note?: string | null;
+                /** @description 05/11 · notas de la mesa, cada una con quién la dejó, desde qué equipo y cuándo (no se borran) */
+                notes?: {
+                    id?: string;
+                    text?: string;
+                    user?: string;
+                    role?: string;
+                    device?: string;
+                    at?: string;
+                }[];
             };
             events?: {
                 type?: string;
@@ -3980,6 +4002,8 @@ export interface components {
                 user?: string | null;
                 device?: string | null;
                 role?: string | null;
+                /** @description 05/11 · cuenta del evento (null = de la mesa) */
+                accountId?: string | null;
             }[];
             accounts?: {
                 id?: string | null;
@@ -6276,14 +6300,17 @@ export interface operations {
         requestBody: {
             content: {
                 /** @example {
-                 *       "guests": 3,
                  *       "note": "Silla de bebé",
+                 *       "noteId": "n-6f1c2a",
                  *       "version": 7
                  *     } */
                 "application/json": {
                     guests?: number;
+                    /** @description Nota nueva para la mesa (se añade a las que ya tiene; vacía → 422) */
                     note?: string | null;
                     version?: number;
+                    /** @description Id de la nota que pone el equipo: si ya existe, no se repite (reintentos) */
+                    noteId?: string;
                 };
             };
         };
@@ -6303,6 +6330,15 @@ export interface operations {
             };
             /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · ORDER_CLOSED: La mesa se cerró desde otro equipo. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Las notas de la mesa no se borran: escribe una nota nueva */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -16,7 +16,9 @@ export const OpenOrder = z.object({
 });
 export const PatchOrder = z.object({
   guests: z.number().int().min(1).max(99).optional(),
+  /** 05/11 · añade una nota a la mesa (no se borran); noteId del equipo para no repetirla al reintentar */
   note: z.string().max(300).nullish(),
+  noteId: z.string().max(64).optional(),
   version,
 });
 export const NewAccount = z.object({ id: Uuid.optional(), name: z.string().max(40).optional(), version });

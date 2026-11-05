@@ -436,7 +436,7 @@ describe("prueba de impresoras: anulación, corte X, corte Z y QR de Order on Ta
       return r.body.text as string;
     };
     expect(await text("void")).toMatch(
-      /ANULACIÓN[\s\S]*Motivo: Error al marcar[\s\S]*Autorizado por: Encargado/,
+      /ANULADO[\s\S]*MOTIVO: ERROR AL MARCAR[\s\S]*Autoriza: Encargado[\s\S]*NO PREPARAR/,
     );
     expect(await text("cutx")).toMatch(/CORTE X[\s\S]*Lectura sin cierre[\s\S]*Efectivo esperado/);
     const z = await text("cutz");

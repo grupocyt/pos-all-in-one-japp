@@ -294,6 +294,24 @@ describe("migraciones", () => {
     expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='cash_closing' AND column_name='note'")).toEqual({ x: 1 });
     expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='invoice' AND column_name='substituted_invoice_id'")).toEqual({ x: 1 });
   }));
+  it("0032: notas de la mesa (jsonb, con la nota de antes), Historial › Developer solo al Administrador y un permiso por botón de Gestiones", () => rollback(c, async () => {
+    expect((await one(c, "SELECT column_default FROM information_schema.columns WHERE table_name='orders' AND column_name='notes'")).column_default).toMatch(/\[\]/);
+    const bad = await all(c, "SELECT id FROM orders WHERE coalesce(trim(note),'') <> '' AND jsonb_array_length(notes) = 0");
+    expect(bad).toEqual([]);
+    const dev = await all(c, "SELECT p.code FROM profile_permission pp JOIN user_profile p ON p.id = pp.profile_id WHERE pp.permission_code = 'pedido.historialDev'");
+    expect(dev.map((r: any) => r.code)).toEqual(["ADMIN"]);
+    for (const code of ["funciones.semana", "funciones.eliminaciones", "funciones.servicio", "funciones.sir"]) {
+      expect((await one(c, "SELECT count(*)::int n FROM permission WHERE code=$1", [code])).n, code).toBe(1);
+    }
+    const of = async (profile: string) => (await all(c, `SELECT pp.permission_code c FROM profile_permission pp JOIN user_profile p ON p.id = pp.profile_id
+      WHERE p.code=$1 AND pp.permission_code IN ('funciones.facturas','pedido.reconexiones','funciones.semana','funciones.eliminaciones','funciones.kpi',
+      'funciones.servicio','funciones.sir','funciones.abrirCajon','mesas.moverMesas','funciones.caja','funciones.periodo') ORDER BY 1`, [profile])).map((r: any) => r.c);
+    expect(await of("ADMIN")).toHaveLength(11);
+    expect(await of("ADMIN_LOCAL")).not.toContain("funciones.sir");
+    expect(await of("ADMIN_LOCAL")).toHaveLength(10);
+    expect(await of("CAJERO")).toEqual(["funciones.abrirCajon", "funciones.caja", "funciones.facturas", "funciones.periodo", "funciones.servicio"]);
+    expect(await of("MESERO")).toEqual([]);
+  }));
   it("0031: ticket_logo en store_parameters (vacío = logo de la cadena)", () => rollback(c, async () => {
     expect((await one(c, "SELECT ticket_logo FROM store_parameters LIMIT 1")).ticket_logo).toBeNull();
   }));

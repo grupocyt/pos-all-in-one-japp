@@ -124,10 +124,42 @@ export interface TicketFormat {
   qrTrib?: boolean;
   cajon?: boolean;
   propina?: boolean;
+  /* 1.2.268 · 05/11: cortes X y Z (Ajustes › Formatos, como la precuenta) */
+  comensales?: boolean;
+  ticketMedio?: boolean;
+  /** venta bruta, IVA y venta neta */
+  iva?: boolean;
+  formasPago?: boolean;
+  areas?: boolean;
+  camareros?: boolean;
+  descuentos?: boolean;
+  eliminaciones?: boolean;
+  abonos?: boolean;
+  propinas?: boolean;
+  caja?: boolean;
+  /** solo Z: lo contado, la diferencia y el motivo */
+  contado?: boolean;
+  /* 1.2.268 · 05/11: comanda de anulación */
+  /** «*** ANULADO ***» grande arriba */
+  dibujo?: boolean;
+  /** canal y camarero */
+  camarero?: boolean;
+  hora?: boolean;
+  /** «ELIMINADO TRAS …» */
+  momento?: boolean;
+  motivo?: boolean;
+  autoriza?: boolean;
+  /** productos en doble ancho */
+  grande?: boolean;
+  noPreparar?: boolean;
 }
 export interface TicketFormats {
   prebill?: TicketFormat;
   invoice?: TicketFormat;
+  /** 05/11 · corte X, corte Z y comanda de anulación */
+  cutx?: TicketFormat;
+  cutz?: TicketFormat;
+  void?: TicketFormat;
 }
 export interface TicketContext {
   store: StoreHeader;
@@ -142,6 +174,7 @@ export interface TicketContext {
   formats?: TicketFormats;
 }
 const fmtOn = (f: TicketFormat | undefined, k: keyof TicketFormat) => f?.[k] !== false;
+export const formatOn = fmtOn;
 
 const T = (text: string, o: Omit<Extract<TicketLine, { k: "text" }>, "k" | "text"> = {}): TicketLine => ({
   k: "text",
@@ -559,7 +592,8 @@ export function voidTicket(
 /** Lo que lleva un corte X (lectura sin cerrar) o Z (cierre del periodo). */
 export interface CutTicketData {
   kind: "X" | "Z";
-  store: Pick<StoreHeader, "tradeName" | "legalName" | "taxId">;
+  /** cabecera: con logoRaster, chain y local sale como la precuenta (05/11); sin ellos, el nombre comercial */
+  store: Pick<StoreHeader, "tradeName" | "legalName" | "taxId"> & Partial<StoreHeader>;
   /** estación o caja del corte */
   station?: string;
   from: Date;
@@ -575,64 +609,185 @@ export interface CutTicketData {
   counted?: { cash: number; card?: number | null; difference: number; note?: string | null } | null;
   /** N3: propinas en efectivo (están en el cajón, no son venta) */
   cashTips?: number;
+  /* 05/11 · el mismo contenido que la vista previa del TPV (cada parte según el formato) */
+  guests?: number;
+  /** venta bruta (IVA incluido) e IVA */
+  gross?: number;
+  tax?: number;
+  byArea?: { name: string; tickets: number; amount: number }[];
+  byWaiter?: { name: string; tickets: number; amount: number }[];
+  discounts?: {
+    name: string;
+    count: number;
+    amount: number;
+    items?: { at: Date; number: string; table: string; amount: number; by: string; auth?: string | null }[];
+  }[];
+  voids?: {
+    at: Date;
+    qty: number;
+    name: string;
+    amount: number;
+    reason: string;
+    by: string;
+    auth?: string | null;
+    table?: string;
+    stage?: "printed" | "preBill";
+  }[];
+  credits?: { number: string; amount: number; ref?: string | null }[];
+  tips?: number;
+  cash?: { float: number; cashSales: number; withdrawals: number; deposits?: number; card: number; creditsCash?: number };
+  /** Ajustes › Formatos › Corte X / Corte Z */
+  format?: TicketFormat;
 }
 
 /**
- * Corte X / Corte Z (48 columnas): título, periodo (desde–hasta), ventas por forma de pago y su total, número de
- * tickets y efectivo esperado en caja. El Z lleva «Z nº N» si hay número de cierre; el X avisa de que no cierra nada.
+ * Corte X / Corte Z (48 columnas), línea a línea igual que la vista previa del TPV (05/11): cabecera con el logo del
+ * local, periodo, ventas (tickets, comensales, ticket medio, venta bruta, IVA y neta), formas de pago, áreas y camareros
+ * (solo X), descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo. Cada parte se quita en Ajustes › Formatos.
  */
 export function cutTicket(c: CutTicketData): TicketLine[] {
+  const f = c.format;
+  const on = (k: keyof TicketFormat) => fmtOn(f, k);
   const from = madridParts(c.from);
   const to = madridParts(c.to);
-  const out: TicketLine[] = [
-    T(c.store.tradeName || c.store.legalName, { align: "center", bold: true }),
-    T(`NIF: ${c.store.taxId}`, { align: "center" }),
+  const z = c.kind === "Z";
+  const out: TicketLine[] = [];
+  // cabecera: logo, cadena · local (razón social, NIF, dirección y teléfono solo si el formato los pide)
+  const hf: TicketFormat = { razon: false, nif: false, direccion: false, telefono: false, ...(f ?? {}) };
+  out.push(...storeBlock({ ...c.store, logo: c.store.logo ?? true }, hf).filter((l) => l.k !== "feed"));
+  out.push(
     R("="),
-    T(`CORTE ${c.kind}`, { align: "center", size: "wh", bold: true }),
-  ];
-  if (c.kind === "Z" && c.closingNumber != null) {
+    T(z ? "CORTE Z · FIN DE DÍA" : "CORTE X · RESUMEN DE VENTA", { align: "center", bold: true }),
+    T(z ? "(periodo cerrado)" : "(no cierra el periodo) · Lectura sin cierre", { align: "center" }),
+  );
+  if (z && c.closingNumber != null) {
     out.push(T(`Z nº ${String(c.closingNumber).padStart(4, "0")}`, { align: "center", bold: true }));
   }
-  if (c.kind === "X") {
-    out.push(T("Lectura sin cierre", { align: "center" }));
-  }
-  out.push(R("-"));
-  if (c.station) {
-    out.push(T(lr("Caja", c.station)));
-  }
-  out.push(
-    T(lr("Desde", `${from.date} ${from.hm}`)),
-    T(lr("Hasta", `${to.date} ${to.hm}`)),
-    T(lr("Usuario", c.user)),
-    R("="),
-    T("VENTAS POR FORMA DE PAGO", { bold: true }),
-    R("-"),
-  );
-  for (const m of c.byMethod) {
-    const label = m.count != null ? `${m.name} (${m.count})` : m.name;
-    out.push(T(lr(label, eur(m.amount))));
-  }
-  const total = r2(sum(c.byMethod.map((m) => m.amount)));
   out.push(
     R("-"),
-    T(lr("Total ventas", eur(total)), { bold: true }),
-    T(lr("Tickets", String(c.tickets))),
+    T(lr(`Desde: ${from.date} ${from.hm}`, `Hasta: ${to.hm}`)),
+    T(lr(`Estación: ${c.station ?? ""}`, `Por: ${c.user}`)),
     R("="),
-    ...(c.cashTips ? [T(lr("Propinas en efectivo", eur(c.cashTips)))] : []),
-    T(lr("Efectivo esperado", eur(c.expectedCash)), { bold: true }),
   );
-  if (c.counted) {
-    out.push(T(lr("Efectivo contado", eur(c.counted.cash))));
+  const H = { bold: true };
+  const sec = (title: string) => out.push({ k: "feed" }, T(title, H), R("-"));
+  const gross = c.gross ?? r2(sum(c.byMethod.map((m) => m.amount)));
+  const tax = c.tax ?? 0;
+  const net = r2(gross - tax);
+  sec("VENTAS");
+  out.push(T(lr("TICKETS", String(c.tickets)), H));
+  if (on("comensales") && c.guests != null) {
+    out.push(T(lr("COMENSALES", String(c.guests)), H));
+  }
+  if (on("ticketMedio")) {
+    out.push(T(lr("TICKET MEDIO (NETO)", eur(c.tickets ? r2(net / c.tickets) : 0)), H));
+  }
+  if (on("iva")) {
+    out.push(R("-"), T(lr("VENTA BRUTA", eur(gross))), T(lr("- IVA", eur(-tax))), T(lr("= VENTA NETA", eur(net)), { size: "h", bold: true }));
+  } else {
+    out.push(R("-"), T(lr("Total ventas", eur(gross)), H));
+  }
+  if (on("formasPago") && c.byMethod.length) {
+    sec("POR FORMA DE PAGO   (nº · importe)");
+    [...c.byMethod]
+      .sort((a, b) => b.amount - a.amount)
+      .forEach((m) => out.push(T(lr(`${padL(String(m.count ?? ""), 3)}  ${m.name}`, eur(m.amount)), H)));
+    out.push(R("-"), T(lr("TOTAL (= venta bruta)", eur(r2(sum(c.byMethod.map((m) => m.amount))))), H));
+  }
+  if (on("areas") && !z && c.byArea?.length) {
+    sec("POR ÁREA   (tickets · importe)");
+    c.byArea.forEach((a) => out.push(T(lr(`${padL(String(a.tickets), 4)}  ${a.name}`, eur(a.amount)))));
+  }
+  if (on("camareros") && !z && c.byWaiter?.length) {
+    sec("POR CAMARERO   (tickets · ticket medio)");
+    [...c.byWaiter]
+      .sort((a, b) => b.amount / (b.tickets || 1) - a.amount / (a.tickets || 1))
+      .forEach((w) => out.push(T(lr(`${padL(String(w.tickets), 4)}  ${w.name}`, eur(w.tickets ? r2(w.amount / w.tickets) : 0)))));
+  }
+  if (on("descuentos") && c.discounts?.length) {
+    sec("DESCUENTOS");
+    for (const d of c.discounts) {
+      out.push(T(lr(`${d.name} (${d.count})`, eur(d.amount)), H));
+      for (const x of d.items ?? []) {
+        out.push(T(lr(`  ${madridParts(x.at).hm}  ${x.number}`, eur(x.amount))));
+        wrap(`Mesa ${x.table || "—"} · Aplicó: ${x.by}${x.auth ? ` · Autorizó: ${x.auth}` : ""}`, 40).forEach((y) => out.push(T("        " + y)));
+      }
+      out.push({ k: "feed" });
+    }
+  }
+  if (on("eliminaciones") && c.voids?.length) {
+    sec("ELIMINACIONES");
+    const groups: [string, NonNullable<CutTicketData["voids"]>][] = z
+      ? [["TRAS LA PRECUENTA", c.voids.filter((v) => v.stage === "preBill")]]
+      : [
+          ["TRAS ENVIAR A COCINA", c.voids.filter((v) => v.stage !== "preBill")],
+          ["TRAS LA PRECUENTA", c.voids.filter((v) => v.stage === "preBill")],
+        ];
+    for (const [label, L] of groups) {
+      if (!L.length) {
+        continue;
+      }
+      out.push(T(lr(`${label} (${sum(L.map((v) => v.qty))} uds.)`, eur(r2(sum(L.map((v) => v.amount))))), H));
+      if (z) {
+        continue;
+      }
+      for (const v of L) {
+        out.push(T(lr(`  ${madridParts(v.at).hm}  ${v.qty} ${v.name}`, eur(v.amount))));
+        out.push(T(`        Mesa ${v.table || "—"} · ${v.reason || "—"}`.slice(0, WIDTH)));
+        wrap(`Eliminó: ${v.by || "—"}${v.auth ? ` · Autorizó: ${v.auth}` : ""}`, 40).forEach((y) => out.push(T("        " + y)));
+      }
+      out.push({ k: "feed" });
+    }
+  }
+  if (on("abonos") && c.credits?.length) {
+    sec("ABONOS");
+    c.credits.forEach((x) => out.push(T(lr(`${x.number}${x.ref ? " ← " + x.ref : ""}`, eur(x.amount)))));
+    out.push(R("-"), T(lr("TOTAL ABONOS", eur(r2(sum(c.credits.map((x) => x.amount))))), H));
+  }
+  if (on("propinas") && (c.tips || c.cashTips)) {
+    sec("PROPINAS (no son venta)");
+    if (c.tips) {
+      out.push(T(lr("Propinas", eur(c.tips))));
+    }
+    if (c.cashTips) {
+      out.push(T(lr("Propinas en efectivo", eur(c.cashTips))));
+    }
+  }
+  if (on("caja")) {
+    sec("CAJA (EFECTIVO)");
+    if (c.cash) {
+      out.push(T(lr("Fondo inicial", eur(c.cash.float))), T(lr("+ Ventas en efectivo", eur(c.cash.cashSales))));
+      if (c.cashTips) {
+        out.push(T(lr("+ Propinas en efectivo", eur(c.cashTips))));
+      }
+      if (c.cash.creditsCash) {
+        out.push(T(lr("- Abonos en efectivo", eur(c.cash.creditsCash))));
+      }
+      if (c.cash.withdrawals) {
+        out.push(T(lr("- Retiros", eur(c.cash.withdrawals))));
+      }
+      if (c.cash.deposits) {
+        out.push(T(lr("+ Ingresos", eur(c.cash.deposits))));
+      }
+    }
+    out.push(T(lr("= Efectivo esperado", eur(c.expectedCash)), H));
+    if (c.cash) {
+      out.push(T(lr("Tarjeta y otros (menos abonos)", eur(c.cash.card))));
+    }
+  }
+  if (c.counted && on("contado")) {
+    out.push({ k: "feed" }, T("ARQUEO DE CIERRE", H), R("-"));
+    out.push(T(lr("Efectivo esperado", eur(c.expectedCash))), T(lr("Efectivo contado", eur(c.counted.cash))));
     if (c.counted.card != null) {
       out.push(T(lr("Tarjeta contada", eur(c.counted.card))));
     }
     const d = c.counted.difference;
-    out.push(T(lr("Diferencia", Math.abs(d) < 0.005 ? "cuadra" : (d > 0 ? "+" : "") + eur(d)), { bold: true }));
+    out.push(T(lr("Diferencia", Math.abs(d) < 0.005 ? "cuadra" : (d > 0 ? "+" : "") + eur(d)), H));
     if ((c.counted.note ?? "").trim()) {
       wrap(`Motivo: ${c.counted.note!.trim()}`, WIDTH).forEach((x) => out.push(T(x)));
     }
   }
-  out.push(R("="));
+  out.push(R("="), T(`Impreso ${to.date} ${to.hms}`, { align: "center" }));
   out.push({ k: "feed", n: 3 }, { k: "cut" });
   return out;
 }

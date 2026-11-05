@@ -114,6 +114,25 @@ export class ClosingsService {
     return { summary, voids, waiterIds };
   }
 
+  /** 05/11 · Corte X/Z: el resumen y las anulaciones con su momento (tras enviar o tras la precuenta). */
+  async cutDetail(storeId: string, periodId: string) {
+    const c = await this.compute(null, storeId, periodId, 0);
+    return {
+      summary: c.summary,
+      voids: c.voids.map(({ l, quantity, amount, stage }) => ({
+        at: new Date(l.deleted_by_at ?? c.summary.openedAt),
+        qty: quantity,
+        name: l.name,
+        amount: r2(amount),
+        reason: l.delete_reason ?? "",
+        by: l.deleted_by_user_name ?? "—",
+        auth: l.delete_authorized_by_user_name ?? null,
+        table: (l as any).table_name ?? "",
+        stage: stage === "preBill" ? ("preBill" as const) : ("printed" as const),
+      })),
+    };
+  }
+
   /** Camareros · KPI del periodo: el resumen (summarizePeriod) + las anulaciones de sus mesas (regla staffKpi). */
   async staff(storeId: string, periodId: string) {
     const c = await this.compute(null, storeId, periodId, 0);

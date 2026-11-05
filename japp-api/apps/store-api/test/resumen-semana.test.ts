@@ -104,13 +104,13 @@ describe("Gestiones › Resumen semana (GET /reports/week)", () => {
     expect([fut.status, fut.error.code]).toEqual([422, "VALIDATION"]);
   });
 
-  it("sin el permiso funciones.informes → 403", async () => {
+  it("sin el permiso funciones.semana (0032) → 403", async () => {
     const mesero = await t.login(PIN.mesero);
     const r = await t.call("GET", "/reports/week", { token: mesero });
     expect([r.status, r.error.code, r.error.details.permission]).toEqual([
       403,
       "PERMISSION_REQUIRED",
-      "funciones.informes",
+      "funciones.semana",
     ]);
   });
 });

@@ -1,4 +1,4 @@
-import { madridParts, wrap, WIDTH, type TicketLine } from "./tickets.js";
+import { madridParts, wrap, WIDTH, formatOn, type TicketLine, type TicketFormat } from "./tickets.js";
 
 const T = (text: string, o: Omit<Extract<TicketLine, { k: "text" }>, "k" | "text"> = {}): TicketLine => ({
   k: "text",
@@ -18,6 +18,8 @@ export interface KitchenVoidContext {
   stage: "printed" | "preBill";
   reason: string;
   authorizedBy?: string | null;
+  /** 05/11 · Ajustes › Formatos › Anulación: cada parte se puede quitar (lo que no viene, sale) */
+  format?: TicketFormat;
 }
 
 /**
@@ -29,39 +31,54 @@ export function kitchenVoidTicket(
   ctx: KitchenVoidContext,
 ): TicketLine[] {
   const area = ctx.table.area ? `${ctx.table.area}/` : "";
-  const out: TicketLine[] = [
-    { k: "feed" },
-    T("*** ANULADO ***", { align: "center", size: "wh", bold: true }),
-    T(`${ctx.channel.toUpperCase()}/ ${ctx.waiter}`, { align: "center" }),
-    T(madridParts(ctx.at).hms, { align: "center", size: "h" }),
-    T(`Mesa ${area}${ctx.table.name}`, { align: "center", size: "w" }),
-    R("="),
-    T(ctx.stage === "preBill" ? "ELIMINADO TRAS LA PRECUENTA" : "ELIMINADO TRAS ENVIAR A COCINA", {
-      align: "center",
-      bold: true,
-    }),
-  ];
-  wrap(`MOTIVO: ${(ctx.reason || "—").toUpperCase()}`, WIDTH).forEach((x) =>
-    out.push(T(x, { align: "center", bold: true })),
-  );
-  if (ctx.authorizedBy) {
+  const on = (k: keyof TicketFormat) => formatOn(ctx.format, k);
+  const out: TicketLine[] = [{ k: "feed" }];
+  if (on("dibujo")) {
+    out.push(T("*** ANULADO ***", { align: "center", size: "wh", bold: true }));
+  }
+  if (on("camarero")) {
+    out.push(T(`${ctx.channel.toUpperCase()}/ ${ctx.waiter}`, { align: "center" }));
+  }
+  if (on("hora")) {
+    out.push(T(madridParts(ctx.at).hms, { align: "center", size: "h" }));
+  }
+  out.push(T(`Mesa ${area}${ctx.table.name}`, { align: "center", size: "w" }), R("="));
+  if (on("momento")) {
+    out.push(
+      T(ctx.stage === "preBill" ? "ELIMINADO TRAS LA PRECUENTA" : "ELIMINADO TRAS ENVIAR A COCINA", {
+        align: "center",
+        bold: true,
+      }),
+    );
+  }
+  if (on("motivo")) {
+    wrap(`MOTIVO: ${(ctx.reason || "—").toUpperCase()}`, WIDTH).forEach((x) =>
+      out.push(T(x, { align: "center", bold: true })),
+    );
+  }
+  if (ctx.authorizedBy && on("autoriza")) {
     out.push(T(`Autoriza: ${ctx.authorizedBy}`, { align: "center" }));
   }
   out.push(R("-"));
+  const big = on("grande");
+  const width = big ? W2 : WIDTH;
   lines.forEach((l, i) => {
     if (i) {
       out.push({ k: "feed" });
     }
     const q = "-" + l.quantity;
     const pre = q + " ".repeat(Math.max(2, 4 - q.length));
-    const parts = wrap(l.name.toUpperCase(), W2 - pre.length);
-    out.push(T(pre + parts[0], { size: "w" }));
-    parts.slice(1).forEach((p) => out.push(T(" ".repeat(pre.length) + p, { size: "w" })));
+    const parts = wrap(l.name.toUpperCase(), width - pre.length);
+    out.push(T(pre + parts[0], big ? { size: "w" } : { bold: true }));
+    parts.slice(1).forEach((p) => out.push(T(" ".repeat(pre.length) + p, big ? { size: "w" } : { bold: true })));
     for (const m of l.modifiers ?? []) {
       out.push(T(`   -- ${(m.quantity ?? 1) * l.quantity} ${m.name.toUpperCase()}`));
     }
   });
-  out.push(R("="), T("*** NO PREPARAR ***", { align: "center", bold: true, size: "w" }));
+  out.push(R("="));
+  if (on("noPreparar")) {
+    out.push(T("*** NO PREPARAR ***", { align: "center", bold: true, size: "w" }));
+  }
   out.push({ k: "feed", n: 3 }, { k: "cut" });
   return out;
 }

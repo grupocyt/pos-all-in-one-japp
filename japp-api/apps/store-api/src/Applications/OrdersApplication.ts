@@ -42,11 +42,26 @@ export interface OrderHeader {
   priceList: "general" | "terrace";
   guests: number;
   note: string | null;
+  /** 05/11 · notas de la mesa con quién y cuándo (no se borran; note = todas juntas) */
+  notes?: TableNote[];
   openedBy: Actor;
   lastEntry: Actor | null;
   /** Una persona por mesa: quién la tiene y si hay un cobro abierto */
   presence: PresenceState;
 }
+export interface TableNote {
+  id: string;
+  text: string;
+  user: string;
+  role: string;
+  device: string;
+  at: string;
+}
+/** Todas las notas en una línea (orders.note, comandas y precuentas): «alérgico · trona». */
+export const notesText = (notes: TableNote[]) => {
+  const t = notes.map((n) => n.text).join(" · ");
+  return t ? t.slice(0, 300) : null;
+};
 export interface OrderEvent {
   type: string;
   description: string;
@@ -298,6 +313,14 @@ export class OrdersApplication {
               value: num(d.value),
               reason: d.reason ?? "",
               status: d.status as Discount["status"],
+              appliedBy: d.appliedByUserName
+                ? {
+                    user: d.appliedByUserName,
+                    role: d.appliedByRole ?? "",
+                    device: d.appliedByDevice ?? "",
+                    at: new Date(d.appliedByAt as any).toISOString(),
+                  }
+                : null,
             })),
           payments: pays
             .filter((p) => p.accountId === a.id)
@@ -353,6 +376,7 @@ export class OrdersApplication {
       priceList: o!.priceList as OrderHeader["priceList"],
       guests: o!.guests,
       note: o!.note,
+      notes: Array.isArray((o as any).notes) ? ((o as any).notes as TableNote[]) : [],
       openedBy: actor({
         id: o!.openedByUserId,
         u: o!.openedByUserName,
@@ -433,6 +457,7 @@ export class OrdersApplication {
       priceList: h.priceList,
       guests: h.guests,
       note: h.note,
+      notes: h.notes ?? [],
       ...actorCols("openedBy", h.openedBy),
       ...actorCols("lastEntry", h.openedBy),
     } as typeof s.orders.$inferInsert);
@@ -802,6 +827,7 @@ export class OrdersApplication {
         status,
         guests: after.guests,
         note: header.note,
+        notes: header.notes ?? [],
         snapshot: snap,
         ...actorCols("lastEntry", ctx.actor),
         ...(allClosed || status === "cancelled" ? { closedAt: ctx.actor.at } : {}),
@@ -843,6 +869,7 @@ export class OrdersApplication {
         lastEntry: who(h.lastEntry ?? h.openedBy),
         lastExit: null,
         note: h.note,
+        notes: (h.notes ?? []).map((n) => ({ id: n.id, text: n.text, user: n.user, role: n.role, device: n.device, at: n.at })),
       },
       events: events.map((e) => ({
         type: e.type,
@@ -851,6 +878,7 @@ export class OrdersApplication {
         user: e.userName ?? "",
         device: e.device ?? "",
         role: e.role ?? "",
+        accountId: e.accountId ?? null, // 05/11 · Historial › filtro por cuenta
       })),
       accounts: order.accounts.map((a) => ({
         id: a.id,

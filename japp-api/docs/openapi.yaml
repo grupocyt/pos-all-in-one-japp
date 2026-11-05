@@ -533,7 +533,13 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: app_user, store_parameters'
+        Tablas: app_user, store_parameters
+
+
+        0032 (05/11): un permiso por botón de Gestiones. Nuevos: funciones.semana (Resumen semana), funciones.eliminaciones
+        (Eliminaciones), funciones.servicio (Mesas en servicio) y funciones.sir (Enviar ventas al SIR), y pedido.historialDev
+        (Historial › Developer, solo el Administrador). Reparto inicial: Administrador todo; Encargado todo menos el SIR;
+        Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo y Cerrar periodo; Mesero nada.'
       operationId: store_GET_sessions_current
       security:
       - session: []
@@ -1979,7 +1985,13 @@ paths:
         Permiso: ajustes.{module}
 
 
-        Lo llama: TPV'
+        Lo llama: TPV
+
+
+        parametros.ticketFormats (05/11, API 1.2.268): además de prebill e invoice, cutx y cutz (corte X y Z: logo, cadena,
+        local, razon, nif, direccion, telefono, comensales, ticketMedio, iva, formasPago, areas, camareros, descuentos, eliminaciones,
+        abonos, propinas, caja y, en el Z, contado) y void (comanda de anulación: dibujo, camarero, hora, momento, motivo,
+        autoriza, grande, noPreparar). Lo que no viene, sale.'
       operationId: store_GET_config_module_id
       security:
       - session: []
@@ -2099,7 +2111,13 @@ paths:
 
 
         Cambio TPV 1.2.260 (hecho en la API 1.2.267): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE)
-        y bloqueo 0 o ≥ 10 s.'
+        y bloqueo 0 o ≥ 10 s.
+
+
+        parametros.ticketFormats (05/11, API 1.2.268): además de prebill e invoice, cutx y cutz (corte X y Z: logo, cadena,
+        local, razon, nif, direccion, telefono, comensales, ticketMedio, iva, formasPago, areas, camareros, descuentos, eliminaciones,
+        abonos, propinas, caja y, en el Z, contado) y void (comanda de anulación: dibujo, camarero, hora, momento, motivo,
+        autoriza, grande, noPreparar). Lo que no viene, sale.'
       operationId: store_PATCH_config_module_id
       security:
       - session: []
@@ -3034,7 +3052,7 @@ paths:
         La regla va en el dominio (weekSummary) para que el TPV sin servidor calcule lo mismo.
 
 
-        Permiso: funciones.informes
+        Permiso: funciones.semana
 
 
         Lo llama: TPV
@@ -3469,7 +3487,7 @@ paths:
         Borrar responde 200 con note: null y version: 0.
 
 
-        Permiso: funciones.informes
+        Permiso: funciones.semana
 
 
         Lo llama: TPV
@@ -5634,14 +5652,19 @@ paths:
     patch:
       tags:
       - API de tienda v2 · Órdenes y cuentas
-      summary: Comensales o nota de la mesa
+      summary: Comensales o añadir una nota a la mesa
       description: 'Permiso: pedido.comensales | pedido.notaMesa
 
 
         Lo llama: TPV, PDA
 
 
-        Tablas: orders, order_event'
+        Tablas: orders, order_event
+
+
+        05/11 (API 1.2.268, migración 0032, regla del dueño): note AÑADE una nota a la mesa con quién la dejó y cuándo (tableData.notes);
+        las notas no se borran ni se cambian: note vacía o null → 422 VALIDATION field note. tableData.note queda con todas
+        juntas. Al juntar mesas, la de destino se queda con las notas de las dos.'
       operationId: store_PATCH_orders_orderId
       security:
       - session: []
@@ -5910,6 +5933,25 @@ paths:
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
+        '422':
+          description: 'VALIDATION: Las notas de la mesa no se borran: escribe una nota nueva'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Comensales o nota de la mesa
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: 'Las notas de la mesa no se borran: escribe una nota nueva'
+                  field: note
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
       parameters:
       - name: orderId
         in: path
@@ -5929,11 +5971,17 @@ paths:
                   type:
                   - string
                   - 'null'
+                  maxLength: 300
+                  description: Nota nueva para la mesa (se añade a las que ya tiene; vacía → 422)
                 version:
                   type: integer
+                noteId:
+                  type: string
+                  maxLength: 64
+                  description: 'Id de la nota que pone el equipo: si ya existe, no se repite (reintentos)'
             example:
-              guests: 3
               note: Silla de bebé
+              noteId: n-6f1c2a
               version: 7
       x-concurrency: Lleva version; si no coincide responde 409 VERSION_CONFLICT con la transacción actual
   /api/v2/orders/{orderId}/presence:
@@ -15615,7 +15663,7 @@ paths:
       tags:
       - API de tienda v2 · Facturas, caja e informes
       summary: Eliminaciones
-      description: 'Permiso: funciones.informes
+      description: 'Permiso: funciones.eliminaciones
 
 
         Lo llama: TPV
@@ -25043,7 +25091,13 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: invoice, payment, cash_movement, orders'
+        Tablas: invoice, payment, cash_movement, orders
+
+
+        05/11 (API 1.2.268): el corte lleva el logo del local (Parámetros › ticketLogo, 0031) y el mismo contenido que la
+        vista previa del TPV (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros,
+        descuentos, eliminaciones, abonos, propinas, caja y, en el Z, lo contado), cada parte según Ajustes › Formatos (ticketFormats.cutx
+        / cutz).'
       operationId: store_GET_cash_x_report
       security:
       - session: []
@@ -27632,7 +27686,7 @@ paths:
         periodo abierto (y la toma de las abiertas); staff = por camarero (quien abrió la mesa).
 
 
-        Permiso: funciones.kpi
+        Permiso: funciones.servicio
 
 
         Lo llama: TPV
@@ -28497,7 +28551,13 @@ paths:
         Lo llama: TPV
 
 
-        Tablas: invoice, payment, cash_movement'
+        Tablas: invoice, payment, cash_movement
+
+
+        05/11 (API 1.2.268): el corte lleva el logo del local (Parámetros › ticketLogo, 0031) y el mismo contenido que la
+        vista previa del TPV (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros,
+        descuentos, eliminaciones, abonos, propinas, caja y, en el Z, lo contado), cada parte según Ajustes › Formatos (ticketFormats.cutx
+        / cutz).'
       operationId: store_POST_cash_x_report_print
       security:
       - session: []
@@ -28799,7 +28859,7 @@ paths:
         xml = los mismos bloques sin codificar (null = vacío), para revisarlos.
 
 
-        Permiso: funciones.periodo
+        Permiso: funciones.sir
 
 
         Lo llama: TPV
@@ -29031,7 +29091,7 @@ paths:
         sirUrl).
 
 
-        Permiso: funciones.periodo
+        Permiso: funciones.sir
 
 
         Lo llama: TPV
@@ -31827,7 +31887,29 @@ components:
                 at:
                   type: string
             lastExit: {}
-            note: {}
+            note:
+              type:
+              - string
+              - 'null'
+              description: Todas las notas de la mesa juntas («alérgico · trona»), para comandas y equipos antiguos
+            notes:
+              type: array
+              description: 05/11 · notas de la mesa, cada una con quién la dejó, desde qué equipo y cuándo (no se borran)
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  text:
+                    type: string
+                  user:
+                    type: string
+                  role:
+                    type: string
+                  device:
+                    type: string
+                  at:
+                    type: string
         events:
           type: array
           items:
@@ -31853,6 +31935,11 @@ components:
                 type:
                 - string
                 - 'null'
+              accountId:
+                type:
+                - string
+                - 'null'
+                description: 05/11 · cuenta del evento (null = de la mesa)
         accounts:
           type: array
           items:

@@ -82,6 +82,7 @@ import {
   type Loaded,
   type OrderEvent,
   type OrderHeader,
+  notesText,
 } from "../Applications/OrdersApplication.js";
 import { PeriodsApplication } from "../Applications/PeriodsApplication.js";
 import { StoreApplication } from "../Applications/StoreApplication.js";
@@ -434,29 +435,42 @@ export class OrdersService {
   async patch(
     session: Session,
     orderId: string,
-    b: { guests?: number; note?: string | null; version?: number },
+    b: { guests?: number; note?: string | null; noteId?: string; version?: number },
   ) {
     if (b.guests != null) {
       await this.auth.require(session, "pedido.comensales");
     }
-    if (b.note !== undefined) {
+    const text = b.note === undefined ? undefined : (b.note ?? "").trim();
+    if (text !== undefined) {
       await this.auth.require(session, "pedido.notaMesa");
+      // 05/11 (regla del dueño): las notas de la mesa no se borran ni se cambian; cada una es nueva, con quién y cuándo
+      if (!text) {
+        fail("VALIDATION", "Las notas de la mesa no se borran: escribe una nota nueva", { field: "note" });
+      }
     }
     return (
       await this.command(session, orderId, b.version, (l, ctx) => {
-        if (b.note !== undefined) {
-          l.header.note = b.note;
+        const events = [];
+        if (text) {
+          const notes = [...(l.header.notes ?? [])];
+          if (!b.noteId || !notes.some((n) => n.id === b.noteId)) {
+            notes.push({
+              id: b.noteId ?? ctx.newId(),
+              text: text.slice(0, 300),
+              user: ctx.actor.user,
+              role: ctx.actor.role,
+              device: ctx.actor.device ?? "",
+              at: ctx.actor.at,
+            });
+            events.push(this.ev("noteAdded", `Nota de la mesa: ${text}`, ctx));
+          }
+          l.header.notes = notes;
+          l.header.note = notesText(notes);
         }
-        return {
-          next: { ...l.order, guests: b.guests ?? l.order.guests },
-          events: [
-            this.ev(
-              "tableUpdated",
-              `Comensales ${b.guests ?? l.order.guests}${b.note ? ` · nota: ${b.note}` : ""}`,
-              ctx,
-            ),
-          ],
-        };
+        if (b.guests != null || !text) {
+          events.push(this.ev("tableUpdated", `Comensales ${b.guests ?? l.order.guests}`, ctx));
+        }
+        return { next: { ...l.order, guests: b.guests ?? l.order.guests }, events };
       })
     ).transaction;
   }
@@ -734,6 +748,7 @@ export class OrdersService {
 
   /** Comanda de anulación (25/10/2026) por cada impresora y canal por los que salió la línea. */
   private async printVoid(session: Session, v: VoidJob) {
+    const format = (await this.stores.store()).ticketFormats.void; // 05/11 · Ajustes › Formatos › Anulación
     for (const p of v.printers) {
       await this.printer
         .print({
@@ -750,6 +765,7 @@ export class OrdersService {
             stage: v.stage,
             reason: v.reason,
             authorizedBy: v.authorizedBy,
+            format,
           }),
         })
         .catch(() => ({ ok: false }));
@@ -2230,6 +2246,8 @@ export class OrdersService {
       .map((m) => `${m.renamedFrom} ahora ${m.account.name}`)
       .join(", ");
     dst.header.note = r.note;
+    // 05/11 · las notas de las dos mesas, cada una con quién la dejó (primero las de la mesa que se queda)
+    dst.header.notes = [...(dst.header.notes ?? []), ...(src.header.notes ?? [])];
     let vTo = await this.repo.save(tx, S, r.to, r.to, dst.header, {
       actor: ctx.actor,
       events: [

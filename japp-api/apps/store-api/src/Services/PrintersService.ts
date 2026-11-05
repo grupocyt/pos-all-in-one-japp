@@ -5,7 +5,7 @@ import {
   invoiceTicket,
   ootQrTicket,
   ootUrl,
-  voidTicket,
+  kitchenVoidTicket,
   issueInvoice,
   kitchenTicket,
   preBillTicket,
@@ -174,19 +174,17 @@ export class PrintersService {
       );
     }
     if (b.kind === "void") {
-      return voidTicket(
-        {
-          table: tctx.table,
-          product: "Croquetas de boletus (media)",
-          quantity: 2,
-          amount: 11.9,
-          reason: "Error al marcar",
-          user: b.waiter,
-          authorizedBy: "Encargado",
-          at: now,
-        },
-        tctx.store,
-      );
+      // 05/11 · la misma comanda de anulación que sale al eliminar, con su formato (Ajustes › Formatos › Anulación)
+      return kitchenVoidTicket([{ quantity: 2, name: "Croquetas de boletus (media)" }], {
+        channel: b.channel,
+        waiter: b.waiter,
+        table: tctx.table,
+        at: now,
+        stage: "printed",
+        reason: "Error al marcar",
+        authorizedBy: "Encargado",
+        format: st.ticketFormats.void,
+      });
     }
     if (b.kind === "cutx" || b.kind === "cutz") {
       return cutTicket({
@@ -201,9 +199,38 @@ export class PrintersService {
           { name: "Bizum", amount: 34.5, count: 3 },
         ],
         tickets: 62,
-        expectedCash: 395.3,
+        expectedCash: 405.3,
         closingNumber: b.kind === "cutz" ? 1 : null,
         user: b.waiter,
+        // 05/11 · el mismo contenido y formato que el corte de verdad
+        guests: 118,
+        gross: 892.55,
+        tax: 81.14,
+        byArea: [
+          { name: "SALON", tickets: 40, amount: 610.2 },
+          { name: "TERRAZA", tickets: 22, amount: 282.35 },
+        ],
+        byWaiter: [
+          { name: b.waiter, tickets: 34, amount: 498.1 },
+          { name: "Barra", tickets: 28, amount: 394.45 },
+        ],
+        discounts: [
+          {
+            name: "Descuento 10%",
+            count: 1,
+            amount: 3.2,
+            items: [{ at: now, number: "PRUEBA-T-000007", table: b.table, amount: 3.2, by: b.waiter, auth: null }],
+          },
+        ],
+        voids: [
+          { at: now, qty: 1, name: "Caña", amount: 2.5, reason: "Error al marcar", by: b.waiter, auth: "Encargado", table: b.table, stage: "printed" },
+        ],
+        tips: 14,
+        cashTips: 10,
+        cash: { float: 150, cashSales: 245.3, withdrawals: 0, card: 647.25 },
+        counted:
+          b.kind === "cutz" ? { cash: 405.3, card: 647.25, difference: 0, note: null } : null,
+        format: b.kind === "cutx" ? st.ticketFormats.cutx : st.ticketFormats.cutz,
       });
     }
     if (b.kind === "oot") {

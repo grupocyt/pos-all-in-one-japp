@@ -62,6 +62,10 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | 9 | Servidor de la tienda caído | Correcto como está: sin servidor no se cobra ni se factura (escrito en el LEEME). Lo de recuperarlo sigue en el Plan de contingencia | Cerrado · contingencia pendiente |
 | 10 | Factura por email | **No se envían correos.** La factura lleva un estado de envío que queda en «no enviada» y ahí termina el flujo | **Hecho 1.2.268** (0030: `invoice.email_status`) |
 | N9 | Facturar los pedidos de delivery | **A futuro** (escrito en el LEEME) | A futuro |
+| Notas de la mesa | Varias notas, con quién y cuándo | **Varias notas por mesa, con autor, equipo y hora; no se borran** (05/11) | **Hecho 1.2.268** (0032) |
+| Historial › Developer | Quién ve la pestaña Developer | **Permiso propio**; por defecto solo el Administrador (05/11) | **Hecho 1.2.268** (0032) |
+| Gestiones | Un permiso por botón | **Reparto por rol** del 05/11 (Administrador todo, Encargado todo menos SIR, Cajero lo de caja, Mesero nada) | **Hecho 1.2.268** (0032) |
+| Formatos | Corte X, Z y anulación configurables | **Configurables** como la precuenta; el corte con el logo del local (05/11) | **Hecho 1.2.268** (0032) |
 | C2b y reconexión | Choques con conexión y nuevos desarrollos de reconexión | **En pausa** hasta que el dueño lo analice. Lo hecho en la 1.2.268 se queda | En pausa |
 
 ## Decidido el 03/11/2026 con el dueño (hecho en la 1.2.268)
