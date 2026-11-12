@@ -12089,7 +12089,7 @@ textarea.search.ta-grow{resize:none;overflow:hidden;min-height:46px;line-height:
 .pd-qnote textarea.ta-grow{min-height:44px}
 .tr-lk{background:#EEF4FA;border-radius:9px;padding:8px 11px;color:#1F4E6E}
 .elc.linea,.elr.linea{display:none!important}
-.elc.mesa{border-color:#C9B2E8}.eltag.mesa{background:#EFE6FA;color:#5B2E91}
+.elc.mesaent{border-left:5px solid #7B4BC0}.eltag.mesaent{background:#EFE6FA;color:#5B2E91}
 .ff-store{cursor:pointer}.ff-store:hover b{text-decoration:underline}
 .ff-cust{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line,#DDE3E8);background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-weight:700;font-size:13px;color:var(--ink,#1F2A33);cursor:pointer;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
 .ff-cust.empty{color:var(--muted,#64727E);font-weight:600;border-style:dashed}
@@ -12218,16 +12218,17 @@ function vcAsk(o, need, cont){ let why = "";
   go.addEventListener("click", () => { upd(); if(!why) return; const at = new Date().toISOString();
     o.voidClose = { reason: why, amount: need.amt, lines: need.n, user: user()?.nombre || "", at };
     ev(o, "tableVoidClosed", `Mesa entera eliminada (${need.n} · ${eur(need.amt)}) · ${why}`);
-    (st.elims = st.elims || []).unshift({ fecha: at, tipo: "mesa", mesero: st.mesas?.[st.activa]?.mesero || user()?.nombre || "", quien: user()?.nombre || "", mesa: findMesa(st.activa)?.m?.n ?? "", producto: t("vcProd", { n: need.n }), q: need.n, importe: need.amt, motivo: why, autoriza: null });
+    (st.elimsMesa = st.elimsMesa || []).unshift({ fecha: at, tipo: "mesaent", mesero: st.mesas?.[st.activa]?.mesero || user()?.nombre || "", quien: user()?.nombre || "", mesa: findMesa(st.activa)?.m?.n ?? "", producto: t("vcProd", { n: need.n }), q: need.n, importe: need.amt, motivo: why, autoriza: null });
     save(); closeModal(); cont(); }); }
 { const b0 = backToTables; backToTables = function(){ const id = st.activa, o = st.orders?.[id];
     if(o && !String(id).startsWith("FF-") && !o.voidClose){ const need = vcNeed(o); if(need){ const a = arguments, self = this; vcAsk(o, need, () => b0.apply(self, a)); return; } }
     return b0.apply(this, arguments); }; }
-ELIM_TIPOS.push(["mesa", "elTable", "elTableHint"]);
-delsOpen = async function(){ if(!apiMode() || !JAPI.on()){ elSrv = null; return deletionsView(); }
+/* «mesaent» (no «mesa»: esa clase es la de las mesas del plano). Van aparte de st.elims para no contarlas dos veces en el corte. */
+ELIM_TIPOS.push(["mesaent", "elTable", "elTableHint"]);
+delsOpen = async function(){ if(!apiMode() || !JAPI.on()){ st.elims = st.elims || (apiMode() ? [] : seedElims()); save(); elSrv = [...st.elims, ...(st.elimsMesa || [])].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha))); return deletionsView(); }
   try{ const r = await JAPI.fg(t("slaLoading"), () => JAPI.http("GET", "/reports/deletions")); if(!r.ok) throw new Error(r.data?.error?.message || t("apiOffline"));
     elSrv = [...(r.data.items || []).map(x => ({ fecha: x.at, tipo: x.stage === "preBill" ? "precuenta" : x.stage === "printed" ? "impreso" : "linea", mesero: x.user || "—", mesa: x.table || "", producto: x.product, q: +x.quantity || 1, importe: +x.amount || 0, motivo: x.reason || null, autoriza: x.authorizedBy || null })),
-      ...(r.data.tables || []).map(x => ({ fecha: x.at, tipo: "mesa", mesero: x.user || "—", mesa: x.table || "", producto: t("vcProd", { n: x.lines || 0 }), q: x.lines || 0, importe: +x.amount || 0, motivo: x.reason || null, autoriza: null }))]
+      ...(r.data.tables || []).map(x => ({ fecha: x.at, tipo: "mesaent", mesero: x.user || "—", mesa: x.table || "", producto: t("vcProd", { n: x.lines || 0 }), q: x.lines || 0, importe: +x.amount || 0, motivo: x.reason || null, autoriza: null }))]
       .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
     deletionsView(); }
   catch(e){ toast(e.message); } };
@@ -12240,6 +12241,7 @@ function semDefaults(){ try{ if(!st?.cfg?.perfiles) return; let ch = false;
     if(!st.cfg._sem0033){ st.cfg.perfiles.forEach(p => { p.perms = p.perms || {}; if(p.perms.semanaEditar === undefined) p.perms.semanaEditar = ["ADMIN", "ADMIN_LOCAL"].includes(p.id); }); st.cfg._sem0033 = true; ch = true; }
     // D2 · el corte X normal: ventas, formas de pago y propinas (lo demás va en el resumen del arqueo)
     if(!st.cfg._cutx0033){ const f = (st.cfg.formatos = st.cfg.formatos || {}); f.cutx = Object.assign({}, f.cutx || {}, CUTX_SHORT); st.cfg._cutx0033 = true; ch = true; }
+    if((st.elims || []).some(e => e.tipo === "mesa")){ st.elimsMesa = [...(st.elimsMesa || []), ...st.elims.filter(e => e.tipo === "mesa").map(e => Object.assign(e, { tipo: "mesaent" }))]; st.elims = st.elims.filter(e => e.tipo !== "mesaent"); ch = true; }
     if(st.cfg.parametros && st.cfg.parametros.datafonos == null){ st.cfg.parametros.datafonos = 1; ch = true; }
     if(ch) save(); }catch(e){} }
 setTimeout(semDefaults, 0);
