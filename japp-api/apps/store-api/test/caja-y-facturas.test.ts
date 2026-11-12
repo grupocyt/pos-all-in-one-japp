@@ -90,7 +90,9 @@ describe("caja y periodo", () => {
     });
     const job = t.printer.jobs.slice(n).find((j) => j.kind === "cutx")!;
     expect(job.text).toMatch(/CORTE X/);
-    expect(job.text).toMatch(/Efectivo esperado/);
+    // 11/11 · el corte X normal: ventas, formas de pago y propinas (la caja va en el resumen del arqueo)
+    expect(job.text).toMatch(/POR FORMA DE PAGO/);
+    expect(job.text).not.toMatch(/Efectivo esperado/);
   });
   it("factura: detalle con mesa, camarero, líneas, cobros; tras abonar una línea, lo abonado y lo que queda", async () => {
     const s = await sale(barra, "cash", PLU.croquetas);

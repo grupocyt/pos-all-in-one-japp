@@ -184,6 +184,7 @@ export class PrintersService {
         reason: "Error al marcar",
         authorizedBy: "Encargado",
         format: st.ticketFormats.void,
+        store: [st.code, st.name].filter(Boolean).join(" · "),
       });
     }
     if (b.kind === "cutx" || b.kind === "cutz") {
@@ -219,23 +220,39 @@ export class PrintersService {
             name: "Descuento 10%",
             count: 1,
             amount: 3.2,
-            items: [{ at: now, number: "PRUEBA-T-000007", table: b.table, amount: 3.2, by: b.waiter, auth: null }],
+            items: [
+              { at: now, number: "PRUEBA-T-000007", table: b.table, amount: 3.2, by: b.waiter, auth: null },
+            ],
           },
         ],
         voids: [
-          { at: now, qty: 1, name: "Caña", amount: 2.5, reason: "Error al marcar", by: b.waiter, auth: "Encargado", table: b.table, stage: "printed" },
+          {
+            at: now,
+            qty: 1,
+            name: "Caña",
+            amount: 2.5,
+            reason: "Error al marcar",
+            by: b.waiter,
+            auth: "Encargado",
+            table: b.table,
+            stage: "printed",
+          },
         ],
         tips: 14,
         cashTips: 10,
         cash: { float: 150, cashSales: 245.3, withdrawals: 0, card: 647.25 },
-        counted:
-          b.kind === "cutz" ? { cash: 405.3, card: 647.25, difference: 0, note: null } : null,
+        counted: b.kind === "cutz" ? { cash: 405.3, card: 647.25, difference: 0, note: null } : null,
         format: b.kind === "cutx" ? st.ticketFormats.cutx : st.ticketFormats.cutz,
       });
     }
     if (b.kind === "oot") {
       return ootQrTicket({
-        store: { logoRaster: st.ticketLogo ?? null, chain: st.chainName, name: st.name, legalName: st.issuerName },
+        store: {
+          logoRaster: st.ticketLogo ?? null,
+          chain: st.chainName,
+          name: st.name,
+          legalName: st.issuerName,
+        },
         table: tctx.table,
         url: ootUrl("https://japp.grupocyt.com.es/", "PRUEBAxTOKENxDExMESA"),
         token: "PRUEBAxTOKENxDExMESA",

@@ -17,6 +17,17 @@ export const CashCountModel = z
     detail: z.record(z.string().max(10), z.number().int().min(0).max(100_000)).nullish(),
     note: z.string().max(200).nullish(),
     authorization: z.string().nullish(),
+    /** 11/11 (D2) · lo que marcó cada datáfono (Parámetros › Datáfonos); countedCard = la suma */
+    cards: z
+      .array(
+        z
+          .object({ name: z.string().trim().min(1).max(30), amount: z.number().min(0).max(1_000_000) })
+          .strict(),
+      )
+      .max(9)
+      .nullish(),
+    /** 11/11 (D2) · imprimir el resumen del arqueo al guardarlo */
+    print: z.boolean().optional(),
   })
   .strict();
 export type CashCountInput = z.infer<typeof CashCountModel>;

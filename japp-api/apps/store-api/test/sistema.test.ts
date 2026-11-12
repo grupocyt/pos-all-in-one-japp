@@ -50,7 +50,7 @@ describe("sistema y sesiones", () => {
     expect(r.body.permissions).not.toContain("cobro.cobrar");
     expect(r.body.overrides.canCharge).toBe(false);
     const j = await t.call("POST", "/sessions", { body: { pin: PIN.jeison } });
-    expect(j.body.permissions).toHaveLength(59); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada)
+    expect(j.body.permissions).toHaveLength(60); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada y funciones.semanaEditar)
   });
   it("PIN mal formado → 422 VALIDATION; incorrecto → 401 BAD_PIN", async () => {
     expect((await t.call("POST", "/sessions", { body: { pin: "12" } })).error.code).toBe("VALIDATION");

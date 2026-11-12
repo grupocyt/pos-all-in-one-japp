@@ -160,6 +160,6 @@ describe("Canales de impresión: comanda con copias y tickets por área", () => 
         body: { reason: "Prueba" },
       });
     }
-    await t.call("POST", `/orders/${o.body._id}/close`, { token: sis, body: {} });
+    await t.call("POST", `/orders/${o.body._id}/close`, { token: sis, body: { closeReason: "Prueba" } });
   });
 });

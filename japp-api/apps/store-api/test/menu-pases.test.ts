@@ -24,7 +24,7 @@ afterAll(async () => {
     for (const l of tx.accounts.flatMap((a: any) => a.lines)) {
       await t.call("POST", `/orders/${id}/lines/${l.id}/delete`, { token: tok, body: { reason: "Prueba" } });
     }
-    await t.call("POST", `/orders/${id}/close`, { token: tok, body: {} });
+    await t.call("POST", `/orders/${id}/close`, { token: tok, body: { closeReason: "Prueba" } });
   }
   await t.close();
 });

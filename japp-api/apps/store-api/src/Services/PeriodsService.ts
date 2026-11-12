@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database } from "@japp/db";
-import { assertMainStation, cashDifference, fail } from "@japp/domain";
+import { assertMainStation, cashDifference, fail, r2 } from "@japp/domain";
 import { CLOCK, DATABASE, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { AuthorizationService } from "./AuthorizationService.js";
@@ -61,6 +61,9 @@ export class PeriodsService {
       }
       const id = crypto.randomUUID();
       await this.periods.insert(tx, id, session.storeId, session.station.id, a);
+      // 11/11 (D2) · el fondo es el que se dejó en el último cierre (con sus retiros e ingresos); sin cierres, el de Parámetros
+      const last = await this.periods.lastClosing(tx, session.storeId);
+      const float = last ? Number(last.nextFloat) : store.cashFloat;
       await this.cash.insertMovement(
         tx,
         {
@@ -69,8 +72,8 @@ export class PeriodsService {
           periodId: id,
           stationId: session.station.id,
           kind: "float",
-          amount: store.cashFloat,
-          note: "Fondo inicial",
+          amount: float,
+          note: last ? "Fondo del cierre anterior" : "Fondo inicial",
         },
         a,
       );
@@ -110,17 +113,25 @@ export class PeriodsService {
           threshold: store.cashDiffThreshold,
         });
       }
+      // 11/11 (D2) · fondo para mañana: el que diga el equipo o el de hoy − retiros + ingresos (sin pasar de lo contado);
+      // a depositar: siempre lo contado − ese fondo (lo calcula la API, así no hay dos cifras distintas)
+      const cards = (b.cards ?? []).map((x) => ({ name: x.name, amount: r2(x.amount) }));
+      const countedCard = cards.length ? r2(cards.reduce((t, x) => t + x.amount, 0)) : b.countedCard;
+      const proposed = r2(c.opening - c.withdrawals + c.deposits);
+      const nextFloat = r2(Math.min(b.countedCash, Math.max(0, b.nextFloat ?? proposed)));
+      const deposit = r2(Math.max(0, b.countedCash - nextFloat));
       await this.periods.insertClosing(
         tx,
         session.storeId,
         periodId,
         {
           countedCash: b.countedCash,
-          countedCard: b.countedCard,
+          countedCard,
+          cardDetail: cards.length ? cards : null,
           expectedCash: c.expected,
           difference: d.diff,
-          nextFloat: b.nextFloat,
-          deposit: b.deposit,
+          nextFloat,
+          deposit,
           grossSales: c.totalSales,
           guests: c.guests,
           note: b.note ?? null,
@@ -136,6 +147,8 @@ export class PeriodsService {
         closing: {
           expectedCash: c.expected,
           difference: d.diff,
+          nextFloat,
+          deposit,
           grossSales: c.totalSales,
           guests: c.guests,
           tickets: sum.tickets,

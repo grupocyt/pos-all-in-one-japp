@@ -19,6 +19,8 @@ export const PatchOrder = z.object({
   /** 05/11 · añade una nota a la mesa (no se borran); noteId del equipo para no repetirla al reintentar */
   note: z.string().max(300).nullish(),
   noteId: z.string().max(64).optional(),
+  /** 11/11 (A4) · fast food: nombre del cliente (solo el nombre); vacío o null = sin nombre */
+  customerName: z.string().max(40).nullish(),
   version,
 });
 export const NewAccount = z.object({ id: Uuid.optional(), name: z.string().max(40).optional(), version });
@@ -114,7 +116,11 @@ export const ListQuery = z.object({
 });
 /** Anular un cobro (decisión 19): motivo obligatorio y la clave del encargado si quien pulsa no tiene sistema.autorizar. */
 export const VoidPayment = z
-  .object({ reason: z.string().trim().min(3).max(200), version: z.number().int().nullish(), authorization: auth })
+  .object({
+    reason: z.string().trim().min(3).max(200),
+    version: z.number().int().nullish(),
+    authorization: auth,
+  })
   .strict();
 export const AuthOnly = z.object({ authorization: auth, print: z.boolean().optional() });
 
@@ -146,7 +152,10 @@ export const Absorb = z
 export const ReorderLines = z
   .object({ accountId: Uuid.nullish(), lineIds: z.array(Uuid).min(1).max(200), version })
   .strict();
-export const CloseOrder = z.object({ version: z.number().int().nullable().optional() }).strict();
+/** 11/11 (A7) · closeReason: motivo si se cierra la mesa entera tras eliminar lo enviado (si no, 422 field closeReason) */
+export const CloseOrder = z
+  .object({ version: z.number().int().nullable().optional(), closeReason: z.string().max(200).nullish() })
+  .strict();
 export const TransferAccount = z
   .object({
     version: z.number().int().positive(),
@@ -156,7 +165,9 @@ export const TransferAccount = z
   })
   .strict();
 /** «Guardar y salir». */
-export const SaveOrder = z.object({ version: z.number().int().positive().nullish() }).strict();
+export const SaveOrder = z
+  .object({ version: z.number().int().positive().nullish(), closeReason: z.string().max(200).nullish() })
+  .strict();
 /** Reabrir mesa (con clave de encargado si falta cobro.reabrir). */
 export const ReopenOrder = z.object({ authorization: auth }).strict();
 /** Renombrar cuenta: el nombre se limpia y se comprueba (1–40, sin repetir) en @japp/domain → renameAccount. */

@@ -164,7 +164,11 @@ const optMoney = (v: number | null) => {
 
 /** Agrupa filas por una clave (relaciones de cada registro). */
 /** Texto propio de la tecla o null si es el mismo que el nombre del PLU. */
-function buttonOf(rows: { categoryId: string; label: string | null }[], categoryId: string | null, name: string) {
+function buttonOf(
+  rows: { categoryId: string; label: string | null }[],
+  categoryId: string | null,
+  name: string,
+) {
   const own = rows.find((r) => r.categoryId === categoryId) ?? rows[0];
   const label = own?.label?.trim();
   if (!label || label === name) {
@@ -254,7 +258,11 @@ export class CartaSyncApplication {
       .orderBy(asc(s.questionAnswer.sortOrder));
     // texto de la tecla: el de la categoría propia del producto si la tiene, si no el primero
     const btn = await q
-      .select({ productId: s.categoryProduct.productId, categoryId: s.categoryProduct.categoryId, label: s.categoryProduct.label })
+      .select({
+        productId: s.categoryProduct.productId,
+        categoryId: s.categoryProduct.categoryId,
+        label: s.categoryProduct.label,
+      })
       .from(s.categoryProduct)
       .where(eq(s.categoryProduct.storeId, storeId));
     const btnBy = groupBy(btn, (x) => x.productId);

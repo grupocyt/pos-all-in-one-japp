@@ -287,7 +287,7 @@ describe("POST /orders/{id}/reopen · regla fija 03/11: una mesa cerrada no se r
     const busy = await t.call("POST", `/orders/${open.id}/reopen`, { token: sis, body: {} });
     expect([busy.status, busy.error.code]).toEqual([409, "TABLE_BUSY"]);
     const p = await newOrder([]);
-    await t.call("POST", `/orders/${p.id}/close`, { token: sis, body: {} });
+    await t.call("POST", `/orders/${p.id}/close`, { token: sis, body: { closeReason: "Prueba" } });
     await t.sql.query("UPDATE orders SET period_id = NULL WHERE id=$1", [p.id]);
     const per = await t.call("POST", `/orders/${p.id}/reopen`, { token: sis, body: {} });
     expect([per.status, per.error.code]).toEqual([409, "PERIOD_CLOSED"]);

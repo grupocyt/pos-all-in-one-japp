@@ -89,7 +89,15 @@ export class DisplayService {
   }
 
   /** Versión, historial y config_version en la transacción del cambio. */
-  private async record(tx: Tx, se: Session, action: string, name: string, diff: string, before: unknown, after: unknown) {
+  private async record(
+    tx: Tx,
+    se: Session,
+    action: string,
+    name: string,
+    diff: string,
+    before: unknown,
+    after: unknown,
+  ) {
     const configVersion = await this.history.bumpConfigVersion(tx, se.storeId);
     await this.history.insertChangeLog(tx, {
       storeId: se.storeId,
@@ -117,10 +125,14 @@ export class DisplayService {
     await this.database.withTx(async (tx) => {
       const cur = await this.display.lock(tx, se.storeId);
       if (cur.version !== b.version) {
-        fail("VERSION_CONFLICT", "Otra persona cambió la segunda pantalla mientras la editabas: vuelve a abrirla", {
-          field: "version",
-          current: cur.version,
-        });
+        fail(
+          "VERSION_CONFLICT",
+          "Otra persona cambió la segunda pantalla mientras la editabas: vuelve a abrirla",
+          {
+            field: "version",
+            current: cur.version,
+          },
+        );
       }
       const before = readDisplayConfig(cur.config);
       if (b.items) {
@@ -146,7 +158,10 @@ export class DisplayService {
         se,
         "update",
         "Segunda pantalla",
-        [changed.length ? `Cambia: ${changed.join(", ")}` : "", b.items ? `Lista: ${sched.length} archivos` : ""]
+        [
+          changed.length ? `Cambia: ${changed.join(", ")}` : "",
+          b.items ? `Lista: ${sched.length} archivos` : "",
+        ]
           .filter(Boolean)
           .join(" · "),
         before,
@@ -163,7 +178,10 @@ export class DisplayService {
     h: { contentType?: string; fileName?: string; duration?: string },
   ) {
     await this.auth.require(se, PERM);
-    const mime = String(h.contentType ?? "").split(";")[0]!.trim().toLowerCase();
+    const mime = String(h.contentType ?? "")
+      .split(";")[0]!
+      .trim()
+      .toLowerCase();
     const kind = displayMediaKind(mime);
     if (!file || typeof (file as any).pipe !== "function") {
       fail("VALIDATION", "Falta el archivo en el cuerpo", { field: "body" });
@@ -202,11 +220,19 @@ export class DisplayService {
           by: se.user.name,
         });
         await this.display.save(tx, se.storeId, readDisplayConfig(cur.config), cur.version + 1, se.user.name);
-        await this.record(tx, se, "create", name, `Sube ${kind === "video" ? "el vídeo" : "la imagen"} ${name}`, null, {
-          id,
+        await this.record(
+          tx,
+          se,
+          "create",
           name,
-          size: saved.size,
-        });
+          `Sube ${kind === "video" ? "el vídeo" : "la imagen"} ${name}`,
+          null,
+          {
+            id,
+            name,
+            size: saved.size,
+          },
+        );
       });
     } catch (e) {
       await this.files.remove(id);

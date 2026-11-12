@@ -28,7 +28,13 @@ import { InvoicesApplication } from "../Applications/InvoicesApplication.js";
 import { OrdersApplication } from "../Applications/OrdersApplication.js";
 import { StoreApplication } from "../Applications/StoreApplication.js";
 import type { PrinterPort } from "../Clases/Printers.js";
-import { CreditModel, DAY, InvoiceIdModel, InvoicesFilterModel, SubstituteModel } from "../Models/InvoicesModels.js";
+import {
+  CreditModel,
+  DAY,
+  InvoiceIdModel,
+  InvoicesFilterModel,
+  SubstituteModel,
+} from "../Models/InvoicesModels.js";
 
 /** Lo que hace falta del abono para imprimirlo después del COMMIT. */
 interface IssuedCredit {
@@ -124,7 +130,9 @@ export class InvoicesService {
       status: i!.status,
       // 10 (04/11): no se envían correos; el estado queda en not_sent
       emailStatus: i!.emailStatus ?? "not_sent",
-      substitutes: i!.substitutedInvoiceId ? await this.invoices.numberOf(se.storeId, i!.substitutedInvoiceId) : null,
+      substitutes: i!.substitutedInvoiceId
+        ? await this.invoices.numberOf(se.storeId, i!.substitutedInvoiceId)
+        : null,
       taxes: taxes
         .map((t) => ({ rate: Number(t.rate), base: Number(t.base), tax: Number(t.tax) }))
         .sort((a, b) => a.rate - b.rate),
@@ -309,9 +317,13 @@ export class InvoicesService {
         fail("NOT_FOUND", "La factura no existe", { invoiceId: rawId });
       }
       if (orig!.status === "substituted") {
-        fail("INVALID_TRANSITION", "Esa factura simplificada ya se sustituyó por una completa: abona la completa", {
-          invoiceId: rawId,
-        });
+        fail(
+          "INVALID_TRANSITION",
+          "Esa factura simplificada ya se sustituyó por una completa: abona la completa",
+          {
+            invoiceId: rawId,
+          },
+        );
       }
       const type = creditTypeFor(orig!.type);
       const done = await this.invoices.creditedSoFar(tx, se.storeId, orig!.id);
@@ -516,13 +528,16 @@ export class InvoicesService {
       }
       // los datos del cliente con las mismas reglas que al cobrar (NIF válido, etc.)
       // la cuenta ya está facturada (no se toca): se validan los datos sobre una copia abierta
-      const withC = setCustomer({ ...acc!, status: "open", invoice: null }, {
-        type: b.customer.type,
-        taxId: b.customer.taxId,
-        name: b.customer.name,
-        email: b.customer.email ?? undefined,
-        ...(b.customer.address ?? {}),
-      });
+      const withC = setCustomer(
+        { ...acc!, status: "open", invoice: null },
+        {
+          type: b.customer.type,
+          taxId: b.customer.taxId,
+          name: b.customer.name,
+          email: b.customer.email ?? undefined,
+          ...(b.customer.address ?? {}),
+        },
+      );
       const c = withC.customerData!;
       const customer = { ...c, id: undefined };
       await this.repo.lockInvoiceChain(tx, se.storeId);
@@ -603,7 +618,16 @@ export class InvoicesService {
           },
         ],
       });
-      return { id: fullId, invoiceNumber, substitutes: orig!.invoiceNumber, issuedAt: actor.at, total, taxes, customer, verifactuQr };
+      return {
+        id: fullId,
+        invoiceNumber,
+        substitutes: orig!.invoiceNumber,
+        issuedAt: actor.at,
+        total,
+        taxes,
+        customer,
+        verifactuQr,
+      };
     });
     const printed = b.print === false ? false : await this.printSubstitute(se, out.id).catch(() => false);
     return {
@@ -626,7 +650,9 @@ export class InvoicesService {
     if (!f?.orderId || !f.accountId) {
       return false;
     }
-    const subst = f.substitutedInvoiceId ? await this.invoices.numberOf(se.storeId, f.substitutedInvoiceId) : null;
+    const subst = f.substitutedInvoiceId
+      ? await this.invoices.numberOf(se.storeId, f.substitutedInvoiceId)
+      : null;
     const taxes = (await this.invoices.taxes(se.storeId, fullId)).map((t) => ({
       rate: Number(t.rate),
       base: Number(t.base),
@@ -667,7 +693,10 @@ export class InvoicesService {
         printer: p.name,
         connection: p.connection,
         title: f.invoiceNumber,
-        ticket: invoiceTicket({ ...acc, invoice: inv }, await this.orders.ticketCtx(tx, se, l, new Date(f.issuedAt))),
+        ticket: invoiceTicket(
+          { ...acc, invoice: inv },
+          await this.orders.ticketCtx(tx, se, l, new Date(f.issuedAt)),
+        ),
         openDrawer: false,
       });
       return res.ok;

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { schema as s, type Database, type Db, type Tx } from "@japp/db";
 import { D, expectedCash, paymentKind, r2, sum, type Actor } from "@japp/domain";
 import { DATABASE } from "../Constants/Injection.js";
@@ -103,6 +103,8 @@ export class PeriodsApplication {
       guests: number;
       /** 11 (04/11): motivo del descuadre, para el corte Z */
       note?: string | null;
+      /** 0033 · lo que marcó cada datáfono */
+      cardDetail?: { name: string; amount: number }[] | null;
     },
     a: Actor,
   ) {
@@ -112,6 +114,7 @@ export class PeriodsApplication {
       periodId,
       countedCash: c.countedCash.toFixed(2),
       countedCard: c.countedCard.toFixed(2),
+      cardDetail: c.cardDetail ?? null,
       expectedCash: c.expectedCash.toFixed(2),
       difference: c.difference.toFixed(2),
       nextFloat: c.nextFloat.toFixed(2),
@@ -128,6 +131,17 @@ export class PeriodsApplication {
   }
 
   /** 11 (04/11): el cierre de caja del periodo (lo contado, la diferencia y el motivo), o null si aún no se ha cerrado. */
+  /** 11/11 (D2) · el último cierre de la tienda: su «fondo para el día siguiente» es el fondo del periodo que se abre. */
+  async lastClosing(tx: Tx | null, storeId: string) {
+    const [r] = await this.q(tx)
+      .select({ nextFloat: s.cashClosing.nextFloat })
+      .from(s.cashClosing)
+      .where(eq(s.cashClosing.storeId, storeId))
+      .orderBy(desc(s.cashClosing.byAt))
+      .limit(1);
+    return r ?? null;
+  }
+
   async closingOf(storeId: string, periodId: string) {
     const [r] = await this.database.db
       .select()
@@ -186,7 +200,11 @@ export class PeriodsApplication {
     const float = floats.length ? r2(sum(floats.map((m) => m.amount))) : defaultFloat;
     const r = expectedCash(
       float,
-      pays.map((p) => ({ kind: paymentKind(p.kind, p.method), amount: Number(p.amount), tip: Number(p.tip ?? 0) })),
+      pays.map((p) => ({
+        kind: paymentKind(p.kind, p.method),
+        amount: Number(p.amount),
+        tip: Number(p.tip ?? 0),
+      })),
       moves
         .filter((m) => m.kind === "withdrawal" || m.kind === "deposit")
         .map((m) => ({

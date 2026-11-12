@@ -301,7 +301,7 @@ describe("POST /config/productos/sync", () => {
     expect([busy.status, busy.error.code]).toEqual([409, "IN_USE"]);
     expect(busy.error.details.items[0]).toMatchObject({ name: "GRANIZADO PRUEBA", count: 1 });
     await post(`/orders/${o.body._id}/lines/${l.body.accounts[0].lines[0].id}/delete`, {});
-    await post(`/orders/${o.body._id}/close`, {});
+    await post(`/orders/${o.body._id}/close`, { closeReason: "Prueba" });
     const off = await post("/config/productos/sync", { items: seed() });
     expect(off.body).toMatchObject({ deactivated: 1, unchanged: seed().length });
     expect((await t.sql.query("SELECT active FROM product WHERE id=$1", [prodId])).rows[0].active).toBe(

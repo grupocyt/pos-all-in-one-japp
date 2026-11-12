@@ -55,6 +55,14 @@ export class CashController {
     return this.cash.cutReport(se, "Z", periodId);
   }
 
+  /** 11/11 (D2) · Resumen de un arqueo (todas las partes del corte y lo contado), para imprimirlo o reimprimirlo. */
+  @Post("cash/counts/:countId/print")
+  @HttpCode(200)
+  async printCount(@CurrentSession() se: Session, @Param("countId") countId: string) {
+    parse(PeriodIdModel, countId);
+    return this.cash.countReport(se, countId);
+  }
+
   @Get("cash/x-report")
   async xReport(@CurrentSession() se: Session) {
     return this.cash.xReport(se);

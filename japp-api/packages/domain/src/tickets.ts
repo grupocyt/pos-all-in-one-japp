@@ -160,7 +160,21 @@ export interface TicketFormats {
   cutx?: TicketFormat;
   cutz?: TicketFormat;
   void?: TicketFormat;
+  /** 11/11 (A8) · comanda: «local» = línea con el código y el nombre del local (para soporte) */
+  kitchen?: TicketFormat;
 }
+/** 11/11 (D2) · partes del corte X que, si no están en el formato, no salen (el corte X normal: ventas, formas de pago y propinas). */
+export const CUTX_SHORT_OFF: (keyof TicketFormat)[] = [
+  "comensales",
+  "ticketMedio",
+  "iva",
+  "areas",
+  "camareros",
+  "descuentos",
+  "eliminaciones",
+  "abonos",
+  "caja",
+];
 export interface TicketContext {
   store: StoreHeader;
   table: { name: string; area: string };
@@ -172,6 +186,8 @@ export interface TicketContext {
   showTip?: boolean;
   /** N1 · formatos de Ajustes (precuenta y factura). Sin ellos, todo sale. */
   formats?: TicketFormats;
+  /** 11/11 (A4) · fast food: nombre del cliente (solo el nombre, para llamarle) */
+  customerName?: string | null;
 }
 const fmtOn = (f: TicketFormat | undefined, k: keyof TicketFormat) => f?.[k] !== false;
 export const formatOn = fmtOn;
@@ -195,7 +211,10 @@ function storeBlock(s: StoreHeader, f?: TicketFormat, invoice = false): TicketLi
     let local = s.local && fmtOn(f, "local") ? s.local : "";
     if (chain && local) {
       // «Cañas y Tapas · Plaza Norte» (sin repetir la cadena si el nombre del local ya empieza por ella)
-      local = local.replace(new RegExp("^" + chain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[·\\-–]?\\s*", "i"), "");
+      local = local.replace(
+        new RegExp("^" + chain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[·\\-–]?\\s*", "i"),
+        "",
+      );
     }
     trade = [chain, local].filter(Boolean).join(" · ");
   }
@@ -264,7 +283,10 @@ function body(acc: Account, f?: TicketFormat): TicketLine[] {
     const amt = discountAmount(d, tt.sub);
     // N5 (04/11): un nombre de descuento largo se parte en varias líneas (antes se recortaba); el importe va en la primera
     const right = "-" + eur(amt);
-    const parts = wrap(`Descuento ${d.type === "percentage" ? pct(d.value) + " % " : ""}${d.reason}`.trim(), WIDTH - right.length - 1);
+    const parts = wrap(
+      `Descuento ${d.type === "percentage" ? pct(d.value) + " % " : ""}${d.reason}`.trim(),
+      WIDTH - right.length - 1,
+    );
     out.push(T(lr(parts[0]!, right)));
     parts.slice(1).forEach((p) => out.push(T(p)));
   }
@@ -303,6 +325,7 @@ function head(
     T(lr(opLeft, opRight), { bold: true }),
     R("-"),
     T(lr(`${when.date} ${when.hm}`, fmtOn(f, "mesero") ? ctx.waiter : "")),
+    ...(ctx.customerName?.trim() ? [T(`Cliente: ${ctx.customerName.trim()}`, { bold: true })] : []),
     R("="),
   ];
 }
@@ -481,6 +504,11 @@ export interface KitchenContext {
   at: Date;
   reprint?: boolean;
   voided?: boolean;
+  /** 11/11 (A8) · «JC01 · Cañas»: de qué local es la comanda (para soporte); sale si el formato no lo quita */
+  store?: string;
+  /** 11/11 (A4) · fast food: nombre del cliente, grande debajo de la mesa */
+  customer?: string | null;
+  format?: TicketFormat;
 }
 
 /**
@@ -504,6 +532,12 @@ export function kitchenTicket(
     T(madridParts(ctx.at).hms, { align: "center", size: "h" }),
     T(`Mesa ${ctx.table.name} ${ctx.table.area}`, { align: "center", size: "wh" }),
   ];
+  if (ctx.customer?.trim()) {
+    out.push(T(ctx.customer.trim().toUpperCase(), { align: "center", size: "wh", bold: true }));
+  }
+  if (ctx.store?.trim() && fmtOn(ctx.format, "local")) {
+    out.unshift(T(ctx.store.trim(), { align: "center" }));
+  }
   if (ctx.voided) {
     out.push(T("*** ANULADO ***", { align: "center", size: "wh", bold: true }));
   } else if (ctx.reprint) {
@@ -606,7 +640,21 @@ export interface CutTicketData {
   closingNumber?: number | null;
   user: string;
   /** 11 (04/11): en el Z, lo contado al cerrar, la diferencia con lo esperado y el motivo */
-  counted?: { cash: number; card?: number | null; difference: number; note?: string | null } | null;
+  counted?: {
+    cash: number;
+    card?: number | null;
+    difference: number;
+    note?: string | null;
+    /** 11/11 (D2) · lo que marcó cada datáfono */
+    cards?: { name: string; amount: number }[] | null;
+    /** tarjeta que espera el sistema (para comparar con los datáfonos) */
+    expectedCard?: number | null;
+    /** fondo que se queda y lo que se deposita (cierre) */
+    nextFloat?: number | null;
+    deposit?: number | null;
+  } | null;
+  /** 11/11 (D2) · resumen impreso después del arqueo: todas las partes y el arqueo (cabecera según el corte X) */
+  arqueo?: boolean;
   /** N3: propinas en efectivo (están en el cajón, no son venta) */
   cashTips?: number;
   /* 05/11 · el mismo contenido que la vista previa del TPV (cada parte según el formato) */
@@ -635,7 +683,14 @@ export interface CutTicketData {
   }[];
   credits?: { number: string; amount: number; ref?: string | null }[];
   tips?: number;
-  cash?: { float: number; cashSales: number; withdrawals: number; deposits?: number; card: number; creditsCash?: number };
+  cash?: {
+    float: number;
+    cashSales: number;
+    withdrawals: number;
+    deposits?: number;
+    card: number;
+    creditsCash?: number;
+  };
   /** Ajustes › Formatos › Corte X / Corte Z */
   format?: TicketFormat;
 }
@@ -647,7 +702,13 @@ export interface CutTicketData {
  */
 export function cutTicket(c: CutTicketData): TicketLine[] {
   const f = c.format;
-  const on = (k: keyof TicketFormat) => fmtOn(f, k);
+  // 11/11 · el corte X normal: lo que no está en el formato y es de CUTX_SHORT_OFF no sale; el resumen del arqueo lleva todo
+  const on = (k: keyof TicketFormat) =>
+    c.arqueo
+      ? true
+      : c.kind === "X" && f?.[k] === undefined && CUTX_SHORT_OFF.includes(k)
+        ? false
+        : fmtOn(f, k);
   const from = madridParts(c.from);
   const to = madridParts(c.to);
   const z = c.kind === "Z";
@@ -657,7 +718,10 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
   out.push(...storeBlock({ ...c.store, logo: c.store.logo ?? true }, hf).filter((l) => l.k !== "feed"));
   out.push(
     R("="),
-    T(z ? "CORTE Z · FIN DE DÍA" : "CORTE X · RESUMEN DE VENTA", { align: "center", bold: true }),
+    T(z ? "CORTE Z · FIN DE DÍA" : c.arqueo ? "ARQUEO · RESUMEN DE CAJA" : "CORTE X · RESUMEN DE VENTA", {
+      align: "center",
+      bold: true,
+    }),
     T(z ? "(periodo cerrado)" : "(no cierra el periodo) · Lectura sin cierre", { align: "center" }),
   );
   if (z && c.closingNumber != null) {
@@ -683,7 +747,12 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
     out.push(T(lr("TICKET MEDIO (NETO)", eur(c.tickets ? r2(net / c.tickets) : 0)), H));
   }
   if (on("iva")) {
-    out.push(R("-"), T(lr("VENTA BRUTA", eur(gross))), T(lr("- IVA", eur(-tax))), T(lr("= VENTA NETA", eur(net)), { size: "h", bold: true }));
+    out.push(
+      R("-"),
+      T(lr("VENTA BRUTA", eur(gross))),
+      T(lr("- IVA", eur(-tax))),
+      T(lr("= VENTA NETA", eur(net)), { size: "h", bold: true }),
+    );
   } else {
     out.push(R("-"), T(lr("Total ventas", eur(gross)), H));
   }
@@ -702,7 +771,11 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
     sec("POR CAMARERO   (tickets · ticket medio)");
     [...c.byWaiter]
       .sort((a, b) => b.amount / (b.tickets || 1) - a.amount / (a.tickets || 1))
-      .forEach((w) => out.push(T(lr(`${padL(String(w.tickets), 4)}  ${w.name}`, eur(w.tickets ? r2(w.amount / w.tickets) : 0)))));
+      .forEach((w) =>
+        out.push(
+          T(lr(`${padL(String(w.tickets), 4)}  ${w.name}`, eur(w.tickets ? r2(w.amount / w.tickets) : 0))),
+        ),
+      );
   }
   if (on("descuentos") && c.discounts?.length) {
     sec("DESCUENTOS");
@@ -710,7 +783,9 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
       out.push(T(lr(`${d.name} (${d.count})`, eur(d.amount)), H));
       for (const x of d.items ?? []) {
         out.push(T(lr(`  ${madridParts(x.at).hm}  ${x.number}`, eur(x.amount))));
-        wrap(`Mesa ${x.table || "—"} · Aplicó: ${x.by}${x.auth ? ` · Autorizó: ${x.auth}` : ""}`, 40).forEach((y) => out.push(T("        " + y)));
+        wrap(`Mesa ${x.table || "—"} · Aplicó: ${x.by}${x.auth ? ` · Autorizó: ${x.auth}` : ""}`, 40).forEach(
+          (y) => out.push(T("        " + y)),
+        );
       }
       out.push({ k: "feed" });
     }
@@ -734,7 +809,9 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
       for (const v of L) {
         out.push(T(lr(`  ${madridParts(v.at).hm}  ${v.qty} ${v.name}`, eur(v.amount))));
         out.push(T(`        Mesa ${v.table || "—"} · ${v.reason || "—"}`.slice(0, WIDTH)));
-        wrap(`Eliminó: ${v.by || "—"}${v.auth ? ` · Autorizó: ${v.auth}` : ""}`, 40).forEach((y) => out.push(T("        " + y)));
+        wrap(`Eliminó: ${v.by || "—"}${v.auth ? ` · Autorizó: ${v.auth}` : ""}`, 40).forEach((y) =>
+          out.push(T("        " + y)),
+        );
       }
       out.push({ k: "feed" });
     }
@@ -756,7 +833,10 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
   if (on("caja")) {
     sec("CAJA (EFECTIVO)");
     if (c.cash) {
-      out.push(T(lr("Fondo inicial", eur(c.cash.float))), T(lr("+ Ventas en efectivo", eur(c.cash.cashSales))));
+      out.push(
+        T(lr("Fondo inicial", eur(c.cash.float))),
+        T(lr("+ Ventas en efectivo", eur(c.cash.cashSales))),
+      );
       if (c.cashTips) {
         out.push(T(lr("+ Propinas en efectivo", eur(c.cashTips))));
       }
@@ -775,16 +855,31 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
       out.push(T(lr("Tarjeta y otros (menos abonos)", eur(c.cash.card))));
     }
   }
-  if (c.counted && on("contado")) {
-    out.push({ k: "feed" }, T("ARQUEO DE CIERRE", H), R("-"));
+  if (c.counted && (c.arqueo || on("contado"))) {
+    out.push({ k: "feed" }, T(c.arqueo ? "ARQUEO" : "ARQUEO DE CIERRE", H), R("-"));
     out.push(T(lr("Efectivo esperado", eur(c.expectedCash))), T(lr("Efectivo contado", eur(c.counted.cash))));
+    const cards = c.counted.cards ?? [];
+    if (cards.length > 1) {
+      cards.forEach((x) => out.push(T(lr(`  ${x.name}`, eur(x.amount)))));
+    }
     if (c.counted.card != null) {
-      out.push(T(lr("Tarjeta contada", eur(c.counted.card))));
+      out.push(T(lr(cards.length > 1 ? "Total datáfonos" : "Tarjeta contada", eur(c.counted.card))));
+      if (c.counted.expectedCard != null) {
+        const dc = r2(c.counted.card - c.counted.expectedCard);
+        out.push(T(lr("Tarjeta en el sistema", eur(c.counted.expectedCard))));
+        out.push(
+          T(lr("Diferencia tarjeta", Math.abs(dc) < 0.005 ? "cuadra" : (dc > 0 ? "+" : "") + eur(dc))),
+        );
+      }
     }
     const d = c.counted.difference;
     out.push(T(lr("Diferencia", Math.abs(d) < 0.005 ? "cuadra" : (d > 0 ? "+" : "") + eur(d)), H));
     if ((c.counted.note ?? "").trim()) {
       wrap(`Motivo: ${c.counted.note!.trim()}`, WIDTH).forEach((x) => out.push(T(x)));
+    }
+    if (c.counted.nextFloat != null) {
+      out.push(R("-"), T(lr("Fondo para el día siguiente", eur(c.counted.nextFloat))));
+      out.push(T(lr("A depositar", eur(c.counted.deposit ?? 0)), H));
     }
   }
   out.push(R("="), T(`Impreso ${to.date} ${to.hms}`, { align: "center" }));

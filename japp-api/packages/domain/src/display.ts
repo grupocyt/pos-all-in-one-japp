@@ -130,10 +130,14 @@ export function normalizeDisplayConfig(input: unknown, service: ServiceType): Di
     fail("VALIDATION", `Tipo de pantalla desconocido: ${String(i.mode)}`, { field: "config.mode" });
   }
   if (!allowedDisplayModes(service).includes(mode)) {
-    fail("VALIDATION", "Los banners son solo para fast food: en una tienda de mesas, apagada o solo facturación", {
-      field: "config.mode",
-      allowed: allowedDisplayModes(service),
-    });
+    fail(
+      "VALIDATION",
+      "Los banners son solo para fast food: en una tienda de mesas, apagada o solo facturación",
+      {
+        field: "config.mode",
+        allowed: allowedDisplayModes(service),
+      },
+    );
   }
   const color = str(i.color, 9, "config.color", DISPLAY_DEFAULT.color);
   if (!/^#[0-9a-fA-F]{6}$/.test(color)) {

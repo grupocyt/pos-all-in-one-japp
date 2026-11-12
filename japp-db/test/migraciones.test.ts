@@ -280,7 +280,8 @@ describe("migraciones", () => {
     expect((await one(c, "SELECT print_tip FROM store_parameters LIMIT 1")).print_tip).toBe(false);
   }));
   it("0029: ticket_formats en store_parameters (formatos de precuenta y factura; vacío = todo sale)", () => rollback(c, async () => {
-    expect((await one(c, "SELECT ticket_formats FROM store_parameters LIMIT 1")).ticket_formats).toEqual({});
+    // 0033 · el corte X normal sale corto (ventas, formas de pago y propinas): el resto viene apagado
+    expect(Object.keys((await one(c, "SELECT ticket_formats FROM store_parameters LIMIT 1")).ticket_formats)).toEqual(["cutx"]);
     await c.query(`UPDATE store_parameters SET ticket_formats = '{"invoice":{"mesero":false}}'::jsonb`);
     expect((await one(c, "SELECT ticket_formats->'invoice'->>'mesero' m FROM store_parameters LIMIT 1")).m).toBe("false");
   }));
@@ -311,6 +312,30 @@ describe("migraciones", () => {
     expect(await of("ADMIN_LOCAL")).toHaveLength(10);
     expect(await of("CAJERO")).toEqual(["funciones.abrirCajon", "funciones.caja", "funciones.facturas", "funciones.periodo", "funciones.servicio"]);
     expect(await of("MESERO")).toEqual([]);
+  }));
+  it("0033: descuentos por perfil, nombre del cliente, calificativos por categoría, mesa entera eliminada, semana pasada con permiso, datáfonos y corte X corto", () => rollback(c, async () => {
+    const col = async (t: string, k: string) => (await one(c, "SELECT column_default d FROM information_schema.columns WHERE table_name=$1 AND column_name=$2", [t, k]))?.d ?? null;
+    expect(await col("discount", "profiles")).toMatch(/\[\]/);
+    expect(await col("category", "qualifiers")).toMatch(/\[\]/);
+    expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='orders' AND column_name='customer_name'")).toEqual({ x: 1 });
+    expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='orders' AND column_name='void_close'")).toEqual({ x: 1 });
+    expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='cash_movement' AND column_name='card_detail'")).toEqual({ x: 1 });
+    expect(await one(c, "SELECT 1 x FROM information_schema.columns WHERE table_name='cash_closing' AND column_name='card_detail'")).toEqual({ x: 1 });
+    expect((await one(c, "SELECT card_terminals FROM store_parameters LIMIT 1")).card_terminals).toBe(1);
+    await expect(c.query("UPDATE store_parameters SET card_terminals = 0")).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK"); await c.query("BEGIN");
+    const sinPerfil = await all(c, "SELECT name FROM discount WHERE needs_authorization AND profiles = '[]'::jsonb");
+    expect(sinPerfil).toEqual([]);
+    const sem = await all(c, "SELECT p.code FROM profile_permission pp JOIN user_profile p ON p.id = pp.profile_id WHERE pp.permission_code = 'funciones.semanaEditar' ORDER BY 1");
+    expect(sem.map((r: any) => r.code)).toEqual(["ADMIN", "ADMIN_LOCAL"]);
+    const cx = (await one(c, "SELECT ticket_formats->'cutx' f FROM store_parameters LIMIT 1")).f;
+    expect(cx).toMatchObject({ iva: false, areas: false, camareros: false, caja: false });
+    expect(cx.formasPago).toBeUndefined();
+  }));
+  it("0034: pantalla de cada equipo (automática o fija, ancho × alto y escala 70–150 %)", () => rollback(c, async () => {
+    expect(await one(c, "SELECT DISTINCT screen_mode, ui_scale FROM station")).toEqual({ screen_mode: "auto", ui_scale: 100 });
+    await c.query("UPDATE station SET screen_mode='fixed', screen_width=1920, screen_height=1080, ui_scale=120");
+    await expect(c.query("UPDATE station SET ui_scale=200")).rejects.toMatchObject({ code: "23514" });
   }));
   it("0031: ticket_logo en store_parameters (vacío = logo de la cadena)", () => rollback(c, async () => {
     expect((await one(c, "SELECT ticket_logo FROM store_parameters LIMIT 1")).ticket_logo).toBeNull();

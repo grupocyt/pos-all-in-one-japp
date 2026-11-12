@@ -18,6 +18,9 @@ export interface CashMovementRow {
   note: string | null;
   countedDetail?: Record<string, number> | null;
   authorizedBy?: string | null;
+  /** 0033 · arqueo: lo que marcó cada datáfono y la suma */
+  cardDetail?: { name: string; amount: number }[] | null;
+  countedCard?: number | null;
 }
 
 /** Movimientos de caja (cash_movement) y motivos (reason). */
@@ -38,6 +41,8 @@ export class CashApplication {
       amount: m.amount.toFixed(2),
       reasonId: m.reasonId,
       countedDetail: m.countedDetail,
+      cardDetail: m.cardDetail ?? null,
+      countedCard: m.countedCard == null ? null : m.countedCard.toFixed(2),
       note: m.note,
       byUserId: a.userId,
       byUserName: a.user,
@@ -46,6 +51,17 @@ export class CashApplication {
       byAt: a.at,
       authorizedBy: m.authorizedBy,
     } as any);
+  }
+
+  /** 11/11 (D2) · un arqueo («count») del periodo, para reimprimir su resumen. */
+  async countById(storeId: string, id: string) {
+    const [r] = await this.database.db
+      .select()
+      .from(s.cashMovement)
+      .where(
+        and(eq(s.cashMovement.storeId, storeId), eq(s.cashMovement.id, id), eq(s.cashMovement.kind, "count")),
+      );
+    return r ?? null;
   }
 
   /** Motivo por nombre o por id, o undefined. */

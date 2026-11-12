@@ -27,6 +27,19 @@ export class AuthorizationService {
     if (session.can(perm)) {
       return { authorizer: null, authorizerActor: null };
     }
+    return this.requireToken(session, perm, token, now);
+  }
+
+  /**
+   * 0033 · Siempre con la clave de otra persona (aunque quien pulsa tenga el permiso): p. ej. un descuento que su perfil
+   * no puede aplicar o una observación de un día anterior en Resumen semana.
+   */
+  async requireToken(
+    session: Session,
+    perm: string,
+    token?: string | null,
+    now = new Date(),
+  ): Promise<Granted> {
     if (!token) {
       fail("PERMISSION_REQUIRED", "Hace falta la clave de un encargado", { permission: perm });
     }

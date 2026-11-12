@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-const Modifier = z.object({ questionId: z.string().uuid().nullish(), plu: z.number().int(), quantity: z.number().int().positive().optional() }).strict();
+const Modifier = z
+  .object({
+    questionId: z.string().uuid().nullish(),
+    plu: z.number().int(),
+    quantity: z.number().int().positive().optional(),
+  })
+  .strict();
 
 /** POST /orders/{orderId}/reconnections: lo que el equipo ticó sin conexión, tal como lo marcó. clientId lo pone el equipo (repetir no duplica). */
 export const CreateReconnectionsModel = z

@@ -234,7 +234,7 @@ describe("Ajustes · altas, cambios y bajas", () => {
       token: sis,
       body: { reason: "Prueba" },
     });
-    await t.call("POST", `/orders/${o.body._id}/close`, { token: sis, body: {} });
+    await t.call("POST", `/orders/${o.body._id}/close`, { token: sis, body: { closeReason: "Prueba" } });
   });
   it("desactivar: la categoría con productos activos no; el producto sí; luego la categoría sí; y se reactiva", async () => {
     const c1 = await t.call("POST", `/config/categorias/${catId}/deactivate`, { token: sis, body: {} });
@@ -397,7 +397,7 @@ describe("Ajustes · reglas de cada módulo", () => {
       (await t.call("POST", `/config/mesas/${m.body.id}/deactivate`, { token: sis, body: {} })).error.details
         .reason,
     ).toBe("openOrders");
-    await t.call("POST", `/orders/${o.body._id}/close`, { token: sis, body: {} });
+    await t.call("POST", `/orders/${o.body._id}/close`, { token: sis, body: { closeReason: "Prueba" } });
     expect(
       (await t.call("POST", `/config/mesas/${m.body.id}/deactivate`, { token: sis, body: {} })).body.active,
     ).toBe(false);

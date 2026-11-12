@@ -374,11 +374,14 @@ describe("tickets nuevos y factura sin desglose", () => {
     expect(x).toContain(lr(" 12  Efectivo", "120,50 €"));
     expect(x).toContain(lr("TOTAL (= venta bruta)", "460,75 €"));
     expect(x).toContain(lr("TICKETS", "32"));
-    expect(x).toContain(lr("= Efectivo esperado", "270,50 €"));
+    // 11/11 · el corte X normal no lleva la caja (va en el resumen del arqueo y en el Z)
+    expect(x).not.toContain("= Efectivo esperado");
+    expect(renderText(cutTicket({ ...base, kind: "X", format: { caja: true } }))).toContain(lr("= Efectivo esperado", "270,50 €"));
     expect(fits(x)).toBe(true);
     const z = renderText(cutTicket({ ...base, kind: "Z", closingNumber: 12 }));
     expect(z).toContain("CORTE Z");
     expect(z).toContain("Z nº 0012");
+    expect(z).toContain(lr("= Efectivo esperado", "270,50 €"));
     expect(z).not.toContain("Lectura sin cierre");
     expect(renderText(cutTicket({ ...base, kind: "Z" }))).not.toContain("Z nº");
   });

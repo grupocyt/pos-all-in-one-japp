@@ -90,7 +90,7 @@ describe("Clientes por correo", () => {
     expect(c.status, JSON.stringify(c.env)).toBe(200);
     const r = await t.call("GET", "/customers?q=correo-pruebas", { token: sis });
     expect(r.body.items.map((x: any) => x.taxId)).toContain("B12345674");
-    await t.call("POST", `/orders/${o._id}/close`, { token: sis, body: {} });
+    await t.call("POST", `/orders/${o._id}/close`, { token: sis, body: { closeReason: "Prueba" } });
   });
 });
 

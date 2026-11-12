@@ -55,15 +55,27 @@ export class DisplayApplication {
     return (await q.execute(query)).rows as Row[];
   }
 
-  async config(storeId: string, q: Q = this.database.db): Promise<{ config: unknown; version: number } | null> {
-    const r = (await this.rows(q, sql`SELECT config, version FROM customer_display WHERE store_id = ${storeId}`))[0];
+  async config(
+    storeId: string,
+    q: Q = this.database.db,
+  ): Promise<{ config: unknown; version: number } | null> {
+    const r = (
+      await this.rows(q, sql`SELECT config, version FROM customer_display WHERE store_id = ${storeId}`)
+    )[0];
     return r ? { config: r.config, version: Number(r.version) } : null;
   }
 
   /** La fila de la tienda (si no existe, se crea con la versión 1) y bloqueada para escribir. */
   async lock(tx: Tx, storeId: string): Promise<{ config: unknown; version: number }> {
-    await tx.execute(sql`INSERT INTO customer_display (store_id) VALUES (${storeId}) ON CONFLICT (store_id) DO NOTHING`);
-    const r = (await this.rows(tx, sql`SELECT config, version FROM customer_display WHERE store_id = ${storeId} FOR UPDATE`))[0]!;
+    await tx.execute(
+      sql`INSERT INTO customer_display (store_id) VALUES (${storeId}) ON CONFLICT (store_id) DO NOTHING`,
+    );
+    const r = (
+      await this.rows(
+        tx,
+        sql`SELECT config, version FROM customer_display WHERE store_id = ${storeId} FOR UPDATE`,
+      )
+    )[0]!;
     return { config: r.config, version: Number(r.version) };
   }
 
@@ -84,7 +96,10 @@ export class DisplayApplication {
 
   async mediaById(storeId: string, id: string, q: Q = this.database.db): Promise<MediaRow | null> {
     const r = (
-      await this.rows(q, sql`SELECT * FROM display_media WHERE store_id = ${storeId} AND id = ${id} AND deleted_at IS NULL`)
+      await this.rows(
+        q,
+        sql`SELECT * FROM display_media WHERE store_id = ${storeId} AND id = ${id} AND deleted_at IS NULL`,
+      )
     )[0];
     return r ? toMedia(r) : null;
   }

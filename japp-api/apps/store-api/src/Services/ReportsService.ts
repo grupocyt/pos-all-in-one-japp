@@ -43,6 +43,10 @@ export class ReportsService {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)) || date > today) {
       fail("VALIDATION", "date futura o no válida (AAAA-MM-DD)", { field: "date" });
     }
+    // 11/11 (A10) · un día anterior solo con «Resumen semana › editar días anteriores» (o la clave de quien lo tenga)
+    if (date < today) {
+      await this.auth.require(se, "funciones.semanaEditar", b.authorization);
+    }
     const note = b.note.trim();
     return this.database.withTx(async (tx) => {
       const cur = await this.closingsData.weekNoteForUpdate(tx, se.storeId, date);
@@ -111,6 +115,20 @@ export class ReportsService {
         authorizedBy: r.l.deleteAuthorizedByUserName ?? "",
         amount,
       })),
+      // 11/11 (A7) · «Mesas enteras»: cerradas sin cobrar nada tras eliminar lo enviado, con el motivo
+      tables: (await this.reports.voidClosedTables(se.storeId)).map((t) => {
+        const v = (t.vc ?? {}) as Record<string, any>;
+        return {
+          orderId: t.id,
+          at: v.at ?? "",
+          table: t.table,
+          zone: t.zone ?? "",
+          reason: String(v.reason ?? ""),
+          amount: Number(v.amount ?? 0),
+          lines: Number(v.lines ?? 0),
+          user: String(v.user ?? ""),
+        };
+      }),
     };
   }
 

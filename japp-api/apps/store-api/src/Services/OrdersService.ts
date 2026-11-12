@@ -20,6 +20,7 @@ import {
   registerPayment,
   voidPayment,
   accountTotals,
+  lineAmount,
   kitchenTicket,
   kitchenVoidTicket,
   assertSamePriceList,
@@ -119,6 +120,8 @@ interface KitchenJob {
   guests: number;
   waiter: string;
   at: Date;
+  /** 11/11 (A4) · fast food: nombre del cliente */
+  customer?: string | null;
 }
 /** Permiso para eliminar según dónde está la línea: lo «Por enviar» no pide nada; lo enviado o en precuenta, el suyo. */
 function deletePermission(status: string): string | null {
@@ -435,8 +438,16 @@ export class OrdersService {
   async patch(
     session: Session,
     orderId: string,
-    b: { guests?: number; note?: string | null; noteId?: string; version?: number },
+    b: {
+      guests?: number;
+      note?: string | null;
+      noteId?: string;
+      customerName?: string | null;
+      version?: number;
+    },
   ) {
+    const customer =
+      b.customerName === undefined ? undefined : (b.customerName ?? "").trim().slice(0, 40) || null;
     if (b.guests != null) {
       await this.auth.require(session, "pedido.comensales");
     }
@@ -467,7 +478,14 @@ export class OrdersService {
           l.header.notes = notes;
           l.header.note = notesText(notes);
         }
-        if (b.guests != null || !text) {
+        // 11/11 (A4) · fast food: el nombre del cliente (vacío = sin nombre)
+        if (customer !== undefined && customer !== (l.header.customerName ?? null)) {
+          l.header.customerName = customer;
+          events.push(
+            this.ev("customerNamed", customer ? `Cliente: ${customer}` : "Sin nombre de cliente", ctx),
+          );
+        }
+        if (b.guests != null || (!text && customer === undefined)) {
           events.push(this.ev("tableUpdated", `Comensales ${b.guests ?? l.order.guests}`, ctx));
         }
         return { next: { ...l.order, guests: b.guests ?? l.order.guests }, events };
@@ -748,7 +766,9 @@ export class OrdersService {
 
   /** Comanda de anulación (25/10/2026) por cada impresora y canal por los que salió la línea. */
   private async printVoid(session: Session, v: VoidJob) {
-    const format = (await this.stores.store()).ticketFormats.void; // 05/11 · Ajustes › Formatos › Anulación
+    const st = await this.stores.store();
+    const format = st.ticketFormats.void; // 05/11 · Ajustes › Formatos › Anulación
+    const store = [st.code, st.name].filter(Boolean).join(" · "); // 11/11 · el local, como en la comanda
     for (const p of v.printers) {
       await this.printer
         .print({
@@ -766,6 +786,7 @@ export class OrdersService {
             reason: v.reason,
             authorizedBy: v.authorizedBy,
             format,
+            store,
           }),
         })
         .catch(() => ({ ok: false }));
@@ -928,7 +949,11 @@ export class OrdersService {
    * Todo en una transacción; las comandas se imprimen DESPUÉS del COMMIT (si una impresora falla, 503 PRINTER_OFFLINE
    * y la mesa queda guardada igual).
    */
-  async saveAndLeave(session: Session, orderId: string, b: { version?: number | null }) {
+  async saveAndLeave(
+    session: Session,
+    orderId: string,
+    b: { version?: number | null; closeReason?: string | null },
+  ) {
     const me = {
       userId: session.user.id,
       userName: session.user.name,
@@ -960,8 +985,17 @@ export class OrdersService {
         const released = !other && !liveContentOf(d.order);
         let next = d.order;
         if (released) {
+          const vc = this.voidClose(l, d.order, b.closeReason, ctx);
           next = this.closeEmpty(l, d.order);
-          events.push(this.ev("tableClosed", "Se cierra la mesa sin venta", ctx));
+          events.push(
+            this.ev(
+              "tableClosed",
+              vc
+                ? `Se cierra la mesa entera con eliminaciones · ${vc.reason}`
+                : "Se cierra la mesa sin venta",
+              ctx,
+            ),
+          );
         }
         return {
           next,
@@ -1006,6 +1040,7 @@ export class OrdersService {
             guests: l.order.guests,
             waiter: ctx.actor.user,
             at: ctx.now,
+            customer: l.header.customerName ?? null,
           });
         }
         const job = jobs.get(k)!;
@@ -1073,6 +1108,7 @@ export class OrdersService {
           guests: l.order.guests,
           waiter: line.createdBy.user,
           at: ctx.now,
+          customer: l.header.customerName ?? null,
         });
       }
       jobs.get(k)!.items.push(kitchenItemOf(line, tag));
@@ -1088,6 +1124,8 @@ export class OrdersService {
   /** Imprime después del COMMIT y apunta qué salió. Si una impresora falla → 503 PRINTER_OFFLINE (lo que falló queda para el siguiente envío). */
   private async printKitchen(session: Session, jobs: KitchenJob[]): Promise<Printed[]> {
     const printed: Printed[] = [];
+    // 11/11 (A8) · una línea con el local en cada comanda (para soporte); se quita en Ajustes › Formatos › Comanda
+    const st = jobs.length ? await this.stores.store() : null;
     for (const j of jobs) {
       const ticket = kitchenTicket(j.items, {
         channel: j.channel,
@@ -1095,6 +1133,9 @@ export class OrdersService {
         guests: j.guests,
         table: j.table,
         at: j.at,
+        customer: j.customer,
+        store: st ? [st.code, st.name].filter(Boolean).join(" · ") : undefined,
+        format: st?.ticketFormats.kitchen,
       });
       const res = await this.printer
         .print({
@@ -1468,7 +1509,9 @@ export class OrdersService {
     const row = await this.carta.paymentMethod(tx, session.storeId, b.method);
     const allowed = await this.carta.stationPaymentMethodIds(tx, session.storeId, session.station.id);
     const m = assertMethodAllowed(
-      row ? { id: row.id, code: row.code, kind: row.kind, active: row.active } : null,
+      row
+        ? { id: row.id, code: row.code, kind: row.kind, active: row.active, showInTpv: row.showInTpv }
+        : null,
       { name: session.station.name, kind: session.station.kind, methodIds: allowed },
       b.method,
     );
@@ -1789,6 +1832,7 @@ export class OrdersService {
       paymentNames,
       showTip: st.printTip,
       formats: st.ticketFormats, // N1 · Ajustes › Formatos de ticket (0029)
+      customerName: l.header.customerName ?? null, // 11/11 (A4) · fast food
     };
   }
 
@@ -1841,6 +1885,7 @@ export class OrdersService {
       fail("NOT_ALLOWED", "La PDA no aplica descuentos", { permission: "cobro.descuentos" });
     }
     let needsAuth = false;
+    let profileOk = true;
     return (
       await this.command(session, orderId, null, async (l, ctx, tx) => {
         let d: { type: "percentage" | "fixed"; value: number; reason: string };
@@ -1851,6 +1896,9 @@ export class OrdersService {
           }
           d = { type: "percentage", value: Number(row!.percent), reason: row!.name };
           needsAuth = row!.needsAuthorization;
+          // 0033 · A3: perfiles que lo pueden aplicar ([] = todos); otro perfil, solo con la clave de quien sí pueda
+          const allowed = Array.isArray(row!.profiles) ? (row!.profiles as string[]) : [];
+          profileOk = !allowed.length || allowed.includes(session.user.profileCode ?? "");
         } else {
           if (!b.type || b.value == null) {
             fail("VALIDATION", "Indica discountId, o tipo y valor", { field: "discountId" });
@@ -1858,7 +1906,9 @@ export class OrdersService {
           d = { type: b.type!, value: b.value!, reason: b.reason ?? "" };
           needsAuth = true;
         }
-        if (needsAuth || !session.can("cobro.descuentos")) {
+        if (!profileOk) {
+          await this.auth.requireToken(session, "cobro.descuentos", b.authorization, ctx.now);
+        } else if (needsAuth || !session.can("cobro.descuentos")) {
           await this.auth.require(session, "cobro.descuentos", b.authorization, ctx.now);
         }
         const acc = this.account(l.order, accountId);
@@ -2018,17 +2068,71 @@ export class OrdersService {
    * Es la salida de una cuenta a 0,00 €: se eliminan sus líneas con motivo (p. ej. Invitación) y se cierra aquí.
    * Las cuentas sin facturar se anulan (nunca se borran); la mesa queda libre.
    */
-  async close(session: Session, orderId: string, b: { version?: number | null }) {
+  async close(
+    session: Session,
+    orderId: string,
+    b: { version?: number | null; closeReason?: string | null },
+  ) {
     await this.auth.require(session, "mesas.abrirMesa");
     return (
       await this.command(session, orderId, b.version, (l, ctx) => {
         assertNothingLive(l.order);
+        const vc = this.voidClose(l, l.order, b.closeReason, ctx);
         return {
           next: this.closeEmpty(l, l.order),
-          events: [this.ev("tableClosed", "Se cierra la mesa sin venta", ctx)],
+          events: [
+            this.ev(
+              "tableClosed",
+              vc
+                ? `Se cierra la mesa entera con eliminaciones · ${vc.reason}`
+                : "Se cierra la mesa sin venta",
+              ctx,
+            ),
+          ],
         };
       })
     ).transaction;
+  }
+
+  /**
+   * 11/11 (A7, pruebas de la 1.2.268) · «Mesa entera eliminada»: la mesa se cierra sin cobrar nada y tenía cosas enviadas a
+   * cocina o barra (o en precuenta) que se eliminaron. Hace falta el motivo (closeReason; sin él → 422 VALIDATION field
+   * closeReason con el importe y las líneas) y queda en orders.void_close para Gestiones › Eliminaciones › Mesas enteras.
+   * Sin nada enviado eliminado (una mesa abierta por error) o si lo eliminado es de 0 € se cierra como siempre. reason = null → no es mesa entera.
+   */
+  private voidClose(l: Loaded, order: Order, reason: string | null | undefined, ctx: Ctx, auto?: string) {
+    if (order.accounts.some((a) => a.status === "invoiced")) {
+      return null;
+    }
+    const del = order.accounts
+      .flatMap((a) => a.deletedLines ?? [])
+      .filter((x) => x.status === "printed" || x.status === "preBill");
+    if (!del.length) {
+      return null;
+    }
+    const amount = r2(del.reduce((t, x) => t + lineAmount(x), 0));
+    if (amount <= 0) {
+      return null; // solo calificativos de 0 €: no es una mesa entera eliminada
+    }
+    const why = (reason ?? "").trim().slice(0, 200) || auto || "";
+    if (!why) {
+      fail("VALIDATION", "Se eliminó todo lo enviado: indica el motivo del cierre de la mesa", {
+        field: "closeReason",
+        amount,
+        lines: del.length,
+      });
+    }
+    const vc = {
+      reason: why,
+      amount,
+      lines: del.length,
+      user: ctx.actor.user,
+      role: ctx.actor.role,
+      device: ctx.actor.device ?? "",
+      at: ctx.actor.at,
+    };
+    l.header.voidClose = vc;
+    return vc;
   }
 
   /**
@@ -2050,6 +2154,8 @@ export class OrdersService {
             if (liveContentOf(l.order)) {
               return { next: l.order, events: [], noop: true };
             }
+            // A7 · si se eliminó todo lo enviado y nadie dio el motivo, queda constancia igual
+            this.voidClose(l, l.order, null, ctx, "Sin motivo (se cerró sola al cerrar el periodo)");
             return {
               next: this.closeEmpty(l, l.order),
               events: [
@@ -2613,7 +2719,9 @@ export class OrdersService {
             invoice: null,
           };
           order = { ...order, accounts: [...order.accounts, acc] };
-          events.push(this.ev("accountOpened", `Se abre la cuenta ${acc.name} (pedidos del cliente)`, ctx, acc.id));
+          events.push(
+            this.ev("accountOpened", `Se abre la cuenta ${acc.name} (pedidos del cliente)`, ctx, acc.id),
+          );
         }
         let accepted = 0;
         for (const it of b.items) {

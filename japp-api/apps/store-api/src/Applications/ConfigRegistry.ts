@@ -85,7 +85,14 @@ const ticketFormat = z
   .partial()
   .strict();
 const ticketFormats = z
-  .object({ prebill: ticketFormat, invoice: ticketFormat, cutx: ticketFormat, cutz: ticketFormat, void: ticketFormat })
+  .object({
+    prebill: ticketFormat,
+    invoice: ticketFormat,
+    cutx: ticketFormat,
+    cutz: ticketFormat,
+    void: ticketFormat,
+    kitchen: ticketFormat, // 11/11 (A8) · comanda: «local»
+  })
   .partial()
   .strict();
 const F = (col: string, kind: Kind, zz: z.ZodTypeAny, label: string, o: Partial<Field> = {}): Field => ({
@@ -204,6 +211,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
           .nullish(),
         "Logo del ticket",
       ),
+      // 0033 · D2: cuántos datáfonos tiene el local (un campo por datáfono en el arqueo y el cierre)
+      cardTerminals: F("card_terminals", "i", z.number().int().min(1).max(9), "Datáfonos", { default: 1 }),
     },
   },
   usuarios: {
@@ -307,6 +316,10 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       sortOrder: F("sort_order", "i", z.number().int().min(0).max(999), "Orden", { default: 0 }),
       hidden: F("hidden", "b", z.boolean(), "Oculta", { default: false }),
       orderOnTable: F("order_on_table", "b", z.boolean(), "Order on Table", { default: true }),
+      // 0033 · A5: calificativos que salen al comentar un producto de la categoría (PLU) ([] = todos)
+      qualifiers: F("qualifiers", "j", z.array(z.number().int().min(1)).max(60), "Calificativos", {
+        default: [],
+      }),
       // id del App Manager: lo pone el sync de la carta; único por tienda
       externalId: F("external_id", "s", optStr(60), "Id del Manager"),
     },
@@ -408,6 +421,11 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       emissionPoint: F("emission_point", "s", optStr(10), "Punto de emisión"),
       opensDrawer: F("opens_drawer", "b", z.boolean(), "Abre cajón", { default: false }),
       isMain: F("is_main", "b", z.boolean(), "Caja principal", { default: false }),
+      // 0034 · pantalla del equipo: automática o fija (ancho × alto en píxeles) y la escala del TPV
+      screenMode: F("screen_mode", "s", z.enum(["auto", "fixed"]), "Pantalla", { default: "auto" }),
+      screenWidth: F("screen_width", "i", z.number().int().min(800).max(7680).nullish(), "Ancho (px)"),
+      screenHeight: F("screen_height", "i", z.number().int().min(600).max(4320).nullish(), "Alto (px)"),
+      uiScale: F("ui_scale", "i", z.number().int().min(70).max(150), "Escala (%)", { default: 100 }),
     },
     extra: {
       channels: {
@@ -424,9 +442,19 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
     order: "name",
     search: ["name", "code"],
     fields: {
-      code: F("code", "s", str(20).regex(/^[a-z0-9_-]+$/, "minúsculas, números, - y _"), "Código", {
-        required: true,
-      }),
+      // 11/11 (A2) · se pasa a minúsculas antes de validar («Influ» → «influ»); como mucho 20 caracteres
+      code: F(
+        "code",
+        "s",
+        z.preprocess(
+          (v) => (typeof v === "string" ? v.trim().toLowerCase() : v),
+          str(20).regex(/^[a-z0-9_-]+$/, "minúsculas, números, - y _"),
+        ),
+        "Código",
+        {
+          required: true,
+        },
+      ),
       name: F("name", "s", str(40), "Nombre", { required: true }),
       kind: F("kind", "s", z.enum(["cash", "card", "platform", "voucher", "discount"]), "Tipo", {
         required: true,
@@ -464,6 +492,23 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
         "Hasta",
       ),
       needsAuthorization: F("needs_authorization", "b", z.boolean(), "Pide clave", { default: false }),
+      // 0033 · A3: perfiles que lo pueden aplicar, para todos los equipos ([] = todos)
+      profiles: F(
+        "profiles",
+        "j",
+        z
+          .array(
+            z
+              .string()
+              .trim()
+              .min(1)
+              .max(30)
+              .regex(/^[A-Z0-9_]+$/, "código de perfil"),
+          )
+          .max(20),
+        "Perfiles que lo aplican",
+        { default: [] },
+      ),
     },
   },
   motivos: {

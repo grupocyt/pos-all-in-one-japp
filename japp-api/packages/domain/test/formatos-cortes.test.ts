@@ -1,4 +1,4 @@
-import { cutTicket, kitchenVoidTicket, renderText, WIDTH } from "../src/index.js";
+import { cutTicket, kitchenTicket, kitchenVoidTicket, preBillTicket, renderText, WIDTH } from "../src/index.js";
 
 /** 05/11/2026 · Corte X/Z con logo y el contenido de la vista previa del TPV; corte y anulación configurables. */
 const base = {
@@ -27,9 +27,11 @@ const base = {
   cash: { float: 150, cashSales: 107.62, withdrawals: 0, card: 363.46 },
 };
 
+const ALL = { comensales: true, ticketMedio: true, iva: true, areas: true, camareros: true, descuentos: true, eliminaciones: true, abonos: true, caja: true };
+
 describe("9 · corte X como la vista previa", () => {
   it("logo del local, cadena · local y todas las secciones; nada pasa de 48 columnas", () => {
-    const L = cutTicket(base);
+    const L = cutTicket({ ...base, format: ALL });
     expect(L[0]).toEqual({ k: "logo", raster: "HXYwAAEAAQD/" });
     const x = renderText(L);
     for (const s of ["Cañas y Tapas · Plaza Mayor", "CORTE X · RESUMEN DE VENTA", "COMENSALES", "TICKET MEDIO (NETO)", "VENTA BRUTA", "- IVA", "= VENTA NETA",
@@ -38,6 +40,42 @@ describe("9 · corte X como la vista previa", () => {
     }
     expect(x).not.toContain("NIF"); // el corte no lleva los datos fiscales salvo que el formato los pida
     expect(x.split("\n").every((l) => l.length <= WIDTH)).toBe(true);
+  });
+  it("11/11 (D2) · sin formato, el corte X normal solo lleva ventas, formas de pago y propinas", () => {
+    const x = renderText(cutTicket(base));
+    for (const s of ["CORTE X · RESUMEN DE VENTA", "TICKETS", "Total ventas", "POR FORMA DE PAGO", "PROPINAS"]) {
+      expect(x, s).toContain(s);
+    }
+    for (const s of ["COMENSALES", "TICKET MEDIO", "VENTA BRUTA", "POR ÁREA", "POR CAMARERO", "DESCUENTOS", "ELIMINACIONES", "ABONOS", "CAJA (EFECTIVO)"]) {
+      expect(x, s).not.toContain(s);
+    }
+    // el Z sigue con todo
+    expect(renderText(cutTicket({ ...base, kind: "Z" }))).toContain("CAJA (EFECTIVO)");
+  });
+  it("11/11 (D2) · resumen del arqueo: todas las partes, cada datáfono y la diferencia de tarjeta", () => {
+    const counted = {
+      cash: 267.62,
+      difference: 0,
+      card: 363.46,
+      expectedCard: 360,
+      cards: [
+        { name: "Datáfono 1", amount: 200 },
+        { name: "Datáfono 2", amount: 163.46 },
+      ],
+    };
+    const x = renderText(cutTicket({ ...base, arqueo: true, counted, format: { areas: false } }));
+    for (const s of ["ARQUEO · RESUMEN DE CAJA", "POR ÁREA", "CAJA (EFECTIVO)", "Datáfono 1", "Datáfono 2", "Total datáfonos", "Tarjeta en el sistema", "Diferencia tarjeta"]) {
+      expect(x, s).toContain(s);
+    }
+    expect(x).toContain("+3,46 €");
+    expect(x.split("\n").every((l) => l.length <= WIDTH)).toBe(true);
+  });
+  it("11/11 (D2) · el Z dice el fondo que se queda y lo que se deposita", () => {
+    const counted = { cash: 400, difference: 0, nextFloat: 145, deposit: 255 };
+    const z = renderText(cutTicket({ ...base, kind: "Z", counted }));
+    expect(z).toContain("Fondo para el día siguiente");
+    expect(z).toContain("A depositar");
+    expect(z).toContain("255,00 €");
   });
   it("cada parte se quita con su opción", () => {
     const x = renderText(cutTicket({ ...base, format: { logo: false, comensales: false, areas: false, camareros: false, descuentos: false, eliminaciones: false, abonos: false, propinas: false, iva: false, nif: true } }));
@@ -67,5 +105,33 @@ describe("10 · comanda de anulación configurable", () => {
       expect(few, s).not.toContain(s);
     }
     expect(few).toContain("-1  CHAPATA Y PICOS");
+  });
+});
+
+describe("11/11 · comanda con el local (A8) y nombre del cliente en fast food (A4)", () => {
+  const kctx = { channel: "BEBIDA", waiter: "Sistemas", guests: 1, table: { name: "FASTFOOD", area: "FASTFOOD" }, at: new Date("2026-11-11T09:00:00Z") };
+  const lines = [{ quantity: 2, name: "Aquarade limón", comment: "", modifiers: [] }];
+  it("la comanda lleva arriba el código y el nombre del local; se quita en Formatos › Comanda", () => {
+    const L = kitchenTicket(lines, { ...kctx, store: "JC01 · Cañas" });
+    expect(L[0]).toMatchObject({ k: "text", text: "JC01 · Cañas" });
+    expect(renderText(kitchenTicket(lines, { ...kctx, store: "JC01 · Cañas", format: { local: false } }))).not.toContain("JC01");
+    expect(renderText(kitchenTicket(lines, kctx))).not.toContain("JC01");
+  });
+  it("con nombre del cliente, sale grande debajo de la mesa y en la precuenta", () => {
+    const x = renderText(kitchenTicket(lines, { ...kctx, customer: "Lucía" }));
+    expect(x).toContain("LUCÍA");
+    const acc = { id: "a", name: "Cuenta 1", status: "open", lines: [], deletedLines: [], discounts: [], payments: [], guests: 1 } as any;
+    const store = { legalName: "X S.L.", taxId: "B1", tradeName: "Cañas" };
+    const p = renderText(preBillTicket(acc, { store, table: { name: "FASTFOOD", area: "FASTFOOD" }, waiter: "S", at: new Date(), customerName: "Lucía" }));
+    expect(p).toContain("Cliente: Lucía");
+  });
+});
+
+describe("11/11 · la anulación también dice el local", () => {
+  const ctx = { channel: "BARRA", waiter: "Sistemas", table: { name: "1", area: "BARRA" }, at: new Date(), stage: "printed" as const, reason: "Error al marcar" };
+  it("antes de la mesa; se quita con el formato (local)", () => {
+    const x = renderText(kitchenVoidTicket([{ quantity: 1, name: "Huevos trufados" }], { ...ctx, store: "JC01 · Cañas" }));
+    expect(x).toMatch(/JC01 · Cañas[\s\S]*Mesa BARRA\/1/);
+    expect(renderText(kitchenVoidTicket([{ quantity: 1, name: "Huevos trufados" }], { ...ctx, store: "JC01 · Cañas", format: { local: false } }))).not.toContain("JC01");
   });
 });

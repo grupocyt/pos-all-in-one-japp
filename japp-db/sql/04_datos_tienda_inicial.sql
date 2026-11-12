@@ -243,6 +243,13 @@ INSERT INTO profile_permission (profile_id, permission_code, store_id)
     JOIN user_profile p ON p.code = v.profile
     JOIN permission x ON x.code = v.code
 ON CONFLICT DO NOTHING;
+-- 0033 (11/11/2026): Resumen semana › editar días anteriores, para Administrador y Administrador local
+INSERT INTO permission (code, module, name, sort_order) VALUES
+  ('funciones.semanaEditar', 'Funciones', 'Resumen semana › editar días anteriores', 33)
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT p.id, 'funciones.semanaEditar', p.store_id FROM user_profile p WHERE p.code IN ('ADMIN', 'ADMIN_LOCAL')
+ON CONFLICT DO NOTHING;
 
 
 -- Impresoras y canales: BARRA pasa a llamarse BEBIDA y se crea COMIDA (impresora LINEA)
@@ -270,6 +277,8 @@ SELECT st.id, m.id, st.store_id FROM station st JOIN payment_method m ON (m.code
 UPDATE discount SET percent=30, needs_authorization=TRUE WHERE name='DESCUENTO 30% EMPLEADOS';
 UPDATE discount SET percent=20, needs_authorization=TRUE WHERE name='DESCUENTO 20% THE FORK';
 UPDATE discount SET percent=10, needs_authorization=TRUE WHERE name='DESCUENTO 10% C.COMERCIAL';
+-- 0033: «Solo encargados» = los perfiles Administrador y Administrador local
+UPDATE discount SET profiles='["ADMIN","ADMIN_LOCAL"]'::jsonb WHERE needs_authorization AND profiles='[]'::jsonb;
 
 -- Salas y mesas: BARRA (1), SALON (100–199) y TERRAZA (200–399)
 INSERT INTO area (id, store_id, name, sort_order, price_list, table_number_from, plan_width, plan_height, active, ticket_channel_id)

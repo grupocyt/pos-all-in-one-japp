@@ -141,13 +141,16 @@ describe("9 y 10 · cortes X/Z y anulación con logo y formato", () => {
     // 8 × 1 puntos: un logo mínimo en GS v 0
     const logo = Buffer.from([0x1d, 0x76, 0x30, 0x00, 1, 0, 1, 0, 0xff]).toString("base64");
     await patch({ ticketLogo: logo });
+    // 0033 · el corte X viene corto: se encienden todas sus partes en Formatos
+    const ALL = { comensales: true, ticketMedio: true, iva: true, areas: true, camareros: true, descuentos: true, eliminaciones: true, abonos: true, caja: true };
+    await patch({ ticketFormats: { ...(before.ticketFormats ?? {}), cutx: ALL } });
     let x = (await t.call("POST", "/cash/x-report/print", { token: sis })).body;
     expect(x.ticket[0]).toEqual({ k: "logo", raster: logo });
     const txt = textOf(x.ticket);
     for (const s of ["CORTE X · RESUMEN DE VENTA", "VENTAS", "COMENSALES", "TICKET MEDIO (NETO)", "VENTA BRUTA", "= VENTA NETA", "POR FORMA DE PAGO", "POR CAMARERO", "CAJA (EFECTIVO)", "= Efectivo esperado"]) {
       expect(txt, s).toContain(s);
     }
-    await patch({ ticketFormats: { ...(before.ticketFormats ?? {}), cutx: { logo: false, camareros: false, comensales: false } } });
+    await patch({ ticketFormats: { ...(before.ticketFormats ?? {}), cutx: { ...ALL, logo: false, camareros: false, comensales: false } } });
     x = (await t.call("POST", "/cash/x-report/print", { token: sis })).body;
     expect(x.ticket.some((l: any) => l.k === "logo")).toBe(false);
     expect(textOf(x.ticket)).not.toContain("POR CAMARERO");

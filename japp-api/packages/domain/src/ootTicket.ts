@@ -3,7 +3,13 @@ import { lr, madridParts, wrap, WIDTH, type TicketLine } from "./tickets.js";
 /** Lo que lleva el ticket del QR de Order on Table. */
 export interface OotQrContext {
   /** chain = nombre comercial de la cadena (Ajustes › Empresa); name = nombre del local (Ajustes › Restaurante). */
-  store: { chain?: string | null; name?: string | null; tradeName?: string; legalName: string; logoRaster?: string | null };
+  store: {
+    chain?: string | null;
+    name?: string | null;
+    tradeName?: string;
+    legalName: string;
+    logoRaster?: string | null;
+  };
   table: { name: string; area: string };
   url: string;
   /** Token del QR: en el ticket solo sale el «código de mesa» (4 primeros y 4 últimos). */

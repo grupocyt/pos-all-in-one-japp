@@ -58,6 +58,7 @@ export const PERMISSION_TREE = {
     "eliminaciones",
     "servicio",
     "sir",
+    "semanaEditar", // 0033 · Resumen semana › observaciones de días anteriores
   ],
   ajustes: ["acceso", ...SETTINGS_MODULES],
   sistema: ["autorizar"],

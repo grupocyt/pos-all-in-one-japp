@@ -41,6 +41,8 @@ export interface StoreInfo {
   simplifiedLimit: number;
   /** 0031 · logo del local para la impresora (GS v 0 en base64); null = el de la cadena */
   ticketLogo: string | null;
+  /** 0033 · datáfonos del local */
+  cardTerminals: number;
   cashFloat: number;
   cashDiffThreshold: number;
   pinAttempts: number;
@@ -125,6 +127,7 @@ export class StoreApplication {
       reviewsUrl: r.st.reviewsUrl ?? null,
       simplifiedLimit: Number(r.b.simplifiedLimit ?? 0),
       ticketLogo: r.p.ticketLogo ?? null,
+      cardTerminals: Number((r.p as any).cardTerminals ?? 1) || 1,
       cashFloat: Number(r.p.cashFloat),
       cashDiffThreshold: Number(r.p.cashDiffThreshold),
       pinAttempts: r.p.pinAttempts,

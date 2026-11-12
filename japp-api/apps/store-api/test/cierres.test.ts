@@ -34,7 +34,7 @@ async function settleAll() {
           body: { reason: "Prueba" },
         });
       }
-      await t.call("POST", `/orders/${o.id}/close`, { token: sis, body: {} });
+      await t.call("POST", `/orders/${o.id}/close`, { token: sis, body: { closeReason: "Prueba" } });
     }
   }
 }

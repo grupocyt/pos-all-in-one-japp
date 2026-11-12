@@ -150,6 +150,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: sales_period, cash_movement
+         *
+         *     11/11 (API 1.2.269, migración 0033): el fondo del periodo nuevo es el «fondo para mañana» del último cierre; sin cierres, el de Parámetros (cashFloat).
          */
         post: operations["store_POST_periods"];
         delete?: never;
@@ -178,6 +180,8 @@ export interface paths {
          *     Tablas: sales_period, cash_closing, incident_request, product_incident, sync_outbox
          *
          *     11 (04/11, API 1.2.268): el corte Z lleva lo contado al cerrar (efectivo y tarjeta), la diferencia con lo esperado y el motivo escrito al cerrar (cash_closing.note). Las propinas en efectivo salen aparte y cuentan en el efectivo esperado.
+         *
+         *     11/11 (API 1.2.269, migración 0033): a depositar = efectivo contado − fondo para mañana, siempre calculado por la API (closing.deposit), y el fondo es el que se manda o, sin él, el de hoy − retiros + ingresos. El periodo siguiente abre con ese fondo (antes, el de Parámetros). cards = lo de cada datáfono (cash_closing.card_detail). El corte Z dice el fondo que se queda y lo que se deposita.
          */
         post: operations["store_POST_periods_periodId_close"];
         delete?: never;
@@ -272,6 +276,10 @@ export interface paths {
          *     Tablas: config_change_log, product_incident, sync_outbox
          *
          *     Cambio TPV 1.2.260 · 1.2.233 (hecho en la API 1.2.267): usuarios: no puede haber dos personas con el mismo nombre aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios: el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).
+         *
+         *     11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.
+         *
+         *     0034 (11/11): estaciones.screenMode (auto | fixed), screenWidth (800–7680) y screenHeight (600–4320) en píxeles y uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -296,6 +304,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     parametros.ticketFormats (05/11, API 1.2.268): además de prebill e invoice, cutx y cutz (corte X y Z: logo, cadena, local, razon, nif, direccion, telefono, comensales, ticketMedio, iva, formasPago, areas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, contado) y void (comanda de anulación: dibujo, camarero, hora, momento, motivo, autoriza, grande, noPreparar). Lo que no viene, sale.
+         *
+         *     11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.
          */
         get: operations["store_GET_config_module_id"];
         put?: never;
@@ -316,6 +326,10 @@ export interface paths {
          *     Cambio TPV 1.2.260 (hecho en la API 1.2.267): Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.
          *
          *     parametros.ticketFormats (05/11, API 1.2.268): además de prebill e invoice, cutx y cutz (corte X y Z: logo, cadena, local, razon, nif, direccion, telefono, comensales, ticketMedio, iva, formasPago, areas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, contado) y void (comanda de anulación: dibujo, camarero, hora, momento, motivo, autoriza, grande, noPreparar). Lo que no viene, sale.
+         *
+         *     11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.
+         *
+         *     0034 (11/11): estaciones.screenMode (auto | fixed), screenWidth (800–7680) y screenHeight (600–4320) en píxeles y uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -481,6 +495,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: week_note
+         *
+         *     11/11 (API 1.2.269, migración 0033): la observación de un día anterior a hoy pide funciones.semanaEditar (Resumen semana › editar días anteriores; por defecto Administrador y Administrador local) o la autorización de quien lo tenga; sin ella → 403 PERMISSION_REQUIRED.
          */
         put: operations["store_PUT_api_v2_reports_week_notes_date"];
         post?: never;
@@ -680,6 +696,8 @@ export interface paths {
          *     Tablas: orders, order_event
          *
          *     05/11 (API 1.2.268, migración 0032, regla del dueño): note AÑADE una nota a la mesa con quién la dejó y cuándo (tableData.notes); las notas no se borran ni se cambian: note vacía o null → 422 VALIDATION field note. tableData.note queda con todas juntas. Al juntar mesas, la de destino se queda con las notas de las dos.
+         *
+         *     11/11 (API 1.2.269, migración 0033): customerName pone el nombre del cliente (fast food). Sale grande debajo de la mesa en la comanda y como «Cliente: …» en la precuenta y la factura; evento customerNamed.
          */
         patch: operations["store_PATCH_orders_orderId"];
         trace?: never;
@@ -780,6 +798,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: orders, account, order_event
+         *
+         *     11/11 (API 1.2.269, migración 0033): si la mesa se cierra sin cobrar nada y tenía cosas enviadas a cocina o barra (o en precuenta) que se eliminaron (con importe), hace falta closeReason; sin él → 422 VALIDATION field closeReason con amount y lines. Queda en tableData.voidClose y en GET /reports/deletions › tables. Una mesa abierta por error (nada enviado) se cierra como siempre.
          */
         post: operations["store_POST_orders_orderId_close"];
         delete?: never;
@@ -1148,6 +1168,8 @@ export interface paths {
          *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
          *
          *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
+         *
+         *     11/11 (API 1.2.269, migración 0033): si el descuento tiene perfiles (Ajustes › Descuentos) y el de quien pulsa no está, hace falta la autorización de quien tenga cobro.descuentos (403 PERMISSION_REQUIRED sin ella).
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_discounts"];
         delete?: never;
@@ -1232,6 +1254,8 @@ export interface paths {
          *     Regla del 04/11 (API 1.2.268): con algo ticado sin conexión pendiente de validar en la cuenta (GET /reconnections) no se cobra → 409 RECONNECTION_PENDING.
          *
          *     N3 (04/11, API 1.2.268): la propina (tip) se admite con cualquier forma de pago que la permita (allowsTip; desde la 0030, todas menos las de descuento). En efectivo, cashGiven cubre importe + propina y el cambio es lo que sobra; la propina en efectivo cuenta en el efectivo esperado del cajón. Nunca es parte de la factura ni de VeriFactu.
+         *
+         *     11/11 (API 1.2.269, migración 0033) (D1): las formas de pago de tipo descuento (p. ej. «Influ», solo para el SIR) también cobran: cierran la cuenta sin dinero (sin propina ni cajón). Las de «no mostrar en el TPV» → 409 METHOD_NOT_ALLOWED.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_payments"];
         delete?: never;
@@ -1368,6 +1392,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: cash_movement, payment, invoice
+         *
+         *     11/11 (API 1.2.269, migración 0033): deposits, cashTips, otherSales, cardTerminals y nextFloat (fondo propuesto para el día siguiente).
          */
         get: operations["store_GET_cash_summary"];
         put?: never;
@@ -1396,6 +1422,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: cash_movement
+         *
+         *     11/11 (API 1.2.269, migración 0033): kind deposit = ingreso a la caja chica (p. ej. +5 € desde la caja fuerte): suma a lo esperado y al fondo del día siguiente; sin nota, «Ingreso a caja».
          */
         post: operations["store_POST_cash_movements"];
         delete?: never;
@@ -1422,6 +1450,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: cash_movement
+         *
+         *     11/11 (API 1.2.269, migración 0033): cards = lo de cada datáfono (se guarda en cash_movement.card_detail); la respuesta compara con la tarjeta del sistema (cardSales, cardDifference). print = true imprime el resumen del arqueo: todas las partes del corte (ventas, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja) y el arqueo; se reimprime con POST /cash/counts/{countId}/print.
          */
         post: operations["store_POST_cash_counts"];
         delete?: never;
@@ -1444,6 +1474,8 @@ export interface paths {
          *     Lo llama: TPV
          *
          *     Tablas: order_line
+         *
+         *     11/11 (API 1.2.269, migración 0033): «tables» = Mesas enteras (cerradas sin cobrar nada tras eliminar lo enviado) con el motivo, el importe, las líneas y quién.
          */
         get: operations["store_GET_reports_deletions"];
         put?: never;
@@ -2440,6 +2472,8 @@ export interface paths {
          *     Tablas: orders, order_line, order_line_printer, account, order_event, sync_outbox
          *
          *     Cambio TPV 1.2.259 (hecho en la API 1.2.267): La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.
+         *
+         *     11/11 (API 1.2.269, migración 0033): si la mesa se cierra sin cobrar nada y tenía cosas enviadas a cocina o barra (o en precuenta) que se eliminaron (con importe), hace falta closeReason; sin él → 422 VALIDATION field closeReason con amount y lines. Queda en tableData.voidClose y en GET /reports/deletions › tables. Una mesa abierta por error (nada enviado) se cierra como siempre.
          */
         post: operations["store_POST_orders_orderId_save"];
         delete?: never;
@@ -2498,6 +2532,8 @@ export interface paths {
          *     Regla del 04/11 (API 1.2.268): con algo ticado sin conexión pendiente de validar en la cuenta (GET /reconnections) no se cobra → 409 RECONNECTION_PENDING.
          *
          *     Regla del 04/11 (API 1.2.268): sin datos del cliente y por encima del límite de la factura simplificada → 422 SIMPLIFIED_LIMIT.
+         *
+         *     11/11 (API 1.2.269, migración 0033) (D1): las formas de pago de tipo descuento (p. ej. «Influ», solo para el SIR) también cobran: cierran la cuenta sin dinero (sin propina ni cajón). Las de «no mostrar en el TPV» → 409 METHOD_NOT_ALLOWED.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_checkout"];
         delete?: never;
@@ -3672,6 +3708,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/cash/counts/{countId}/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Imprimir el resumen de un arqueo
+         * @description 11/11 (API 1.2.269, migración 0033): el resumen de un arqueo guardado («ARQUEO · RESUMEN DE CAJA»): el corte X con todas sus partes y lo contado (efectivo, cada datáfono y la diferencia de tarjeta). Permiso: funciones.caja. Arqueo que no existe → 404.
+         */
+        post: operations["printCashCount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3994,6 +4050,18 @@ export interface components {
                     device?: string;
                     at?: string;
                 }[];
+                /** @description 11/11 · fast food: nombre del cliente (solo el nombre; sale en la comanda y el ticket) */
+                customerName?: string | null;
+                /** @description 11/11 · mesa cerrada eliminando todo lo enviado: motivo, importe y quién */
+                voidClose?: {
+                    reason?: string;
+                    amount?: number;
+                    lines?: number;
+                    user?: string;
+                    role?: string;
+                    device?: string;
+                    at?: string;
+                } | null;
             };
             events?: {
                 type?: string;
@@ -4627,9 +4695,16 @@ export interface operations {
                 "application/json": {
                     countedCash?: number;
                     countedCard?: number;
-                    nextFloat?: number;
-                    deposit?: number;
+                    /** @description Fondo que se queda para mañana; sin él, el de hoy − retiros + ingresos (nunca más de lo contado) */
+                    nextFloat?: number | null;
+                    /** @description Se ignora: a depositar = contado − fondo para mañana (lo calcula la API) */
+                    deposit?: number | null;
                     note?: unknown;
+                    /** @description Lo que marcó cada datáfono (Parámetros › cardTerminals); countedCard = la suma */
+                    cards?: {
+                        name?: string;
+                        amount?: number;
+                    }[] | null;
                 };
             };
         };
@@ -4649,6 +4724,8 @@ export interface operations {
                                 difference?: number;
                                 grossSales?: number | null;
                                 guests?: number;
+                                nextFloat?: number;
+                                deposit?: number;
                             };
                             incidentRequest?: string | null;
                             zReport?: {
@@ -6311,6 +6388,8 @@ export interface operations {
                     version?: number;
                     /** @description Id de la nota que pone el equipo: si ya existe, no se repite (reintentos) */
                     noteId?: string;
+                    /** @description Fast food: nombre del cliente; vacío o null = sin nombre */
+                    customerName?: string | null;
                 };
             };
         };
@@ -6975,6 +7054,8 @@ export interface operations {
                  *     } */
                 "application/json": {
                     version?: number;
+                    /** @description Motivo si la mesa se cierra sin cobrar nada después de eliminar lo enviado (mesa entera) */
+                    closeReason?: string | null;
                 };
             };
         };
@@ -6994,6 +7075,15 @@ export interface operations {
             };
             /** @description ORDER_NOT_EMPTY: La mesa aún tiene productos o cobros: no se puede cerrar sin venta. · ORDER_CLOSED: La mesa se cerró desde otro equipo. · VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Se eliminó todo lo enviado: indica el motivo del cierre de la mesa */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8670,6 +8760,14 @@ export interface operations {
                             cardSales?: number;
                             totalSales?: number;
                             tickets?: number | null;
+                            /** @description Ingresos a caja (abonos desde la caja fuerte) */
+                            deposits?: number;
+                            cashTips?: number;
+                            otherSales?: number;
+                            /** @description Datáfonos del local (un campo por datáfono en el arqueo) */
+                            cardTerminals?: number;
+                            /** @description Fondo que se propone para mañana: el de hoy − retiros + ingresos */
+                            nextFloat?: number;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -8769,6 +8867,13 @@ export interface operations {
                     };
                     note?: unknown;
                     authorization?: unknown;
+                    /** @description Lo que marcó cada datáfono (Parámetros › cardTerminals); countedCard = la suma */
+                    cards?: {
+                        name?: string;
+                        amount?: number;
+                    }[] | null;
+                    /** @description Imprimir el resumen del arqueo («ARQUEO · RESUMEN DE CAJA») al guardarlo */
+                    print?: boolean;
                 };
             };
         };
@@ -8792,6 +8897,13 @@ export interface operations {
                                 user?: string | null;
                                 device?: string | null;
                             };
+                            countedCard?: number | null;
+                            cardSales?: number;
+                            cardDifference?: number | null;
+                            printed?: boolean | null;
+                            printer?: string | null;
+                            error?: unknown;
+                            ticket?: unknown[] | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -8853,6 +8965,17 @@ export interface operations {
                                 reason?: string | null;
                                 authorizedBy?: string | null;
                                 amount?: number | null;
+                            }[];
+                            /** @description 11/11 · Mesas enteras: cerradas sin cobrar tras eliminar lo enviado, con el motivo */
+                            tables?: {
+                                orderId?: string;
+                                at?: string;
+                                table?: string;
+                                zone?: string;
+                                reason?: string;
+                                amount?: number;
+                                lines?: number;
+                                user?: string;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -11582,6 +11705,8 @@ export interface operations {
                  *     } */
                 "application/json": {
                     version?: number;
+                    /** @description Motivo si la mesa se cierra sin cobrar nada después de eliminar lo enviado (mesa entera) */
+                    closeReason?: string | null;
                 };
             };
         };
@@ -11817,6 +11942,15 @@ export interface operations {
             };
             /** @description VERSION_CONFLICT: Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta. · ORDER_CLOSED: La mesa se cerró desde otro equipo. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Se eliminó todo lo enviado: indica el motivo del cierre de la mesa */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15885,6 +16019,76 @@ export interface operations {
             };
             /** @description VALIDATION: NIF u otros datos del cliente no válidos */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    printCashCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id del arqueo (POST /cash/counts) */
+                countId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            kind?: string;
+                            periodId?: string | null;
+                            sales?: number;
+                            tickets?: number | null;
+                            expectedCash?: number;
+                            printed?: boolean;
+                            printer?: string | null;
+                            error?: unknown;
+                            ticket?: {
+                                k?: string;
+                                text?: string;
+                                align?: string;
+                                size?: string;
+                                bold?: boolean;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: Ese arqueo no existe */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

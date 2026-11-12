@@ -44,10 +44,23 @@ export interface OrderHeader {
   note: string | null;
   /** 05/11 · notas de la mesa con quién y cuándo (no se borran; note = todas juntas) */
   notes?: TableNote[];
+  /** 11/11 (A4) · fast food: nombre del cliente */
+  customerName?: string | null;
+  /** 11/11 (A7) · mesa cerrada eliminando lo enviado: motivo, importe y quién */
+  voidClose?: VoidClose | null;
   openedBy: Actor;
   lastEntry: Actor | null;
   /** Una persona por mesa: quién la tiene y si hay un cobro abierto */
   presence: PresenceState;
+}
+export interface VoidClose {
+  reason: string;
+  amount: number;
+  lines: number;
+  user: string;
+  role: string;
+  device: string;
+  at: string;
 }
 export interface TableNote {
   id: string;
@@ -377,6 +390,8 @@ export class OrdersApplication {
       guests: o!.guests,
       note: o!.note,
       notes: Array.isArray((o as any).notes) ? ((o as any).notes as TableNote[]) : [],
+      customerName: (o as any).customerName ?? null,
+      voidClose: ((o as any).voidClose as VoidClose | null) ?? null,
       openedBy: actor({
         id: o!.openedByUserId,
         u: o!.openedByUserName,
@@ -458,6 +473,7 @@ export class OrdersApplication {
       guests: h.guests,
       note: h.note,
       notes: h.notes ?? [],
+      customerName: h.customerName ?? null,
       ...actorCols("openedBy", h.openedBy),
       ...actorCols("lastEntry", h.openedBy),
     } as typeof s.orders.$inferInsert);
@@ -828,6 +844,8 @@ export class OrdersApplication {
         guests: after.guests,
         note: header.note,
         notes: header.notes ?? [],
+        customerName: header.customerName ?? null,
+        ...(header.voidClose !== undefined ? { voidClose: header.voidClose } : {}),
         snapshot: snap,
         ...actorCols("lastEntry", ctx.actor),
         ...(allClosed || status === "cancelled" ? { closedAt: ctx.actor.at } : {}),
@@ -869,7 +887,16 @@ export class OrdersApplication {
         lastEntry: who(h.lastEntry ?? h.openedBy),
         lastExit: null,
         note: h.note,
-        notes: (h.notes ?? []).map((n) => ({ id: n.id, text: n.text, user: n.user, role: n.role, device: n.device, at: n.at })),
+        notes: (h.notes ?? []).map((n) => ({
+          id: n.id,
+          text: n.text,
+          user: n.user,
+          role: n.role,
+          device: n.device,
+          at: n.at,
+        })),
+        customerName: h.customerName ?? null,
+        ...(h.voidClose ? { voidClose: h.voidClose } : {}),
       },
       events: events.map((e) => ({
         type: e.type,

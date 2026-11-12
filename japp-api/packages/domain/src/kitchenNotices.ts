@@ -20,6 +20,8 @@ export interface KitchenVoidContext {
   authorizedBy?: string | null;
   /** 05/11 · Ajustes › Formatos › Anulación: cada parte se puede quitar (lo que no viene, sale) */
   format?: TicketFormat;
+  /** 11/11 · «JC01 · Cañas»: de qué local es (para soporte), como en la comanda; se quita con el formato (local) */
+  store?: string;
 }
 
 /**
@@ -41,6 +43,9 @@ export function kitchenVoidTicket(
   }
   if (on("hora")) {
     out.push(T(madridParts(ctx.at).hms, { align: "center", size: "h" }));
+  }
+  if (ctx.store?.trim() && on("local")) {
+    out.push(T(ctx.store.trim(), { align: "center" }));
   }
   out.push(T(`Mesa ${area}${ctx.table.name}`, { align: "center", size: "w" }), R("="));
   if (on("momento")) {
@@ -70,7 +75,9 @@ export function kitchenVoidTicket(
     const pre = q + " ".repeat(Math.max(2, 4 - q.length));
     const parts = wrap(l.name.toUpperCase(), width - pre.length);
     out.push(T(pre + parts[0], big ? { size: "w" } : { bold: true }));
-    parts.slice(1).forEach((p) => out.push(T(" ".repeat(pre.length) + p, big ? { size: "w" } : { bold: true })));
+    parts
+      .slice(1)
+      .forEach((p) => out.push(T(" ".repeat(pre.length) + p, big ? { size: "w" } : { bold: true })));
     for (const m of l.modifiers ?? []) {
       out.push(T(`   -- ${(m.quantity ?? 1) * l.quantity} ${m.name.toUpperCase()}`));
     }

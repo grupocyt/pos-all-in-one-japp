@@ -1,16 +1,16 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0032, consultas de control · 82 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 112 endpoints, todos programados · 337 pruebas de dominio + 366 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0034, consultas de control · 84 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 113 endpoints, todos programados · 343 pruebas de dominio + 379 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.268 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.269 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.268). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.269). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
 
 ## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
 
@@ -35,6 +35,25 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Pantalla del cliente › «Imprimir ticket»:** solo avisaba en el TPV; ahora imprime la factura de esa cuenta (con servidor la reimprime la API, sin abrir el cajón).
 - **Reglas fijas:** nada de lo facturado se edita (para corregir algo, incluida la forma de pago: abono completo y volver a ticar y cobrar); los descuentos son solo al total de la cuenta, uno por cuenta (no hay descuento por producto); una mesa cerrada no se reabre nunca.
 
+**Pruebas de la 1.2.268 en JC01, aprobado el 11/11 (1.2.269, migraciones 0033 y 0034):**
+
+- **Clave:** el navegador ya no ofrece guardarla ni la rellena sola (el campo ya no es de contraseña); no queda ninguna puesta.
+- **Formas de pago:** el código de una nueva sale corto (minúsculas, como mucho 20 caracteres): «Influ» ya no da «String must contain at most 20 character(s)». Las de **tipo descuento** (solo para el SIR, p. ej. «Influ») **salen en Cobrar** si tienen «Mostrar en el TPV»: cierran la cuenta sin dinero (sin propina ni cajón) y van al SIR con su id de integración.
+- **Descuentos por perfil:** en Ajustes › Descuentos se marcan los perfiles que lo pueden aplicar (Cajero, Encargado…), para todos los equipos a la vez (`discount.profiles`). Los que eran «Solo encargados» pasan a Administrador y Administrador local; para dárselos al cajero, se marca Cajero. Otro perfil solo con la clave de quien pueda. La lista de cada estación sigue funcionando encima.
+- **Fast food:** al ticar el primer producto de un pedido sale «Nombre del cliente» (solo el nombre; «Sin nombre» para seguir). Sale grande en la comanda y como «Cliente: …» en la precuenta y la factura; se cambia con el botón 👤 de arriba. **Cambiar de usuario:** tocar el nombre del local/usuario arriba a la izquierda abre «Cambiar camarero / Cambiar mi clave»; el ticket se queda y lo nuevo va a nombre de quien entra.
+- **Comentarios:** el campo crece con el texto (TPV, ventana de preguntas y PDA) y admite hasta 300 caracteres. **Calificativos por categoría:** Ajustes › Categorías › «Calificativos»; sin marcar, salen los de siempre.
+- **«Cuenta en cobro»:** el aviso ya no sale en rojo (es informativo, en azul).
+- **Cambiar o juntar mesa:** las cuentas con descuento o con cobros **nunca se unen**: llegan como cuenta nueva y la ventana lo dice. Si todas las que pasan están así, ya no pregunta «¿Unir o cuenta nueva?»; solo se unen las que no tienen nada cobrado.
+- **Mesa entera eliminada:** si se cierra una mesa sin cobrar nada después de eliminar lo enviado, se pide el motivo (El cliente se fue, Mesa abierta por error, Queja, Invitación u otro). Sale en **Gestiones › Eliminaciones › Mesas enteras** con el importe y quién. «En línea» ya no sale. La API lo exige (`closeReason`; sin él, 422).
+- **Comanda y anulación:** llevan el código y el nombre de la tienda (para soporte). En la anulación se quita en Ajustes › Formatos › Anulación › «Tienda».
+- **Pantalla de cada equipo** (migración 0034): Ajustes › Equipos › la ficha de la caja (solo Administrador y Encargado): **Automática** (toda la pantalla) o **Tamaño fijo** (ancho × alto en píxeles) y **Escala** de 70 % a 150 % (botones, letras y ventanas). Se ve al momento en el equipo que se está editando y hay «Volver a automático». En pantallas verticales la cuenta va arriba y los productos abajo, a toda la altura. Si algo queda mal, abrir el TPV con `?pantalla=auto` en la dirección. La PDA no cambia.
+- **Plano:** «Ya existe la mesa 101» dice en qué área está, y una mesa nueva propone un número libre en todas las áreas.
+- **Resumen semana:** las observaciones de días anteriores solo con el permiso «Resumen semana › editar días anteriores» (Administrador y Encargado) o con la clave de quien lo tenga.
+- **Arqueo:** Ajustes › Parámetros › «Datáfonos del local»: un campo por datáfono en el arqueo y el cierre (se guarda lo de cada uno). Al guardar el arqueo se imprime su **resumen** (todas las partes del corte y lo contado, con la diferencia de tarjeta) y se puede reimprimir desde Caja › Resumen. El **corte X normal** queda corto: ventas, formas de pago y propinas (lo demás se enciende en Ajustes › Formatos › Corte X).
+- **Ingresos a caja:** Caja › Retiro › «Ingreso» (p. ej. +5 € desde la caja fuerte): suma a lo esperado y al fondo de mañana.
+- **Cierre de periodo:** el fondo para mañana propuesto es el de hoy − retiros + ingresos; «A depositar = contado − fondo para mañana» lo calcula la API y el corte Z lo dice. **El periodo siguiente abre con ese fondo** (antes, siempre el de Parámetros).
+- No se ha tocado: menú del día (guarniciones, fallo «Row# Q») ni banners: son del Manager.
+
 **Decidido el 05/11 (pruebas en JC01, migración 0032):**
 
 - **Notas de la mesa:** se pueden dejar varias; cada una queda con quién la dejó, desde qué equipo y a qué hora. **No se borran ni se cambian** (regla del dueño). Salen arriba en Cuentas, Cambiar mesa, Separar, Cobrar y Descuento (una franja que se despliega). Al juntar mesas llegan las de las dos.
@@ -49,7 +68,7 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 
 Decididas con el dueño el 03/11 y aplicadas en la API **y** en el TPV (caja y PDA). Detalle con checklist en `Japp-reglas-de-cobro-1.2.268.pdf`.
 
-- **Cuenta con descuento o con un cobro parcial = ya se está cobrando.** Va por cuenta: las otras cuentas de la mesa siguen libres. En el TPV **solo quedan activos Cobrar, Precuenta y Guardar**; todo lo demás sale desactivado (productos, categorías, buscador, líneas, «Cambiar», Eliminar, Separar, Transferir, Order on Table y comensales), con un aviso en rojo abajo, en la zona de avisos de la cuenta. Si en la mesa hay otras cuentas sin cobros, Separar (y cobrar) sigue activo; Transferir, siempre. La nota de la mesa se puede escribir siempre. La API responde `409 ACCOUNT_LOCKED` a todo lo que cambiaría la cuenta. **Cambiar o juntar mesa se puede siempre** (decidido el 04/11): la cuenta en cobro pasa entera, con sus cobros y su descuento, y llega como cuenta aparte (nunca se une a la principal).
+- **Cuenta con descuento o con un cobro parcial = ya se está cobrando.** Va por cuenta: las otras cuentas de la mesa siguen libres. En el TPV **solo quedan activos Cobrar, Precuenta y Guardar**; todo lo demás sale desactivado (productos, categorías, buscador, líneas, «Cambiar», Eliminar, Separar, Transferir, Order on Table y comensales), con un aviso abajo, en la zona de avisos de la cuenta (desde la 1.2.269, en azul: es informativo). Si en la mesa hay otras cuentas sin cobros, Separar (y cobrar) sigue activo; Transferir, siempre. La nota de la mesa se puede escribir siempre. La API responde `409 ACCOUNT_LOCKED` a todo lo que cambiaría la cuenta. **Cambiar o juntar mesa se puede siempre** (decidido el 04/11): la cuenta en cobro pasa entera, con sus cobros y su descuento, y llega como cuenta aparte (nunca se une a la principal).
 - **Para volver a pedir:** anular los cobros (Cobrar › «Anular», motivo y clave de encargado) y quitar el descuento. Al quedar sin cobros ni descuento, todo vuelve a estar activo. No hay «liberar la cuenta» de un paso.
 - **Anular un cobro** (`POST …/payments/{paymentId}/void`, decisión 19): tarjeta, devolución en el datáfono; ya facturada, abono.
 - **Un descuento no puede dejar la cuenta a 0 €**: aviso y no se aplica (para invitar, eliminar con «Invitación»).
@@ -70,7 +89,7 @@ Decididas con el dueño el 03/11 y aplicadas en la API **y** en el TPV (caja y P
 - Ticket: el nombre de un descuento largo se parte en varias líneas (antes se recortaba).
 - **Formatos de ticket en el servidor** (N1, migración 0029): lo que se marca en Ajustes › Formatos de ticket para la precuenta y la factura (logo, cadena, local, razón social, NIF, dirección, teléfono, camarero, desglose de IVA, por persona, pie, despedida, QR de reseñas, QR tributario, abrir el cajón y propina) se guarda en el servidor, lo ven todos los equipos y la API imprime con ello. En la factura el nombre fiscal y el NIF salen siempre.
 
-**Actualizar JC01 a la 1.2.268:** cambian API, TPV **y base (migraciones 0027 a 0032)**: guarda los `.env`, descomprime encima, `npm install`, doble clic en **`actualizar-base.bat`** (copia de seguridad + 0027 a 0031; no borra nada), `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
+**Actualizar JC01 a la 1.2.269:** cambian API, TPV **y base (migraciones 0027 a 0034)**: guarda los `.env`, descomprime encima, `npm install`, doble clic en **`actualizar-base.bat`** (copia de seguridad + las migraciones que falten; no borra nada), `docker compose up --build -d` y Ctrl+F5 en todos los equipos a la vez.
 
 ## 1.2.267 (03/11/2026): la API ya tiene todo lo que usa el TPV
 

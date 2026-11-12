@@ -53,7 +53,7 @@ afterAll(async () => {
         });
       }
     }
-    await t.call("POST", `/orders/${id}/close`, { token: sis, body: {} });
+    await t.call("POST", `/orders/${id}/close`, { token: sis, body: { closeReason: "Prueba" } });
   }
   await t.close();
 });
@@ -438,7 +438,7 @@ describe("prueba de impresoras: anulación, corte X, corte Z y QR de Order on Ta
     expect(await text("void")).toMatch(
       /ANULADO[\s\S]*MOTIVO: ERROR AL MARCAR[\s\S]*Autoriza: Encargado[\s\S]*NO PREPARAR/,
     );
-    expect(await text("cutx")).toMatch(/CORTE X[\s\S]*Lectura sin cierre[\s\S]*Efectivo esperado/);
+    expect(await text("cutx")).toMatch(/CORTE X[\s\S]*Lectura sin cierre[\s\S]*POR FORMA DE PAGO/);
     const z = await text("cutz");
     expect(z).toContain("CORTE Z");
     expect(z).toContain("Z nº 0001");

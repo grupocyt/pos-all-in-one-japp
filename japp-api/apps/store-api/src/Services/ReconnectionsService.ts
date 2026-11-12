@@ -92,7 +92,10 @@ export class ReconnectionsService {
       fail("RECONNECTION_DECIDED", "Esa reconexión ya se descartó", { status: cur!.status });
     }
     const by = g.authorizerActor?.user ?? null;
-    const d = (cur!.detail ?? {}) as { comment?: string | null; modifiers?: { questionId?: string | null; plu: number; quantity?: number }[] };
+    const d = (cur!.detail ?? {}) as {
+      comment?: string | null;
+      modifiers?: { questionId?: string | null; plu: number; quantity?: number }[];
+    };
     const r = await this.orders.addAndSendReconnection(
       se,
       cur!.order_id as string,
@@ -110,7 +113,13 @@ export class ReconnectionsService {
         if (again?.status !== "pending") {
           fail("RECONNECTION_DECIDED", "Otro equipo ya decidió esa reconexión", { status: again?.status });
         }
-        await this.rec.decide(tx, se.storeId, id, { status: "accepted", userName: se.user.name, authorizedBy: by, reason: null, at: this.clock() });
+        await this.rec.decide(tx, se.storeId, id, {
+          status: "accepted",
+          userName: se.user.name,
+          authorizedBy: by,
+          reason: null,
+          at: this.clock(),
+        });
       },
     );
     return { reconnection: this.view((await this.rec.get(se.storeId, id))!), printed: r.printed };
@@ -127,7 +136,9 @@ export class ReconnectionsService {
         fail("NOT_FOUND", "No existe esa reconexión", { field: "reconnectionId" });
       }
       if (cur!.status === "accepted") {
-        fail("RECONNECTION_DECIDED", "Esa reconexión ya se validó y está en la cuenta", { status: cur!.status });
+        fail("RECONNECTION_DECIDED", "Esa reconexión ya se validó y está en la cuenta", {
+          status: cur!.status,
+        });
       }
       if (cur!.status === "pending") {
         await this.rec.decide(tx, se.storeId, id, {
@@ -159,7 +170,11 @@ export class ReconnectionsService {
       modifiers: d.modifiers ?? [],
       status: r.status as string,
       offlineReason: (r.offline_reason as string) ?? null,
-      markedBy: { user: (r.marked_by_name as string) ?? null, device: (r.device as string) ?? null, at: iso(r.marked_at)! },
+      markedBy: {
+        user: (r.marked_by_name as string) ?? null,
+        device: (r.device as string) ?? null,
+        at: iso(r.marked_at)!,
+      },
       decidedBy:
         r.status === "pending"
           ? null

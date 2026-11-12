@@ -36,6 +36,16 @@ export class ReportsApplication {
       .limit(500);
   }
 
+  /** 11/11 (A7) · mesas cerradas eliminando todo lo enviado (orders.void_close), las 200 últimas. */
+  async voidClosedTables(storeId: string) {
+    return this.database.db
+      .select({ id: s.orders.id, table: s.orders.tableName, zone: s.orders.zone, vc: s.orders.voidClose })
+      .from(s.orders)
+      .where(and(eq(s.orders.storeId, storeId), sql`${s.orders.voidClose} IS NOT NULL`))
+      .orderBy(desc(s.orders.closedAt))
+      .limit(200);
+  }
+
   /** Modificadores (precio y cantidad) de esas líneas. */
   async lineModifiers(storeId: string, lineIds: string[]) {
     if (!lineIds.length) {

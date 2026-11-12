@@ -180,18 +180,40 @@ export class ClosingsApplication {
       FROM invoice i JOIN orders o ON o.id = i.order_id LEFT JOIN invoice r ON r.id = i.rectified_invoice_id
       WHERE i.store_id = ${storeId} AND o.period_id = ${periodId} AND i.type LIKE 'R%' AND i.status <> 'cancelled' ORDER BY i.issued_at`,
     );
-    const dm = new Map<string, { name: string; count: number; amount: number; items: { at: Date; number: string; table: string; amount: number; by: string }[] }>();
+    const dm = new Map<
+      string,
+      {
+        name: string;
+        count: number;
+        amount: number;
+        items: { at: Date; number: string; table: string; amount: number; by: string }[];
+      }
+    >();
     for (const r of discounts as any[]) {
       const g = dm.get(r.name) ?? { name: String(r.name), count: 0, amount: 0, items: [] };
       g.count++;
       g.amount = r2(g.amount + Number(r.amount));
-      g.items.push({ at: new Date(r.at), number: String(r.number ?? "—"), table: String(r.table_name ?? ""), amount: r2(Number(r.amount)), by: String(r.by ?? "—") });
+      g.items.push({
+        at: new Date(r.at),
+        number: String(r.number ?? "—"),
+        table: String(r.table_name ?? ""),
+        amount: r2(Number(r.amount)),
+        by: String(r.by ?? "—"),
+      });
       dm.set(r.name, g);
     }
     return {
-      byArea: byArea.map((r: any) => ({ name: String(r.name), tickets: Number(r.tickets), amount: r2(Number(r.amount)) })),
+      byArea: byArea.map((r: any) => ({
+        name: String(r.name),
+        tickets: Number(r.tickets),
+        amount: r2(Number(r.amount)),
+      })),
       discounts: [...dm.values()].sort((a, b) => b.amount - a.amount),
-      credits: credits.map((r: any) => ({ number: String(r.number), amount: r2(-Math.abs(Number(r.amount))), ref: r.ref ? String(r.ref) : null })),
+      credits: credits.map((r: any) => ({
+        number: String(r.number),
+        amount: r2(-Math.abs(Number(r.amount))),
+        ref: r.ref ? String(r.ref) : null,
+      })),
       creditsCash: r2(Math.abs((credits as any[]).reduce((x, r) => x + Number(r.cash || 0), 0))),
     };
   }

@@ -33,7 +33,12 @@ export function findTableOverlap(
     for (let j = i + 1; j < tables.length; j++) {
       const p = tables[i]!;
       const q = tables[j]!;
-      if (p.x < q.x + q.width - E && p.x + p.width > q.x + E && p.y < q.y + q.height - E && p.y + p.height > q.y + E) {
+      if (
+        p.x < q.x + q.width - E &&
+        p.x + p.width > q.x + E &&
+        p.y < q.y + q.height - E &&
+        p.y + p.height > q.y + E
+      ) {
         return { a: p.number, b: q.number };
       }
     }

@@ -33,12 +33,15 @@ export interface MethodRow {
   code: string;
   kind: string;
   active: boolean;
-  /** false = solo para integraciones (no sale en el cobro). Los de tipo discount nunca se cobran. */
+  /** false = solo para integraciones (no sale en el cobro). */
   showInTpv?: boolean;
 }
-/** Forma de pago con la que se puede cobrar en el TPV (las de descuento o «no mostrar en el TPV» son solo para el SIR). */
-export const chargeable = (m: Pick<MethodRow, "kind" | "showInTpv">) =>
-  m.kind !== "discount" && m.showInTpv !== false;
+/**
+ * Forma de pago con la que se puede cobrar en el TPV: todas menos las de «no mostrar en el TPV».
+ * 11/11 (D1, pruebas de la 1.2.268): las de tipo descuento (p. ej. «Influ») también salen en Cobrar: cierran la cuenta sin
+ * cobrar dinero (no abren cajón ni llevan propina) y van al SIR con su id de integración.
+ */
+export const chargeable = (m: Pick<MethodRow, "kind" | "showInTpv">) => m.showInTpv !== false;
 /**
  * ¿Se puede cobrar con esta forma de pago en esta estación?
  * - tiene que existir y estar activa;
@@ -141,7 +144,10 @@ export function registerPayment(
     // en efectivo lo entregado cubre la cuenta y la propina; el cambio es lo que sobra
     cashGiven = r2(input.cashGiven ?? D(a).plus(tip).toNumber());
     if (cashGiven < r2(D(a).plus(tip).toNumber())) {
-      fail("VALIDATION", "El efectivo entregado no llega", { field: "cashGiven", required: r2(D(a).plus(tip).toNumber()) });
+      fail("VALIDATION", "El efectivo entregado no llega", {
+        field: "cashGiven",
+        required: r2(D(a).plus(tip).toNumber()),
+      });
     }
     change = r2(D(cashGiven).minus(a).minus(tip));
   }

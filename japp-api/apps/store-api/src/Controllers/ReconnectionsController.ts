@@ -14,7 +14,11 @@ export class ReconnectionsController {
   }
 
   @Get("reconnections")
-  async list(@CurrentSession() se: Session, @Query("status") status?: string, @Query("orderId") orderId?: string) {
+  async list(
+    @CurrentSession() se: Session,
+    @Query("status") status?: string,
+    @Query("orderId") orderId?: string,
+  ) {
     return this.svc.list(se, status, orderId);
   }
 

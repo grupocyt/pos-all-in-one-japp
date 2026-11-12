@@ -66,6 +66,13 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Historial › Developer | Quién ve la pestaña Developer | **Permiso propio**; por defecto solo el Administrador (05/11) | **Hecho 1.2.268** (0032) |
 | Gestiones | Un permiso por botón | **Reparto por rol** del 05/11 (Administrador todo, Encargado todo menos SIR, Cajero lo de caja, Mesero nada) | **Hecho 1.2.268** (0032) |
 | Formatos | Corte X, Z y anulación configurables | **Configurables** como la precuenta; el corte con el logo del local (05/11) | **Hecho 1.2.268** (0032) |
+| Fast food | Cambiar de usuario sin salir | **Tocar el nombre arriba** abre Cambiar camarero / Cambiar mi clave; el ticket se queda (11/11) | **Hecho 1.2.269** |
+| Pruebas 1.2.268 (A1–A10) | Clave, formas de pago, descuentos por perfil, nombre del cliente, comentarios, aviso, cambiar mesa, mesa entera, local en la comanda, plano, semana | **Aprobado el 11/11** | **Hecho 1.2.269** (0033) |
+| D1 | Formas de pago de descuento («Influ») | **Salen en Cobrar** y cierran la cuenta sin dinero (11/11) | **Hecho 1.2.269** |
+| D2 · Arqueo | Varios datáfonos, resumen impreso, corte X corto, ingresos, fondo del día siguiente, depósito | **Aprobado el 11/11** (sin esperar a la reunión con F. Chirino) | **Hecho 1.2.269** (0033) · revisar con F. Chirino |
+| Pantalla | TPV muy anchos o más altos | **Configurable por equipo** en Ajustes › Equipos (solo Administrador y Encargado; sin atajo en el TPV) (11/11) | **Hecho 1.2.269** (0034) |
+| D3 · Menú del día | Guarniciones y fallo «Row# Q» | **No se hace ahora** (11/11) | Fuera |
+| D4 · Banners | Continuidad, días de activación y hora «desde/hasta» | **No se hace ahora** (11/11): es del Manager | Fuera |
 | C2b y reconexión | Choques con conexión y nuevos desarrollos de reconexión | **En pausa** hasta que el dueño lo analice. Lo hecho en la 1.2.268 se queda | En pausa |
 
 ## Decidido el 03/11/2026 con el dueño (hecho en la 1.2.268)

@@ -7,12 +7,13 @@ const desc = { id: "d", code: "descuentos", kind: "discount", active: true, show
 const hidden = { id: "h", code: "glovo", kind: "platform", active: true, showInTpv: false };
 
 describe("formas de pago que no se ven en el TPV (migración 0020)", () => {
-  it("las de tipo descuento o «no mostrar en el TPV» no se cobran ni salen en el equipo", () => {
+  it("las de «no mostrar en el TPV» no se cobran ni salen en el equipo; las de descuento sí salen (11/11, D1)", () => {
     expect(chargeable(card)).toBe(true);
     expect(chargeable(desc)).toBe(false);
-    expect(chargeable({ ...desc, showInTpv: true })).toBe(false);
+    expect(chargeable({ ...desc, showInTpv: true })).toBe(true); // «Influ»: cierra la cuenta sin dinero y va al SIR
     expect(chargeable(hidden)).toBe(false);
     expect(stationMethods([card, desc, hidden], st).map((m) => m.id)).toEqual(["c"]);
+    expect(stationMethods([card, { ...desc, showInTpv: true }], st).map((m) => m.id)).toEqual(["c", "d"]);
     expect(() => assertMethodAllowed(desc, st, "descuentos")).toThrow(/no se cobra/);
     expect(() => assertMethodAllowed(hidden, st, "glovo")).toThrow(/no se cobra/);
     expect(assertMethodAllowed(card, st, "card")).toBe(card);

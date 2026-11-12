@@ -28,7 +28,10 @@ const lastJob = (n: number, kind: string) => t.printer.jobs.slice(n).filter((j: 
 
 describe("formatos de ticket en el servidor (N1)", () => {
   it("se guardan en Parámetros (ticketFormats) y se validan", async () => {
-    expect((await params()).ticketFormats).toEqual({});
+    // 0033 · el corte X viene corto (ventas, formas de pago y propinas)
+    expect((await params()).ticketFormats).toEqual({
+      cutx: { comensales: false, ticketMedio: false, iva: false, areas: false, camareros: false, descuentos: false, eliminaciones: false, abonos: false, caja: false },
+    });
     const bad = await setFormats({ invoice: { mesero: "no" } });
     expect(bad.status).toBe(422);
     const unk = await setFormats({ factura: {} });

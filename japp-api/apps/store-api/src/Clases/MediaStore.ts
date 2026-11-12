@@ -23,7 +23,11 @@ export class MediaStore {
     return join(this.dir, id);
   }
   /** Guarda el flujo; si pasa de `max` bytes para y devuelve tooLarge (no deja nada). */
-  async save(id: string, src: Readable, max: number): Promise<{ size: number; sha256: string; tooLarge: boolean }> {
+  async save(
+    id: string,
+    src: Readable,
+    max: number,
+  ): Promise<{ size: number; sha256: string; tooLarge: boolean }> {
     await mkdir(this.dir, { recursive: true });
     const part = `${this.path(id)}.part`;
     const hash = createHash("sha256");

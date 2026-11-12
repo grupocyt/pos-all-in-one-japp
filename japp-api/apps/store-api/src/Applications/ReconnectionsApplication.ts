@@ -33,7 +33,9 @@ export class ReconnectionsApplication {
   constructor(@Inject(DATABASE) private readonly database: Database) {}
 
   async orderExists(storeId: string, orderId: string): Promise<boolean> {
-    const r = await this.database.db.execute(sql`SELECT 1 FROM orders WHERE store_id = ${storeId} AND id = ${orderId}`);
+    const r = await this.database.db.execute(
+      sql`SELECT 1 FROM orders WHERE store_id = ${storeId} AND id = ${orderId}`,
+    );
     return r.rows.length > 0;
   }
 
@@ -53,7 +55,9 @@ export class ReconnectionsApplication {
   }
 
   async get(storeId: string, id: string): Promise<Row | null> {
-    const r = await this.database.db.execute(sql`SELECT ${COLS} FROM ${FROM} WHERE r.store_id = ${storeId} AND r.id = ${id}`);
+    const r = await this.database.db.execute(
+      sql`SELECT ${COLS} FROM ${FROM} WHERE r.store_id = ${storeId} AND r.id = ${id}`,
+    );
     return ((r.rows as Row[])[0] ?? null) as Row | null;
   }
 
@@ -68,7 +72,13 @@ export class ReconnectionsApplication {
     tx: Tx,
     storeId: string,
     id: string,
-    v: { status: "accepted" | "discarded"; userName: string; authorizedBy: string | null; reason: string | null; at: Date },
+    v: {
+      status: "accepted" | "discarded";
+      userName: string;
+      authorizedBy: string | null;
+      reason: string | null;
+      at: Date;
+    },
   ) {
     await tx.execute(
       sql`UPDATE order_reconnection SET status = ${v.status}, decided_by_name = ${v.userName}, authorized_by_name = ${v.authorizedBy},
@@ -94,7 +104,12 @@ export class ReconnectionsApplication {
   }
 
   /** Cuántas quedan pendientes en esa cuenta (o sin cuenta en esa orden): con alguna, la cuenta no se cobra. */
-  async pendingFor(tx: Tx, storeId: string, orderId: string, accountId: string): Promise<{ id: string; name: string; quantity: number }[]> {
+  async pendingFor(
+    tx: Tx,
+    storeId: string,
+    orderId: string,
+    accountId: string,
+  ): Promise<{ id: string; name: string; quantity: number }[]> {
     const r = await tx.execute(
       sql`SELECT id::text, name, quantity FROM order_reconnection
           WHERE store_id = ${storeId} AND order_id = ${orderId} AND status = 'pending' AND (account_id = ${accountId} OR account_id IS NULL)`,
