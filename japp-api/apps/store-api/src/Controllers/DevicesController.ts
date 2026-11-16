@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Post, Req } from "@nestjs/common";
 import { CurrentSession, Public, type Session } from "../Helpers/AuthGuard.js";
 import { parse } from "../Helpers/ValidationHelper.js";
 import { ClaimMainModel, ClaimStationModel, IdentifyDeviceModel } from "../Models/DevicesModels.js";
@@ -13,9 +13,9 @@ export class DevicesController {
   @Public()
   @Post("devices/identify")
   @HttpCode(200)
-  async identify(@Body() body: unknown) {
+  async identify(@Body() body: unknown, @Req() req: any) {
     const b = parse(IdentifyDeviceModel, body);
-    return this.devices.identify(b);
+    return this.devices.identify(b, req.ip);
   }
 
   /** Este equipo pasa a ser la caja principal, con la clave de un administrador (sin sesión). */

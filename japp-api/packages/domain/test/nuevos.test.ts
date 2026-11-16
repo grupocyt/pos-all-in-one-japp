@@ -1,5 +1,5 @@
 import { DomainError } from "../src/errors.js";
-import { identifyDevice, planClaimMain, planClaimStation, isDeviceUuid, deviceTypeOf } from "../src/devices.js";
+import { identifyDevice, planClaimMain, planClaimStation, isDeviceUuid, deviceTypeOf, stationByIp, normIp } from "../src/devices.js";
 import {
   planSync,
   assertNoRepeats,
@@ -76,6 +76,21 @@ describe("equipos: primer arranque", () => {
   });
   it("sin caja principal → NOT_FOUND", () => {
     expect(code(() => planClaimMain(ST.slice(1), U1))).toBe("NOT_FOUND");
+  });
+  it("1.2.273 · por IP: una sola estación activa de su tipo con esa IP; ninguna o dos → null", () => {
+    const L = [
+      { ...ST[1]!, ip: "10.221.9.21" },
+      { ...ST[2]!, ip: "10.221.9.111" },
+      { id: "p2", name: "PDA2", kind: "pda", isMain: false, deviceUuid: null, active: true, ip: "10.221.9.112" },
+      { id: "p3", name: "PDA3", kind: "pda", isMain: false, deviceUuid: null, active: true, ip: "10.221.9.112" },
+      { id: "p4", name: "PDA4", kind: "pda", isMain: false, deviceUuid: null, active: false, ip: "10.221.9.113" },
+    ];
+    expect(stationByIp(L, "::ffff:10.221.9.111", "mobile")?.name).toBe("PDA1");
+    expect(stationByIp(L, "10.221.9.21", "mobile")).toBeNull(); // es una caja
+    expect(stationByIp(L, "10.221.9.112", "mobile")).toBeNull(); // dos con la misma IP
+    expect(stationByIp(L, "10.221.9.113", "mobile")).toBeNull(); // desactivada
+    expect(stationByIp(L, "", "mobile")).toBeNull();
+    expect(normIp(" ::FFFF:10.0.0.5 ")).toBe("10.0.0.5");
   });
   it("1.2.271 · vincular el equipo a su estación: sustituye el UUID viejo y lo quita de otra; tipo y estación activa", () => {
     const p = planClaimStation(ST, "p1", U1, "mobile");

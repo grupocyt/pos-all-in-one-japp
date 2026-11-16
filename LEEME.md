@@ -2,15 +2,15 @@
 
 ```
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0036, consultas de control · 86 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 146 rutas (159 operaciones), todas programadas · 344 pruebas de dominio + 393 de integración
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 146 rutas (159 operaciones), todas programadas · 345 pruebas de dominio + 395 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.272 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.273 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.272). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.273). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
 
 ## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
 
@@ -63,6 +63,14 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.273 (16/11/2026, noche): el equipo se reconoce por su IP
+
+Sin migración.
+
+- Un navegador no puede leer el identificador del dispositivo, y al borrar la caché se crea un UUID nuevo. Por eso ahora la API mira también **la IP desde la que llega el equipo**: si su UUID no está dado de alta y su IP es la de **una sola** estación activa de su tipo (PDA o caja) en Ajustes › Equipos, es esa estación. Se le guarda el UUID nuevo y queda en el historial («Reconocido por su IP …»).
+- La pantalla **«Este equipo no está dado de alta»** enseña la **IP del equipo** (con «Copiar IP»): se pone en la estación en Ajustes › Equipos y se pulsa «Volver a comprobar».
+- **Hace falta:** cada PDA y cada caja con su IP **reservada en el router** (reserva DHCP) y que lleguen directas al servidor de la tienda (sin proxy ni VPN). Si dos estaciones tienen la misma IP, no se reconoce por IP (sale «¿Qué equipo es este?»).
 
 ## 1.2.272 (16/11/2026, noche): la clave la decide siempre la base de datos
 

@@ -70,6 +70,31 @@ export interface ClaimMainPlan<S> {
   unchanged: boolean;
 }
 
+/** IP tal como llega (IPv4 dentro de IPv6 «::ffff:10.0.0.5» → «10.0.0.5»), sin espacios. */
+export const normIp = (ip: string | null | undefined) =>
+  String(ip ?? "")
+    .trim()
+    .replace(/^::ffff:/i, "")
+    .toLowerCase();
+
+/**
+ * 1.2.273 (16/11/2026) · equipo que llega con un UUID que no está dado de alta: si su IP es la de UNA sola estación
+ * activa de su tipo (móvil = PDA), es esa estación (la IP de cada equipo va reservada en el router). Con ninguna o con
+ * varias, null: entonces se vincula con la clave de un encargado.
+ */
+export function stationByIp<S extends DeviceStation & { ip?: string | null }>(
+  stations: S[],
+  ip: string,
+  type: DeviceType,
+): S | null {
+  const k = normIp(ip);
+  if (!k) {
+    return null;
+  }
+  const hits = stations.filter((s) => s.active && normIp(s.ip) === k && deviceTypeOf(s) === type);
+  return hits.length === 1 ? hits[0]! : null;
+}
+
 export interface ClaimStationPlan<S> {
   station: S;
   previousUuid: string | null;

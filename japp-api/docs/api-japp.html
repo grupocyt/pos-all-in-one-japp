@@ -31246,7 +31246,14 @@ paths:
 
         16/11 (API 1.2.271, migración 0036): cada identificación guarda la hora en station.last_seen_at (Ajustes › Equipos
         › Última conexión). Si el UUID no está dado de alta (404 DEVICE_NOT_REGISTERED), el equipo se vincula con POST /devices/claim.
-        POST /devices/register ya no existe: ningún equipo se queda una estación libre por su cuenta.&#x27;
+        POST /devices/register ya no existe: ningún equipo se queda una estación libre por su cuenta.
+
+
+        16/11 (API 1.2.273): si el UUID no está dado de alta, la API mira la IP desde la que llega el equipo: si es la de
+        UNA sola estación activa de su tipo (Ajustes › Equipos › IP; móvil = PDA), es esa estación: se le guarda el UUID nuevo
+        (y se quita de otra que lo tuviera) y queda en el historial «Reconocido por su IP …» (matchedBy = ip). Con ninguna
+        o con varias → 404 DEVICE_NOT_REGISTERED con details.clientIp (la IP del equipo, para ponerla en Ajustes). Las IP
+        van reservadas en el router; la API ve la IP de la conexión (sin proxy).&#x27;
       operationId: store_POST_devices_identify
       security:
       - session: []
@@ -31280,6 +31287,15 @@ paths:
                             type: string
                           name:
                             type: string
+                      clientIp:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      matchedBy:
+                        type: string
+                        enum:
+                        - uuid
+                        - ip
               example:
                 title: Reconocer el equipo por su UUID
                 type: success

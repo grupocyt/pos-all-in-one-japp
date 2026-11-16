@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database, Tx } from "@japp/db";
-import { deviceTypeOf, describeDiff, identifyDevice, planClaimMain, planClaimStation, stationMethods, type Actor } from "@japp/domain";
+import { DomainError, deviceTypeOf, fail, describeDiff, identifyDevice, normIp, planClaimMain, planClaimStation, stationByIp, stationMethods, type Actor } from "@japp/domain";
 import { CLOCK, DATABASE, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { SessionsService } from "./SessionsService.js";
@@ -41,19 +41,61 @@ export class DevicesService {
     @Inject(SessionsService) private readonly sessions: SessionsService,
   ) {}
 
-  async identify(b: IdentifyDeviceInput) {
+  async identify(b: IdentifyDeviceInput, clientIp?: string) {
     const store = await this.stores.store();
-    const st = identifyDevice(await this.devices.activeStations(store.id), b.deviceUuid, b.type);
-    await this.devices.touch(store.id, st.id); // 0036 · última conexión (Ajustes › Equipos)
+    const ip = normIp(clientIp) || null;
+    let st;
+    let matchedBy: "uuid" | "ip" = "uuid";
+    try {
+      st = identifyDevice(await this.devices.activeStations(store.id), b.deviceUuid, b.type);
+    } catch (e) {
+      if (!(e instanceof DomainError) || e.code !== "DEVICE_NOT_REGISTERED") {
+        throw e;
+      }
+      // 1.2.273 · UUID desconocido (navegador borrado…): si la IP es la de una sola estación de su tipo, es esa
+      st = ip ? await this.claimByIp(store.id, b, ip) : null;
+      if (!st) {
+        // la IP del equipo, para enseñarla en la pantalla y ponerla en Ajustes › Equipos
+        fail("DEVICE_NOT_REGISTERED", e.message, { deviceUuid: b.deviceUuid, clientIp: ip });
+      }
+      matchedBy = "ip";
+    }
+    await this.devices.touch(store.id, st!.id); // 0036 · última conexión (Ajustes › Equipos)
     // la tienda (código y nombre) para que el equipo enseñe la suya antes de entrar con una clave (1.2.199)
     return {
-      stationId: st.id,
-      name: st.name,
-      kind: st.kind,
-      main: st.isMain,
-      ip: st.ip ?? null,
+      stationId: st!.id,
+      name: st!.name,
+      kind: st!.kind,
+      main: st!.isMain,
+      ip: st!.ip ?? null,
+      clientIp: ip,
+      matchedBy,
       store: { code: store.code ?? null, name: store.name ?? null },
     };
+  }
+
+  /** La estación con esa IP (una sola, de su tipo) se queda con el UUID nuevo; historial «reconocido por su IP». */
+  private async claimByIp(storeId: string, b: IdentifyDeviceInput, ip: string) {
+    return this.database.withTx(async (tx) => {
+      const all = await this.devices.lockStations(tx, storeId);
+      const st = stationByIp(all, ip, b.type);
+      if (!st) {
+        return null;
+      }
+      const plan = planClaimStation(all, st.id, b.deviceUuid, b.type);
+      if (plan.unchanged) {
+        return st;
+      }
+      const a: Actor = { userId: null as any, user: `Equipo ${ip}`, role: "system" as any, device: st.name, at: this.clock().toISOString() };
+      const v = await this.changes.bumpConfigVersion(tx, storeId);
+      for (const other of plan.clearFrom) {
+        const after = await this.devices.setDeviceUuid(tx, storeId, other.id, null);
+        await this.record(tx, storeId, a, v, other, after);
+      }
+      const after = await this.devices.setDeviceUuid(tx, storeId, st.id, b.deviceUuid);
+      await this.record(tx, storeId, a, v, st, after, `Reconocido por su IP ${ip}`);
+      return after;
+    });
   }
 
   async claimMain(b: ClaimMainInput) {
@@ -158,7 +200,7 @@ export class DevicesService {
   }
 
   /** Historial de Ajustes y cola hacia el Manager de una estación cambiada (como ConfigService). */
-  private async record(tx: Tx, storeId: string, a: Actor, v: number, before: StationRow, after: StationRow) {
+  private async record(tx: Tx, storeId: string, a: Actor, v: number, before: StationRow, after: StationRow, why?: string) {
     const b = snapOf(before);
     const n = snapOf(after);
     await this.changes.insertChangeLog(tx, {
@@ -169,7 +211,7 @@ export class DevicesService {
       module: "estaciones",
       action: "update",
       recordName: after.name,
-      diff: describeDiff(b, n, { deviceUuid: "UUID del equipo" }) || "Sin cambios",
+      diff: [describeDiff(b, n, { deviceUuid: "UUID del equipo" }) || "Sin cambios", why].filter(Boolean).join(" · "),
       recordId: after.id,
       before: b,
       after: n,
