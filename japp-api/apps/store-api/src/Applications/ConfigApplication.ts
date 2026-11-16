@@ -299,7 +299,7 @@ export class ConfigApplication {
     const cols = ["id", "store_id"];
     const vals: unknown[] = [id, storeId];
     for (const [k, f] of Object.entries(d.fields)) {
-      if (rec[k] !== undefined) {
+      if (rec[k] !== undefined && !f.readOnly) {
         cols.push(f.col);
         vals.push(toDb(f.kind, rec[k]));
       }
@@ -334,7 +334,7 @@ export class ConfigApplication {
     const d = MODULES[m];
     const sets: SQL[] = [];
     for (const [k, f] of Object.entries(d.fields)) {
-      if (o.keys.includes(k)) {
+      if (o.keys.includes(k) && !f.readOnly) {
         sets.push(sql`${sql.raw(`"${f.col}"`)} = ${sql.param(toDb(f.kind, rec[k]))}`);
       }
     }

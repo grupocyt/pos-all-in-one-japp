@@ -125,6 +125,10 @@ describe("caja y periodo", () => {
   });
   it("cerrar periodo: con mesas abiertas no deja; con descuadre grande pide motivo; luego cierra y no se vende", async () => {
     // cobrar y facturar lo que quede abierto
+    // otras pruebas dejan a alguien «dentro» de su mesa (p. ej. el Mesero en la de Order on Table): se sueltan para cobrarlas
+    await t.sql.query(
+      "UPDATE orders SET holder_user_id = NULL, holder_user_name = NULL, holder_station_id = NULL, holder_station_name = NULL, holder_until = NULL WHERE status IN ('open','billing')",
+    );
     const { rows: open } = await t.sql.query("SELECT id FROM orders WHERE status IN ('open','billing')");
     // otra prueba puede dejar mesas abiertas en un periodo ya cerrado: el cierre solo cuenta las de este periodo
     const { rows: inPeriod } = await t.sql.query(
@@ -177,7 +181,7 @@ describe("caja y periodo", () => {
       token: sistemas,
       body: { countedCash: sum.expectedCash - 20, nextFloat: 150 },
     });
-    expect([bad.status, bad.error.details.field]).toEqual([422, "note"]);
+    expect([bad.status, bad.error.details.field], JSON.stringify(bad.error)).toEqual([422, "note"]);
     const ok = await t.call("POST", `/periods/${p}/close`, {
       token: sistemas,
       body: { countedCash: sum.expectedCash, countedCard: sum.cardSales, nextFloat: 150, note: "Cuadra a la primera" },

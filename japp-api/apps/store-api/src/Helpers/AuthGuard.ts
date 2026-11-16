@@ -22,7 +22,7 @@ import {
 } from "../Applications/StoreApplication.js";
 
 export const PUBLIC = "japp:public";
-/** Ruta sin sesión (health, devices/register, sessions). */
+/** Ruta sin sesión (health, devices/identify, devices/claim, sessions). */
 export const Public = () => SetMetadata(PUBLIC, true);
 export const STORE_KEY = "japp:storeKey";
 /**

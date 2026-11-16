@@ -4,30 +4,6 @@
  */
 
 export interface paths {
-    "/api/v2/devices/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Registrar el equipo
-         * @description Primer arranque: el equipo envía su UUID y si es escritorio o móvil. La tienda le asigna su estación (CAJA1, PDA1…).
-         *
-         *     Lo llama: TPV, PDA
-         *
-         *     Tablas: station
-         */
-        post: operations["store_POST_devices_register"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/sessions": {
         parameters: {
             query?: never;
@@ -152,6 +128,8 @@ export interface paths {
          *     Tablas: sales_period, cash_movement
          *
          *     11/11 (API 1.2.269, migración 0033): el fondo del periodo nuevo es el «fondo para mañana» del último cierre; sin cierres, el de Parámetros (cashFloat).
+         *
+         *     16/11 (API 1.2.271, migración 0036): abre quien tenga funciones.iniciarDia («Iniciar el día», el Cajero) o funciones.periodo (que además cierra); sin ninguno, con la clave de quien lo tenga (PERMISSION_REQUIRED nombra funciones.periodo).
          */
         post: operations["store_POST_periods"];
         delete?: never;
@@ -282,6 +260,10 @@ export interface paths {
          *     0034 (11/11): estaciones.screenMode (auto | fixed), screenWidth (800–7680) y screenHeight (600–4320) en píxeles y uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).
          *
          *     16/11 (API 1.2.270, migración 0035): canales → los de comanda son solo COMIDA y BEBIDA (code, los manda el Manager): no se crean otros, no hay copias, no se renombran ni se desactivan (422); su impresora sí se cambia. Aquí solo se crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations. productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).
+         *
+         *     16/11 (API 1.2.271, migración 0036): estaciones.lastSeenAt = última vez que el equipo se identificó; solo lectura (si se manda, no se guarda).
+         *
+         *     16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba «Permisos que no existen» al guardar el Cajero desde el TPV).
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -334,6 +316,10 @@ export interface paths {
          *     0034 (11/11): estaciones.screenMode (auto | fixed), screenWidth (800–7680) y screenHeight (600–4320) en píxeles y uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).
          *
          *     16/11 (API 1.2.270, migración 0035): canales → los de comanda son solo COMIDA y BEBIDA (code, los manda el Manager): no se crean otros, no hay copias, no se renombran ni se desactivan (422); su impresora sí se cambia. Aquí solo se crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations. productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).
+         *
+         *     16/11 (API 1.2.271, migración 0036): estaciones.lastSeenAt = última vez que el equipo se identificó; solo lectura (si se manda, no se guarda).
+         *
+         *     16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba «Permisos que no existen» al guardar el Cajero desde el TPV).
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -2342,6 +2328,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: station
+         *
+         *     16/11 (API 1.2.271, migración 0036): cada identificación guarda la hora en station.last_seen_at (Ajustes › Equipos › Última conexión). Si el UUID no está dado de alta (404 DEVICE_NOT_REGISTERED), el equipo se vincula con POST /devices/claim. POST /devices/register ya no existe: ningún equipo se queda una estación libre por su cuenta.
          */
         post: operations["store_POST_devices_identify"];
         delete?: never;
@@ -3942,6 +3930,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/devices/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vincular este equipo a su estación
+         * @description 16/11 (API 1.2.271, migración 0036): el equipo se vincula a una estación desde el propio equipo, con la clave de quien tenga ajustes.estaciones (sin sesión). Para cuando su UUID cambió (navegador borrado, otra dirección…) y la estación ya tenía otro. Sin stationId solo comprueba la clave y devuelve las estaciones activas de su tipo (móvil = PDA; la principal primero) con hasDevice, thisDevice y lastSeenAt: no cambia nada. Con stationId pone el UUID en esa estación (el equipo viejo deja de serlo) y lo quita de cualquier otra que lo tuviera; queda en el historial de Ajustes y sube la versión de configuración. Clave incorrecta o sin el permiso → 401 BAD_PIN; cuenta para el bloqueo del equipo y para uno fijo de la tienda (claim); bloqueado → 423 PIN_LOCKED. Otro tipo → 409 DEVICE_TYPE_MISMATCH.
+         *
+         *
+         *     Lo llama: TPV
+         *
+         *
+         *     Tablas: station, config_change_log, sync_outbox
+         */
+        post: operations["store_POST_devices_claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4490,69 +4504,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    store_POST_devices_register: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /** @example {
-                 *       "deviceUuid": "a3f1c2d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
-                 *       "kind": "pda",
-                 *       "stationName": "PDA1"
-                 *     } */
-                "application/json": {
-                    deviceUuid?: string | null;
-                    kind?: string;
-                    stationName?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Creado */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            station?: {
-                                id?: string | null;
-                                name?: string;
-                                kind?: string;
-                                emissionPoint?: string | null;
-                            };
-                            deviceToken?: string;
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-            /** @description STATION_NOT_FOUND: STATION_NOT_FOUND · STATION_IN_USE: STATION_IN_USE */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     store_POST_sessions: {
         parameters: {
             query?: never;
@@ -16912,6 +16863,104 @@ export interface operations {
             };
             /** @description VALIDATION: Datos no válidos */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_devices_claim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    deviceUuid: string;
+                    /** @enum {string} */
+                    type: "desktop" | "mobile";
+                    pin: string;
+                    stationId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            stations?: {
+                                stationId?: string;
+                                name?: string;
+                                kind?: string;
+                                main?: boolean;
+                                ip?: string | null;
+                                hasDevice?: boolean;
+                                thisDevice?: boolean;
+                                lastSeenAt?: string | null;
+                            }[];
+                            stationId?: string;
+                            name?: string;
+                            kind?: string;
+                            main?: boolean;
+                            ip?: string | null;
+                            previousUuid?: unknown;
+                            store?: Record<string, never>;
+                            configVersion?: number | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description BAD_PIN: Clave incorrecta. Tras varios intentos, PIN_LOCKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: Esa estación no existe o está desactivada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DEVICE_TYPE_MISMATCH: PDA1 es móvil (PDA): este equipo es escritorio */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: La clave son 4 números */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PIN_LOCKED: Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo). */
+            423: {
                 headers: {
                     [name: string]: unknown;
                 };

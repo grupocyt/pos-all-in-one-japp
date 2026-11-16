@@ -21,3 +21,15 @@ export const ClaimMainModel = z.object({
   pin: z.string().regex(/^\d{4}$/, "La clave son 4 números"),
 });
 export type ClaimMainInput = z.infer<typeof ClaimMainModel>;
+
+/**
+ * POST /devices/claim (1.2.271): vincular este equipo a una estación con la clave de quien tenga ajustes.estaciones.
+ * Sin stationId solo comprueba la clave y devuelve las estaciones de su tipo para elegir.
+ */
+export const ClaimStationModel = z.object({
+  deviceUuid,
+  type: z.enum(["desktop", "mobile"]),
+  pin: z.string().regex(/^\d{4}$/, "La clave son 4 números"),
+  stationId: z.string().uuid().nullish(),
+});
+export type ClaimStationInput = z.infer<typeof ClaimStationModel>;

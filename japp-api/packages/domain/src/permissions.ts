@@ -59,6 +59,7 @@ export const PERMISSION_TREE = {
     "servicio",
     "sir",
     "semanaEditar", // 0033 · Resumen semana › observaciones de días anteriores
+    "iniciarDia", // 0036 · abrir el periodo (como en el TPV; funciones.periodo también abre y además cierra)
   ],
   ajustes: ["acceso", ...SETTINGS_MODULES],
   sistema: ["autorizar"],

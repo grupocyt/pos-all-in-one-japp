@@ -6,7 +6,6 @@ import { SystemApplication } from "../Applications/SystemApplication.js";
 import { DevicesApplication } from "../Applications/DevicesApplication.js";
 import { PeriodsApplication } from "../Applications/PeriodsApplication.js";
 import type { Config } from "../Properties/AppSettings.js";
-import type { RegisterDeviceInput } from "../Models/SystemModels.js";
 
 /** Latido y alta de equipos. */
 @Injectable()
@@ -52,26 +51,5 @@ export class SystemService {
       internet,
       time: new Date().toISOString(),
     };
-  }
-
-  /**
-   * Primer arranque del equipo: se le asigna estación (CAJA1, PDA1…) por su UUID. Nunca la principal: esa solo se
-   * configura con la clave de un administrador (POST /devices/claim-main); si no, cualquier equipo nuevo podría quedársela.
-   */
-  async register(b: RegisterDeviceInput) {
-    const store = await this.stores.store();
-    const all = await this.devices.activeStations(store.id);
-    let st = all.find((x) => x.deviceUuid === b.deviceUuid);
-    if (!st) {
-      const kind = b.kind === "mobile" ? "pda" : "station";
-      st = all.find((x) => x.kind === kind && !x.deviceUuid && !x.isMain);
-      if (!st) {
-        fail("NOT_FOUND", "No queda ninguna estación libre de ese tipo: créala en Ajustes › Estaciones", {
-          kind,
-        });
-      }
-      await this.devices.assignDevice(store.id, st!.id, b.deviceUuid);
-    }
-    return { stationId: st!.id, name: st!.name, kind: st!.kind };
   }
 }

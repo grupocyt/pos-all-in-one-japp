@@ -80,27 +80,15 @@ describe("claim-main: bloqueo de PIN por tienda", () => {
   });
 });
 
-describe("POST /devices/register no da nunca la caja principal", () => {
-  it("con la principal sin equipo y ninguna otra libre → 404; con otra libre, esa", async () => {
-    const main = await one("SELECT id::text, device_uuid FROM station WHERE is_main");
-    const extra = crypto.randomUUID();
-    try {
-      await t.sql.query("UPDATE station SET device_uuid = NULL WHERE id = $1", [main.id]);
-      const uuid = `rev-reg-${crypto.randomUUID().slice(0, 8)}`;
-      const r = await t.call("POST", "/devices/register", { body: { deviceUuid: uuid, kind: "desktop" } });
-      expect([r.status, r.error?.code]).toEqual([404, "NOT_FOUND"]);
-      expect((await one("SELECT device_uuid FROM station WHERE id = $1", [main.id])).device_uuid).toBeNull();
-      await t.sql.query(
-        "INSERT INTO station (id, store_id, name, kind) VALUES ($1, $2, 'CAJA-REV', 'station')",
-        [extra, storeId],
-      );
-      const ok = await t.call("POST", "/devices/register", { body: { deviceUuid: uuid, kind: "desktop" } });
-      expect([ok.status, ok.body.stationId, ok.body.name]).toEqual([201, extra, "CAJA-REV"]);
-      expect((await one("SELECT device_uuid FROM station WHERE id = $1", [main.id])).device_uuid).toBeNull();
-    } finally {
-      await t.sql.query("DELETE FROM station WHERE id = $1", [extra]);
-      await t.sql.query("UPDATE station SET device_uuid = $2 WHERE id = $1", [main.id, main.device_uuid]);
-    }
+describe("POST /devices/register ya no existe (1.2.271)", () => {
+  it("ningún equipo se queda una estación libre por su cuenta → 404", async () => {
+    // la ruta ya no está en el contrato: se llama sin la comprobación del contrato
+    const r = await t.app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: "/api/v2/devices/register",
+      payload: { deviceUuid: crypto.randomUUID(), kind: "desktop" },
+    });
+    expect(r.statusCode).toBe(404);
   });
 });
 
@@ -146,11 +134,11 @@ describe("reimprimir un abono", () => {
     expect(job.text).toContain("FACTURA RECTIFICATIVA");
     expect(job.text).toContain(`Rectifica a: ${orig.invoice_number}`);
     expect(job.text).toContain("Error de cobro");
-    const ev = await one(
-      "SELECT description FROM order_event WHERE order_id = $1 AND type = 'invoiceReprinted' ORDER BY at DESC LIMIT 1",
-      [o.orderId],
-    );
-    expect(ev.description).toBe(`Reimpresión del abono ${c.body.invoiceNumber}`);
+    // las dos reimpresiones llevan la misma hora (reloj de pruebas): se busca la del abono entre las dos
+    const evs = (
+      await t.sql.query("SELECT description FROM order_event WHERE order_id = $1 AND type = 'invoiceReprinted'", [o.orderId])
+    ).rows.map((x: any) => x.description);
+    expect(evs).toContain(`Reimpresión del abono ${c.body.invoiceNumber}`);
   });
 });
 

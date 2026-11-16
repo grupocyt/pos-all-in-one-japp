@@ -10537,124 +10537,6 @@ tags:
   description: Lo que llama el sistema de pedidos del cliente con el token del QR. Se autentica con la clave de integración
     (cabecera X-Integration-Key = OOT_INTEGRATION_KEY), no con sesión de usuario.
 paths:
-  /api/v2/devices/register:
-    post:
-      tags:
-      - API de tienda v2 · Equipo y sesión
-      summary: Registrar el equipo
-      description: &#x27;Primer arranque: el equipo envía su UUID y si es escritorio o móvil. La tienda le asigna su estación (CAJA1,
-        PDA1…).
-
-
-        Lo llama: TPV, PDA
-
-
-        Tablas: station&#x27;
-      operationId: store_POST_devices_register
-      security: []
-      responses:
-        &#x27;201&#x27;:
-          description: Creado
-          content:
-            application/json:
-              schema:
-                allOf:
-                - $ref: &#x27;#/components/schemas/Envelope&#x27;
-                properties:
-                  type:
-                    const: success
-                  data:
-                    type: object
-                    properties:
-                      station:
-                        type: object
-                        properties:
-                          id:
-                            type:
-                            - string
-                            - &#x27;null&#x27;
-                          name:
-                            type: string
-                          kind:
-                            type: string
-                          emissionPoint:
-                            type:
-                            - string
-                            - &#x27;null&#x27;
-                      deviceToken:
-                        type: string
-              example:
-                title: Registrar el equipo
-                type: success
-                status: 201
-                data:
-                  station:
-                    id: 1b6c…
-                    name: PDA1
-                    kind: pda
-                    emissionPoint: &#x27;050&#x27;
-                  deviceToken: eyJhbGciOi…
-                errors: []
-                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
-                author: Api Japp Grupo Cañas y Tapas
-                mode: developer
-        &#x27;422&#x27;:
-          description: &#x27;VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.&#x27;
-          content:
-            application/json:
-              schema:
-                $ref: &#x27;#/components/schemas/Error&#x27;
-              example:
-                title: Registrar el equipo
-                type: error
-                status: 422
-                data: null
-                errors:
-                - code: VALIDATION
-                  message: Faltan datos o tienen un formato incorrecto. details dice qué campo.
-                  field: null
-                  details: {}
-                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
-                author: Api Japp Grupo Cañas y Tapas
-                mode: developer
-        &#x27;409&#x27;:
-          description: &#x27;STATION_NOT_FOUND: STATION_NOT_FOUND · STATION_IN_USE: STATION_IN_USE&#x27;
-          content:
-            application/json:
-              schema:
-                $ref: &#x27;#/components/schemas/Error&#x27;
-              example:
-                title: Registrar el equipo
-                type: error
-                status: 409
-                data: null
-                errors:
-                - code: STATION_NOT_FOUND
-                  message: STATION_NOT_FOUND
-                  field: null
-                  details: {}
-                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
-                author: Api Japp Grupo Cañas y Tapas
-                mode: developer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                deviceUuid:
-                  type:
-                  - string
-                  - &#x27;null&#x27;
-                kind:
-                  type: string
-                stationName:
-                  type: string
-            example:
-              deviceUuid: a3f1c2d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d
-              kind: pda
-              stationName: PDA1
   /api/v2/sessions:
     post:
       tags:
@@ -11281,7 +11163,11 @@ paths:
 
 
         11/11 (API 1.2.269, migración 0033): el fondo del periodo nuevo es el «fondo para mañana» del último cierre; sin cierres,
-        el de Parámetros (cashFloat).&#x27;
+        el de Parámetros (cashFloat).
+
+
+        16/11 (API 1.2.271, migración 0036): abre quien tenga funciones.iniciarDia («Iniciar el día», el Cajero) o funciones.periodo
+        (que además cierra); sin ninguno, con la clave de quien lo tenga (PERMISSION_REQUIRED nombra funciones.periodo).&#x27;
       operationId: store_POST_periods
       security:
       - session: []
@@ -12354,7 +12240,15 @@ paths:
         crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations.
         productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table
         encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales
-        y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).&#x27;
+        y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).
+
+
+        16/11 (API 1.2.271, migración 0036): estaciones.lastSeenAt = última vez que el equipo se identificó; solo lectura
+        (si se manda, no se guarda).
+
+
+        16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba
+        «Permisos que no existen» al guardar el Cajero desde el TPV).&#x27;
       operationId: store_POST_config_module
       security:
       - session: []
@@ -12671,7 +12565,15 @@ paths:
         crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations.
         productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table
         encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales
-        y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).&#x27;
+        y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).
+
+
+        16/11 (API 1.2.271, migración 0036): estaciones.lastSeenAt = última vez que el equipo se identificó; solo lectura
+        (si se manda, no se guarda).
+
+
+        16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba
+        «Permisos que no existen» al guardar el Cajero desde el TPV).&#x27;
       operationId: store_PATCH_config_module_id
       security:
       - session: []
@@ -31289,7 +31191,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: station&#x27;
+        Tablas: station
+
+
+        16/11 (API 1.2.271, migración 0036): cada identificación guarda la hora en station.last_seen_at (Ajustes › Equipos
+        › Última conexión). Si el UUID no está dado de alta (404 DEVICE_NOT_REGISTERED), el equipo se vincula con POST /devices/claim.
+        POST /devices/register ya no existe: ningún equipo se queda una estación libre por su cuenta.&#x27;
       operationId: store_POST_devices_identify
       security:
       - session: []
@@ -31417,7 +31324,7 @@ paths:
               type: desktop
   /api/v2/devices/claim-main:
     post:
-      tags:
+      tags: &amp;id013
       - API de tienda v2 · Equipo y sesión
       summary: Configurar este equipo como caja principal
       description: &#x27;La caja principal (CAJA 1) se configura en cualquier equipo de escritorio con la clave de un administrador
@@ -43871,6 +43778,224 @@ paths:
                   - string
                   - &#x27;null&#x27;
                 authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+  /api/v2/devices/claim:
+    post:
+      tags: *id013
+      summary: Vincular este equipo a su estación
+      description: &#x27;16/11 (API 1.2.271, migración 0036): el equipo se vincula a una estación desde el propio equipo, con la
+        clave de quien tenga ajustes.estaciones (sin sesión). Para cuando su UUID cambió (navegador borrado, otra dirección…)
+        y la estación ya tenía otro. Sin stationId solo comprueba la clave y devuelve las estaciones activas de su tipo (móvil
+        = PDA; la principal primero) con hasDevice, thisDevice y lastSeenAt: no cambia nada. Con stationId pone el UUID en
+        esa estación (el equipo viejo deja de serlo) y lo quita de cualquier otra que lo tuviera; queda en el historial de
+        Ajustes y sube la versión de configuración. Clave incorrecta o sin el permiso → 401 BAD_PIN; cuenta para el bloqueo
+        del equipo y para uno fijo de la tienda (claim); bloqueado → 423 PIN_LOCKED. Otro tipo → 409 DEVICE_TYPE_MISMATCH.
+
+
+
+        Lo llama: TPV
+
+
+
+        Tablas: station, config_change_log, sync_outbox&#x27;
+      operationId: store_POST_devices_claim
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      stations:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            stationId:
+                              type: string
+                            name:
+                              type: string
+                            kind:
+                              type: string
+                            main:
+                              type: boolean
+                            ip:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            hasDevice:
+                              type: boolean
+                            thisDevice:
+                              type: boolean
+                            lastSeenAt:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                      stationId:
+                        type: string
+                      name:
+                        type: string
+                      kind:
+                        type: string
+                      main:
+                        type: boolean
+                      ip:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      previousUuid: {}
+                      store:
+                        type: object
+                      configVersion:
+                        type:
+                        - integer
+                        - &#x27;null&#x27;
+              example:
+                title: Vincular este equipo a su estación
+                type: success
+                status: 200
+                data:
+                  stationId: …
+                  name: PDA1
+                  kind: pda
+                  main: false
+                  ip: null
+                  previousUuid: …
+                  store:
+                    code: JC01
+                    name: Nueva Sucursal Japp
+                  configVersion: 216
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;401&#x27;:
+          description: &#x27;BAD_PIN: Clave incorrecta. Tras varios intentos, PIN_LOCKED.&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Vincular este equipo a su estación
+                type: error
+                status: 401
+                data: null
+                errors:
+                - code: BAD_PIN
+                  message: Clave incorrecta. Tras varios intentos, PIN_LOCKED.
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;423&#x27;:
+          description: &#x27;PIN_LOCKED: Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Vincular este equipo a su estación
+                type: error
+                status: 423
+                data: null
+                errors:
+                - code: PIN_LOCKED
+                  message: Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: Esa estación no existe o está desactivada&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Vincular este equipo a su estación
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: Esa estación no existe o está desactivada
+                  field: stationId
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;DEVICE_TYPE_MISMATCH: PDA1 es móvil (PDA): este equipo es escritorio&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Vincular este equipo a su estación
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: DEVICE_TYPE_MISMATCH
+                  message: &#x27;PDA1 es móvil (PDA): este equipo es escritorio&#x27;
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: La clave son 4 números&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Vincular este equipo a su estación
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: La clave son 4 números
+                  field: pin
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - deviceUuid
+              - type
+              - pin
+              properties:
+                deviceUuid:
+                  type: string
+                type:
+                  type: string
+                  enum:
+                  - desktop
+                  - mobile
+                pin:
+                  type: string
+                stationId:
                   type:
                   - string
                   - &#x27;null&#x27;

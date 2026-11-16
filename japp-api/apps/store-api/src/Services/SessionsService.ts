@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { type Database, type Tx } from "@japp/db";
@@ -125,6 +126,10 @@ export class SessionsService {
         ...cur,
         expiresAt: new Date(exp * 1000).toISOString(),
       });
+      // 0036 · última conexión del equipo de esa estación (Ajustes › Equipos); sin cabecera no se sabe qué equipo es
+      if (stationHeader && station.id) {
+        await tx.execute(sql`UPDATE station SET last_seen_at = now() WHERE id = ${station.id} AND store_id = ${store.id}`);
+      }
       const old = releasesStation(prev, station.id);
       if (old) {
         await this.releaseTables(tx, store.id, u, old, station.name);

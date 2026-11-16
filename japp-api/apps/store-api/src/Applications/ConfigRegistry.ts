@@ -445,6 +445,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       screenWidth: F("screen_width", "i", z.number().int().min(800).max(7680).nullish(), "Ancho (px)"),
       screenHeight: F("screen_height", "i", z.number().int().min(600).max(4320).nullish(), "Alto (px)"),
       uiScale: F("ui_scale", "i", z.number().int().min(70).max(150), "Escala (%)", { default: 100 }),
+      // 0036 · última vez que el equipo se identificó (lo pone la API)
+      lastSeenAt: F("last_seen_at", "s", z.string().nullish(), "Última conexión", { readOnly: true }),
     },
     extra: {
       channels: {

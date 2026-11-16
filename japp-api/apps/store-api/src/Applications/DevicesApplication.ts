@@ -17,11 +17,11 @@ export class DevicesApplication {
       .where(and(eq(s.station.storeId, storeId), eq(s.station.active, true)));
   }
 
-  /** Deja la estación ligada a ese equipo. */
-  async assignDevice(storeId: string, stationId: string, deviceUuid: string) {
-    await this.database.db
+  /** 0036 · el equipo de la estación acaba de identificarse (no sube la versión: no es un cambio de Ajustes). */
+  async touch(storeId: string, stationId: string, tx?: Tx) {
+    await (tx ?? this.database.db)
       .update(s.station)
-      .set({ deviceUuid } as any)
+      .set({ lastSeenAt: sql`now()` } as any)
       .where(and(eq(s.station.storeId, storeId), eq(s.station.id, stationId)));
   }
 

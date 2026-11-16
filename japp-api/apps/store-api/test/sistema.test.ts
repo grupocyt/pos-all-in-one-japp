@@ -31,17 +31,6 @@ describe("sistema y sesiones", () => {
     await t.sql.query("DELETE FROM sync_outbox WHERE id = $1", [ins.rows[0].id]);
     expect((await t.call("GET", "/health")).body.internet.status).toBe("ok");
   });
-  it("registro de equipo: el móvil recibe la PDA1 y repetir devuelve la misma", async () => {
-    const a = await t.call("POST", "/devices/register", {
-      body: { deviceUuid: "pda-0001-aaaa", kind: "mobile" },
-    });
-    expect(a.status).toBe(201);
-    expect(a.body.name).toBe("PDA1");
-    const b = await t.call("POST", "/devices/register", {
-      body: { deviceUuid: "pda-0001-aaaa", kind: "mobile" },
-    });
-    expect(b.body.stationId).toBe(a.body.stationId);
-  });
   it("entrar con PIN: perfil, permisos efectivos y excepciones", async () => {
     const r = await t.call("POST", "/sessions", { body: { pin: PIN.mesero } });
     expect(r.status).toBe(201);
@@ -50,7 +39,7 @@ describe("sistema y sesiones", () => {
     expect(r.body.permissions).not.toContain("cobro.cobrar");
     expect(r.body.overrides.canCharge).toBe(false);
     const j = await t.call("POST", "/sessions", { body: { pin: PIN.jeison } });
-    expect(j.body.permissions).toHaveLength(60); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada y funciones.semanaEditar)
+    expect(j.body.permissions).toHaveLength(61); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada, funciones.semanaEditar y funciones.iniciarDia)
   });
   it("PIN mal formado → 422 VALIDATION; incorrecto → 401 BAD_PIN", async () => {
     expect((await t.call("POST", "/sessions", { body: { pin: "12" } })).error.code).toBe("VALIDATION");
@@ -97,10 +86,11 @@ describe("sistema y sesiones", () => {
       await t.sql.query("UPDATE app_user SET lock_seconds=15 WHERE name='Mesero'");
       expect((await t.call("GET", "/sessions/current", { token: tpv.body.token })).body.lockSeconds).toBe(15);
       await t.sql.query("UPDATE app_user SET lock_seconds=NULL WHERE name='Mesero'");
+      await t.sql.query("UPDATE station SET device_uuid='pda-0001-aaaa' WHERE name='PDA1'"); // (1.2.271: sin /devices/register)
       const pda = await t.call("POST", "/sessions", {
         body: { pin: PIN.mesero },
         headers: { "x-station-id": "pda-0001-aaaa" },
-      }); // la PDA1 tiene UUID de equipo desde el registro
+      }); // la PDA1 con su UUID de equipo
       expect(pda.body.lockSeconds).toBe(10);
       // una sesión por usuario: la del TPV queda sustituida
       const old = await t.call("GET", "/sessions/current", { token: tpv.body.token });

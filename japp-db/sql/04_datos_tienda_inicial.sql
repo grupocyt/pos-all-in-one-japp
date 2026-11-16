@@ -250,6 +250,13 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO profile_permission (profile_id, permission_code, store_id)
   SELECT p.id, 'funciones.semanaEditar', p.store_id FROM user_profile p WHERE p.code IN ('ADMIN', 'ADMIN_LOCAL')
 ON CONFLICT DO NOTHING;
+-- 0036 · Iniciar el día (abrir el periodo): el Cajero y el Administrador
+INSERT INTO permission (code, module, name, sort_order) VALUES
+  ('funciones.iniciarDia', 'Funciones', 'Iniciar el día (abrir el periodo)', 34)
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT p.id, 'funciones.iniciarDia', p.store_id FROM user_profile p WHERE p.code IN ('CAJERO', 'ADMIN')
+ON CONFLICT DO NOTHING;
 
 
 -- Impresoras y canales: BARRA pasa a llamarse BEBIDA y se crea COMIDA (impresora LINEA)

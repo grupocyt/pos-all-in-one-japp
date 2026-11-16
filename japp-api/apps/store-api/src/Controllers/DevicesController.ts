@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Inject, Post } from "@nestjs/common";
 import { CurrentSession, Public, type Session } from "../Helpers/AuthGuard.js";
 import { parse } from "../Helpers/ValidationHelper.js";
-import { ClaimMainModel, IdentifyDeviceModel } from "../Models/DevicesModels.js";
+import { ClaimMainModel, ClaimStationModel, IdentifyDeviceModel } from "../Models/DevicesModels.js";
 import { DevicesService } from "../Services/DevicesService.js";
 
 /** Equipo: reconocerlo por su UUID, configurarlo como caja principal y la configuración de su estación. */
@@ -25,6 +25,15 @@ export class DevicesController {
   async claimMain(@Body() body: unknown) {
     const b = parse(ClaimMainModel, body);
     return this.devices.claimMain(b);
+  }
+
+  /** 1.2.271 · vincular este equipo a una estación con la clave de un encargado (sin sesión); sin stationId, la lista. */
+  @Public()
+  @Post("devices/claim")
+  @HttpCode(200)
+  async claim(@Body() body: unknown) {
+    const b = parse(ClaimStationModel, body);
+    return this.devices.claim(b);
   }
 
   /** Configuración de la estación de la sesión. */

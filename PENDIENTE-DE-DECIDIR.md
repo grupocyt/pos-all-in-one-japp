@@ -76,9 +76,11 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Impresión | Que guardar no espere a la impresora | **Cola de impresión** para comandas, anulaciones y cambio de mesa (16/11) | **Hecho 1.2.270** · precuenta, factura y cortes siguen directos |
 | Order on Table | Encender / apagar | Interruptor en Ajustes › Restaurante, encendido por defecto (16/11) | **Hecho 1.2.270** |
 | Usuarios | Nombre, iniciales y clave | **No se repiten** (16/11) | **Hecho 1.2.270** |
-| PDA | Todo se veía pequeño en el móvil | **Ajustarse a la pantalla** (16/11) | **Hecho 1.2.270** · revisar en el móvil |
+| PDA | Todo se veía pequeño en el móvil | Se probó ajustarla a la pantalla y **se volvió atrás** (16/11 noche: en el iPhone se salía de la pantalla) | Como en la 1.2.269 · pendiente de otra propuesta |
 | Logo | Cambiar el logo en todas partes (impresos sobre todo) | Pendiente de respuesta (puntos 7–9) | Pendiente |
 | Manager y SIR | SP de facturacionJapp, tablas del SIR | **Lo hacemos luego** (16/11) | En espera |
+| Permisos | «Permisos que no existen» al guardar el perfil Cajero | **«Iniciar el día» pasa a la API** (Cajero y Administrador) (16/11 noche) | **Hecho 1.2.271** (0036) |
+| Equipos | El UUID cambiaba al pasar de versión y las estaciones se mezclaban | **UUID en varios sitios del equipo, «¿Qué equipo es este?» con clave de encargado, sin «primera libre», última conexión** (16/11, noche) | **Hecho 1.2.271** (0036) · revisar en JC01 |
 | D3 · Menú del día | Guarniciones y fallo «Row# Q» | **No se hace ahora** (11/11) | Fuera |
 | D4 · Banners | Continuidad, días de activación y hora «desde/hasta» | **No se hace ahora** (11/11): es del Manager | Fuera |
 | C2b y reconexión | Choques con conexión y nuevos desarrollos de reconexión | **En pausa** hasta que el dueño lo analice. Lo hecho en la 1.2.268 se queda | En pausa |

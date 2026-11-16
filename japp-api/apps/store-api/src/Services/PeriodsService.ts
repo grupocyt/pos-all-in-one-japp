@@ -51,7 +51,8 @@ export class PeriodsService {
 
   /** Abrir periodo con el fondo de caja de Parámetros. Solo uno abierto por tienda (lo garantiza la base). */
   async open(b: OpenPeriodInput, session: Session) {
-    await this.auth.require(session, "funciones.periodo", b.authorization);
+    // 0036 · abre quien tenga «Iniciar el día» (el Cajero) o funciones.periodo (o con la clave de quien lo tenga)
+    await this.auth.requireAny(session, ["funciones.periodo", "funciones.iniciarDia"], b.authorization);
     const store = await this.stores.store();
     const now = this.clock();
     const a = session.actor(now);

@@ -374,6 +374,13 @@ describe("migraciones", () => {
     await expect(c.query("UPDATE print_job SET status='lost'")).rejects.toMatchObject({ code: "23514" });
     await c.query("ROLLBACK TO SAVEPOINT s");
   }));
+  it("0036: última conexión del equipo (station.last_seen_at, vacía hasta que se identifica)", () => rollback(c, async () => {
+    const r = await one(c, "SELECT data_type FROM information_schema.columns WHERE table_name='station' AND column_name='last_seen_at'");
+    expect(r?.data_type).toBe("timestamp with time zone");
+    const st = await one(c, "SELECT id FROM station LIMIT 1");
+    await c.query("UPDATE station SET last_seen_at = now() WHERE id = $1", [st.id]);
+    expect((await one(c, "SELECT last_seen_at IS NOT NULL ok FROM station WHERE id = $1", [st.id])).ok).toBe(true);
+  }));
   it("0031: ticket_logo en store_parameters (vacío = logo de la cadena)", () => rollback(c, async () => {
     expect((await one(c, "SELECT ticket_logo FROM store_parameters LIMIT 1")).ticket_logo).toBeNull();
   }));

@@ -913,6 +913,8 @@ export const station = pgTable("station", {
 	screenWidth: smallint("screen_width"),
 	screenHeight: smallint("screen_height"),
 	uiScale: smallint("ui_scale").default(100).notNull(),
+	// 0036 · última vez que el equipo se identificó
+	lastSeenAt: timestamp("last_seen_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	index("ix_station_device_uuid").using("btree", table.deviceUuid.asc().nullsLast().op("text_ops")),
 	foreignKey({

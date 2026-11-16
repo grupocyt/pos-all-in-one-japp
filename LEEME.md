@@ -1,16 +1,16 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0035, consultas de control · 85 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 145 rutas (158 operaciones), todas programadas · 343 pruebas de dominio + 387 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0036, consultas de control · 86 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 145 rutas (158 operaciones), todas programadas · 344 pruebas de dominio + 390 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.270 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.271 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.270). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.271). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
 
 ## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
 
@@ -64,6 +64,19 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
 
+## 1.2.271 (16/11/2026, noche): el equipo no cambia de estación
+
+Migración **0036** (`actualizar-base.bat`).
+
+- **El UUID del equipo no cambia al pasar de versión.** El TPV nunca lo borraba: se perdía cuando el navegador perdía sus datos o cuando el TPV se abría desde otra dirección (otra IP o nombre, otro puerto, http o https). Ahora se guarda en varios sitios del equipo (preferencias, su propia clave, una cookie de la tienda e IndexedDB) y se pide al navegador que no los borre. Si se pierde uno, se recupera de otro, y nunca se crea uno nuevo mientras quede alguno. Los equipos que ya están configurados copian su UUID a esos sitios al abrir la 1.2.271.
+- **«¿Qué equipo es este?»** en la pantalla «Este equipo no está dado de alta»: con la clave de un encargado (permiso de Ajustes › Equipos) se elige su estación y el equipo vuelve a ser esa, sin ir a Ajustes desde otra caja. El equipo que la tenía antes deja de serlo. Queda en el historial de Ajustes (`POST /api/v2/devices/claim`).
+- **Ningún equipo se hace pasar por otra estación:** con servidor, un equipo que no se reconoce ya no se pone por su cuenta «la primera PDA libre» o «la primera caja». También se quita `POST /devices/register`, que daba la primera estación libre a cualquier UUID nuevo (el TPV no la usaba).
+- **«No s'ha desat al servidor · Perfils i permisos «Cajero»: Permisos que no existen»:** el TPV tiene el permiso «Iniciar el día» (abrir el periodo, del Cajero) y la API no lo conocía. Ahora existe (`funciones.iniciarDia`, migración 0036, para el Cajero y el Administrador) y abrir el periodo vale con él o con «Periodo».
+- **PDA:** se vuelve a ver como en la 1.2.269 (lo de hacerla más grande se quitó: en el iPhone se salía de la pantalla).
+- **Sin cabecera de estación** la API toma siempre la caja principal (antes «la primera caja» dependía del orden en que la base devolvía las filas).
+- **Ajustes › Equipos › Última conexión:** cuándo se identificó o entró por última vez el equipo de cada estación. Así se ve si un equipo lleva tiempo sin conectar o si dos parecen el mismo.
+- **Para que no vuelva a pasar:** abrir el TPV siempre desde la misma dirección en cada equipo (la misma IP o el mismo nombre, y el mismo puerto). En el iPhone, instalarlo en la pantalla de inicio: Safari borra los datos de las webs que no se usan en 7 días.
+
 ## 1.2.270 (16/11/2026): carta del Manager, canales COMIDA y BEBIDA, cola de impresión
 
 Aprobado el 16/11. Migración **0035** (la aplica `actualizar-base.bat`; hay que pasarla antes de arrancar la API nueva).
@@ -75,7 +88,7 @@ Aprobado el 16/11. Migración **0035** (la aplica `actualizar-base.bat`; hay que
 - **Order on Table se enciende y se apaga** en Ajustes › Restaurante (encendido por defecto). Apagado: sin botón en la mesa ni QR, sin la opción en Categorías y Productos, y la API no da la carta ni acepta pedidos (409).
 - **Usuarios:** ni el nombre, ni las iniciales, ni la clave se repiten (también con los desactivados; TPV y API, 409 DUPLICATE). Las iniciales automáticas se numeran (SR, SR2…). Colores de usuario más vivos, con el nombre en oscuro.
 - **Ajustes:** el título, el subtítulo y las pestañas se quedan fijos; solo se desplaza la tarjeta.
-- **PDA a pantalla completa:** en el móvil el teclado de la clave ocupa el alto que sobra, las mesas son más grandes y se reparten por el plano (misma forma), y las categorías y los productos son más altos.
+- **PDA en el móvil:** se probó hacerla más grande (16/11) y se volvió atrás porque en el iPhone se salía de la pantalla: se ve como en la 1.2.269.
 
 ## 1.2.268 (03/11/2026): reglas de descuento, cobro parcial y mesas cerradas
 

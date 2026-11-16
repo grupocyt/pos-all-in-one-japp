@@ -70,6 +70,42 @@ export interface ClaimMainPlan<S> {
   unchanged: boolean;
 }
 
+export interface ClaimStationPlan<S> {
+  station: S;
+  previousUuid: string | null;
+  clearFrom: S[];
+  unchanged: boolean;
+}
+
+/**
+ * 1.2.271 (16/11/2026) · vincular ESTE equipo a una estación desde el propio equipo (con la clave de quien tenga
+ * ajustes.estaciones): la estación tiene que estar activa y ser del tipo del equipo (móvil = PDA). Su UUID anterior se
+ * pierde (el equipo viejo deja de ser esa estación) y el nuevo se quita de cualquier otra que lo tuviera.
+ */
+export function planClaimStation<S extends DeviceStation>(
+  stations: S[],
+  stationId: string,
+  deviceUuid: string,
+  type: DeviceType,
+): ClaimStationPlan<S> {
+  const st = stations.find((s) => s.id === stationId && s.active);
+  if (!st) {
+    fail("NOT_FOUND", "Esa estación no existe o está desactivada", { field: "stationId" });
+  }
+  const s = st as S;
+  const actual = deviceTypeOf(s);
+  if (actual !== type) {
+    fail("DEVICE_TYPE_MISMATCH", `${s.name} es ${labelOf(actual)}: este equipo es ${labelOf(type)}`, {
+      expected: type,
+      actual,
+      station: s.name,
+    });
+  }
+  const clearFrom = stations.filter((x) => x.id !== s.id && sameUuid(x.deviceUuid, deviceUuid));
+  const unchanged = sameUuid(s.deviceUuid, deviceUuid) && clearFrom.length === 0;
+  return { station: s, previousUuid: s.deviceUuid ?? null, clearFrom, unchanged };
+}
+
 /** Qué cambia al configurar este equipo como caja principal. */
 export function planClaimMain<S extends DeviceStation>(stations: S[], deviceUuid: string): ClaimMainPlan<S> {
   const main = stations.find((s) => s.active && s.isMain);

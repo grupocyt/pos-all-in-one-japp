@@ -1,13 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database, Tx } from "@japp/db";
-import { describeDiff, identifyDevice, planClaimMain, stationMethods, type Actor } from "@japp/domain";
+import { deviceTypeOf, describeDiff, identifyDevice, planClaimMain, planClaimStation, stationMethods, type Actor } from "@japp/domain";
 import { CLOCK, DATABASE, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { SessionsService } from "./SessionsService.js";
 import { StoreApplication, roleOf } from "../Applications/StoreApplication.js";
 import { DevicesApplication } from "../Applications/DevicesApplication.js";
 import { ConfigHistoryApplication } from "../Applications/ConfigHistoryApplication.js";
-import type { ClaimMainInput, IdentifyDeviceInput } from "../Models/DevicesModels.js";
+import type { ClaimMainInput, ClaimStationInput, IdentifyDeviceInput } from "../Models/DevicesModels.js";
 
 type StationRow = Awaited<ReturnType<DevicesApplication["lockStations"]>>[number];
 
@@ -44,6 +44,7 @@ export class DevicesService {
   async identify(b: IdentifyDeviceInput) {
     const store = await this.stores.store();
     const st = identifyDevice(await this.devices.activeStations(store.id), b.deviceUuid, b.type);
+    await this.devices.touch(store.id, st.id); // 0036 · última conexión (Ajustes › Equipos)
     // la tienda (código y nombre) para que el equipo enseñe la suya antes de entrar con una clave (1.2.199)
     return {
       stationId: st.id,
@@ -92,6 +93,66 @@ export class DevicesService {
       }
       const after = await this.devices.setDeviceUuid(tx, store.id, plan.main.id, b.deviceUuid);
       await this.record(tx, store.id, a, v, plan.main, after);
+      return { ...result, configVersion: v };
+    });
+  }
+
+  /**
+   * 1.2.271 · vincular este equipo a una estación desde el propio equipo (el UUID cambió: navegador borrado, otra
+   * dirección…). La clave cuenta para los mismos bloqueos que claim-main (el del equipo y uno fijo de la tienda).
+   * Sin stationId → solo la lista de estaciones de su tipo para elegir (no cambia nada).
+   */
+  async claim(b: ClaimStationInput) {
+    const store = await this.stores.store();
+    const u = await this.sessions.userWithPermission(
+      b.pin,
+      [`device:${b.deviceUuid}`, `claim:${store.id}`],
+      "ajustes.estaciones",
+    );
+    if (!b.stationId) {
+      const all = await this.devices.activeStations(store.id);
+      return {
+        stations: all
+          .filter((x) => deviceTypeOf(x) === b.type)
+          .sort((x, y) => Number(y.isMain) - Number(x.isMain) || x.name.localeCompare(y.name, "es"))
+          .map((x) => ({
+            stationId: x.id,
+            name: x.name,
+            kind: x.kind,
+            main: x.isMain,
+            ip: x.ip ?? null,
+            hasDevice: !!x.deviceUuid,
+            thisDevice: !!x.deviceUuid && x.deviceUuid.toLowerCase() === b.deviceUuid.toLowerCase(),
+            lastSeenAt: x.lastSeenAt ?? null,
+          })),
+      };
+    }
+    return this.database.withTx(async (tx) => {
+      const all = await this.devices.lockStations(tx, store.id);
+      const plan = planClaimStation(all, b.stationId!, b.deviceUuid, b.type);
+      const st = plan.station;
+      const result = {
+        stationId: st.id,
+        name: st.name,
+        kind: st.kind,
+        main: st.isMain,
+        ip: st.ip ?? null,
+        previousUuid: plan.previousUuid,
+        store: { code: store.code ?? null, name: store.name ?? null },
+      };
+      if (plan.unchanged) {
+        await this.devices.touch(store.id, st.id, tx);
+        return { ...result, configVersion: await this.changes.configVersion(store.id, tx) };
+      }
+      const a: Actor = { userId: u.id, user: u.name, role: roleOf(u), device: st.name, at: this.clock().toISOString() };
+      const v = await this.changes.bumpConfigVersion(tx, store.id);
+      for (const other of plan.clearFrom) {
+        const after = await this.devices.setDeviceUuid(tx, store.id, other.id, null);
+        await this.record(tx, store.id, a, v, other, after);
+      }
+      const after = await this.devices.setDeviceUuid(tx, store.id, st.id, b.deviceUuid);
+      await this.record(tx, store.id, a, v, st, after);
+      await this.devices.touch(store.id, st.id, tx);
       return { ...result, configVersion: v };
     });
   }

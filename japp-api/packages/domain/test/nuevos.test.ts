@@ -1,5 +1,5 @@
 import { DomainError } from "../src/errors.js";
-import { identifyDevice, planClaimMain, isDeviceUuid, deviceTypeOf } from "../src/devices.js";
+import { identifyDevice, planClaimMain, planClaimStation, isDeviceUuid, deviceTypeOf } from "../src/devices.js";
 import {
   planSync,
   assertNoRepeats,
@@ -76,6 +76,14 @@ describe("equipos: primer arranque", () => {
   });
   it("sin caja principal → NOT_FOUND", () => {
     expect(code(() => planClaimMain(ST.slice(1), U1))).toBe("NOT_FOUND");
+  });
+  it("1.2.271 · vincular el equipo a su estación: sustituye el UUID viejo y lo quita de otra; tipo y estación activa", () => {
+    const p = planClaimStation(ST, "p1", U1, "mobile");
+    expect([p.station.name, p.previousUuid, p.clearFrom.map((s) => s.name), p.unchanged]).toEqual(["PDA1", U2, ["CAJA2"], false]);
+    expect(planClaimStation(ST, "p1", U2.toUpperCase(), "mobile").unchanged).toBe(true);
+    expect(code(() => planClaimStation(ST, "c2", U2, "mobile"))).toBe("DEVICE_TYPE_MISMATCH");
+    expect(code(() => planClaimStation(ST, "x", U1, "desktop"))).toBe("NOT_FOUND");
+    expect(planClaimStation(ST, "c1", U1, "desktop").station.isMain).toBe(true);
   });
 });
 

@@ -1,6 +1,6 @@
 import type { TicketFormats } from "@japp/domain";
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { schema as s, type Database, type Tx, type Db } from "@japp/db";
 import {
   fail,
@@ -193,7 +193,10 @@ export class StoreApplication {
     const all = await q
       .select()
       .from(s.station)
-      .where(and(eq(s.station.storeId, storeId), eq(s.station.active, true)));
+      .where(and(eq(s.station.storeId, storeId), eq(s.station.active, true)))
+      // orden fijo (1.2.271): sin cabecera de estación se toma «la primera caja» = la principal; sin ORDER BY dependía
+      // del orden físico de las filas, que cambia con cada UPDATE (p. ej. la última conexión del equipo)
+      .orderBy(desc(s.station.isMain), asc(s.station.name), asc(s.station.id));
     return all.map((x) => ({
       id: x.id,
       name: x.name,
