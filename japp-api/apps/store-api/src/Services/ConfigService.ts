@@ -765,6 +765,22 @@ export class ConfigService {
       const products = await all("productos");
       const questions = await all("preguntas");
       const version = await this.changes.configVersion(se.storeId);
+      // 1.2.272 · las personas (sin clave): cada equipo las tiene aunque se hayan creado en otro; la clave la decide la API
+      const profiles = await all("perfiles");
+      const codeOf = new Map(profiles.map((p) => [p.id, p.code]));
+      const users = (await all("usuarios")).map((u) => ({
+        id: u.id,
+        name: u.name,
+        initials: u.initials ?? null,
+        color: u.color ?? null,
+        profileId: u.profileId,
+        profile: codeOf.get(u.profileId) ?? null,
+        canCharge: u.canCharge ?? null,
+        canDeletePrinted: u.canDeletePrinted ?? null,
+        canDeletePrebill: u.canDeletePrebill ?? null,
+        lockSeconds: u.lockSeconds ?? null,
+        active: true,
+      }));
       return {
         version,
         restaurant: { ...restaurant, code: restaurant.code, serviceType: restaurant.serviceType },
@@ -780,6 +796,7 @@ export class ConfigService {
         channels: await all("canales"),
         printers: await all("impresoras"),
         stations: await all("estaciones"),
+        users,
         // Ajustes › Administración › Sistema (nombre, logos y colores; también sin sesión en GET /config/sistema)
         system: await this.branding.get(),
         // Ajustes › Pedidos y motorizados (TPV 1.2.217–1.2.233): el botón Pedidos sale solo si delivery está activo

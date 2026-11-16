@@ -79,6 +79,8 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | PDA | Todo se veía pequeño en el móvil | Se probó ajustarla a la pantalla y **se volvió atrás** (16/11 noche: en el iPhone se salía de la pantalla) | Como en la 1.2.269 · pendiente de otra propuesta |
 | Logo | Cambiar el logo en todas partes (impresos sobre todo) | Pendiente de respuesta (puntos 7–9) | Pendiente |
 | Manager y SIR | SP de facturacionJapp, tablas del SIR | **Lo hacemos luego** (16/11) | En espera |
+| Login | «Clave incorrecta» a veces con la clave buena | **El login pregunta siempre a la base de datos** (16/11 noche); «Cambiar mi clave» en el servidor; las personas llegan a todos los equipos | **Hecho 1.2.272** |
+| Equipos por IP | Reconocer el equipo por su IP si cambia el UUID | Propuesto (16/11 noche): necesita IPs fijas en el router | Pendiente de OK |
 | Permisos | «Permisos que no existen» al guardar el perfil Cajero | **«Iniciar el día» pasa a la API** (Cajero y Administrador) (16/11 noche) | **Hecho 1.2.271** (0036) |
 | Equipos | El UUID cambiaba al pasar de versión y las estaciones se mezclaban | **UUID en varios sitios del equipo, «¿Qué equipo es este?» con clave de encargado, sin «primera libre», última conexión** (16/11, noche) | **Hecho 1.2.271** (0036) · revisar en JC01 |
 | D3 · Menú del día | Guarniciones y fallo «Row# Q» | **No se hace ahora** (11/11) | Fuera |

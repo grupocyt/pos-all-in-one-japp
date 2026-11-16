@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Post, Put } from "@nestjs/common";
 import { CurrentSession, Public, type Session } from "../Helpers/AuthGuard.js";
 import { parse } from "../Helpers/ValidationHelper.js";
-import { AuthorizeModel, LoginModel } from "../Models/SessionsModels.js";
+import { AuthorizeModel, ChangePinModel, LoginModel } from "../Models/SessionsModels.js";
 import { SessionsService } from "../Services/SessionsService.js";
 
 /** Sesión del equipo (clave de 4 cifras) y autorización de encargado. */
@@ -28,6 +28,14 @@ export class SessionsController {
   @Get("current")
   async current(@CurrentSession() session: Session) {
     return this.sessions.current(session);
+  }
+
+  /** 1.2.272 · cambiar mi clave (la actual y la nueva); sin permiso de Ajustes. */
+  @Put("current/pin")
+  @HttpCode(200)
+  async changePin(@Body() body: unknown, @CurrentSession() se: Session) {
+    const b = parse(ChangePinModel, body);
+    return this.sessions.changePin(se, b);
   }
 
   /** Salir: la sesión deja de valer (app_session.ended_reason = logout). */

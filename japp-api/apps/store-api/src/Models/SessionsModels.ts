@@ -11,3 +11,10 @@ export const AuthorizeModel = z.object({
   permission: z.string().refine((p) => ALL_PERMISSIONS.includes(p), "permiso desconocido"),
 });
 export type AuthorizeInput = z.infer<typeof AuthorizeModel>;
+
+/** PUT /sessions/current/pin (1.2.272): cambiar MI clave (la actual y la nueva). */
+export const ChangePinModel = z.object({
+  currentPin: z.string().regex(/^\d{4}$/, "4 cifras"),
+  newPin: z.string().regex(/^\d{4}$/, "4 cifras"),
+});
+export type ChangePinInput = z.infer<typeof ChangePinModel>;

@@ -2,15 +2,15 @@
 
 ```
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0036, consultas de control · 86 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 145 rutas (158 operaciones), todas programadas · 344 pruebas de dominio + 390 de integración
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 146 rutas (159 operaciones), todas programadas · 344 pruebas de dominio + 393 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.271 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.272 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.271). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.272). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
 
 ## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
 
@@ -63,6 +63,18 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.272 (16/11/2026, noche): la clave la decide siempre la base de datos
+
+Sin migración.
+
+- **«Clave incorrecta» con una clave buena:** cada equipo comprobaba la clave en su propia copia de usuarios antes de preguntar al servidor. Esa copia no tiene las claves de las personas creadas o con la clave cambiada en otro equipo, así que les decía «Clave incorrecta» sin preguntar. Además, «Cambiar mi clave» solo la cambiaba en ese equipo. Ahora, con servidor:
+  - **Entrar, desbloquear, cambiar de usuario y la clave de encargado** se comprueban siempre en la API.
+  - **«Cambiar mi clave»** se guarda en el servidor (`PUT /api/v2/sessions/current/pin`) y vale en todos los equipos.
+  - **Las personas** (sin clave) llegan a todos los equipos con GET /config: una persona creada en la caja puede entrar en la PDA al momento.
+  - Si el servidor no responde: «Sin conexión con el servidor: la clave no se puede comprobar», en vez de «Clave incorrecta».
+  - **Una clave de encargado mal escrita ya no echa al camarero:** antes el TPV tomaba el «clave incorrecta» del encargado como si la sesión del camarero hubiera caducado.
+- Sin servidor configurado (modo demo) sigue como antes.
 
 ## 1.2.271 (16/11/2026, noche): el equipo no cambia de estación
 

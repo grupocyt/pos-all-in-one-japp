@@ -20,6 +20,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: app_user, user_profile, profile_permission
+         *
+         *     16/11 (API 1.2.272): el TPV ya no comprueba la clave en el equipo cuando tiene servidor: la manda siempre aquí y la decide la API.
          */
         post: operations["store_POST_sessions"];
         delete?: never;
@@ -182,6 +184,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: store, company, billing_settings, store_parameters, area, dining_table, category, product, product_channel, product_question, question, question_answer, tax, payment_method, discount, reason, print_channel, printer, station
+         *
+         *     16/11 (API 1.2.272): users = las personas activas SIN clave (id, nombre, iniciales, color, perfil por id y por código, ajustes por persona): cada equipo tiene también las que se crearon en otro. La clave nunca sale de la API: la comprueba POST /sessions.
          */
         get: operations["store_GET_config"];
         put?: never;
@@ -3956,6 +3960,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/sessions/current/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cambiar mi clave
+         * @description 16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, 4 cifras), sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API seguía la vieja. La actual cuenta para el bloqueo por intentos (401 BAD_PIN, 423 PIN_LOCKED). La nueva igual que la actual → 422; la de otra persona (también desactivada) → 409 DUPLICATE. Queda en el historial de Ajustes sin la clave.
+         *
+         *
+         *     Lo llama: TPV
+         *
+         *
+         *     Tablas: app_user, config_change_log
+         */
+        put: operations["store_PUT_sessions_current_pin"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5065,6 +5095,19 @@ export interface operations {
                                 channels?: Record<string, never>;
                                 paymentMethods?: unknown[];
                                 discounts?: unknown[];
+                            }[];
+                            users?: {
+                                id?: string;
+                                name?: string;
+                                initials?: string | null;
+                                color?: string | null;
+                                profileId?: string;
+                                profile?: string | null;
+                                canCharge?: boolean | null;
+                                canDeletePrinted?: boolean | null;
+                                canDeletePrebill?: boolean | null;
+                                lockSeconds?: number | null;
+                                active?: boolean;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -16960,6 +17003,76 @@ export interface operations {
                 };
             };
             /** @description PIN_LOCKED: Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo). */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_PUT_sessions_current_pin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    currentPin: string;
+                    newPin: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            changed?: boolean;
+                            configVersion?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description BAD_PIN: Clave incorrecta */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description DUPLICATE: Esa clave ya la usa otra persona: elige otra */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: La clave nueva es igual que la actual */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PIN_LOCKED: Teclado bloqueado unos segundos */
             423: {
                 headers: {
                     [name: string]: unknown;

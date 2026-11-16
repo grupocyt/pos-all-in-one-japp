@@ -83,7 +83,11 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: app_user, user_profile, profile_permission'
+        Tablas: app_user, user_profile, profile_permission
+
+
+        16/11 (API 1.2.272): el TPV ya no comprueba la clave en el equipo cuando tiene servidor: la manda siempre aquí y la
+        decide la API.'
       operationId: store_POST_sessions
       security: []
       responses:
@@ -404,7 +408,7 @@ paths:
               permission: pedido.elimEnviado
   /api/v2/sessions/current:
     get:
-      tags:
+      tags: &id014
       - API de tienda v2 · Equipo y sesión
       summary: Mi sesión
       description: 'Usuario, estación, permisos y segundos de bloqueo vigentes (cambian si se editan en Ajustes sin volver
@@ -1012,7 +1016,12 @@ paths:
 
 
         Tablas: store, company, billing_settings, store_parameters, area, dining_table, category, product, product_channel,
-        product_question, question, question_answer, tax, payment_method, discount, reason, print_channel, printer, station'
+        product_question, question, question_answer, tax, payment_method, discount, reason, print_channel, printer, station
+
+
+        16/11 (API 1.2.272): users = las personas activas SIN clave (id, nombre, iniciales, color, perfil por id y por código,
+        ajustes por persona): cada equipo tiene también las que se crearon en otro. La clave nunca sale de la API: la comprueba
+        POST /sessions.'
       operationId: store_GET_config
       security:
       - session: []
@@ -1325,6 +1334,47 @@ paths:
                             discounts:
                               type: array
                               items: {}
+                      users:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            initials:
+                              type:
+                              - string
+                              - 'null'
+                            color:
+                              type:
+                              - string
+                              - 'null'
+                            profileId:
+                              type: string
+                            profile:
+                              type:
+                              - string
+                              - 'null'
+                            canCharge:
+                              type:
+                              - boolean
+                              - 'null'
+                            canDeletePrinted:
+                              type:
+                              - boolean
+                              - 'null'
+                            canDeletePrebill:
+                              type:
+                              - boolean
+                              - 'null'
+                            lockSeconds:
+                              type:
+                              - integer
+                              - 'null'
+                            active:
+                              type: boolean
               example:
                 title: Paquete de configuración
                 type: success
@@ -33521,6 +33571,144 @@ paths:
                   type:
                   - string
                   - 'null'
+  /api/v2/sessions/current/pin:
+    put:
+      tags: *id014
+      summary: Cambiar mi clave
+      description: '16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, 4 cifras),
+        sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API
+        seguía la vieja. La actual cuenta para el bloqueo por intentos (401 BAD_PIN, 423 PIN_LOCKED). La nueva igual que la
+        actual → 422; la de otra persona (también desactivada) → 409 DUPLICATE. Queda en el historial de Ajustes sin la clave.
+
+
+
+        Lo llama: TPV
+
+
+
+        Tablas: app_user, config_change_log'
+      operationId: store_PUT_sessions_current_pin
+      security:
+      - session: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      changed:
+                        type: boolean
+                      configVersion:
+                        type: integer
+              example:
+                title: Cambiar mi clave
+                type: success
+                status: 200
+                data:
+                  changed: true
+                  configVersion: 217
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '401':
+          description: 'BAD_PIN: Clave incorrecta'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Cambiar mi clave
+                type: error
+                status: 401
+                data: null
+                errors:
+                - code: BAD_PIN
+                  message: Clave incorrecta
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '423':
+          description: 'PIN_LOCKED: Teclado bloqueado unos segundos'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Cambiar mi clave
+                type: error
+                status: 423
+                data: null
+                errors:
+                - code: PIN_LOCKED
+                  message: Teclado bloqueado unos segundos
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'DUPLICATE: Esa clave ya la usa otra persona: elige otra'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Cambiar mi clave
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: DUPLICATE
+                  message: 'Esa clave ya la usa otra persona: elige otra'
+                  field: newPin
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '422':
+          description: 'VALIDATION: La clave nueva es igual que la actual'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Cambiar mi clave
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: La clave nueva es igual que la actual
+                  field: newPin
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - currentPin
+              - newPin
+              properties:
+                currentPin:
+                  type: string
+                newPin:
+                  type: string
 components:
   securitySchemes:
     session:

@@ -17,7 +17,8 @@ import type { Session } from "../Helpers/AuthGuard.js";
 import { signToken, type AuthClaims, type SessionClaims } from "../Helpers/TokenHelper.js";
 import { StoreApplication, roleOf, type UserCtx } from "../Applications/StoreApplication.js";
 import type { Config } from "../Properties/AppSettings.js";
-import type { AuthorizeInput, LoginInput } from "../Models/SessionsModels.js";
+import type { AuthorizeInput, ChangePinInput, LoginInput } from "../Models/SessionsModels.js";
+import { ConfigHistoryApplication } from "../Applications/ConfigHistoryApplication.js";
 
 const COLOR: Record<string, string> = { red: "red", amber: "amber", green: "green" };
 
@@ -36,6 +37,7 @@ export class SessionsService {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(SessionsApplication) private readonly active: SessionsApplication,
     @Inject(DATABASE) private readonly database: Database,
+    @Inject(ConfigHistoryApplication) private readonly changes: ConfigHistoryApplication,
   ) {}
 
   /**
@@ -224,6 +226,53 @@ export class SessionsService {
       permissions: await this.permsOf(u, session.storeId),
       lockSeconds: await this.lockOf(u, session.station),
     };
+  }
+
+  /**
+   * 1.2.272 · «Cambiar mi clave» en el servidor (antes solo se guardaba en el equipo, y en los demás equipos y en la API
+   * seguía la vieja). La clave actual cuenta para el bloqueo por intentos; la nueva no puede ser la de otra persona
+   * (tampoco de un usuario desactivado). Queda en el historial de Ajustes sin la clave.
+   */
+  async changePin(se: Session, b: ChangePinInput) {
+    const me = se.user.id;
+    await this.byPin(b.currentPin, [`user:${me}`, pinLockKey(se.station)], async (u) => u.id === me);
+    if (b.newPin === b.currentPin) {
+      fail("VALIDATION", "La clave nueva es igual que la actual", { field: "newPin" });
+    }
+    const all = (
+      await this.database.db.execute(
+        sql`SELECT id::text, pin_hash FROM app_user WHERE store_id = ${se.storeId} AND id <> ${me}`,
+      )
+    ).rows as { id: string; pin_hash: string }[];
+    for (const o of all) {
+      if (await bcrypt.compare(b.newPin, o.pin_hash)) {
+        fail("DUPLICATE", "Esa clave ya la usa otra persona: elige otra", { field: "newPin" });
+      }
+    }
+    const hash = await bcrypt.hash(b.newPin, 10);
+    const at = this.clock().toISOString();
+    return this.database.withTx(async (tx) => {
+      await tx.execute(
+        sql`UPDATE app_user SET pin_hash = ${hash}, version = version + 1, updated_at = now() WHERE id = ${me} AND store_id = ${se.storeId}`,
+      );
+      const v = await this.changes.bumpConfigVersion(tx, se.storeId);
+      await this.changes.insertChangeLog(tx, {
+        storeId: se.storeId,
+        at,
+        userId: me,
+        userName: se.user.name,
+        module: "usuarios",
+        action: "update",
+        recordName: se.user.name,
+        diff: "Clave cambiada por el propio usuario",
+        recordId: me,
+        before: {},
+        after: {},
+        configVersion: v,
+        device: se.station.name,
+      });
+      return { changed: true, configVersion: v };
+    });
   }
 
   /** Salir: la sesión deja de valer (app_session.ended_reason = logout). */
