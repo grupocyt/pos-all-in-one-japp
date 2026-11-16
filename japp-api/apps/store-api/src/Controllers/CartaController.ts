@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put, Query } from
 import { CurrentSession, type Session } from "../Helpers/AuthGuard.js";
 import { CartaService } from "../Services/CartaService.js";
 import { CartaSyncService } from "../Services/CartaSyncService.js";
+import { CartaReleaseService } from "../Services/CartaReleaseService.js";
 
 /**
  * Ajustes › Carta y Sala, y los servicios Sync del App Manager.
@@ -14,6 +15,7 @@ export class CartaController {
   constructor(
     @Inject(CartaService) private readonly carta: CartaService,
     @Inject(CartaSyncService) private readonly sync: CartaSyncService,
+    @Inject(CartaReleaseService) private readonly releases: CartaReleaseService,
   ) {}
 
   @Get("carta")
@@ -29,7 +31,28 @@ export class CartaController {
   @Post("carta/sync")
   @HttpCode(200)
   syncCarta(@CurrentSession() se: Session, @Body() body: unknown) {
+    // 16/11 · con «release» es una publicación de Carta (completa, precios, nombres o retirar)
+    if (CartaReleaseService.isPublication(body)) {
+      return this.releases.receive(se, body);
+    }
     return this.sync.syncCarta(se, body);
+  }
+
+  @Get("carta/releases")
+  releasesList(@CurrentSession() se: Session, @Query("limit") limit?: string) {
+    return this.releases.list(se, limit);
+  }
+
+  @Post("carta/releases/:id/confirm")
+  @HttpCode(200)
+  releaseConfirm(@CurrentSession() se: Session, @Param("id") id: string) {
+    return this.releases.confirm(se, id);
+  }
+
+  @Post("carta/releases/:id/cancel")
+  @HttpCode(200)
+  releaseCancel(@CurrentSession() se: Session, @Param("id") id: string, @Body() body: unknown) {
+    return this.releases.cancel(se, id, body);
   }
 
   @Post("categorias/sync")

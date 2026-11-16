@@ -38,6 +38,8 @@ const color = z
   .regex(/^#[0-9a-fA-F]{3,8}$/, "Color #RRGGBB")
   .nullish();
 const money = z.number().min(0).max(100000);
+/** 16/11 · textos por idioma (Carta): {"en":{"name":"…"}} */
+const translations = z.record(z.string().regex(/^[a-z]{2}$/), z.record(z.string(), z.string().max(300).nullable()));
 /** 0029 · N1: un formato de ticket (precuenta o factura). Cada opción en false quita esa parte; lo que no viene, sale. */
 const ticketFormat = z
   .object({
@@ -121,6 +123,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       logoUrl: F("logo_url", "s", optStr(300), "Logo"),
       // URL base de Order on Table: el QR de la mesa es esta URL + /t/ + token
       webOrderUrl: F("web_order_url", "s", optStr(300), "URL de Order on Table"),
+      // 16/11 · Order on Table encendido o apagado
+      ootEnabled: F("oot_enabled", "b", z.boolean(), "Order on Table", { default: true }),
       ticketHeader: F("ticket_header", "s", z.string().max(2000).nullish(), "Cabecera del ticket"),
       ticketFooter: F("ticket_footer", "s", z.string().max(2000).nullish(), "Pie del ticket"),
       // código del restaurante en el SIR (cod_restaurante; en MaxPoint rst_id)
@@ -322,6 +326,9 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       }),
       // id del App Manager: lo pone el sync de la carta; único por tienda
       externalId: F("external_id", "s", optStr(60), "Id del Manager"),
+      // 16/11 · publicación de Carta
+      description: F("description", "s", z.string().max(300).nullish(), "Descripción"),
+      translations: F("translations", "j", translations, "Traducciones", { default: {} }),
     },
   },
   productos: {
@@ -344,6 +351,9 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       description: F("description", "s", z.string().max(300).nullish(), "Descripción"),
       orderOnTable: F("order_on_table", "b", z.boolean(), "Order on Table", { default: true }),
       externalId: F("external_id", "s", optStr(60), "Id del Manager"),
+      // 16/11 · publicación de Carta
+      qualifier: F("qualifier", "b", z.boolean(), "Calificativo", { default: false }),
+      translations: F("translations", "j", translations, "Traducciones", { default: {} }),
     },
     extra: {
       taxRate: { z: z.number().min(0).max(100), label: "IVA (%)" },
@@ -363,6 +373,13 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       maxAnswers: F("max_answers", "i", z.number().int().min(0).max(50), "Máximo", { default: 1 }),
       course: F("course", "i", z.number().int().nullish(), "Pase"),
       externalId: F("external_id", "s", optStr(60), "Id del Manager"),
+      // 16/11 · publicación de Carta
+      required: F("required", "b", z.boolean(), "Obligatoria", { default: false }),
+      answerType: F("answer_type", "s", z.enum(["unica", "multiple"]), "Respuesta (única o múltiple)", { default: "unica" }),
+      description: F("description", "s", z.string().max(300).nullish(), "Descripción"),
+      courseName: F("course_name", "s", z.string().trim().max(40).nullish(), "Nombre del pase"),
+      plu: F("plu", "i", z.number().int().positive().nullish(), "PLU"),
+      translations: F("translations", "j", translations, "Traducciones", { default: {} }),
     },
     extra: {
       answers: {
@@ -394,6 +411,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       kind: F("kind", "s", z.enum(["kitchen", "ticket"]), "Tipo (comanda / ticket)", { default: "kitchen" }),
       printerId: F("printer_id", "u", z.string().uuid().nullish(), "Impresora"),
       copyOfId: F("copy_of_id", "u", z.string().uuid().nullish(), "Copia de"),
+      // 16/11 · COMIDA o BEBIDA (los dos del Manager, fijos); null = canal de ticket
+      code: F("code", "s", z.string().nullish(), "Canal del Manager", { readOnly: true }),
     },
   },
   impresoras: {

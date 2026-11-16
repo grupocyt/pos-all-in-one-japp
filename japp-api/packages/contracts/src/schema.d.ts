@@ -280,6 +280,8 @@ export interface paths {
          *     11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.
          *
          *     0034 (11/11): estaciones.screenMode (auto | fixed), screenWidth (800–7680) y screenHeight (600–4320) en píxeles y uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).
+         *
+         *     16/11 (API 1.2.270, migración 0035): canales → los de comanda son solo COMIDA y BEBIDA (code, los manda el Manager): no se crean otros, no hay copias, no se renombran ni se desactivan (422); su impresora sí se cambia. Aquí solo se crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations. productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -330,6 +332,8 @@ export interface paths {
          *     11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.
          *
          *     0034 (11/11): estaciones.screenMode (auto | fixed), screenWidth (800–7680) y screenHeight (600–4320) en píxeles y uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).
+         *
+         *     16/11 (API 1.2.270, migración 0035): canales → los de comanda son solo COMIDA y BEBIDA (code, los manda el Manager): no se crean otros, no hay copias, no se renombran ni se desactivan (422); su impresora sí se cambia. Aquí solo se crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations. productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -994,6 +998,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: order_line, order_event
+         *
+         *     16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).
          */
         post: operations["store_POST_orders_orderId_lines_lineId_fire"];
         delete?: never;
@@ -1098,6 +1104,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: order_line, order_line_printer, order_event
+         *
+         *     16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).
          */
         post: operations["store_POST_orders_orderId_send"];
         delete?: never;
@@ -2188,6 +2196,24 @@ export interface paths {
          *     Lo llama: Manager
          *
          *     Tablas: category, product, category_product, product_question, question, question_answer, config_change_log, sync_outbox
+         *
+         *     16/11 (API 1.2.270, migración 0035) · **Publicación de Carta** (JSON «Campos del JSON · Publicación de Carta al TPV»): si el cuerpo trae
+         *     `release`, es una carga de Carta con cinco bloques `{release, categories, products, questions, keys}`:
+         *     - `release.kind`: **full** = carta entera (lo que no viene se desactiva; las teclas `keys` sustituyen a las de la tienda),
+         *       **prices** = solo `price`/`priceTerrace` de productos que ya existen (por externalId o plu; uno que no existe → 422 REF_NOT_FOUND),
+         *       **names** = solo `name`, `ticketName`, `buttonLabel` y `translations`, **withdraw** = retirar la carta (queda «confirm»
+         *       hasta que un encargado la confirme: POST /config/carta/releases/{id}/confirm).
+         *     - `release.store` tiene que ser el código de esta tienda (422 field release.store).
+         *     - `publicationId + releaseVersion + store` = una carga: repetida igual → la misma respuesta (`repeated: true`); con otro
+         *       contenido → 409 VERSION_CONFLICT; una versión menor que la última de esa publicación → 409 VERSION_CONFLICT.
+         *     - `effectiveAt` futura → se comprueba entera y queda «pending»: la API la aplica sola a esa hora (estado en GET /config/carta/releases).
+         *     - Productos: `printChannels` solo **COMIDA** y/o **BEBIDA** (sin mayúsculas; otro → 422 products[i].printChannels[j]);
+         *       `qualifier` = calificativo. Categorías: `description`, `translations` y `qualifiers` [{productExternalId, plu, sortOrder}]
+         *       (productos de la carga con qualifier; [] = ninguno). Preguntas: `plu`, `description`, `required`, `answerType`
+         *       (unica | multiple), `courseName`, `translations`; respuestas con `sortOrder`, colores y `translations`.
+         *     - Teclas `keys`: categoryExternalId + productExternalId/plu, `label` ("" = el buttonLabel del producto), colores, `posX`, `posY`
+         *       (la misma casilla o el mismo producto dos veces en una categoría → 409 DUPLICATE keys[i]).
+         *     Sin `release` sigue siendo el sync completo de siempre.
          */
         post: operations["store_POST_config_carta_sync"];
         delete?: never;
@@ -2474,6 +2500,8 @@ export interface paths {
          *     Cambio TPV 1.2.259 (hecho en la API 1.2.267): La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.
          *
          *     11/11 (API 1.2.269, migración 0033): si la mesa se cierra sin cobrar nada y tenía cosas enviadas a cocina o barra (o en precuenta) que se eliminaron (con importe), hace falta closeReason; sin él → 422 VALIDATION field closeReason con amount y lines. Queda en tableData.voidClose y en GET /reports/deletions › tables. Una mesa abierta por error (nada enviado) se cierra como siempre.
+         *
+         *     16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).
          */
         post: operations["store_POST_orders_orderId_save"];
         delete?: never;
@@ -3136,6 +3164,8 @@ export interface paths {
          *     Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: los pedidos del cliente van a su propia cuenta. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.
          *
          *     N7 (04/11, API 1.2.268): los pedidos del cliente van a su propia cuenta (kind = order_on_table, «Order on Table»). Si esa cuenta ya se está cobrando (descuento o cobro parcial) o está cobrada, se abre otra («Order on Table 2»…): el pedido nunca se rechaza por otra cuenta en cobro. Las cuentas de la transacción llevan kind (normal u order_on_table).
+         *
+         *     16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).
          */
         post: operations["store_POST_oot_token_lines"];
         delete?: never;
@@ -3650,6 +3680,8 @@ export interface paths {
          *     Lo llama: TPV, PDA
          *
          *     Tablas: order_reconnection, order_line, order_event
+         *
+         *     16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).
          */
         post: operations["store_POST_reconnections_reconnectionId_accept"];
         delete?: never;
@@ -3722,6 +3754,188 @@ export interface paths {
          * @description 11/11 (API 1.2.269, migración 0033): el resumen de un arqueo guardado («ARQUEO · RESUMEN DE CAJA»): el corte X con todas sus partes y lo contado (efectivo, cada datáfono y la diferencia de tarjeta). Permiso: funciones.caja. Arqueo que no existe → 404.
          */
         post: operations["printCashCount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/carta/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cargas de la carta (publicaciones de Carta)
+         * @description 16/11 (API 1.2.270, migración 0035): las últimas cargas del Manager (más nuevas primero) con su estado: pending (espera su hora), confirm (retirar: espera a un encargado), applied, unchanged, failed (con error), superseded (llegó otra más nueva) o cancelled.
+         *
+         *     Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
+         *
+         *     Lo llama: TPV (Ajustes › Developer)
+         *
+         *     Tablas: catalog_release
+         */
+        get: operations["store_GET_config_carta_releases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/carta/releases/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirmar una carga de la carta
+         * @description 16/11 (API 1.2.270, migración 0035): Un encargado confirma «retirar la carta» (withdraw) o aplica ya una carga programada. Se aplica en una transacción (todo o nada).
+         *
+         *     Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: catalog_release, category, product, question
+         */
+        post: operations["store_POST_config_carta_releases_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/config/carta/releases/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar una carga de la carta
+         * @description 16/11 (API 1.2.270, migración 0035): No se aplica (retirar o programada). Body opcional {reason}.
+         *
+         *     Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
+         *
+         *     Lo llama: TPV
+         *
+         *     Tablas: catalog_release, category, product, question
+         */
+        post: operations["store_POST_config_carta_releases_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/print-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cola de impresión
+         * @description 16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».
+         *
+         *     Lo pendiente y lo fallido primero. counts = {pending, printing, failed}.
+         *
+         *     Lo llama: TPV (Gestiones › Impresiones)
+         *
+         *     Tablas: print_job
+         */
+        get: operations["store_GET_print_jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/print-jobs/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reintentar un papel ya
+         * @description 16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».
+         *
+         *     Vuelve a la cola ahora (fallido o reintentando). Uno ya impreso → 409 INVALID_TRANSITION.
+         *
+         *     Lo llama: TPV (Gestiones › Impresiones)
+         *
+         *     Tablas: print_job
+         */
+        post: operations["store_POST_print_jobs_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/print-jobs/{id}/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mandar un papel a otra impresora
+         * @description 16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».
+         *
+         *     Por otra impresora activa (permiso ajustes.impresoras o authorization).
+         *
+         *     Lo llama: TPV (Gestiones › Impresiones)
+         *
+         *     Tablas: print_job
+         */
+        post: operations["store_POST_print_jobs_reassign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/print-jobs/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar un papel
+         * @description 16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».
+         *
+         *     Ya no se imprime (permiso ajustes.impresoras o authorization). Queda quién y el motivo en lastError.
+         *
+         *     Lo llama: TPV (Gestiones › Impresiones)
+         *
+         *     Tablas: print_job
+         */
+        post: operations["store_POST_print_jobs_cancel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7519,11 +7733,15 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
+                            /** @description Una por comanda: ok = ya salió; queued = sigue en la cola de impresión y sale sola en cuanto la impresora responda */
                             printed?: {
                                 channel?: string;
                                 printer?: string;
                                 lines?: number;
                                 ok?: boolean;
+                                /** @description Sigue en la cola de impresión (sale sola) */
+                                queued?: boolean;
+                                jobId?: string;
                             }[];
                             order?: {
                                 _id?: string;
@@ -7976,11 +8194,15 @@ export interface operations {
                         /** @constant */
                         type?: "success";
                         data?: {
+                            /** @description Una por comanda: ok = ya salió; queued = sigue en la cola de impresión y sale sola en cuanto la impresora responda */
                             printed?: {
                                 channel?: string;
                                 printer?: string;
                                 lines?: number;
                                 ok?: boolean;
+                                /** @description Sigue en la cola de impresión (sale sola) */
+                                queued?: boolean;
+                                jobId?: string;
                             }[];
                             order?: {
                                 _id?: string;
@@ -10763,6 +10985,18 @@ export interface operations {
                         sortOrder?: number;
                         hidden?: boolean;
                         orderOnTable?: boolean;
+                        description?: string | null;
+                        /** @description Textos por idioma (es, en, fr…): {"en":{"name":"SET MENU 1"}} */
+                        translations?: {
+                            [key: string]: {
+                                [key: string]: string | null;
+                            };
+                        };
+                        qualifiers?: {
+                            productExternalId?: string | null;
+                            plu?: number | null;
+                            sortOrder?: number;
+                        }[];
                     }[];
                     products?: {
                         externalId?: string;
@@ -10780,6 +11014,14 @@ export interface operations {
                         fgColor?: string | null;
                         answerOnly?: boolean;
                         orderOnTable?: boolean;
+                        /** @description Textos por idioma (es, en, fr…): {"en":{"name":"SET MENU 1"}} */
+                        translations?: {
+                            [key: string]: {
+                                [key: string]: string | null;
+                            };
+                        };
+                        printChannels?: ("COMIDA" | "BEBIDA")[];
+                        qualifier?: boolean;
                     }[];
                     questions?: {
                         externalId?: string;
@@ -10791,8 +11033,53 @@ export interface operations {
                             productExternalId?: string;
                             label?: string | null;
                             extraPrice?: number;
+                            sortOrder?: number;
+                            bgColor?: string | null;
+                            fgColor?: string | null;
+                            /** @description Textos por idioma (es, en, fr…): {"en":{"name":"SET MENU 1"}} */
+                            translations?: {
+                                [key: string]: {
+                                    [key: string]: string | null;
+                                };
+                            };
                         }[];
+                        plu?: number | null;
+                        description?: string | null;
+                        required?: boolean;
+                        /** @enum {string} */
+                        answerType?: "unica" | "multiple";
+                        courseName?: string | null;
+                        /** @description Textos por idioma (es, en, fr…): {"en":{"name":"SET MENU 1"}} */
+                        translations?: {
+                            [key: string]: {
+                                [key: string]: string | null;
+                            };
+                        };
                     }[];
+                    release?: {
+                        /** @enum {string} */
+                        kind?: "full" | "prices" | "names" | "withdraw";
+                        releaseVersion?: number;
+                        /** Format: date-time */
+                        effectiveAt?: string;
+                        checksum?: string | null;
+                        store?: string;
+                        priceLine?: string | null;
+                        menu?: string | null;
+                        publicationType?: string | null;
+                        publicationId?: string;
+                    };
+                    keys?: {
+                        categoryExternalId?: string;
+                        productExternalId?: string | null;
+                        plu?: number | null;
+                        label?: string | null;
+                        bgColor?: string | null;
+                        fgColor?: string | null;
+                        posX?: number;
+                        posY?: number;
+                    }[];
+                    note?: string | null;
                 };
             };
         };
@@ -10829,6 +11116,32 @@ export interface operations {
                             ids?: {
                                 "MGR-CAT-01"?: string;
                             };
+                            release?: {
+                                id?: string;
+                                kind?: string;
+                                publicationId?: string;
+                                publicationType?: string | null;
+                                releaseVersion?: number;
+                                effectiveAt?: string;
+                                /** @enum {string} */
+                                status?: "pending" | "confirm" | "applied" | "unchanged" | "failed" | "superseded" | "cancelled";
+                                menu?: string | null;
+                                priceLine?: string | null;
+                                store?: string | null;
+                                note?: string | null;
+                                receivedAt?: string;
+                                appliedAt?: string | null;
+                                error?: string | null;
+                                decidedBy?: string | null;
+                            };
+                            /** @description Lo que hizo al aplicarse (recuentos, teclas y configVersion); null si queda pendiente */
+                            result?: Record<string, never> | null;
+                            repeated?: boolean;
+                            keys?: {
+                                count?: number;
+                                changed?: boolean;
+                            };
+                            changed?: boolean;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -13822,11 +14135,15 @@ export interface operations {
                             accepted?: number;
                             accountId?: string | null;
                             version?: number;
+                            /** @description Una por comanda: ok = ya salió; queued = sigue en la cola de impresión y sale sola en cuanto la impresora responda */
                             printed?: {
                                 channel?: string;
                                 printer?: string;
                                 lines?: number;
                                 ok?: boolean;
+                                /** @description Sigue en la cola de impresión (sale sola) */
+                                queued?: boolean;
+                                jobId?: string;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -16089,6 +16406,512 @@ export interface operations {
             };
             /** @description PERIOD_CLOSED: No hay periodo abierto. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_config_carta_releases: {
+        parameters: {
+            query?: {
+                /** @description 1–200 (50) */
+                limit?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            items?: {
+                                id?: string;
+                                kind?: string;
+                                publicationId?: string;
+                                publicationType?: string | null;
+                                releaseVersion?: number;
+                                effectiveAt?: string;
+                                status?: string;
+                                menu?: string | null;
+                                priceLine?: string | null;
+                                store?: string | null;
+                                note?: string | null;
+                                receivedAt?: string;
+                                appliedAt?: string | null;
+                                error?: string | null;
+                                decidedBy?: string | null;
+                                result?: Record<string, never> | null;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_config_carta_releases_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            release?: {
+                                id?: string;
+                                kind?: string;
+                                publicationId?: string;
+                                publicationType?: string | null;
+                                releaseVersion?: number;
+                                effectiveAt?: string;
+                                status?: string;
+                                menu?: string | null;
+                                priceLine?: string | null;
+                                store?: string | null;
+                                note?: string | null;
+                                receivedAt?: string;
+                                appliedAt?: string | null;
+                                error?: string | null;
+                                decidedBy?: string | null;
+                                result?: Record<string, never> | null;
+                            };
+                            result?: Record<string, never> | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: Esa carga no existe */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INVALID_TRANSITION: Esa carga ya no está pendiente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_config_carta_releases_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            release?: {
+                                id?: string;
+                                kind?: string;
+                                publicationId?: string;
+                                publicationType?: string | null;
+                                releaseVersion?: number;
+                                effectiveAt?: string;
+                                status?: string;
+                                menu?: string | null;
+                                priceLine?: string | null;
+                                store?: string | null;
+                                note?: string | null;
+                                receivedAt?: string;
+                                appliedAt?: string | null;
+                                error?: string | null;
+                                decidedBy?: string | null;
+                                result?: Record<string, never> | null;
+                            };
+                            result?: Record<string, never> | null;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: Esa carga no existe */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INVALID_TRANSITION: Esa carga ya no está pendiente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_print_jobs: {
+        parameters: {
+            query?: {
+                /** @description pending,printing,printed,failed,cancelled (separados por coma) */
+                status?: string;
+                /** @description 1–500 (100) */
+                limit?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            counts?: {
+                                pending?: number;
+                                printing?: number;
+                                failed?: number;
+                            };
+                            items?: {
+                                id?: string;
+                                kind?: string;
+                                title?: string;
+                                orderId?: string | null;
+                                accountId?: string | null;
+                                stationId?: string | null;
+                                channel?: string;
+                                printerName?: string;
+                                connection?: string;
+                                /** @enum {string} */
+                                status?: "pending" | "printing" | "printed" | "failed" | "cancelled";
+                                attempts?: number;
+                                lastError?: string | null;
+                                nextTryAt?: string;
+                                createdBy?: string | null;
+                                createdDevice?: string | null;
+                                createdAt?: string;
+                                printedAt?: string | null;
+                                lines?: number;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    store_POST_print_jobs_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            kind?: string;
+                            title?: string;
+                            orderId?: string | null;
+                            accountId?: string | null;
+                            stationId?: string | null;
+                            channel?: string;
+                            printerName?: string;
+                            connection?: string;
+                            /** @enum {string} */
+                            status?: "pending" | "printing" | "printed" | "failed" | "cancelled";
+                            attempts?: number;
+                            lastError?: string | null;
+                            nextTryAt?: string;
+                            createdBy?: string | null;
+                            createdDevice?: string | null;
+                            createdAt?: string;
+                            printedAt?: string | null;
+                            lines?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: Ese papel no está en la cola */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INVALID_TRANSITION: Ese papel ya no está pendiente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_print_jobs_reassign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    printerId?: string;
+                    authorization?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            kind?: string;
+                            title?: string;
+                            orderId?: string | null;
+                            accountId?: string | null;
+                            stationId?: string | null;
+                            channel?: string;
+                            printerName?: string;
+                            connection?: string;
+                            /** @enum {string} */
+                            status?: "pending" | "printing" | "printed" | "failed" | "cancelled";
+                            attempts?: number;
+                            lastError?: string | null;
+                            nextTryAt?: string;
+                            createdBy?: string | null;
+                            createdDevice?: string | null;
+                            createdAt?: string;
+                            printedAt?: string | null;
+                            lines?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: Ese papel no está en la cola */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INVALID_TRANSITION: Ese papel ya no está pendiente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Datos no válidos */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_print_jobs_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string | null;
+                    authorization?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            kind?: string;
+                            title?: string;
+                            orderId?: string | null;
+                            accountId?: string | null;
+                            stationId?: string | null;
+                            channel?: string;
+                            printerName?: string;
+                            connection?: string;
+                            /** @enum {string} */
+                            status?: "pending" | "printing" | "printed" | "failed" | "cancelled";
+                            attempts?: number;
+                            lastError?: string | null;
+                            nextTryAt?: string;
+                            createdBy?: string | null;
+                            createdDevice?: string | null;
+                            createdAt?: string;
+                            printedAt?: string | null;
+                            lines?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Falta un permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description NOT_FOUND: Ese papel no está en la cola */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description INVALID_TRANSITION: Ese papel ya no está pendiente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Datos no válidos */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

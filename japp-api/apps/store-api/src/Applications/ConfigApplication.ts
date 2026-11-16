@@ -226,11 +226,21 @@ export class ConfigApplication {
           )
         ).map((x) => [x.p, x.label]),
       );
+      // 16/11 · las teclas del producto (categoría y casilla de la rejilla), como las manda la publicación de Carta
+      const keys = by(
+        await this.rows(
+          q,
+          sql`SELECT product_id::text p, category_id::text "categoryId", pos_x::int x, pos_y::int y, label, bg_color "bgColor", fg_color "fgColor"
+          FROM category_product WHERE store_id = ${storeId} AND product_id::text = ANY(${ids}) ORDER BY category_id, pos_y, pos_x`,
+        ),
+        "p",
+      );
       rows.forEach((r) => {
         r.channels = (ch.get(r.id) ?? []).map((x) => x.id);
         r.questions = (qs.get(r.id) ?? []).map((x) => x.id);
         r.taxRate = tx.get(r.taxId) ?? null;
-        r.buttonLabel = lb.get(r.id) ?? r.name;
+        r.buttonLabel = r.button_label ?? r.buttonLabel ?? lb.get(r.id) ?? r.name;
+        r.keys = (keys.get(r.id) ?? []).map(({ p: _p, ...k }) => k);
       });
     } else if (m === "preguntas") {
       const a = by(
@@ -360,6 +370,18 @@ export class ConfigApplication {
         ? sql`SELECT id::text, name FROM app_user WHERE store_id = ${storeId}`
         : sql`SELECT id::text, name FROM delivery_rider WHERE store_id = ${storeId} AND active`;
     return (await this.rows(tx, q)) as { id: string; name: string }[];
+  }
+
+  /** 16/11 · Todos los usuarios (también desactivados) con su PIN cifrado: la clave no se repite. */
+  async allUserPins(tx: Tx, storeId: string): Promise<{ id: string; pinHash: string }[]> {
+    const rows = await this.rows(tx, sql`SELECT id::text, pin_hash FROM app_user WHERE store_id = ${storeId}`);
+    return rows.map((u) => ({ id: u.id, pinHash: u.pin_hash }));
+  }
+
+  /** 16/11 · Nombre e iniciales de todos los usuarios (para no repetirlos). */
+  async userNames(tx: Tx, storeId: string): Promise<{ id: string; name: string; initials: string | null }[]> {
+    const rows = await this.rows(tx, sql`SELECT id::text, name, initials FROM app_user WHERE store_id = ${storeId}`);
+    return rows.map((u) => ({ id: u.id, name: u.name, initials: u.initials }));
   }
 
   /** Usuarios activos de la tienda con su PIN cifrado (para no repetir PIN). */
@@ -519,6 +541,12 @@ export class ConfigApplication {
     return { product, current };
   }
 
+  async setProductButtonLabel(tx: Tx, storeId: string, id: string, label: string | null) {
+    await tx.execute(
+      sql`UPDATE product SET button_label = NULLIF(btrim(${label ?? ""}), '') WHERE store_id = ${storeId} AND id = ${id}`,
+    );
+  }
+
   /** La tecla pasa a otra categoría: se quita la anterior y va al final de la nueva. */
   async moveProductButton(
     tx: Tx,
@@ -549,7 +577,7 @@ export class ConfigApplication {
     let i = 0;
     for (const a of answers) {
       await tx.execute(
-        sql`INSERT INTO question_answer (id, store_id, question_id, product_id, label, extra_price, bg_color, fg_color, sort_order) VALUES (${crypto.randomUUID()},${storeId},${id},${a.productId},${a.label ?? null},${Number(a.extraPrice ?? 0).toFixed(2)},${a.bgColor ?? null},${a.fgColor ?? null},${i++})`,
+        sql`INSERT INTO question_answer (id, store_id, question_id, product_id, label, extra_price, bg_color, fg_color, sort_order, translations) VALUES (${crypto.randomUUID()},${storeId},${id},${a.productId},${a.label ?? null},${Number(a.extraPrice ?? 0).toFixed(2)},${a.bgColor ?? null},${a.fgColor ?? null},${i++},${JSON.stringify(a.translations ?? {})}::jsonb)`,
       );
     }
   }

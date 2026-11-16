@@ -3,7 +3,7 @@ import { loadConfig } from "./Properties/AppSettings.js";
 import { buildApp } from "./Startup.js";
 
 const config = loadConfig();
-const { app } = await buildApp({ config, logger: true });
+const { app } = await buildApp({ config, logger: true, workers: true });
 // Antes de escuchar: qué tienda es este servidor. Si no se puede saber (varias tiendas sin STORE_CODE, código que no
 // existe, base vacía) la API no arranca y lo dice, en vez de responder 500 al entrar con la clave.
 let store;

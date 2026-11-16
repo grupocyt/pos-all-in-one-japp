@@ -5,6 +5,8 @@ import { DATABASE } from "../Constants/Injection.js";
 
 type Q = Db | Tx;
 
+export type Translations = Record<string, Record<string, string | null>>;
+
 /** Categoría tal como la ve el Manager (GET /config/carta) y como se compara en el sync. */
 export interface CategoryRow {
   id: string;
@@ -15,6 +17,11 @@ export interface CategoryRow {
   sortOrder: number;
   hidden: boolean;
   orderOnTable: boolean;
+  /** 16/11 · Carta */
+  description: string | null;
+  translations: Translations;
+  /** PLU de sus calificativos, en orden. */
+  qualifiers: number[];
   active: boolean;
   version: number;
 }
@@ -43,6 +50,11 @@ export interface ProductRow {
   answerOnly: boolean;
   orderOnTable: boolean;
   soldOut: boolean;
+  /** 16/11 · Carta */
+  translations: Translations;
+  qualifier: boolean;
+  /** Canales del Manager: COMIDA y/o BEBIDA. */
+  channels: string[];
   active: boolean;
   version: number;
 }
@@ -55,6 +67,7 @@ export interface AnswerRow {
   extraPrice: number;
   bgColor: string | null;
   fgColor: string | null;
+  translations: Translations;
 }
 
 export interface QuestionRow {
@@ -64,6 +77,13 @@ export interface QuestionRow {
   minAnswers: number;
   maxAnswers: number;
   course: number | null;
+  /** 16/11 · Carta */
+  plu: number | null;
+  description: string | null;
+  required: boolean;
+  answerType: string;
+  courseName: string | null;
+  translations: Translations;
   active: boolean;
   version: number;
   answers: AnswerRow[];
@@ -84,6 +104,9 @@ export interface CategoryValues {
   sortOrder: number;
   hidden: boolean;
   orderOnTable: boolean;
+  description: string | null;
+  translations: Translations;
+  qualifiers: number[];
 }
 
 export interface ProductValues {
@@ -91,7 +114,7 @@ export interface ProductValues {
   plu: number;
   name: string;
   ticketName: string | null;
-  /** No es columna de product: va a la tecla (category_product.label). */
+  /** Texto del botón (product.button_label) y de la tecla (category_product.label). */
   buttonLabel: string | null;
   description: string | null;
   categoryId: string | null;
@@ -103,6 +126,8 @@ export interface ProductValues {
   answerOnly: boolean;
   orderOnTable: boolean;
   soldOut: boolean;
+  translations: Translations;
+  qualifier: boolean;
 }
 
 export interface QuestionValues {
@@ -111,6 +136,33 @@ export interface QuestionValues {
   minAnswers: number;
   maxAnswers: number;
   course: number | null;
+  plu: number | null;
+  description: string | null;
+  required: boolean;
+  answerType: string;
+  courseName: string | null;
+  translations: Translations;
+}
+
+/** Una carga del Manager guardada (catalog_release). */
+export interface ReleaseRow {
+  id: string;
+  kind: string;
+  publicationId: string;
+  publicationType: string | null;
+  releaseVersion: number;
+  effectiveAt: string;
+  status: string;
+  checksum: string;
+  menu: string | null;
+  priceLine: string | null;
+  storeCode: string | null;
+  note: string | null;
+  receivedAt: string;
+  appliedAt: string | null;
+  error: string | null;
+  result: unknown;
+  decidedBy: string | null;
 }
 
 /** Fila de la vista previa: una tecla (categoría × producto) con lo que decide si sale. */
@@ -252,6 +304,7 @@ export class CartaSyncApplication {
         extraPrice: s.questionAnswer.extraPrice,
         bgColor: s.questionAnswer.bgColor,
         fgColor: s.questionAnswer.fgColor,
+        translations: s.questionAnswer.translations,
       })
       .from(s.questionAnswer)
       .where(eq(s.questionAnswer.storeId, storeId))
@@ -266,6 +319,13 @@ export class CartaSyncApplication {
       .from(s.categoryProduct)
       .where(eq(s.categoryProduct.storeId, storeId));
     const btnBy = groupBy(btn, (x) => x.productId);
+    const pch = await q
+      .select({ productId: s.productChannel.productId, code: s.printChannel.code })
+      .from(s.productChannel)
+      .innerJoin(s.printChannel, eq(s.printChannel.id, s.productChannel.channelId))
+      .where(eq(s.productChannel.storeId, storeId))
+      .orderBy(asc(s.printChannel.code));
+    const pchBy = groupBy(pch, (x) => x.productId);
     const catExt = new Map(cats.map((c) => [c.id, c.externalId]));
     const qExt = new Map(qs.map((x) => [x.id, x.externalId]));
     const prodKey = new Map(prods.map((p) => [p.id, { externalId: p.externalId, plu: p.plu }]));
@@ -280,6 +340,9 @@ export class CartaSyncApplication {
       sortOrder: c.sortOrder,
       hidden: c.hidden,
       orderOnTable: c.orderOnTable,
+      description: c.description,
+      translations: (c.translations ?? {}) as Translations,
+      qualifiers: ((c.qualifiers ?? []) as unknown[]).map(Number),
       active: c.active,
       version: c.version,
     }));
@@ -298,7 +361,7 @@ export class CartaSyncApplication {
         plu: p.plu,
         name: p.name,
         ticketName: p.ticketName,
-        buttonLabel: buttonOf(btnBy.get(p.id) ?? [], p.categoryId, p.name),
+        buttonLabel: p.buttonLabel ?? buttonOf(btnBy.get(p.id) ?? [], p.categoryId, p.name),
         description: p.description,
         categoryId: p.categoryId,
         categoryExternalId,
@@ -313,6 +376,9 @@ export class CartaSyncApplication {
         answerOnly: p.answerOnly,
         orderOnTable: p.orderOnTable,
         soldOut: p.soldOut,
+        translations: (p.translations ?? {}) as Translations,
+        qualifier: p.qualifier,
+        channels: (pchBy.get(p.id) ?? []).map((x) => x.code).filter((x): x is string => !!x),
         active: p.active,
         version: p.version,
       };
@@ -324,6 +390,12 @@ export class CartaSyncApplication {
       minAnswers: x.minAnswers,
       maxAnswers: x.maxAnswers,
       course: x.course,
+      plu: x.plu,
+      description: x.description,
+      required: x.required,
+      answerType: x.answerType,
+      courseName: x.courseName,
+      translations: (x.translations ?? {}) as Translations,
       active: x.active,
       version: x.version,
       answers: (qaBy.get(x.id) ?? []).map((a) => ({
@@ -334,6 +406,7 @@ export class CartaSyncApplication {
         extraPrice: Number(a.extraPrice),
         bgColor: a.bgColor,
         fgColor: a.fgColor,
+        translations: (a.translations ?? {}) as Translations,
       })),
     }));
     return { categories, products, questions };
@@ -367,8 +440,7 @@ export class CartaSyncApplication {
       .where(and(eq(s.category.storeId, storeId), eq(s.category.id, id)));
   }
 
-  async insertProduct(tx: Tx, storeId: string, id: string, values: ProductValues) {
-    const { buttonLabel: _b, ...v } = values;
+  async insertProduct(tx: Tx, storeId: string, id: string, v: ProductValues) {
     await tx.insert(s.product).values({
       id,
       storeId,
@@ -389,8 +461,7 @@ export class CartaSyncApplication {
       .where(and(eq(s.product.storeId, storeId), inArray(s.product.id, ids)));
   }
 
-  async updateProduct(tx: Tx, storeId: string, id: string, values: ProductValues, version: number) {
-    const { buttonLabel: _b, ...v } = values;
+  async updateProduct(tx: Tx, storeId: string, id: string, v: ProductValues, version: number) {
     await tx
       .update(s.product)
       .set({ ...v, price: money(v.price), priceTerrace: optMoney(v.priceTerrace), active: true, version })
@@ -418,6 +489,232 @@ export class CartaSyncApplication {
       .update(t)
       .set({ active: false, version: sql`${t.version} + 1` })
       .where(and(eq(t.storeId, storeId), inArray(t.id, ids)));
+  }
+
+  // ───────────────────────── 16/11 · publicación de Carta ─────────────────────────
+  /** Id de los canales del Manager: COMIDA y BEBIDA. */
+  async channelIdsByCode(tx: Tx, storeId: string): Promise<Map<string, string>> {
+    const rows = await tx
+      .select({ id: s.printChannel.id, code: s.printChannel.code })
+      .from(s.printChannel)
+      .where(and(eq(s.printChannel.storeId, storeId), sql`${s.printChannel.code} IS NOT NULL`));
+    return new Map(rows.map((r) => [r.code!, r.id]));
+  }
+
+  /** Teclas de la toma de pedido: se sustituyen todas las de la tienda por las de la carga. */
+  async replaceKeys(
+    tx: Tx,
+    storeId: string,
+    keys: { categoryId: string; productId: string; label: string | null; bg: string | null; fg: string | null; x: number; y: number }[],
+  ) {
+    await tx.delete(s.categoryProduct).where(eq(s.categoryProduct.storeId, storeId));
+    if (!keys.length) {
+      return;
+    }
+    await tx.insert(s.categoryProduct).values(
+      keys.map((k) => ({
+        categoryId: k.categoryId,
+        productId: k.productId,
+        storeId,
+        label: k.label,
+        bgColor: k.bg,
+        fgColor: k.fg,
+        posX: k.x,
+        posY: k.y,
+      })),
+    );
+  }
+
+  /** Teclas actuales de la tienda (para comparar si cambian). */
+  async keys(tx: Tx, storeId: string) {
+    return tx
+      .select({
+        categoryId: s.categoryProduct.categoryId,
+        productId: s.categoryProduct.productId,
+        label: s.categoryProduct.label,
+        bg: s.categoryProduct.bgColor,
+        fg: s.categoryProduct.fgColor,
+        x: s.categoryProduct.posX,
+        y: s.categoryProduct.posY,
+      })
+      .from(s.categoryProduct)
+      .where(eq(s.categoryProduct.storeId, storeId))
+      .orderBy(asc(s.categoryProduct.categoryId), asc(s.categoryProduct.posY), asc(s.categoryProduct.posX));
+  }
+
+  /** Solo precios (carga prices). */
+  async setPrices(tx: Tx, storeId: string, id: string, price: number, priceTerrace: number | null, version: number) {
+    await tx
+      .update(s.product)
+      .set({ price: money(price), priceTerrace: optMoney(priceTerrace), version })
+      .where(and(eq(s.product.storeId, storeId), eq(s.product.id, id)));
+  }
+
+  /** Solo nombres (carga names); la tecla sigue al texto del botón si no tenía uno propio. */
+  async setNames(
+    tx: Tx,
+    storeId: string,
+    id: string,
+    v: { name: string; ticketName: string | null; buttonLabel: string | null; translations: Translations },
+    oldShown: string,
+    version: number,
+  ) {
+    await tx
+      .update(s.product)
+      .set({ name: v.name, ticketName: v.ticketName, buttonLabel: v.buttonLabel, translations: v.translations, version })
+      .where(and(eq(s.product.storeId, storeId), eq(s.product.id, id)));
+    await tx
+      .update(s.categoryProduct)
+      .set({ label: v.buttonLabel ?? v.name })
+      .where(
+        and(
+          eq(s.categoryProduct.storeId, storeId),
+          eq(s.categoryProduct.productId, id),
+          sql`(${s.categoryProduct.label} IS NULL OR ${s.categoryProduct.label} = ${oldShown})`,
+        ),
+      );
+  }
+
+  // ───────────────────────── cargas (catalog_release) ─────────────────────────
+  private releaseCols = {
+    id: s.catalogRelease.id,
+    kind: s.catalogRelease.kind,
+    publicationId: s.catalogRelease.publicationId,
+    publicationType: s.catalogRelease.publicationType,
+    releaseVersion: s.catalogRelease.releaseVersion,
+    effectiveAt: s.catalogRelease.effectiveAt,
+    status: s.catalogRelease.status,
+    checksum: s.catalogRelease.checksum,
+    menu: s.catalogRelease.menu,
+    priceLine: s.catalogRelease.priceLine,
+    storeCode: s.catalogRelease.storeCode,
+    note: s.catalogRelease.note,
+    receivedAt: s.catalogRelease.receivedAt,
+    appliedAt: s.catalogRelease.appliedAt,
+    error: s.catalogRelease.error,
+    result: s.catalogRelease.result,
+    decidedBy: s.catalogRelease.decidedBy,
+  };
+
+  async releaseByKey(tx: Tx, storeId: string, publicationId: string, version: number): Promise<ReleaseRow | null> {
+    const [r] = await tx
+      .select(this.releaseCols)
+      .from(s.catalogRelease)
+      .where(
+        and(
+          eq(s.catalogRelease.storeId, storeId),
+          eq(s.catalogRelease.publicationId, publicationId),
+          eq(s.catalogRelease.releaseVersion, version),
+        ),
+      );
+    return r ?? null;
+  }
+
+  /** La versión más alta ya aplicada o pendiente de esa publicación. */
+  async latestRelease(tx: Tx, storeId: string, publicationId: string): Promise<ReleaseRow | null> {
+    const [r] = await tx
+      .select(this.releaseCols)
+      .from(s.catalogRelease)
+      .where(
+        and(
+          eq(s.catalogRelease.storeId, storeId),
+          eq(s.catalogRelease.publicationId, publicationId),
+          inArray(s.catalogRelease.status, ["applied", "unchanged", "pending", "confirm"]),
+        ),
+      )
+      .orderBy(sql`${s.catalogRelease.releaseVersion} DESC`)
+      .limit(1);
+    return r ?? null;
+  }
+
+  async releaseById(tx: Q, storeId: string, id: string, lock = false): Promise<(ReleaseRow & { payload: unknown }) | null> {
+    const base = tx
+      .select({ ...this.releaseCols, payload: s.catalogRelease.payload })
+      .from(s.catalogRelease)
+      .where(and(eq(s.catalogRelease.storeId, storeId), sql`${s.catalogRelease.id}::text = ${id}`));
+    const [r] = lock ? await base.for("update") : await base;
+    return r ?? null;
+  }
+
+  async insertRelease(
+    tx: Tx,
+    storeId: string,
+    r: Omit<ReleaseRow, "receivedAt" | "appliedAt" | "error" | "result" | "decidedBy"> & {
+      payload: unknown;
+      appliedAt?: string | null;
+      result?: unknown;
+    },
+  ) {
+    await tx.insert(s.catalogRelease).values({
+      id: r.id,
+      storeId,
+      kind: r.kind,
+      publicationId: r.publicationId,
+      publicationType: r.publicationType,
+      releaseVersion: r.releaseVersion,
+      effectiveAt: r.effectiveAt,
+      status: r.status,
+      checksum: r.checksum,
+      menu: r.menu,
+      priceLine: r.priceLine,
+      storeCode: r.storeCode,
+      note: r.note,
+      payload: r.payload,
+      appliedAt: r.appliedAt ?? null,
+      result: r.result ?? null,
+    });
+  }
+
+  async setReleaseStatus(
+    tx: Q,
+    storeId: string,
+    id: string,
+    v: { status: string; appliedAt?: string | null; error?: string | null; result?: unknown; decidedBy?: string | null },
+  ) {
+    await tx
+      .update(s.catalogRelease)
+      .set({
+        status: v.status,
+        ...(v.appliedAt !== undefined ? { appliedAt: v.appliedAt } : {}),
+        ...(v.error !== undefined ? { error: v.error?.slice(0, 300) ?? null } : {}),
+        ...(v.result !== undefined ? { result: v.result } : {}),
+        ...(v.decidedBy !== undefined ? { decidedBy: v.decidedBy } : {}),
+      })
+      .where(and(eq(s.catalogRelease.storeId, storeId), eq(s.catalogRelease.id, id)));
+  }
+
+  /** Las pendientes más antiguas de la misma publicación quedan «superseded» al llegar otra más nueva. */
+  async supersede(tx: Tx, storeId: string, publicationId: string, belowVersion: number) {
+    await tx
+      .update(s.catalogRelease)
+      .set({ status: "superseded" })
+      .where(
+        and(
+          eq(s.catalogRelease.storeId, storeId),
+          eq(s.catalogRelease.publicationId, publicationId),
+          inArray(s.catalogRelease.status, ["pending", "confirm"]),
+          sql`${s.catalogRelease.releaseVersion} < ${belowVersion}`,
+        ),
+      );
+  }
+
+  async releases(storeId: string, limit: number, q: Q = this.database.db): Promise<ReleaseRow[]> {
+    return q
+      .select(this.releaseCols)
+      .from(s.catalogRelease)
+      .where(eq(s.catalogRelease.storeId, storeId))
+      .orderBy(sql`${s.catalogRelease.receivedAt} DESC`)
+      .limit(limit);
+  }
+
+  /** Pendientes que ya tocan (todas las tiendas de esta base). */
+  async dueReleases(now: Date, q: Q = this.database.db): Promise<{ id: string; storeId: string }[]> {
+    return q
+      .select({ id: s.catalogRelease.id, storeId: s.catalogRelease.storeId })
+      .from(s.catalogRelease)
+      .where(and(eq(s.catalogRelease.status, "pending"), sql`${s.catalogRelease.effectiveAt} <= ${now.toISOString()}::timestamptz`))
+      .orderBy(asc(s.catalogRelease.effectiveAt), asc(s.catalogRelease.releaseVersion))
+      .limit(20);
   }
 
   // ───────────────────────── recuentos para IN_USE ─────────────────────────

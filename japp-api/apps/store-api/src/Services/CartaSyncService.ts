@@ -37,10 +37,17 @@ import {
   CategoriasSyncModel,
   PreguntasSyncModel,
   ProductosSyncModel,
+  type NameItem,
+  type PriceItem,
   type SyncCategory,
+  type SyncKey,
   type SyncProduct,
   type SyncQuestion,
 } from "../Models/CartaModels.js";
+import type { Translations } from "../Applications/CartaSyncApplication.js";
+
+/** Los dos canales del Manager. */
+export const MANAGER_CHANNELS = ["COMIDA", "BEBIDA"] as const;
 
 type Module = "categorias" | "productos" | "preguntas";
 type Snap = Record<string, unknown>;
@@ -70,6 +77,8 @@ interface CategoryOp {
   action: SyncMatch<CategoryRow>["action"];
   before: CategoryRow | null;
   values: CategoryValues;
+  /** Calificativos que manda la carga (se resuelven después de los productos). */
+  qualifierRefs?: SyncCategory["qualifiers"];
 }
 
 interface AnswerValues {
@@ -78,6 +87,7 @@ interface AnswerValues {
   extraPrice: number;
   bgColor: string | null;
   fgColor: string | null;
+  translations: Translations;
 }
 
 interface QuestionOp {
@@ -99,6 +109,8 @@ interface ProductOp {
   values: Omit<ProductValues, "plu"> & { plu: number | null };
   /** undefined = no vino: las preguntas que tenía se conservan. */
   questions?: string[];
+  /** 16/11 · canales del Manager (COMIDA y/o BEBIDA); undefined = no vino: se conservan. */
+  channels?: string[];
 }
 
 /** Dónde buscar las referencias de una fila (en la tienda o en la misma carga de la carta). */
@@ -154,7 +166,7 @@ function fieldOf(path: (string | number)[]) {
 }
 
 /** Valida el cuerpo; los errores salen con el campo de la fila (items[3].name), uno por campo. */
-function parseRows<S extends ZodTypeAny>(schema: S, body: unknown): z.infer<S> {
+export function parseRows<S extends ZodTypeAny>(schema: S, body: unknown): z.infer<S> {
   const r = schema.safeParse(body ?? {});
   if (!r.success) {
     throw new ZodError(r.error.issues.map((i) => ({ ...i, path: [fieldOf(i.path)] })));
@@ -175,7 +187,7 @@ function atRow<T>(row: string, fn: () => T): T {
 }
 
 /** Tamaño de una lista del cuerpo antes de validarla (una carga enorme → 413 sin recorrerla). */
-function sizeOf(body: unknown, key: string): number {
+export function sizeOf(body: unknown, key: string): number {
   const v = (body as Record<string, unknown> | null)?.[key];
   if (Array.isArray(v)) {
     return v.length;
@@ -316,59 +328,245 @@ export class CartaSyncService {
    * Canales de impresión y agotado son de la tienda: se conservan.
    */
   async syncCarta(se: Session, body: unknown) {
-    for (const p of ["ajustes.categorias", "ajustes.productos", "ajustes.preguntas"]) {
-      await this.auth.require(se, p);
-    }
+    await this.requireCarta(se);
     assertSyncSize("categorías", sizeOf(body, "categories"), SYNC_LIMITS.carta.categories);
     assertSyncSize("productos", sizeOf(body, "products"), SYNC_LIMITS.carta.products);
     assertSyncSize("preguntas", sizeOf(body, "questions"), SYNC_LIMITS.carta.questions);
     const b = parseRows(CartaSyncModel, body);
-    return this.database.withTx(async (tx) => {
-      await this.carta.lockCarta(tx, se.storeId);
-      // el de PLU antes de bloquear filas: el alta desde Ajustes lo toma en el mismo orden (carta → PLU → filas)
-      await this.config.lockPlu(tx, se.storeId);
-      const now = await this.carta.carta(se.storeId, { lock: true }, tx);
-      const cats = this.planCategories(now.categories, b.categories, "categories");
-      const qs = this.planQuestions(now.questions, b.questions, "questions");
-      const refs: Refs = {
-        categoryByExt: this.byExternal(cats.ops),
-        categoryById: new Map(cats.ops.map((o) => [o.id, o.id])),
-        questionByExt: this.byExternal(qs.ops),
-        questionById: new Map(qs.ops.map((o) => [o.id, o.id])),
-      };
-      const taxes = await this.taxMap(tx, se.storeId);
-      const prods = this.planProducts(now.products, b.products, "products", refs, taxes, { soldOut: false });
-      await this.assignPlus(tx, se, prods.ops, now.products);
-      this.resolveAnswers(qs.ops, b.questions, "questions", {
-        byExt: this.byExternal(prods.ops),
-        byId: new Map(prods.ops.map((o) => [o.id, o.id])),
-        byPlu: new Map(prods.ops.map((o) => [String(o.values.plu), o.id])),
-      });
-      const out: Change[] = [];
-      await this.applyCategories(tx, se, cats.ops, out);
-      await this.applyQuestions(tx, se, qs.ops, out);
-      await this.applyProducts(tx, se, prods.ops, out, now.products);
-      await this.applyAnswers(tx, se, qs.ops);
-      await this.deactivateAll(tx, se, "productos", prods.deactivate, out);
-      await this.deactivateAll(tx, se, "preguntas", qs.deactivate, out);
-      await this.deactivateAll(tx, se, "categorias", cats.deactivate, out);
-      const configVersion = await this.finish(tx, se, "carta", out);
-      const actionsOf = (ops: { id: string; action: SyncAction }[], m: Module) =>
-        ops.map((o) => this.finalAction(o, m, out));
-      const ids: Record<string, string> = {};
-      for (const o of [...cats.ops, ...qs.ops, ...prods.ops]) {
-        if (o.values.externalId) {
-          ids[o.values.externalId] = o.id;
-        }
+    return this.database.withTx((tx) => this.applyCarta(tx, se, b));
+  }
+
+  /** Los tres permisos de la carta (sync completo y publicación de Carta). */
+  async requireCarta(se: Session) {
+    for (const p of ["ajustes.categorias", "ajustes.productos", "ajustes.preguntas"]) {
+      await this.auth.require(se, p);
+    }
+  }
+
+  /**
+   * La carta completa dentro de una transacción (sync y publicación «full»). Con `keys` (publicación de Carta)
+   * las teclas de la toma de pedido se sustituyen por las de la carga; sin ellas, cada producto lleva la suya.
+   */
+  async applyCarta(
+    tx: Tx,
+    se: Session,
+    b: { categories: SyncCategory[]; products: SyncProduct[]; questions: SyncQuestion[] },
+    o: { keys?: SyncKey[] } = {},
+  ) {
+    await this.carta.lockCarta(tx, se.storeId);
+    // el de PLU antes de bloquear filas: el alta desde Ajustes lo toma en el mismo orden (carta → PLU → filas)
+    await this.config.lockPlu(tx, se.storeId);
+    const now = await this.carta.carta(se.storeId, { lock: true }, tx);
+    const cats = this.planCategories(now.categories, b.categories, "categories");
+    const qs = this.planQuestions(now.questions, b.questions, "questions");
+    const refs: Refs = {
+      categoryByExt: this.byExternal(cats.ops),
+      categoryById: new Map(cats.ops.map((x) => [x.id, x.id])),
+      questionByExt: this.byExternal(qs.ops),
+      questionById: new Map(qs.ops.map((x) => [x.id, x.id])),
+    };
+    const taxes = await this.taxMap(tx, se.storeId);
+    const prods = this.planProducts(now.products, b.products, "products", refs, taxes, { soldOut: false });
+    await this.assignPlus(tx, se, prods.ops, now.products);
+    const pRefs: ProductRefs = {
+      byExt: this.byExternal(prods.ops),
+      byId: new Map(prods.ops.map((x) => [x.id, x.id])),
+      byPlu: new Map(prods.ops.map((x) => [String(x.values.plu), x.id])),
+    };
+    this.resolveAnswers(qs.ops, b.questions, "questions", pRefs);
+    this.resolveQualifiers(cats.ops, prods.ops, pRefs);
+    const keys = o.keys ? this.planKeys(o.keys, refs, pRefs, prods.ops) : undefined;
+    const out: Change[] = [];
+    await this.applyCategories(tx, se, cats.ops, out);
+    await this.applyQuestions(tx, se, qs.ops, out);
+    await this.applyProducts(tx, se, prods.ops, out, now.products, { keys: !!keys });
+    await this.applyAnswers(tx, se, qs.ops);
+    await this.deactivateAll(tx, se, "productos", prods.deactivate, out);
+    await this.deactivateAll(tx, se, "preguntas", qs.deactivate, out);
+    await this.deactivateAll(tx, se, "categorias", cats.deactivate, out);
+    let keysChanged = false;
+    if (keys) {
+      keysChanged = await this.applyKeys(tx, se, keys, out);
+    }
+    const configVersion = await this.finish(tx, se, "carta", out);
+    const actionsOf = (ops: { id: string; action: SyncAction }[], m: Module) =>
+      ops.map((x) => this.finalAction(x, m, out));
+    const ids: Record<string, string> = {};
+    for (const x of [...cats.ops, ...qs.ops, ...prods.ops]) {
+      if (x.values.externalId) {
+        ids[x.values.externalId] = x.id;
       }
-      return {
-        categories: syncCounts(actionsOf(cats.ops, "categorias"), cats.deactivate.length),
-        products: syncCounts(actionsOf(prods.ops, "productos"), prods.deactivate.length),
-        questions: syncCounts(actionsOf(qs.ops, "preguntas"), qs.deactivate.length),
-        configVersion,
-        ids,
+    }
+    return {
+      categories: syncCounts(actionsOf(cats.ops, "categorias"), cats.deactivate.length),
+      products: syncCounts(actionsOf(prods.ops, "productos"), prods.deactivate.length),
+      questions: syncCounts(actionsOf(qs.ops, "preguntas"), qs.deactivate.length),
+      ...(keys ? { keys: { count: keys.length, changed: keysChanged } } : {}),
+      configVersion,
+      ids,
+      changed: out.length > 0,
+    };
+  }
+
+  /** 16/11 · carga «prices»: solo PVP general y de terraza de productos que ya existen (todo o nada). */
+  async applyPrices(tx: Tx, se: Session, items: PriceItem[]) {
+    await this.carta.lockCarta(tx, se.storeId);
+    const now = await this.carta.carta(se.storeId, { lock: true }, tx);
+    const out: Change[] = [];
+    const found = this.findProducts(now.products, items);
+    for (const [i, p] of found.entries()) {
+      const inc = items[i]!;
+      const priceTerrace = inc.priceTerrace === undefined ? p.priceTerrace : (inc.priceTerrace ?? null);
+      if (p.price === inc.price && p.priceTerrace === priceTerrace) {
+        continue;
+      }
+      await this.carta.setPrices(tx, se.storeId, p.id, inc.price, priceTerrace, p.version + 1);
+      const before = { ...this.productSnap(p, p.questionIds), active: p.active };
+      const after = { ...before, price: inc.price, priceTerrace };
+      out.push(this.change("productos", "update", p.id, p.name, before, after));
+    }
+    const configVersion = await this.finish(tx, se, "productos", out);
+    return { products: { received: items.length, updated: out.length }, configVersion, changed: out.length > 0 };
+  }
+
+  /** 16/11 · carga «names»: nombre, nombre en ticket, texto del botón y traducciones (todo o nada). */
+  async applyNames(tx: Tx, se: Session, items: NameItem[]) {
+    await this.carta.lockCarta(tx, se.storeId);
+    const now = await this.carta.carta(se.storeId, { lock: true }, tx);
+    const out: Change[] = [];
+    const found = this.findProducts(now.products, items);
+    for (const [i, p] of found.entries()) {
+      const inc = items[i]!;
+      const v = {
+        name: inc.name,
+        ticketName: keepNullable(inc.ticketName, p.ticketName),
+        buttonLabel: sameAsName(keepNullable(inc.buttonLabel, p.buttonLabel), inc.name),
+        translations: (inc.translations ?? p.translations) as Translations,
       };
+      const before = { ...this.productSnap(p, p.questionIds), active: p.active };
+      const after = { ...before, ...v };
+      if (same(before, after)) {
+        continue;
+      }
+      await this.carta.setNames(tx, se.storeId, p.id, v, p.buttonLabel ?? p.name, p.version + 1);
+      out.push(this.change("productos", "update", p.id, v.name, before, after));
+    }
+    const configVersion = await this.finish(tx, se, "productos", out);
+    return { products: { received: items.length, updated: out.length }, configVersion, changed: out.length > 0 };
+  }
+
+  /** 16/11 · carga «withdraw» (ya confirmada): se desactiva toda la carta (nunca se borra). */
+  async applyWithdraw(tx: Tx, se: Session) {
+    await this.carta.lockCarta(tx, se.storeId);
+    const now = await this.carta.carta(se.storeId, { lock: true }, tx);
+    const out: Change[] = [];
+    const prods = now.products.filter((x) => x.active);
+    const qs = now.questions.filter((x) => x.active);
+    const cats = now.categories.filter((x) => x.active);
+    await this.deactivateAll(tx, se, "productos", prods, out);
+    await this.deactivateAll(tx, se, "preguntas", qs, out);
+    await this.deactivateAll(tx, se, "categorias", cats, out);
+    const configVersion = await this.finish(tx, se, "carta", out);
+    return {
+      categories: { deactivated: cats.length },
+      products: { deactivated: prods.length },
+      questions: { deactivated: qs.length },
+      configVersion,
+      changed: out.length > 0,
+    };
+  }
+
+  /** Productos de una carga de precios o nombres: por externalId o PLU; uno que no existe → 422 REF_NOT_FOUND con su fila. */
+  private findProducts(existing: ProductRow[], items: { externalId?: string | null; plu?: number | null }[]) {
+    const byExt = new Map(existing.filter((p) => p.externalId).map((p) => [p.externalId!.trim(), p]));
+    const byPlu = new Map(existing.map((p) => [p.plu, p]));
+    const seen = new Set<string>();
+    return items.map((it, i) => {
+      const p = (it.externalId && byExt.get(it.externalId.trim())) || (it.plu != null ? byPlu.get(it.plu) : undefined);
+      if (!p) {
+        fail("REF_NOT_FOUND", `No existe el producto ${it.externalId ?? it.plu} en la tienda`, {
+          field: `products[${i}].${it.externalId ? "externalId" : "plu"}`,
+        });
+      }
+      if (seen.has(p!.id)) {
+        fail("DUPLICATE", `Producto repetido en la lista: ${p!.name}`, { field: `products[${i}]` });
+      }
+      seen.add(p!.id);
+      return p!;
     });
+  }
+
+  /** Calificativos de cada categoría → PLU en orden; tienen que ser productos de la carga marcados como calificativo. */
+  private resolveQualifiers(cats: CategoryOp[], prods: ProductOp[], pRefs: ProductRefs) {
+    const byId = new Map(prods.map((x) => [x.id, x]));
+    for (const c of cats) {
+      if (!c.qualifierRefs) {
+        continue;
+      }
+      const row = `categories[${c.index}]`;
+      const list = c.qualifierRefs.flatMap((q, j) => {
+        const at = `${row}.qualifiers[${j}]`;
+        if (typeof q === "number") {
+          // PLU solo (carta de GET /config/carta mandada otra vez): vale cualquier producto de la carga
+          const pid = pRefs.byPlu.get(String(q));
+          const pq = pid ? byId.get(pid) : undefined;
+          return pq ? [{ plu: pq.values.plu as number, order: j, j }] : [];
+        }
+        const id = q.productExternalId
+          ? resolveRef(pRefs.byExt, q.productExternalId, `${at}.productExternalId`, "el producto")
+          : resolveRef(pRefs.byPlu, String(q.plu), `${at}.plu`, "el producto");
+        const p = byId.get(id)!;
+        if (!p.values.qualifier) {
+          fail("VALIDATION", `${p.values.name} no está marcado como calificativo (qualifier)`, { field: at });
+        }
+        return [{ plu: p.values.plu as number, order: q.sortOrder ?? j, j }];
+      });
+      list.sort((a, b2) => a.order - b2.order || a.j - b2.j);
+      const plus = [...new Set(list.map((x) => x.plu))];
+      c.values.qualifiers = plus;
+    }
+  }
+
+  /** Teclas de la carga → categoría y producto de la misma carga; ni la misma tecla ni la misma casilla dos veces. */
+  private planKeys(keys: SyncKey[], refs: Refs, pRefs: ProductRefs, prods: ProductOp[]) {
+    const byId = new Map(prods.map((x) => [x.id, x]));
+    const seenProd = new Set<string>();
+    const seenCell = new Set<string>();
+    return keys.map((k, i) => {
+      const at = `keys[${i}]`;
+      const categoryId = resolveRef(refs.categoryByExt, k.categoryExternalId, `${at}.categoryExternalId`, "la categoría");
+      const productId = k.productExternalId
+        ? resolveRef(pRefs.byExt, k.productExternalId, `${at}.productExternalId`, "el producto")
+        : resolveRef(pRefs.byPlu, String(k.plu), `${at}.plu`, "el producto");
+      if (seenProd.has(`${categoryId}|${productId}`)) {
+        fail("DUPLICATE", "Ese producto ya tiene tecla en esa categoría", { field: at });
+      }
+      if (seenCell.has(`${categoryId}|${k.posX}|${k.posY}`)) {
+        fail("DUPLICATE", `Dos teclas en la misma casilla (${k.posX}, ${k.posY}) de la categoría`, { field: at });
+      }
+      seenProd.add(`${categoryId}|${productId}`);
+      seenCell.add(`${categoryId}|${k.posX}|${k.posY}`);
+      const p = byId.get(productId)!.values;
+      const label = k.label?.trim() || p.buttonLabel || p.name;
+      return { categoryId, productId, label, bg: k.bgColor ?? null, fg: k.fgColor ?? null, x: k.posX, y: k.posY };
+    });
+  }
+
+  /** Sustituye las teclas si cambian (cuenta como un cambio de la carta). */
+  private async applyKeys(tx: Tx, se: Session, keys: ReturnType<CartaSyncService["planKeys"]>, out: Change[]) {
+    const norm = (l: { categoryId: string; productId: string; label: string | null; bg: string | null; fg: string | null; x: number | null; y: number | null }[]) =>
+      l
+        .map((k) => [k.categoryId, k.productId, k.label, k.bg, k.fg, Number(k.x), Number(k.y)].join("|"))
+        .sort();
+    const cur = await this.carta.keys(tx, se.storeId);
+    if (same(norm(cur), norm(keys))) {
+      return false;
+    }
+    await this.carta.replaceKeys(tx, se.storeId, keys);
+    out.push(
+      this.change("categorias", "update", se.storeId, "Teclas de la toma de pedido", { keys: cur.length }, { keys: keys.length }),
+    );
+    return true;
   }
 
   // ───────────────────────── planes (casar y completar cada fila) ─────────────────────────
@@ -393,6 +591,9 @@ export class CartaSyncService {
         sortOrder: keep(inc.sortOrder, before?.sortOrder ?? 0),
         hidden: keep(inc.hidden, before?.hidden ?? false),
         orderOnTable: keep(inc.orderOnTable, before?.orderOnTable ?? true),
+        description: keepNullable(inc.description, before?.description ?? null),
+        translations: (inc.translations ?? before?.translations ?? {}) as Translations,
+        qualifiers: before?.qualifiers ?? [],
       };
       // el nombre es único en la tienda (también entre desactivadas): otra categoría con ese nombre → DUPLICATE
       const clash = existing.find((e) => e.name === values.name && e.id !== before?.id);
@@ -403,7 +604,14 @@ export class CartaSyncService {
           externalId: clash.externalId,
         });
       }
-      return { index: m.index, id: before?.id ?? randomUUID(), action: m.action, before, values };
+      return {
+        index: m.index,
+        id: before?.id ?? randomUUID(),
+        action: m.action,
+        before,
+        values,
+        qualifierRefs: inc.qualifiers,
+      };
     });
     return { ops, deactivate: plan.deactivate };
   }
@@ -426,12 +634,21 @@ export class CartaSyncService {
     const ops: QuestionOp[] = plan.items.map((m) => {
       const inc = items[m.index]!;
       const before = m.existing;
+      const minAnswers = keep(inc.minAnswers, before?.minAnswers ?? 0);
+      const maxAnswers = keep(inc.maxAnswers, before?.maxAnswers ?? 1);
       const values: QuestionValues = {
         externalId: inc.externalId ?? before?.externalId ?? null,
         name: inc.name,
-        minAnswers: keep(inc.minAnswers, before?.minAnswers ?? 0),
-        maxAnswers: keep(inc.maxAnswers, before?.maxAnswers ?? 1),
+        minAnswers,
+        maxAnswers,
         course: keepNullable(inc.course, before?.course ?? null),
+        plu: keepNullable(inc.plu, before?.plu ?? null),
+        description: keepNullable(inc.description, before?.description ?? null),
+        // sin dato: obligatoria si pide al menos una; múltiple si deja más de una (como hasta ahora)
+        required: keep(inc.required, before?.required ?? minAnswers > 0),
+        answerType: keep(inc.answerType, (before?.answerType as "unica" | "multiple" | undefined) ?? (maxAnswers > 1 ? "multiple" : "unica")),
+        courseName: keepNullable(inc.courseName, before?.courseName ?? null),
+        translations: (inc.translations ?? before?.translations ?? {}) as Translations,
       };
       return { index: m.index, id: before?.id ?? randomUUID(), action: m.action, before, values };
     });
@@ -499,6 +716,8 @@ export class CartaSyncService {
         answerOnly: keep(inc.answerOnly, before?.answerOnly ?? false),
         orderOnTable: keep(inc.orderOnTable, before?.orderOnTable ?? true),
         soldOut,
+        translations: (inc.translations ?? before?.translations ?? {}) as Translations,
+        qualifier: keep(inc.qualifier, before?.qualifier ?? false),
       };
       atRow(row, () => checkConfigRecord("productos", values, { isNew: !before }));
       return {
@@ -508,6 +727,7 @@ export class CartaSyncService {
         before,
         values,
         questions: this.questionsOf(inc, row, refs),
+        channels: this.channelsOf(inc, row),
       };
     });
     // un externalId que manda el Manager para otro PLU deja de ser del producto que solo lo conservaba
@@ -524,6 +744,24 @@ export class CartaSyncService {
       }
     }
     return { ops, deactivate: plan.deactivate };
+  }
+
+  /** 16/11 · canales del Manager: COMIDA y/o BEBIDA (sin mayúsculas); otro → 422; no viene → se conservan. */
+  private channelsOf(inc: SyncProduct, row: string): string[] | undefined {
+    if (inc.printChannels === undefined) {
+      return undefined;
+    }
+    const out: string[] = [];
+    inc.printChannels.forEach((c, j) => {
+      const code = c.trim().toUpperCase();
+      if (!(MANAGER_CHANNELS as readonly string[]).includes(code)) {
+        fail("VALIDATION", `Canal «${c}»: solo COMIDA o BEBIDA`, { field: `${row}.printChannels[${j}]` });
+      }
+      if (!out.includes(code)) {
+        out.push(code);
+      }
+    });
+    return out.sort();
   }
 
   /** Categoría del producto: categoryExternalId (si viene) o categoryId; si no viene ninguno se conserva. */
@@ -588,7 +826,11 @@ export class CartaSyncService {
       if (inc.answers) {
         const prev = new Map((op.before?.answers ?? []).map((a) => [a.productId, a]));
         const seen = new Set<string>();
-        op.answers = inc.answers.map((a, j) => {
+        // 16/11 · en el orden de sortOrder si viene (si no, el de la lista)
+        const sorted = inc.answers
+          .map((a, j) => ({ a, j }))
+          .sort((x, y) => (x.a.sortOrder ?? x.j) - (y.a.sortOrder ?? y.j) || x.j - y.j);
+        op.answers = sorted.map(({ a, j }) => {
           const at = `${row}.answers[${j}]`;
           let productId: string;
           if (a.productExternalId) {
@@ -607,13 +849,15 @@ export class CartaSyncService {
             fail("DUPLICATE", "Ese producto ya es una respuesta de esta pregunta", { field: at });
           }
           seen.add(productId);
-          // los colores de la tecla de la respuesta son de la tienda: se conservan
+          // colores: los de la carga si vienen; si no, los que tenía (null = los del producto)
+          const old = prev.get(productId);
           return {
             productId,
             label: a.label ?? null,
             extraPrice: a.extraPrice ?? 0,
-            bgColor: prev.get(productId)?.bgColor ?? null,
-            fgColor: prev.get(productId)?.fgColor ?? null,
+            bgColor: a.bgColor !== undefined ? (a.bgColor ?? null) : (old?.bgColor ?? null),
+            fgColor: a.fgColor !== undefined ? (a.fgColor ?? null) : (old?.fgColor ?? null),
+            translations: (a.translations ?? old?.translations ?? {}) as Translations,
           };
         });
       }
@@ -697,7 +941,23 @@ export class CartaSyncService {
     }
   }
 
-  private async applyProducts(tx: Tx, se: Session, ops: ProductOp[], out: Change[], existing: ProductRow[]) {
+  private async applyProducts(
+    tx: Tx,
+    se: Session,
+    ops: ProductOp[],
+    out: Change[],
+    existing: ProductRow[],
+    o: { keys?: boolean } = {},
+  ) {
+    const chIds = ops.some((x) => x.channels !== undefined) ? await this.carta.channelIdsByCode(tx, se.storeId) : new Map<string, string>();
+    const saveChannels = async (id: string, codes: string[]) => {
+      await this.config.replaceProductChannels(
+        tx,
+        se.storeId,
+        id,
+        codes.map((c) => chIds.get(c)).filter((x): x is string => !!x),
+      );
+    };
     // Al casar por PLU, un externalId puede pasar de un producto a otro: se suelta antes en el que lo tenía
     // (el índice único uq_product_external_id no deja dos iguales ni un instante).
     const claimed = new Map<string, string>();
@@ -713,17 +973,27 @@ export class CartaSyncService {
     for (const op of ops) {
       const values = op.values as ProductValues;
       const questions = op.questions ?? op.before?.questionIds ?? [];
-      const after = { ...this.productSnap(values, questions), active: true };
+      const channels = op.channels ?? op.before?.channels ?? [];
+      const after = { ...this.productSnap(values, questions), channels, active: true };
       if (!op.before) {
         await this.carta.insertProduct(tx, se.storeId, op.id, values);
         if (questions.length) {
           await this.config.replaceProductQuestions(tx, se.storeId, op.id, questions);
         }
-        await this.saveButton(tx, se, op.id, null, values);
+        if (channels.length) {
+          await saveChannels(op.id, channels);
+        }
+        if (!o.keys) {
+          await this.saveButton(tx, se, op.id, null, values);
+        }
         out.push(this.change("productos", "create", op.id, values.name, null, after));
         continue;
       }
-      const before = { ...this.productSnap(op.before, op.before.questionIds), active: op.before.active };
+      const before = {
+        ...this.productSnap(op.before, op.before.questionIds),
+        channels: op.before.channels,
+        active: op.before.active,
+      };
       if (same(before, after)) {
         continue;
       }
@@ -731,7 +1001,12 @@ export class CartaSyncService {
       if (!same(op.before.questionIds, questions)) {
         await this.config.replaceProductQuestions(tx, se.storeId, op.id, questions);
       }
-      await this.saveButton(tx, se, op.id, op.before, values);
+      if (!same(op.before.channels, channels)) {
+        await saveChannels(op.id, channels);
+      }
+      if (!o.keys) {
+        await this.saveButton(tx, se, op.id, op.before, values);
+      }
       out.push(
         this.change("productos", this.updateAction(op.before.active), op.id, values.name, before, after),
       );
@@ -942,6 +1217,9 @@ export class CartaSyncService {
       sortOrder: c.sortOrder,
       hidden: c.hidden,
       orderOnTable: c.orderOnTable,
+      description: c.description,
+      translations: c.translations,
+      qualifiers: c.qualifiers,
     };
   }
   private productSnap(p: ProductValues, questions: string[]): Snap {
@@ -961,15 +1239,33 @@ export class CartaSyncService {
       answerOnly: p.answerOnly,
       orderOnTable: p.orderOnTable,
       soldOut: p.soldOut,
+      translations: p.translations,
+      qualifier: p.qualifier,
       questions,
     };
   }
-  private answersSnap(answers: { productId: string; label: string | null; extraPrice: number }[]) {
-    return answers.map((a) => ({ productId: a.productId, label: a.label, extraPrice: a.extraPrice }));
+  private answersSnap(
+    answers: {
+      productId: string;
+      label: string | null;
+      extraPrice: number;
+      bgColor?: string | null;
+      fgColor?: string | null;
+      translations?: Translations;
+    }[],
+  ) {
+    return answers.map((a) => ({
+      productId: a.productId,
+      label: a.label,
+      extraPrice: a.extraPrice,
+      bgColor: a.bgColor ?? null,
+      fgColor: a.fgColor ?? null,
+      translations: a.translations ?? {},
+    }));
   }
   private questionSnap(
     q: QuestionValues,
-    answers: { productId: string; label: string | null; extraPrice: number }[],
+    answers: Parameters<CartaSyncService["answersSnap"]>[0],
     active: boolean,
   ): Snap {
     return {
@@ -978,6 +1274,12 @@ export class CartaSyncService {
       minAnswers: q.minAnswers,
       maxAnswers: q.maxAnswers,
       course: q.course,
+      plu: q.plu,
+      description: q.description,
+      required: q.required,
+      answerType: q.answerType,
+      courseName: q.courseName,
+      translations: q.translations,
       answers: this.answersSnap(answers),
       active,
     };

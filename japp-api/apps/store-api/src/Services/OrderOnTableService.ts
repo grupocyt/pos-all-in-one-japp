@@ -73,6 +73,7 @@ export class OrderOnTableService {
       if (isClosed(o!.status)) {
         fail("ORDER_CLOSED", "La mesa ya está cerrada", { orderId });
       }
+      await this.assertOn(S, tx);
       const base = await this.oot.webOrderUrl(S, tx);
       const live = await this.oot.liveToken(tx, S, orderId);
       if (live) {
@@ -159,8 +160,16 @@ export class OrderOnTableService {
     return null;
   }
 
+  /** 16/11 · Order on Table apagado en Ajustes › Restaurante → 409 OOT_NOT_CONFIGURED. */
+  private async assertOn(storeId: string, q?: Parameters<OrderOnTableApplication["enabled"]>[1]) {
+    if (!(await this.oot.enabled(storeId, q))) {
+      fail("OOT_NOT_CONFIGURED", "Order on Table está apagado en Ajustes › Restaurante", { field: "ootEnabled" });
+    }
+  }
+
   /** Token del QR vigente con su orden; si no → 404 OOT_TOKEN_INVALID. */
   private async liveToken(storeId: string, token: string): Promise<OotTokenRow> {
+    await this.assertOn(storeId);
     const row = isOotToken(token) ? await this.oot.tokenState(storeId, token) : undefined;
     assertOotTokenLive(row ? { orderStatus: row.orderStatus, revokedAt: row.revokedAt } : null);
     return row!;

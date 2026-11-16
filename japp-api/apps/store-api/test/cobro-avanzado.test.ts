@@ -175,7 +175,8 @@ describe("caja, informes y developer", () => {
       body: { reason: "Producto agotado", quantity: 1 },
     });
     const d = await t.call("GET", "/reports/deletions", { token: sistemas });
-    expect(d.body.items[0]).toMatchObject({
+    // la base es compartida: otras pruebas también eliminan (se busca la de esta)
+    expect(d.body.items.find((x: any) => x.reason === "Producto agotado")).toMatchObject({
       product: expect.any(String),
       reason: "Producto agotado",
       user: "Sistemas",

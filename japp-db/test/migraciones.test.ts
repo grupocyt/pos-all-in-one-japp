@@ -136,9 +136,10 @@ describe("migraciones", () => {
     await c.query("SAVEPOINT s2");
     await expect(c.query("UPDATE print_channel SET copy_of_id=id WHERE id=$1", [k.id])).rejects.toMatchObject({ code: "23514" });
     await c.query("ROLLBACK TO SAVEPOINT s2");
-    const copy = uuid();
-    await c.query("INSERT INTO print_channel (id, store_id, name, kind, copy_of_id) VALUES ($1,$2,'COPIA PRUEBA','kitchen',$3)", [copy, k.store_id, k.id]);
-    expect((await one(c, "SELECT copy_of_id FROM print_channel WHERE id=$1", [copy])).copy_of_id).toBe(k.id);
+    // 0035: ya no hay copias (solo COMIDA y BEBIDA)
+    await c.query("SAVEPOINT s3");
+    await expect(c.query("INSERT INTO print_channel (id, store_id, name, kind, copy_of_id) VALUES ($1,$2,'COPIA PRUEBA','kitchen',$3)", [uuid(), k.store_id, k.id])).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK TO SAVEPOINT s3");
   }));
   it("0007: etapa de la eliminación (sin enviar, impresa o en precuenta)", () => rollback(c, async () => {
     const col = await one(c, "SELECT data_type FROM information_schema.columns WHERE table_name='order_line' AND column_name='deleted_stage'");
@@ -336,6 +337,42 @@ describe("migraciones", () => {
     expect(await one(c, "SELECT DISTINCT screen_mode, ui_scale FROM station")).toEqual({ screen_mode: "auto", ui_scale: 100 });
     await c.query("UPDATE station SET screen_mode='fixed', screen_width=1920, screen_height=1080, ui_scale=120");
     await expect(c.query("UPDATE station SET ui_scale=200")).rejects.toMatchObject({ code: "23514" });
+  }));
+  it("0035: carta del Manager (traducciones, preguntas, cargas), solo COMIDA y BEBIDA, y cola de impresión", () => rollback(c, async () => {
+    const col = async (t: string, k: string) => (await one(c, "SELECT column_default d FROM information_schema.columns WHERE table_name=$1 AND column_name=$2", [t, k]))?.d ?? null;
+    for (const t of ["category", "product", "question", "question_answer"]) expect(await col(t, "translations")).toMatch(/'\{\}'/);
+    expect(await col("question", "answer_type")).toMatch(/unica/);
+    // las preguntas que ya había: obligatoria si piden alguna respuesta; múltiple si dejan más de una
+    expect(await all(c, "SELECT 1 FROM question WHERE required <> (min_answers > 0) OR answer_type <> (CASE WHEN max_answers > 1 THEN 'multiple' ELSE 'unica' END)")).toEqual([]);
+    await expect(c.query("UPDATE question SET answer_type='otra'")).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK"); await c.query("BEGIN");
+    // canales de comanda: solo COMIDA y BEBIDA en cada tienda
+    const ch = await all(c, "SELECT store_id, array_agg(code ORDER BY code) codes FROM print_channel WHERE kind='kitchen' GROUP BY store_id");
+    expect(ch.length).toBeGreaterThan(0);
+    for (const r of ch) expect(r.codes).toEqual(["BEBIDA", "COMIDA"]);
+    const k = await one(c, "SELECT id, store_id FROM print_channel WHERE code='COMIDA' LIMIT 1");
+    await c.query("SAVEPOINT s");
+    await expect(c.query("INSERT INTO print_channel (id, store_id, name, kind) VALUES ($1,$2,'POSTRES','kitchen')", [uuid(), k.store_id])).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
+    const p = await one(c, "SELECT id FROM product WHERE store_id=$1 LIMIT 1", [k.store_id]);
+    await c.query("DELETE FROM product_channel WHERE product_id=$1 AND channel_id=$2", [p.id, k.id]);
+    await c.query("INSERT INTO product_channel (product_id, channel_id, store_id) VALUES ($1,$2,$3)", [p.id, k.id, k.store_id]);
+    await c.query("SAVEPOINT s");
+    await expect(c.query("INSERT INTO product_channel (product_id, channel_id, store_id) VALUES ($1,$2,$3)", [p.id, k.id, k.store_id])).rejects.toMatchObject({ code: "23505" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
+    // cargas: publicación + versión + tienda, una vez
+    const ins = "INSERT INTO catalog_release (id, store_id, kind, release_version, effective_at, payload, checksum, publication_id) VALUES ($1,$2,'full',3,now(),'{}',repeat('a',64),'pub_1')";
+    await c.query(ins, [uuid(), k.store_id]);
+    await c.query("SAVEPOINT s");
+    await expect(c.query(ins, [uuid(), k.store_id])).rejects.toMatchObject({ code: "23505" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
+    await c.query("INSERT INTO catalog_release (id, store_id, kind, release_version, effective_at, payload, checksum, publication_id, status) VALUES ($1,$2,'withdraw',4,now(),'{}',repeat('a',64),'pub_1','confirm')", [uuid(), k.store_id]);
+    // cola de impresión
+    await c.query("INSERT INTO print_job (id, store_id, kind, title, channel, printer_name, connection, job) VALUES ($1,$2,'kitchen','Mesa 1','COMIDA','LINEA','tcp://10.0.0.1','{}')", [uuid(), k.store_id]);
+    expect((await one(c, "SELECT status, attempts FROM print_job LIMIT 1"))).toEqual({ status: "pending", attempts: 0 });
+    await c.query("SAVEPOINT s");
+    await expect(c.query("UPDATE print_job SET status='lost'")).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK TO SAVEPOINT s");
   }));
   it("0031: ticket_logo en store_parameters (vacío = logo de la cadena)", () => rollback(c, async () => {
     expect((await one(c, "SELECT ticket_logo FROM store_parameters LIMIT 1")).ticket_logo).toBeNull();

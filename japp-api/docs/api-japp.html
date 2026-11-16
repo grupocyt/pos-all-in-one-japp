@@ -12346,7 +12346,15 @@ paths:
 
 
         0034 (11/11): estaciones.screenMode (auto | fixed), screenWidth (800–7680) y screenHeight (600–4320) en píxeles y
-        uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).&#x27;
+        uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).
+
+
+        16/11 (API 1.2.270, migración 0035): canales → los de comanda son solo COMIDA y BEBIDA (code, los manda el Manager):
+        no se crean otros, no hay copias, no se renombran ni se desactivan (422); su impresora sí se cambia. Aquí solo se
+        crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations.
+        productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table
+        encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales
+        y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).&#x27;
       operationId: store_POST_config_module
       security:
       - session: []
@@ -12655,7 +12663,15 @@ paths:
 
 
         0034 (11/11): estaciones.screenMode (auto | fixed), screenWidth (800–7680) y screenHeight (600–4320) en píxeles y
-        uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).&#x27;
+        uiScale (70–150 %): cómo se ve el TPV en ese equipo (Ajustes › Equipos; permiso ajustes.estaciones).
+
+
+        16/11 (API 1.2.270, migración 0035): canales → los de comanda son solo COMIDA y BEBIDA (code, los manda el Manager):
+        no se crean otros, no hay copias, no se renombran ni se desactivan (422); su impresora sí se cambia. Aquí solo se
+        crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations.
+        productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table
+        encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales
+        y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).&#x27;
       operationId: store_PATCH_config_module_id
       security:
       - session: []
@@ -21086,7 +21102,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_event&#x27;
+        Tablas: order_line, order_event
+
+
+        16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como
+        mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true
+        y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).&#x27;
       operationId: store_POST_orders_orderId_lines_lineId_fire
       security:
       - session: []
@@ -21117,6 +21138,13 @@ paths:
                               type: integer
                             ok:
                               type: boolean
+                            queued:
+                              type: boolean
+                              description: Sigue en la cola de impresión (sale sola)
+                            jobId:
+                              type: string
+                        description: &#x27;Una por comanda: ok = ya salió; queued = sigue en la cola de impresión y sale sola en
+                          cuanto la impresora responda&#x27;
                       order:
                         type: object
                         properties:
@@ -22972,7 +23000,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_line, order_line_printer, order_event&#x27;
+        Tablas: order_line, order_line_printer, order_event
+
+
+        16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como
+        mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true
+        y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).&#x27;
       operationId: store_POST_orders_orderId_send
       security:
       - session: []
@@ -23003,6 +23036,13 @@ paths:
                               type: integer
                             ok:
                               type: boolean
+                            queued:
+                              type: boolean
+                              description: Sigue en la cola de impresión (sale sola)
+                            jobId:
+                              type: string
+                        description: &#x27;Una por comanda: ok = ya salió; queued = sigue en la cola de impresión y sale sola en
+                          cuanto la impresora responda&#x27;
                       order:
                         type: object
                         properties:
@@ -26616,7 +26656,7 @@ paths:
               connection: 192.168.1.50
   /api/v2/printers/print:
     post:
-      tags:
+      tags: &amp;id010
       - API de tienda v2 · Prueba de impresoras
       summary: Imprimir un ticket de ejemplo por IP
       description: &#x27;Permiso: ajustes.impresoras
@@ -29632,7 +29672,7 @@ paths:
               note: Precio terraza aprobado
   /api/v2/config/carta:
     get:
-      tags:
+      tags: &amp;id007
       - Japp Manager · sincronización · Sincronización tienda ↔ Manager
       summary: Carta completa (categorías, productos y preguntas)
       description: &#x27;Lo mismo que se manda en los sync, con id y externalId de cada registro (también los desactivados con
@@ -29863,26 +29903,35 @@ paths:
       tags:
       - Japp Manager · sincronización · Sincronización tienda ↔ Manager
       summary: Reemplazar la carta completa
-      description: &#x27;Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y,
-        si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva
-        el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda
-        en el historial de Ajustes y avisa a los equipos (config.changed). Categorías + productos + preguntas juntos: los
-        productos nombran categorías y preguntas por externalId, y las respuestas de las preguntas nombran productos (productExternalId
-        o plu). Lo que no viene se quita en cascada, sin IN_USE. Productos: el PLU nunca cambia y manda sobre el externalId
-        (si el Manager cambia el id, es el mismo producto con su id, sus canales de impresión y su historial). Tres nombres:
-        name = nombre del PLU, buttonLabel = nombre en el TPV (tecla) y ticketName = nombre a imprimir (comanda, precuenta
-        y factura); vacíos = el del PLU, y si no vienen se conservan. Canales de impresión y agotado son de la tienda: se
-        conservan. Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian
-        (cada línea guarda su nombre y precio).
-
-
-        Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
-
-
-        Lo llama: Manager
-
-
-        Tablas: category, product, category_product, product_question, question, question_answer, config_change_log, sync_outbox&#x27;
+      description: &quot;Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y,\
+        \ si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva\
+        \ el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda\
+        \ en el historial de Ajustes y avisa a los equipos (config.changed). Categorías + productos + preguntas juntos: los\
+        \ productos nombran categorías y preguntas por externalId, y las respuestas de las preguntas nombran productos (productExternalId\
+        \ o plu). Lo que no viene se quita en cascada, sin IN_USE. Productos: el PLU nunca cambia y manda sobre el externalId\
+        \ (si el Manager cambia el id, es el mismo producto con su id, sus canales de impresión y su historial). Tres nombres:\
+        \ name = nombre del PLU, buttonLabel = nombre en el TPV (tecla) y ticketName = nombre a imprimir (comanda, precuenta\
+        \ y factura); vacíos = el del PLU, y si no vienen se conservan. Canales de impresión y agotado son de la tienda: se\
+        \ conservan. Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian\
+        \ (cada línea guarda su nombre y precio).\n\nPermiso: ajustes.categorias · ajustes.productos · ajustes.preguntas\n\
+        \nLo llama: Manager\n\nTablas: category, product, category_product, product_question, question, question_answer, config_change_log,\
+        \ sync_outbox\n\n16/11 (API 1.2.270, migración 0035) · **Publicación de Carta** (JSON «Campos del JSON · Publicación\
+        \ de Carta al TPV»): si el cuerpo trae\n`release`, es una carga de Carta con cinco bloques `{release, categories,\
+        \ products, questions, keys}`:\n- `release.kind`: **full** = carta entera (lo que no viene se desactiva; las teclas\
+        \ `keys` sustituyen a las de la tienda),\n  **prices** = solo `price`/`priceTerrace` de productos que ya existen (por\
+        \ externalId o plu; uno que no existe → 422 REF_NOT_FOUND),\n  **names** = solo `name`, `ticketName`, `buttonLabel`\
+        \ y `translations`, **withdraw** = retirar la carta (queda «confirm»\n  hasta que un encargado la confirme: POST /config/carta/releases/{id}/confirm).\n\
+        - `release.store` tiene que ser el código de esta tienda (422 field release.store).\n- `publicationId + releaseVersion\
+        \ + store` = una carga: repetida igual → la misma respuesta (`repeated: true`); con otro\n  contenido → 409 VERSION_CONFLICT;\
+        \ una versión menor que la última de esa publicación → 409 VERSION_CONFLICT.\n- `effectiveAt` futura → se comprueba\
+        \ entera y queda «pending»: la API la aplica sola a esa hora (estado en GET /config/carta/releases).\n- Productos:\
+        \ `printChannels` solo **COMIDA** y/o **BEBIDA** (sin mayúsculas; otro → 422 products[i].printChannels[j]);\n  `qualifier`\
+        \ = calificativo. Categorías: `description`, `translations` y `qualifiers` [{productExternalId, plu, sortOrder}]\n\
+        \  (productos de la carga con qualifier; [] = ninguno). Preguntas: `plu`, `description`, `required`, `answerType`\n\
+        \  (unica | multiple), `courseName`, `translations`; respuestas con `sortOrder`, colores y `translations`.\n- Teclas\
+        \ `keys`: categoryExternalId + productExternalId/plu, `label` (\&quot;\&quot; = el buttonLabel del producto), colores, `posX`,\
+        \ `posY`\n  (la misma casilla o el mismo producto dos veces en una categoría → 409 DUPLICATE keys[i]).\nSin `release`\
+        \ sigue siendo el sync completo de siempre.&quot;
       operationId: store_POST_config_carta_sync
       security:
       - session: []
@@ -29942,6 +29991,79 @@ paths:
                         properties:
                           MGR-CAT-01:
                             type: string
+                      release:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          kind:
+                            type: string
+                          publicationId:
+                            type: string
+                          publicationType:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          releaseVersion:
+                            type: integer
+                          effectiveAt:
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                            - pending
+                            - confirm
+                            - applied
+                            - unchanged
+                            - failed
+                            - superseded
+                            - cancelled
+                          menu:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          priceLine:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          store:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          note:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          receivedAt:
+                            type: string
+                          appliedAt:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          error:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                          decidedBy:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                      result:
+                        type:
+                        - object
+                        - &#x27;null&#x27;
+                        description: Lo que hizo al aplicarse (recuentos, teclas y configVersion); null si queda pendiente
+                      repeated:
+                        type: boolean
+                      keys:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                          changed:
+                            type: boolean
+                      changed:
+                        type: boolean
               example:
                 title: Reemplazar la carta completa
                 type: success
@@ -30088,6 +30210,34 @@ paths:
                         type: boolean
                       orderOnTable:
                         type: boolean
+                      description:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      translations: &amp;id001
+                        type: object
+                        description: &#x27;Textos por idioma (es, en, fr…): {&quot;en&quot;:{&quot;name&quot;:&quot;SET MENU 1&quot;}}&#x27;
+                        additionalProperties:
+                          type: object
+                          additionalProperties:
+                            type:
+                            - string
+                            - &#x27;null&#x27;
+                      qualifiers:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            productExternalId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            plu:
+                              type:
+                              - integer
+                              - &#x27;null&#x27;
+                            sortOrder:
+                              type: integer
                 products:
                   type: array
                   items:
@@ -30135,6 +30285,16 @@ paths:
                         type: boolean
                       orderOnTable:
                         type: boolean
+                      translations: *id001
+                      printChannels:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                          - COMIDA
+                          - BEBIDA
+                      qualifier:
+                        type: boolean
                 questions:
                   type: array
                   items:
@@ -30165,6 +30325,107 @@ paths:
                               - &#x27;null&#x27;
                             extraPrice:
                               type: number
+                            sortOrder:
+                              type: integer
+                            bgColor:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            fgColor:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            translations: *id001
+                      plu:
+                        type:
+                        - integer
+                        - &#x27;null&#x27;
+                      description:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      required:
+                        type: boolean
+                      answerType:
+                        type: string
+                        enum:
+                        - unica
+                        - multiple
+                      courseName:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      translations: *id001
+                release:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                      - full
+                      - prices
+                      - names
+                      - withdraw
+                    releaseVersion:
+                      type: integer
+                    effectiveAt:
+                      type: string
+                      format: date-time
+                    checksum:
+                      type:
+                      - string
+                      - &#x27;null&#x27;
+                    store:
+                      type: string
+                    priceLine:
+                      type:
+                      - string
+                      - &#x27;null&#x27;
+                    menu:
+                      type:
+                      - string
+                      - &#x27;null&#x27;
+                    publicationType:
+                      type:
+                      - string
+                      - &#x27;null&#x27;
+                    publicationId:
+                      type: string
+                keys:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      categoryExternalId:
+                        type: string
+                      productExternalId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      plu:
+                        type:
+                        - integer
+                        - &#x27;null&#x27;
+                      label:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      bgColor:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      fgColor:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      posX:
+                        type: integer
+                      posY:
+                        type: integer
+                note:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
             example:
               categories:
               - externalId: MGR-CAT-01
@@ -32106,7 +32367,12 @@ paths:
         11/11 (API 1.2.269, migración 0033): si la mesa se cierra sin cobrar nada y tenía cosas enviadas a cocina o barra
         (o en precuenta) que se eliminaron (con importe), hace falta closeReason; sin él → 422 VALIDATION field closeReason
         con amount y lines. Queda en tableData.voidClose y en GET /reports/deletions › tables. Una mesa abierta por error
-        (nada enviado) se cierra como siempre.&#x27;
+        (nada enviado) se cierra como siempre.
+
+
+        16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como
+        mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true
+        y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).&#x27;
       operationId: store_POST_orders_orderId_save
       security:
       - session: []
@@ -35343,7 +35609,7 @@ paths:
           type: string
   /api/v2/invoices/{invoiceId}/credit:
     post:
-      tags: &amp;id005
+      tags: &amp;id006
       - API de tienda v2 · Facturas, caja e informes
       summary: Abono (factura rectificativa)
       description: &#x27;Rectificativa por diferencias en la serie de abonos de Ajustes › Facturación: R5 si la factura es simplificada
@@ -37496,7 +37762,12 @@ paths:
 
         N7 (04/11, API 1.2.268): los pedidos del cliente van a su propia cuenta (kind = order_on_table, «Order on Table»).
         Si esa cuenta ya se está cobrando (descuento o cobro parcial) o está cobrada, se abre otra («Order on Table 2»…):
-        el pedido nunca se rechaza por otra cuenta en cobro. Las cuentas de la transacción llevan kind (normal u order_on_table).&#x27;
+        el pedido nunca se rechaza por otra cuenta en cobro. Las cuentas de la transacción llevan kind (normal u order_on_table).
+
+
+        16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como
+        mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true
+        y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).&#x27;
       operationId: store_POST_oot_token_lines
       security:
       - session: []
@@ -37535,6 +37806,13 @@ paths:
                               type: integer
                             ok:
                               type: boolean
+                            queued:
+                              type: boolean
+                              description: Sigue en la cola de impresión (sale sola)
+                            jobId:
+                              type: string
+                        description: &#x27;Una por comanda: ok = ya salió; queued = sigue en la cola de impresión y sale sola en
+                          cuanto la impresora responda&#x27;
               example:
                 title: Pedido del cliente
                 type: success
@@ -41792,7 +42070,7 @@ paths:
                     properties:
                       items:
                         type: array
-                        items: &amp;id001
+                        items: &amp;id002
                           type: object
                           required:
                           - id
@@ -41883,7 +42161,7 @@ paths:
                 status: 201
                 data:
                   items:
-                  - &amp;id002
+                  - &amp;id003
                     id: …
                     clientId: pda1-1730730000000-1
                     orderId: …
@@ -41895,10 +42173,10 @@ paths:
                     quantity: 2
                     unitPrice: 2.2
                     comment: null
-                    modifiers: &amp;id003 []
+                    modifiers: &amp;id004 []
                     status: pending
                     offlineReason: Sin red (wifi)
-                    markedBy: &amp;id004
+                    markedBy: &amp;id005
                       user: Pedro
                       device: PDA1
                       at: &#x27;2026-11-04T20:10:00.000Z&#x27;
@@ -41994,14 +42272,14 @@ paths:
                     properties:
                       items:
                         type: array
-                        items: *id001
+                        items: *id002
               example:
                 title: Reconexiones
                 type: success
                 status: 200
                 data:
                   items:
-                  - *id002
+                  - *id003
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -42044,7 +42322,12 @@ paths:
         Lo llama: TPV, PDA
 
 
-        Tablas: order_reconnection, order_line, order_event&#x27;
+        Tablas: order_reconnection, order_line, order_event
+
+
+        16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como
+        mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true
+        y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).&#x27;
       operationId: store_POST_reconnections_reconnectionId_accept
       security:
       - session: []
@@ -42080,7 +42363,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      reconnection: *id001
+                      reconnection: *id002
                       printed:
                         type: array
               example:
@@ -42100,10 +42383,10 @@ paths:
                     quantity: 2
                     unitPrice: 2.2
                     comment: null
-                    modifiers: *id003
+                    modifiers: *id004
                     status: accepted
                     offlineReason: Sin red (wifi)
-                    markedBy: *id004
+                    markedBy: *id005
                     decidedBy:
                       user: Ana
                       authorizedBy: null
@@ -42229,7 +42512,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      reconnection: *id001
+                      reconnection: *id002
               example:
                 title: Descartar una reconexión
                 type: success
@@ -42247,10 +42530,10 @@ paths:
                     quantity: 2
                     unitPrice: 2.2
                     comment: null
-                    modifiers: *id003
+                    modifiers: *id004
                     status: discarded
                     offlineReason: Sin red (wifi)
-                    markedBy: *id004
+                    markedBy: *id005
                     decidedBy:
                       user: Ana
                       authorizedBy: null
@@ -42339,7 +42622,7 @@ paths:
                 mode: developer
   /api/v2/invoices/{invoiceId}/full:
     post:
-      tags: *id005
+      tags: *id006
       summary: Factura completa que sustituye a una simplificada
       description: &#x27;F1 (decidido el 04/11/2026, API 1.2.268): el cliente pide la factura con sus datos cuando ya se le hizo
         la simplificada. Nada de lo facturado se edita: la simplificada queda status = substituted y se emite una factura
@@ -42696,6 +42979,901 @@ paths:
           type: string
           format: uuid
         description: Id del arqueo (POST /cash/counts)
+  /api/v2/config/carta/releases:
+    get:
+      tags: *id007
+      summary: Cargas de la carta (publicaciones de Carta)
+      description: &#x27;16/11 (API 1.2.270, migración 0035): las últimas cargas del Manager (más nuevas primero) con su estado:
+        pending (espera su hora), confirm (retirar: espera a un encargado), applied, unchanged, failed (con error), superseded
+        (llegó otra más nueva) o cancelled.
+
+
+        Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
+
+
+        Lo llama: TPV (Ajustes › Developer)
+
+
+        Tablas: catalog_release&#x27;
+      operationId: store_GET_config_carta_releases
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items: &amp;id008
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            kind:
+                              type: string
+                            publicationId:
+                              type: string
+                            publicationType:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            releaseVersion:
+                              type: integer
+                            effectiveAt:
+                              type: string
+                            status:
+                              type: string
+                            menu:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            priceLine:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            store:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            receivedAt:
+                              type: string
+                            appliedAt:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            error:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            decidedBy:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            result:
+                              type:
+                              - object
+                              - &#x27;null&#x27;
+              example:
+                title: Cargas de la carta (publicaciones de Carta)
+                type: success
+                status: 200
+                data:
+                  items:
+                  - id: …
+                    kind: full
+                    publicationId: pub_ejemplo_completa
+                    publicationType: completa
+                    releaseVersion: 3
+                    effectiveAt: &#x27;2026-11-17T06:00:00.000Z&#x27;
+                    status: pending
+                    menu: m_ejemplo
+                    priceLine: GENERAL CYT
+                    store: CT03
+                    note: null
+                    receivedAt: &#x27;2026-11-16T19:00:00.000Z&#x27;
+                    appliedAt: null
+                    error: null
+                    decidedBy: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cargas de la carta (publicaciones de Carta)
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 1–200 (50)
+  /api/v2/config/carta/releases/{id}/confirm:
+    post:
+      tags: *id007
+      summary: Confirmar una carga de la carta
+      description: &#x27;16/11 (API 1.2.270, migración 0035): Un encargado confirma «retirar la carta» (withdraw) o aplica ya una
+        carga programada. Se aplica en una transacción (todo o nada).
+
+
+        Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
+
+
+        Lo llama: TPV
+
+
+        Tablas: catalog_release, category, product, question&#x27;
+      operationId: store_POST_config_carta_releases_confirm
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      release: *id008
+                      result:
+                        type:
+                        - object
+                        - &#x27;null&#x27;
+              example:
+                title: Confirmar una carga de la carta
+                type: success
+                status: 200
+                data:
+                  release:
+                    id: …
+                    kind: full
+                    publicationId: pub_ejemplo_completa
+                    publicationType: completa
+                    releaseVersion: 3
+                    effectiveAt: &#x27;2026-11-17T06:00:00.000Z&#x27;
+                    status: applied
+                    menu: m_ejemplo
+                    priceLine: GENERAL CYT
+                    store: CT03
+                    note: null
+                    receivedAt: &#x27;2026-11-16T19:00:00.000Z&#x27;
+                    appliedAt: null
+                    error: null
+                    decidedBy: null
+                  result: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Confirmar una carga de la carta
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: Esa carga no existe&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Confirmar una carga de la carta
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: Esa carga no existe
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;INVALID_TRANSITION: Esa carga ya no está pendiente&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Confirmar una carga de la carta
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: Esa carga ya no está pendiente
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - &amp;id009
+        name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /api/v2/config/carta/releases/{id}/cancel:
+    post:
+      tags: *id007
+      summary: Cancelar una carga de la carta
+      description: &#x27;16/11 (API 1.2.270, migración 0035): No se aplica (retirar o programada). Body opcional {reason}.
+
+
+        Permiso: ajustes.categorias · ajustes.productos · ajustes.preguntas
+
+
+        Lo llama: TPV
+
+
+        Tablas: catalog_release, category, product, question&#x27;
+      operationId: store_POST_config_carta_releases_cancel
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      release: *id008
+                      result:
+                        type:
+                        - object
+                        - &#x27;null&#x27;
+              example:
+                title: Cancelar una carga de la carta
+                type: success
+                status: 200
+                data:
+                  release:
+                    id: …
+                    kind: full
+                    publicationId: pub_ejemplo_completa
+                    publicationType: completa
+                    releaseVersion: 3
+                    effectiveAt: &#x27;2026-11-17T06:00:00.000Z&#x27;
+                    status: cancelled
+                    menu: m_ejemplo
+                    priceLine: GENERAL CYT
+                    store: CT03
+                    note: null
+                    receivedAt: &#x27;2026-11-16T19:00:00.000Z&#x27;
+                    appliedAt: null
+                    error: null
+                    decidedBy: null
+                  result: null
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar una carga de la carta
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: Esa carga no existe&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar una carga de la carta
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: Esa carga no existe
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;INVALID_TRANSITION: Esa carga ya no está pendiente&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar una carga de la carta
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: Esa carga ya no está pendiente
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - *id009
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+  /api/v2/print-jobs:
+    get:
+      tags: *id010
+      summary: Cola de impresión
+      description: &#x27;16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio
+        de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas
+        las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después
+        cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».
+
+
+        Lo pendiente y lo fallido primero. counts = {pending, printing, failed}.
+
+
+        Lo llama: TPV (Gestiones › Impresiones)
+
+
+        Tablas: print_job&#x27;
+      operationId: store_GET_print_jobs
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      counts:
+                        type: object
+                        properties:
+                          pending:
+                            type: integer
+                          printing:
+                            type: integer
+                          failed:
+                            type: integer
+                      items:
+                        type: array
+                        items: &amp;id011
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            kind:
+                              type: string
+                            title:
+                              type: string
+                            orderId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            accountId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            stationId:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            channel:
+                              type: string
+                            printerName:
+                              type: string
+                            connection:
+                              type: string
+                            status:
+                              type: string
+                              enum:
+                              - pending
+                              - printing
+                              - printed
+                              - failed
+                              - cancelled
+                            attempts:
+                              type: integer
+                            lastError:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            nextTryAt:
+                              type: string
+                            createdBy:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            createdDevice:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            createdAt:
+                              type: string
+                            printedAt:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            lines:
+                              type: integer
+              example:
+                title: Cola de impresión
+                type: success
+                status: 200
+                data:
+                  counts:
+                    pending: 1
+                  items:
+                  - &amp;id012
+                    id: …
+                    kind: kitchen
+                    title: Mesa 12
+                    orderId: …
+                    accountId: null
+                    stationId: …
+                    channel: COMIDA
+                    printerName: LINEA
+                    connection: tcp://10.221.17.35
+                    status: pending
+                    attempts: 1
+                    lastError: Sin respuesta de LINEA
+                    nextTryAt: &#x27;2026-11-16T19:00:02.000Z&#x27;
+                    createdBy: Sistemas
+                    createdDevice: CAJA1
+                    createdAt: &#x27;2026-11-16T19:00:00.000Z&#x27;
+                    printedAt: null
+                    lines: 2
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+        description: pending,printing,printed,failed,cancelled (separados por coma)
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 1–500 (100)
+  /api/v2/print-jobs/{id}/retry:
+    post:
+      tags: *id010
+      summary: Reintentar un papel ya
+      description: &#x27;16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio
+        de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas
+        las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después
+        cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».
+
+
+        Vuelve a la cola ahora (fallido o reintentando). Uno ya impreso → 409 INVALID_TRANSITION.
+
+
+        Lo llama: TPV (Gestiones › Impresiones)
+
+
+        Tablas: print_job&#x27;
+      operationId: store_POST_print_jobs_retry
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data: *id011
+              example:
+                title: Reintentar un papel ya
+                type: success
+                status: 200
+                data: *id012
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: Ese papel no está en la cola&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Reintentar un papel ya
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: Ese papel no está en la cola
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;INVALID_TRANSITION: Ese papel ya no está pendiente&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Reintentar un papel ya
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: Ese papel ya no está pendiente
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - *id009
+  /api/v2/print-jobs/{id}/reassign:
+    post:
+      tags: *id010
+      summary: Mandar un papel a otra impresora
+      description: &#x27;16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio
+        de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas
+        las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después
+        cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».
+
+
+        Por otra impresora activa (permiso ajustes.impresoras o authorization).
+
+
+        Lo llama: TPV (Gestiones › Impresiones)
+
+
+        Tablas: print_job&#x27;
+      operationId: store_POST_print_jobs_reassign
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data: *id011
+              example:
+                title: Mandar un papel a otra impresora
+                type: success
+                status: 200
+                data: *id012
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: Ese papel no está en la cola&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mandar un papel a otra impresora
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: Ese papel no está en la cola
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;INVALID_TRANSITION: Ese papel ya no está pendiente&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mandar un papel a otra impresora
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: Ese papel ya no está pendiente
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mandar un papel a otra impresora
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Datos no válidos&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Mandar un papel a otra impresora
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Datos no válidos
+                  field: printerId
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - *id009
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                printerId:
+                  type: string
+                  format: uuid
+                authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+  /api/v2/print-jobs/{id}/cancel:
+    post:
+      tags: *id010
+      summary: Cancelar un papel
+      description: &#x27;16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio
+        de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas
+        las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después
+        cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».
+
+
+        Ya no se imprime (permiso ajustes.impresoras o authorization). Queda quién y el motivo en lastError.
+
+
+        Lo llama: TPV (Gestiones › Impresiones)
+
+
+        Tablas: print_job&#x27;
+      operationId: store_POST_print_jobs_cancel
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data: *id011
+              example:
+                title: Cancelar un papel
+                type: success
+                status: 200
+                data: *id012
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: Ese papel no está en la cola&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar un papel
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: Ese papel no está en la cola
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;INVALID_TRANSITION: Ese papel ya no está pendiente&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar un papel
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: INVALID_TRANSITION
+                  message: Ese papel ya no está pendiente
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Falta un permiso&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar un papel
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Falta un permiso
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Datos no válidos&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Cancelar un papel
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Datos no válidos
+                  field: printerId
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - *id009
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+                authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
 components:
   securitySchemes:
     session:

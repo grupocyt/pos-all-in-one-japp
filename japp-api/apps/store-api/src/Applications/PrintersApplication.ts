@@ -96,6 +96,9 @@ export class PrintersApplication {
       FROM order_line_printer olp JOIN order_line ol ON ol.id = olp.line_id AND ol.store_id = ${S}
       WHERE olp.store_id = ${S} AND ol.order_id = ${orderId} AND NOT olp.printed AND NOT ol.deleted
         AND (olp.printed_at IS NULL OR olp.printed_at < ${claimBefore.toISOString()}::timestamptz)
+        -- 16/11 · lo que está en la cola de impresión ya se reintenta allí (no se imprime dos veces)
+        AND NOT EXISTS (SELECT 1 FROM print_job pj WHERE pj.store_id = ${S} AND pj.status IN ('pending', 'printing')
+          AND pj.line_printer_ids ? olp.id::text)
       ORDER BY olp.channel_name, olp.printer_name`)
     ).rows as unknown as PendingLinePrinter[];
   }

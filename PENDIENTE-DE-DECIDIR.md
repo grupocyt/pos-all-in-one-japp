@@ -71,6 +71,14 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | D1 | Formas de pago de descuento («Influ») | **Salen en Cobrar** y cierran la cuenta sin dinero (11/11) | **Hecho 1.2.269** |
 | D2 · Arqueo | Varios datáfonos, resumen impreso, corte X corto, ingresos, fondo del día siguiente, depósito | **Aprobado el 11/11** (sin esperar a la reunión con F. Chirino) | **Hecho 1.2.269** (0033) · revisar con F. Chirino |
 | Pantalla | TPV muy anchos o más altos | **Configurable por equipo** en Ajustes › Equipos (solo Administrador y Encargado; sin atajo en el TPV) (11/11) | **Hecho 1.2.269** (0034) |
+| Carta del Manager | JSON «Publicación de Carta» en `/config/carta/sync` | **Aprobado el 16/11**: fecha futura se aplica a su hora; retirar lo confirma un encargado; traducciones solo para Order on Table; rejilla de 6 columnas; calificativos del Manager (también PDA); precio de un producto desconocido rechaza la carga | **Hecho 1.2.270** (0035) |
+| Canales | Solo COMIDA y BEBIDA | **Los dos del Manager**; se borran los demás canales de comanda y sus copias; los productos sin canal no se mueven (ya vienen del Manager) (16/11) | **Hecho 1.2.270** (0035) · los canales de ticket se quedan |
+| Impresión | Que guardar no espere a la impresora | **Cola de impresión** para comandas, anulaciones y cambio de mesa (16/11) | **Hecho 1.2.270** · precuenta, factura y cortes siguen directos |
+| Order on Table | Encender / apagar | Interruptor en Ajustes › Restaurante, encendido por defecto (16/11) | **Hecho 1.2.270** |
+| Usuarios | Nombre, iniciales y clave | **No se repiten** (16/11) | **Hecho 1.2.270** |
+| PDA | Todo se veía pequeño en el móvil | **Ajustarse a la pantalla** (16/11) | **Hecho 1.2.270** · revisar en el móvil |
+| Logo | Cambiar el logo en todas partes (impresos sobre todo) | Pendiente de respuesta (puntos 7–9) | Pendiente |
+| Manager y SIR | SP de facturacionJapp, tablas del SIR | **Lo hacemos luego** (16/11) | En espera |
 | D3 · Menú del día | Guarniciones y fallo «Row# Q» | **No se hace ahora** (11/11) | Fuera |
 | D4 · Banners | Continuidad, días de activación y hora «desde/hasta» | **No se hace ahora** (11/11): es del Manager | Fuera |
 | C2b y reconexión | Choques con conexión y nuevos desarrollos de reconexión | **En pausa** hasta que el dueño lo analice. Lo hecho en la 1.2.268 se queda | En pausa |

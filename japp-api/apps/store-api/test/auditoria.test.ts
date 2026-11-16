@@ -314,103 +314,86 @@ describe("5 y 7 · formas de pago de Ajustes y reglas del cobro", () => {
   });
 });
 
-describe("8 · comanda: se imprime después del COMMIT y lo que ya salió no se repite", () => {
-  it("impresora caída → 503; al volver a enviar sale solo lo que faltaba, sin subir la versión", async () => {
-    const chs = (await t.call("GET", "/config/canales", { token: sis })).body.items;
-    const barra = chs.find((c: any) => c.name === "BARRA");
-    const pr = await t.call("POST", "/config/impresoras", {
-      token: sis,
-      body: { name: "ZONA PRUEBA", connection: "192.168.1.99", kind: "kitchen" },
-    });
-    const copy = (
-      await t.call("POST", "/config/canales", {
-        token: sis,
-        body: { name: "COPIA PRUEBA", kind: "kitchen", copyOfId: barra.id, printerId: pr.body.id },
-      })
-    ).body.item;
+describe("8 · comanda: cola de impresión (16/11): enviar no espera a la impresora y nada sale dos veces", () => {
+  const later = (ms: number) => {
+    t.clock.now = new Date(t.clock.now.getTime() + ms);
+  };
+  it("impresora caída → 200 con la comanda en cola; vuelve la impresora y sale sola, una vez, sin subir la versión", async () => {
     const real = t.printer.print.bind(t.printer);
     try {
-      t.printer.print = async (job) =>
-        job.printer === "ZONA PRUEBA" ? { ok: false, error: "apagada" } : real(job);
+      t.printer.print = async (job) => (job.channel === "BEBIDA" ? { ok: false, error: "apagada" } : real(job));
       const o = await openTable();
       t.printer.jobs.length = 0;
       const r = await t.call("POST", `/orders/${o.orderId}/send`, { token: sis, body: {} });
-      expect([r.status, r.error.code]).toEqual([503, "PRINTER_OFFLINE"]);
-      expect(r.error.details.printed).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ printer: "ZONA PRUEBA", ok: false }),
-          expect.objectContaining({ channel: "BARRA", ok: true }),
-        ]),
-      );
-      const sent = t.printer.jobs.filter((j) => j.kind === "kitchen").map((j) => j.channel);
-      expect(sent).toContain("BARRA");
-      expect(sent).not.toContain("COPIA PRUEBA");
+      expect(r.status).toBe(200);
+      expect(r.body.printed).toEqual([
+        expect.objectContaining({ channel: "BEBIDA", ok: false, queued: true, jobId: expect.any(String) }),
+      ]);
       const after = await get(o.orderId);
       expect(after.accounts[0].lines[0].status).toBe("printed"); // se guardó antes de imprimir
-      const { rows } = await t.sql.query(
-        "SELECT olp.channel_name, olp.printed FROM order_line_printer olp JOIN order_line l ON l.id = olp.line_id WHERE l.order_id=$1 AND channel_name IN ('BARRA', 'COPIA PRUEBA') ORDER BY channel_name",
-        [o.orderId],
-      );
-      expect(rows).toEqual([
-        { channel_name: "BARRA", printed: true },
-        { channel_name: "COPIA PRUEBA", printed: false },
-      ]);
-      // vuelve la impresora: «Enviar» imprime solo la copia que faltaba; BARRA no se repite y la versión no cambia
+      const olp = async () =>
+        (
+          await t.sql.query(
+            "SELECT olp.printed FROM order_line_printer olp JOIN order_line l ON l.id = olp.line_id WHERE l.order_id=$1",
+            [o.orderId],
+          )
+        ).rows.map((x) => x.printed);
+      expect(await olp()).toEqual([false]);
+      const job = (await t.sql.query("SELECT status, attempts, last_error FROM print_job WHERE id=$1", [r.body.printed[0].jobId])).rows[0];
+      expect(job).toMatchObject({ status: "pending", attempts: 1, last_error: "apagada" });
+      // otro «Enviar» mientras está en la cola: no la repite
+      expect((await t.call("POST", `/orders/${o.orderId}/send`, { token: sis, body: {} })).body.printed).toEqual([]);
+      // vuelve la impresora: la cola la saca sola (a los 2 s) y solo una vez
       t.printer.print = real;
-      t.printer.jobs.length = 0;
+      later(3_000);
+      await t.queue.drain();
+      expect(t.printer.jobs.filter((j) => j.kind === "kitchen").map((j) => j.channel)).toEqual(["BEBIDA"]);
+      expect(await olp()).toEqual([true]);
       const again = await t.call("POST", `/orders/${o.orderId}/send`, { token: sis, body: {} });
-      expect(again.status).toBe(200);
-      expect(again.body.printed).toEqual([
-        { channel: "COPIA PRUEBA", printer: "ZONA PRUEBA", lines: 1, ok: true },
-      ]);
-      expect(t.printer.jobs.map((j) => j.channel)).toEqual(["COPIA PRUEBA"]);
+      expect(again.body.printed).toEqual([]);
       expect(again.body.order.version).toBe(after.version);
-      expect(
-        (await t.call("POST", `/orders/${o.orderId}/send`, { token: sis, body: {} })).body.printed,
-      ).toEqual([]);
+      const list = await t.call("GET", "/print-jobs?status=printed&limit=5", { token: sis });
+      expect(list.body.items[0]).toMatchObject({ id: r.body.printed[0].jobId, status: "printed", attempts: 2, lines: 1 });
     } finally {
       t.printer.print = real;
-      await t.call("POST", `/config/canales/${copy.id}/deactivate`, { token: sis, body: {} });
     }
   });
-  it("dos reintentos a la vez después del fallo: lo que faltaba se imprime una sola vez", async () => {
-    const chs = (await t.call("GET", "/config/canales", { token: sis })).body.items;
-    const barra = chs.find((c: any) => c.name === "BARRA");
-    const pr = await t.call("POST", "/config/impresoras", {
-      token: sis,
-      body: { name: "ZONA DOBLE", connection: "192.168.1.98", kind: "kitchen" },
-    });
-    const copy = (
-      await t.call("POST", "/config/canales", {
-        token: sis,
-        body: { name: "COPIA DOBLE", kind: "kitchen", copyOfId: barra.id, printerId: pr.body.id },
-      })
-    ).body.item;
+  it("5 minutos sin salir → fallido (Gestiones › Impresiones); se reintenta a mano, se manda a otra impresora o se cancela", async () => {
     const real = t.printer.print.bind(t.printer);
     try {
-      t.printer.print = async (job) =>
-        job.printer === "ZONA DOBLE" ? { ok: false, error: "apagada" } : real(job);
+      t.printer.print = async (job) => (job.printer !== "RESERVA COLA" && job.channel === "BEBIDA" ? { ok: false, error: "apagada" } : real(job));
       const o = await openTable();
-      expect((await t.call("POST", `/orders/${o.orderId}/send`, { token: sis, body: {} })).error.code).toBe(
-        "PRINTER_OFFLINE",
-      );
-      // vuelve la impresora (lenta): dos equipos reintentan a la vez
-      t.printer.print = async (job) => {
-        await new Promise((r) => setTimeout(r, 50));
-        return real(job);
-      };
+      const r = await t.call("POST", `/orders/${o.orderId}/send`, { token: sis, body: {} });
+      const id = r.body.printed[0].jobId;
+      for (const ms of [3_000, 6_000, 16_000, 31_000, 61_000, 61_000, 61_000, 61_000, 61_000]) {
+        later(ms);
+        await t.queue.drain();
+      }
+      const failed = await t.call("GET", "/print-jobs?status=failed", { token: sis });
+      expect(failed.body.items.find((x: any) => x.id === id)).toMatchObject({ status: "failed", channel: "BEBIDA" });
+      expect(failed.body.counts.failed).toBeGreaterThanOrEqual(1);
+      // a otra impresora (con la clave de quien tenga Ajustes › Impresoras)
+      const pr = await t.call("POST", "/config/impresoras", {
+        token: sis,
+        body: { name: "RESERVA COLA", connection: "192.168.1.97", kind: "kitchen" },
+      });
       t.printer.jobs.length = 0;
-      const [a, b] = await Promise.all(
-        [1, 2].map(() => t.call("POST", `/orders/${o.orderId}/send`, { token: sis, body: {} })),
-      );
-      expect([a.status, b.status]).toEqual([200, 200]);
-      expect(t.printer.jobs.filter((j) => j.channel === "COPIA DOBLE")).toHaveLength(1);
-      expect([...a.body.printed, ...b.body.printed]).toEqual([
-        { channel: "COPIA DOBLE", printer: "ZONA DOBLE", lines: 1, ok: true },
-      ]);
+      const re = await t.call("POST", `/print-jobs/${id}/reassign`, { token: sis, body: { printerId: pr.body.item.id } });
+      expect(re.status, JSON.stringify(re.env)).toBe(200);
+      await t.queue.drain();
+      const printedNow = (await t.call("GET", "/print-jobs?status=printed&limit=50", { token: sis })).body.items;
+      expect(printedNow.find((x: any) => x.id === id)).toMatchObject({ status: "printed", printerName: "RESERVA COLA" });
+      expect(t.printer.jobs.map((j) => j.printer)).toEqual(["RESERVA COLA"]);
+      // lo que ya salió no se cancela ni se reintenta
+      expect((await t.call("POST", `/print-jobs/${id}/cancel`, { token: sis, body: {} })).error.code).toBe("INVALID_TRANSITION");
+      expect((await t.call("POST", `/print-jobs/${id}/retry`, { token: sis })).error.code).toBe("INVALID_TRANSITION");
+      // otra comanda que no sale: se cancela
+      const o2 = await openTable();
+      const r2 = await t.call("POST", `/orders/${o2.orderId}/send`, { token: sis, body: {} });
+      const c = await t.call("POST", `/print-jobs/${r2.body.printed[0].jobId}/cancel`, { token: sis, body: { reason: "Ya se cantó en cocina" } });
+      expect(c.body).toMatchObject({ status: "cancelled", lastError: expect.stringContaining("Ya se cantó en cocina") });
     } finally {
       t.printer.print = real;
-      await t.call("POST", `/config/canales/${copy.id}/deactivate`, { token: sis, body: {} });
     }
   });
   it("precuenta con la impresora caída → 503, queda en precuenta y se puede repetir", async () => {

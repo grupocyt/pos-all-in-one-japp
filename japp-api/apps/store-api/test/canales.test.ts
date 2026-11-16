@@ -14,71 +14,64 @@ afterAll(async () => {
 const list = async (m: string) =>
   (await t.call("GET", `/config/${m}?limit=500`, { token: sis })).body.items as any[];
 
-describe("Canales de impresión: comanda con copias y tickets por área", () => {
+describe("Canales de impresión: solo COMIDA y BEBIDA (los del Manager) y tickets por área", () => {
   let barra: any;
-  let copia: any;
   let tkChan: any;
   let terraza: any;
   let tkPrinter: any;
-  it("los canales tienen tipo e impresora; el arranque deja un canal TICKET para todas las áreas", async () => {
+  it("los canales de comanda son COMIDA y BEBIDA (fijos, con impresora); el arranque deja un canal TICKET para todas las áreas", async () => {
     const chs = await list("canales");
-    barra = chs.find((c) => c.name === "BARRA");
-    expect(barra).toMatchObject({ kind: "kitchen" });
+    expect(chs.filter((c) => c.kind === "kitchen").map((c) => [c.name, c.code]).sort()).toEqual([
+      ["BEBIDA", "BEBIDA"],
+      ["COMIDA", "COMIDA"],
+    ]);
+    barra = chs.find((c) => c.code === "BEBIDA");
     expect(barra.printerId).toBeTruthy();
-    expect(chs.find((c) => c.name === "TICKET")).toMatchObject({ kind: "ticket" });
+    expect(chs.find((c) => c.name === "TICKET")).toMatchObject({ kind: "ticket", code: null });
     terraza = (await list("areas")).find((a) => a.name === "TERRAZA");
     expect(terraza.ticketChannelId).toBe(chs.find((c) => c.name === "TICKET").id);
   });
-  it("copia de un canal de comanda en otra impresora (doble zona); reglas de las copias", async () => {
+  it("0035: ni canales de comanda nuevos, ni copias, ni renombrar o desactivar COMIDA y BEBIDA; su impresora sí se cambia", async () => {
     const pr = await t.call("POST", "/config/impresoras", {
       token: sis,
       body: { name: "BARRA ZONA 2", connection: "192.168.1.61", kind: "bar" },
     });
-    copia = (
-      await t.call("POST", "/config/canales", {
-        token: sis,
-        body: { name: "COPIA BARRA", kind: "kitchen", copyOfId: barra.id, printerId: pr.body.id },
-      })
-    ).body.item;
-    expect(copia.copyOfId).toBe(barra.id);
-    expect(
-      (
-        await t.call("POST", "/config/canales", {
-          token: sis,
-          body: { name: "COPIA DE COPIA", copyOfId: copia.id },
-        })
-      ).error.field,
-    ).toBe("copyOfId");
-    expect(
-      (
-        await t.call("POST", "/config/canales", {
-          token: sis,
-          body: { name: "TK COPIA", kind: "ticket", copyOfId: barra.id },
-        })
-      ).error.field,
-    ).toBe("copyOfId");
-    expect(
-      (
-        await t.call("PATCH", `/config/canales/${barra.id}`, {
-          token: sis,
-          body: { copyOfId: barra.id, version: barra.version },
-        })
-      ).error.field,
-    ).toBe("copyOfId");
-    // un producto no va a una copia ni a un canal de tickets
+    const nuevo = await t.call("POST", "/config/canales", { token: sis, body: { name: "POSTRES", kind: "kitchen" } });
+    expect([nuevo.status, nuevo.error.field]).toEqual([422, "kind"]);
+    const copia = await t.call("POST", "/config/canales", {
+      token: sis,
+      body: { name: "COPIA BARRA", kind: "kitchen", copyOfId: barra.id, printerId: pr.body.item.id },
+    });
+    expect(copia.status).toBe(422);
+    const ren = await t.call("PATCH", `/config/canales/${barra.id}`, {
+      token: sis,
+      body: { name: "BARRA", version: barra.version },
+    });
+    expect([ren.status, ren.error.field]).toEqual([422, "name"]);
+    const off = await t.call("POST", `/config/canales/${barra.id}/deactivate`, { token: sis, body: {} });
+    expect([off.status, off.error.code]).toEqual([422, "VALIDATION"]);
+    const prt = await t.call("PATCH", `/config/canales/${barra.id}`, {
+      token: sis,
+      body: { printerId: pr.body.item.id, version: barra.version },
+    });
+    expect(prt.status, JSON.stringify(prt.env)).toBe(200);
+    // vuelve a su impresora
+    await t.call("PATCH", `/config/canales/${barra.id}`, {
+      token: sis,
+      body: { printerId: barra.printerId, version: prt.body.version },
+    });
+    barra = (await list("canales")).find((c) => c.code === "BEBIDA");
+    // un producto no va a un canal de tickets
     const p = (await t.call("GET", `/config/productos/${PLU.tosta}`, { token: sis })).body;
+    const tk = (await list("canales")).find((c) => c.name === "TICKET");
     expect(
       (
         await t.call("PATCH", `/config/productos/${p.id}`, {
           token: sis,
-          body: { channels: [copia.id], version: p.version },
+          body: { channels: [tk.id], version: p.version },
         })
       ).error.field,
     ).toBe("channels");
-    // el canal original con copias no se desactiva
-    expect(
-      (await t.call("POST", `/config/canales/${barra.id}/deactivate`, { token: sis, body: {} })).error.code,
-    ).toBe("IN_USE");
   });
   it("canal de tickets de terraza con su impresora; un área solo acepta canales de tickets", async () => {
     tkPrinter = (
@@ -107,7 +100,7 @@ describe("Canales de impresión: comanda con copias y tickets por área", () => 
     });
     expect(r.body.item.ticketChannelId).toBe(tkChan.id);
   });
-  it("una mesa de terraza: la comanda sale por BARRA y por su copia; la precuenta, en la impresora de tickets de terraza", async () => {
+  it("una mesa de terraza: la comanda sale por BEBIDA; la precuenta, en la impresora de tickets de terraza", async () => {
     t.printer.jobs.length = 0;
     const o = await t.call("POST", "/orders", {
       token: sis,
@@ -117,13 +110,9 @@ describe("Canales de impresión: comanda con copias y tickets por área", () => 
     const send = await t.call("POST", `/orders/${o.body._id}/send`, { token: sis, body: {} });
     expect(send.status).toBe(200);
     const kitchen = t.printer.jobs.filter((j) => j.kind === "kitchen");
-    expect(kitchen.map((j) => [j.channel, j.printer])).toEqual(
-      expect.arrayContaining([
-        ["BARRA", expect.any(String)],
-        ["COPIA BARRA", "BARRA ZONA 2"],
-      ]),
-    );
-    expect(kitchen.find((j) => j.channel === "COPIA BARRA")!.text).toMatch(/TOSTA/i);
+    expect(kitchen.map((j) => j.channel)).toEqual(["BEBIDA"]);
+    expect(kitchen[0]!.text).toMatch(/TOSTA/i);
+    expect(send.body.printed[0]).toMatchObject({ channel: "BEBIDA", ok: true, queued: false });
     const acc = o.body.accounts[0].id;
     await t.call("POST", `/orders/${o.body._id}/accounts/${acc}/prebill`, { token: sis, body: {} });
     const pre = t.printer.jobs.find((j) => j.kind === "prebill")!;

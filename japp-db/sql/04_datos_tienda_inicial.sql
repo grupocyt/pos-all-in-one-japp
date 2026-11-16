@@ -255,9 +255,11 @@ ON CONFLICT DO NOTHING;
 -- Impresoras y canales: BARRA pasa a llamarse BEBIDA y se crea COMIDA (impresora LINEA)
 UPDATE printer SET connection='tcp://10.221.17.35';
 UPDATE print_channel SET name='BEBIDA' WHERE name='BARRA';
-INSERT INTO print_channel (id, store_id, name, active, kind, printer_id)
-SELECT gen_random_uuid(), s.id, 'COMIDA', TRUE, 'kitchen', (SELECT id FROM printer WHERE name='LINEA') FROM store s
+INSERT INTO print_channel (id, store_id, name, active, kind, printer_id, code)
+SELECT gen_random_uuid(), s.id, 'COMIDA', TRUE, 'kitchen', (SELECT id FROM printer WHERE name='LINEA'), 'COMIDA' FROM store s
 WHERE NOT EXISTS (SELECT 1 FROM print_channel WHERE name='COMIDA');
+-- 0035 ya crea COMIDA (sin impresora): sale por LINEA
+UPDATE print_channel SET printer_id=(SELECT id FROM printer WHERE name='LINEA') WHERE code='COMIDA' AND printer_id IS NULL;
 INSERT INTO station_channel_printer (station_id, channel_id, printer_id, store_id)
 SELECT st.id, c.id, c.printer_id, st.store_id FROM station st CROSS JOIN print_channel c WHERE c.name='COMIDA'
 ON CONFLICT DO NOTHING;

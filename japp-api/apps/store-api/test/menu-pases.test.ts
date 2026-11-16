@@ -190,17 +190,18 @@ describe("menú del día por pases", () => {
         }
         return real(job);
       };
-      expect((await t.call("POST", `/orders/${o._id}/send`, { token: tok, body: {} })).error.code).toBe(
-        "PRINTER_OFFLINE",
-      );
+      // 16/11 · cola de impresión: no da 503; la comanda queda en la cola
+      const sent = await t.call("POST", `/orders/${o._id}/send`, { token: tok, body: {} });
+      expect(sent.body.printed.every((p: any) => p.ok === false && p.queued === true)).toBe(true);
     } finally {
       t.printer.print = real;
     }
     expect(first).toContain(">> MARCHA 1.º");
     expect(first).toContain("(2.º EN ESPERA: M MERLUZA A LA ROMANA)");
     const n = t.printer.jobs.length;
-    const r = await t.call("POST", `/orders/${o._id}/send`, { token: tok, body: {} });
-    expect(r.status).toBe(200);
+    // vuelve la impresora: la cola la reimprime sola, igual (con sus notas)
+    t.clock.now = new Date(t.clock.now.getTime() + 3_000);
+    await t.queue.drain();
     const again = kitchen(n);
     expect(again).toContain(">> MARCHA 1.º");
     expect(again).toContain("(2.º EN ESPERA: M MERLUZA A LA ROMANA)");

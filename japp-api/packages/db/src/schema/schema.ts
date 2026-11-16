@@ -596,6 +596,9 @@ export const category = pgTable("category", {
 	externalId: varchar("external_id", { length: 60 }),
 	orderOnTable: boolean("order_on_table").default(true).notNull(),
 	qualifiers: jsonb().default([]).notNull(),
+	// 0035 · carta del Manager
+	description: varchar({ length: 300 }),
+	translations: jsonb().default({}).notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],
@@ -835,6 +838,8 @@ export const printChannel = pgTable("print_channel", {
 	kind: varchar({ length: 20 }).default("kitchen").notNull(),
 	printerId: uuid("printer_id"),
 	copyOfId: uuid("copy_of_id"),
+	// 0035 · COMIDA o BEBIDA (los dos del Manager); null = canal de ticket
+	code: varchar({ length: 20 }),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],
@@ -865,6 +870,10 @@ export const product = pgTable("product", {
 	externalId: varchar("external_id", { length: 60 }),
 	description: varchar({ length: 300 }),
 	orderOnTable: boolean("order_on_table").default(true).notNull(),
+	// 0035 · carta del Manager
+	buttonLabel: varchar("button_label", { length: 80 }),
+	translations: jsonb().default({}).notNull(),
+	qualifier: boolean().default(false).notNull(),
 }, (table) => [
 	index("ix_product_category_id").using("btree", table.categoryId.asc().nullsLast().op("uuid_ops")),
 	index("ix_product_tax_id").using("btree", table.taxId.asc().nullsLast().op("uuid_ops")),
@@ -1125,6 +1134,13 @@ export const question = pgTable("question", {
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
 	externalId: varchar("external_id", { length: 60 }),
+	// 0035 · carta del Manager
+	plu: integer(),
+	description: varchar({ length: 300 }),
+	required: boolean().default(false).notNull(),
+	answerType: varchar("answer_type", { length: 10 }).default("unica").notNull(),
+	courseName: varchar("course_name", { length: 40 }),
+	translations: jsonb().default({}).notNull(),
 }, (table) => [
 	index("ix_question_store_id").using("btree", table.storeId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
@@ -1175,6 +1191,8 @@ export const store = pgTable("store", {
 	version: integer().default(1).notNull(),
 	configVersion: bigint("config_version", { mode: "number" }).default(1).notNull(),
 	webOrderUrl: varchar("web_order_url", { length: 300 }),
+	// 0035 · Order on Table encendido o apagado
+	ootEnabled: boolean("oot_enabled").default(true).notNull(),
 }, (table) => [
 	index("ix_store_company_id").using("btree", table.companyId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
@@ -1262,6 +1280,7 @@ export const questionAnswer = pgTable("question_answer", {
 	bgColor: varchar("bg_color", { length: 9 }),
 	fgColor: varchar("fg_color", { length: 9 }),
 	sortOrder: smallint("sort_order").default(0).notNull(),
+	translations: jsonb().default({}).notNull(),
 }, (table) => [
 	index("ix_question_answer_product_id").using("btree", table.productId.asc().nullsLast().op("uuid_ops")),
 	index("ix_question_answer_store_id").using("btree", table.storeId.asc().nullsLast().op("uuid_ops")),
@@ -1810,9 +1829,46 @@ export const catalogRelease = pgTable("catalog_release", {
 	error: varchar({ length: 300 }),
 	createdAt: TS("created_at").defaultNow().notNull(),
 	updatedAt: TS("updated_at").defaultNow().notNull(),
+	// 0035 · publicación de Carta
+	publicationId: varchar("publication_id", { length: 60 }).default("").notNull(),
+	publicationType: varchar("publication_type", { length: 20 }),
+	menu: varchar({ length: 60 }),
+	priceLine: varchar("price_line", { length: 60 }),
+	storeCode: varchar("store_code", { length: 20 }),
+	note: varchar({ length: 300 }),
+	result: jsonb(),
+	decidedBy: varchar("decided_by", { length: 60 }),
 }, (table) => [
 	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "catalog_release_store_id_fkey" }),
-	unique("uq_catalog_release_store_id_release_version").on(table.storeId, table.releaseVersion),
+	unique("uq_catalog_release_publication").on(table.storeId, table.publicationId, table.releaseVersion),
+]);
+
+// Migración 0035 · cola de impresión
+export const printJob = pgTable("print_job", {
+	id: uuid().primaryKey().notNull(),
+	storeId: uuid("store_id").notNull(),
+	seq: bigint({ mode: "number" }).notNull(),
+	kind: varchar({ length: 20 }).notNull(),
+	title: varchar({ length: 120 }).notNull(),
+	orderId: uuid("order_id"),
+	accountId: uuid("account_id"),
+	stationId: uuid("station_id"),
+	channel: varchar({ length: 40 }).notNull(),
+	printerName: varchar("printer_name", { length: 60 }).notNull(),
+	connection: varchar({ length: 120 }).notNull(),
+	job: jsonb().notNull(),
+	linePrinterIds: jsonb("line_printer_ids").default([]).notNull(),
+	status: varchar({ length: 12 }).default("pending").notNull(),
+	attempts: smallint().default(0).notNull(),
+	lastError: varchar("last_error", { length: 300 }),
+	nextTryAt: TS("next_try_at").defaultNow().notNull(),
+	createdBy: varchar("created_by", { length: 60 }),
+	createdDevice: varchar("created_device", { length: 40 }),
+	createdAt: TS("created_at").defaultNow().notNull(),
+	printedAt: TS("printed_at"),
+	updatedAt: TS("updated_at").defaultNow().notNull(),
+}, (table) => [
+	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "print_job_store_id_fkey" }),
 ]);
 
 // Migración 0009 (añadido a mano, mismo estilo que drizzle-kit pull)

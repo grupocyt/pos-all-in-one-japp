@@ -4,6 +4,8 @@ import { contractErrors } from "@japp/contracts";
 import { buildApp } from "../src/Startup.js";
 import type { Config } from "../src/Properties/AppSettings.js";
 import { LogPrinter } from "../src/Clases/Printers.js";
+import { PrintQueueService } from "../src/Services/PrintQueueService.js";
+import { CartaReleaseService } from "../src/Services/CartaReleaseService.js";
 
 export const PIN = { sistemas: "0186", jeison: "5845", barra: "1012", mesero: "1111" } as const;
 export const PLU = { tosta: 1813, croquetas: 1884, kaspirinha: 1650, redbull: 5362 } as const;
@@ -25,8 +27,13 @@ export async function setup(over: Partial<Config> = {}) {
   const printer = new LogPrinter();
   const { app, database } = await buildApp({ config, printer, clock: () => clock.now, logger: false });
   const fastify = app.getHttpAdapter().getInstance();
+  // 16/11 · cola de impresión: cada llamada espera a que la cola termine su vuelta (lo impreso ya está en printer.jobs)
+  const queue = app.get(PrintQueueService);
+  const releases = app.get(CartaReleaseService);
   const sql = new pg.Client({ connectionString: config.databaseUrl });
   await sql.connect();
+  // 16/11 · lo que otro archivo de pruebas dejó en la cola (impresora «apagada») no bloquea a este
+  await sql.query("UPDATE print_job SET status = 'cancelled' WHERE status IN ('pending', 'printing')");
 
   /** Llama a la API y comprueba SIEMPRE que la respuesta cumple docs/openapi.yaml. */
   async function call(
@@ -40,6 +47,7 @@ export async function setup(over: Partial<Config> = {}) {
       payload: opts.body as any,
       headers: { ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}), ...(opts.headers ?? {}) },
     });
+    await queue.idle();
     const body = res.body ? JSON.parse(res.body) : null;
     const errs = contractErrors(method, `/api/v2${url}`, res.statusCode, body);
     expect(
@@ -68,7 +76,7 @@ export async function setup(over: Partial<Config> = {}) {
     await database.close();
     await sql.end();
   };
-  return { app, call, login, sql, printer, clock, close };
+  return { app, call, login, sql, printer, clock, close, queue, releases };
 }
 export type T = Awaited<ReturnType<typeof setup>>;
 

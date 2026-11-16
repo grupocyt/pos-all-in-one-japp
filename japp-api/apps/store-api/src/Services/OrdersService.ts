@@ -88,6 +88,7 @@ import {
 import { PeriodsApplication } from "../Applications/PeriodsApplication.js";
 import { StoreApplication } from "../Applications/StoreApplication.js";
 import { CartaApplication } from "../Applications/CartaApplication.js";
+import { PrintQueueService } from "./PrintQueueService.js";
 import { OrderOnTableApplication } from "../Applications/OrderOnTableApplication.js";
 import { TablesApplication } from "../Applications/TablesApplication.js";
 import { PrintersApplication, type TicketPrinter } from "../Applications/PrintersApplication.js";
@@ -122,6 +123,8 @@ interface KitchenJob {
   at: Date;
   /** 11/11 (A4) · fast food: nombre del cliente */
   customer?: string | null;
+  /** 16/11 · la mesa (para la cola de impresión) */
+  orderId?: string;
 }
 /** Permiso para eliminar según dónde está la línea: lo «Por enviar» no pide nada; lo enviado o en precuenta, el suyo. */
 function deletePermission(status: string): string | null {
@@ -133,7 +136,8 @@ function deletePermission(status: string): string | null {
   }
   return "pedido.elimPrecuenta";
 }
-type Printed = { channel: string; printer: string; lines: number; ok: boolean };
+/** ok = ya salió; queued = sigue en la cola de impresión (sale sola en cuanto la impresora responda). */
+type Printed = { channel: string; printer: string; lines: number; ok: boolean; queued: boolean; jobId: string };
 /** Un intento de impresión en curso «reserva» sus filas este tiempo (printed_at con printed = false); pasado, otro envío las reintenta. */
 const PRINT_CLAIM_SECONDS = 60;
 
@@ -170,6 +174,7 @@ export class OrdersService {
     @Inject(PRINTER) private readonly printer: PrinterPort,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(OrderOnTableApplication) private readonly oot: OrderOnTableApplication,
+    @Inject(PrintQueueService) private readonly queue: PrintQueueService,
   ) {}
 
   ctx(session: Session): Ctx {
@@ -769,10 +774,14 @@ export class OrdersService {
     const st = await this.stores.store();
     const format = st.ticketFormats.void; // 05/11 · Ajustes › Formatos › Anulación
     const store = [st.code, st.name].filter(Boolean).join(" · "); // 11/11 · el local, como en la comanda
-    for (const p of v.printers) {
-      await this.printer
-        .print({
-          kind: "kitchen",
+    // 16/11 · por la cola de impresión: la eliminación no espera a la impresora
+    await this.queue.enqueue(
+      session,
+      session.storeId,
+      v.printers.map((p) => ({
+        kind: "void",
+        job: {
+          kind: "kitchen" as const,
           channel: p.channel_name,
           printer: p.printer_name ?? p.channel_name,
           connection: p.interface ?? "",
@@ -788,9 +797,9 @@ export class OrdersService {
             format,
             store,
           }),
-        })
-        .catch(() => ({ ok: false }));
-    }
+        },
+      })),
+    );
   }
 
   /**
@@ -818,25 +827,32 @@ export class OrdersService {
     const r = await run();
     const to = toOf(r)?.tableData;
     if (before?.printers.length && to?.name && to.name !== before.from.name) {
-      for (const p of before.printers) {
-        await this.printer
-          .print({
-            kind: "kitchen",
-            channel: p.channel_name,
-            printer: p.printer_name ?? p.channel_name,
-            connection: p.interface ?? "",
-            title: `Cambio de mesa ${before.from.name} → ${to.name}`,
-            ticket: tableChangeTicket({
+      // 16/11 · por la cola de impresión
+      await this.queue
+        .enqueue(
+          session,
+          session.storeId,
+          before.printers.map((p) => ({
+            kind: "notice",
+            orderId,
+            job: {
+              kind: "kitchen" as const,
               channel: p.channel_name,
-              waiter: session.user.name,
-              from: before.from,
-              to: { name: to.name, area: to.zone ?? "" },
-              account: before.account,
-              at: this.clock(),
-            }),
-          })
-          .catch(() => ({ ok: false }));
-      }
+              printer: p.printer_name ?? p.channel_name,
+              connection: p.interface ?? "",
+              title: `Cambio de mesa ${before.from.name} → ${to.name}`,
+              ticket: tableChangeTicket({
+                channel: p.channel_name,
+                waiter: session.user.name,
+                from: before.from,
+                to: { name: to.name ?? "", area: to.zone ?? "" },
+                account: before.account,
+                at: this.clock(),
+              }),
+            },
+          })),
+        )
+        .catch(() => undefined);
     }
     return r;
   }
@@ -1041,6 +1057,7 @@ export class OrdersService {
             waiter: ctx.actor.user,
             at: ctx.now,
             customer: l.header.customerName ?? null,
+            orderId: l.order.id,
           });
         }
         const job = jobs.get(k)!;
@@ -1109,6 +1126,7 @@ export class OrdersService {
           waiter: line.createdBy.user,
           at: ctx.now,
           customer: l.header.customerName ?? null,
+          orderId: l.order.id,
         });
       }
       jobs.get(k)!.items.push(kitchenItemOf(line, tag));
@@ -1121,48 +1139,51 @@ export class OrdersService {
     return [...jobs.values()];
   }
 
-  /** Imprime después del COMMIT y apunta qué salió. Si una impresora falla → 503 PRINTER_OFFLINE (lo que falló queda para el siguiente envío). */
+  /**
+   * 16/11 · Deja las comandas en la cola de impresión después del COMMIT y responde enseguida (espera como mucho un
+   * instante a que salgan). Una impresora que no responde ya no da 503: su comanda sigue en la cola, se reintenta sola y
+   * los equipos reciben print.failed. Cada fila order_line_printer queda impresa cuando sale su comanda.
+   */
   private async printKitchen(session: Session, jobs: KitchenJob[]): Promise<Printed[]> {
-    const printed: Printed[] = [];
+    if (!jobs.length) {
+      return [];
+    }
     // 11/11 (A8) · una línea con el local en cada comanda (para soporte); se quita en Ajustes › Formatos › Comanda
-    const st = jobs.length ? await this.stores.store() : null;
-    for (const j of jobs) {
-      const ticket = kitchenTicket(j.items, {
-        channel: j.channel,
-        waiter: j.waiter,
-        guests: j.guests,
-        table: j.table,
-        at: j.at,
-        customer: j.customer,
-        store: st ? [st.code, st.name].filter(Boolean).join(" · ") : undefined,
-        format: st?.ticketFormats.kitchen,
-      });
-      const res = await this.printer
-        .print({
-          kind: "kitchen",
+    const st = await this.stores.store();
+    const outcomes = await this.queue.enqueue(
+      session,
+      session.storeId,
+      jobs.map((j) => ({
+        kind: "kitchen",
+        orderId: j.orderId ?? null,
+        linePrinterIds: j.rows,
+        job: {
+          kind: "kitchen" as const,
           channel: j.channel,
           printer: j.printer,
           connection: j.connection,
           title: `Mesa ${j.table.name}`,
-          ticket,
-        })
-        .catch((e) => ({ ok: false, error: String(e?.message ?? e) }));
-      printed.push({ channel: j.channel, printer: j.printer, lines: j.items.length, ok: res.ok });
-      if (j.rows.length) {
-        await this.printers.markLinePrinters(
-          session.storeId,
-          j.rows,
-          res.ok,
-          res.ok ? this.clock().toISOString() : null,
-        );
-      }
-    }
-    if (printed.some((p) => !p.ok)) {
-      fail("PRINTER_OFFLINE", "Una impresora no responde: lo que no salió se imprimirá al volver a enviar", {
-        printed,
-      });
-    }
-    return printed;
+          ticket: kitchenTicket(j.items, {
+            channel: j.channel,
+            waiter: j.waiter,
+            guests: j.guests,
+            table: j.table,
+            at: j.at,
+            customer: j.customer,
+            store: [st.code, st.name].filter(Boolean).join(" · "),
+            format: st.ticketFormats.kitchen,
+          }),
+        },
+      })),
+    );
+    return jobs.map((j, i) => ({
+      channel: j.channel,
+      printer: j.printer,
+      lines: j.items.length,
+      ok: outcomes[i]!.ok,
+      queued: outcomes[i]!.queued,
+      jobId: outcomes[i]!.jobId,
+    }));
   }
 
   /**

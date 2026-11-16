@@ -98,6 +98,10 @@ import { ServiceSlaService } from "./Services/ServiceSlaService.js";
 import { ServiceSlaApplication } from "./Applications/ServiceSlaApplication.js";
 import { IncidentsService } from "./Services/IncidentsService.js";
 import { IncidentsApplication } from "./Applications/IncidentsApplication.js";
+import { PrintQueueService } from "./Services/PrintQueueService.js";
+import { PrintQueueApplication } from "./Applications/PrintQueueApplication.js";
+import { PrintJobsController } from "./Controllers/PrintJobsController.js";
+import { CartaReleaseService } from "./Services/CartaReleaseService.js";
 
 export interface AppDeps {
   config: Config;
@@ -106,11 +110,13 @@ export interface AppDeps {
   clock?: Clock;
   events?: EventsHub;
   logger?: boolean;
+  /** 16/11 · procesos en segundo plano (cola de impresión y cargas programadas de la carta). Las pruebas los llaman a mano. */
+  workers?: boolean;
 }
 
 @Module({})
 class AppModule {
-  static with(d: Required<Omit<AppDeps, "logger">>): DynamicModule {
+  static with(d: Required<Omit<AppDeps, "logger" | "workers">>): DynamicModule {
     return {
       module: AppModule,
       controllers: [
@@ -139,6 +145,7 @@ class AppModule {
         ServiceSlaController,
         OrdersBatchController,
         DeliveryController,
+        PrintJobsController,
       ],
       providers: [
         { provide: CONFIG, useValue: d.config },
@@ -202,6 +209,9 @@ class AppModule {
         ReconnectionsApplication,
         ServiceSlaService,
         ServiceSlaApplication,
+        PrintQueueService,
+        PrintQueueApplication,
+        CartaReleaseService,
         { provide: APP_FILTER, useClass: ErrorsFilter },
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_INTERCEPTOR, useClass: EnvelopeInterceptor },
@@ -237,7 +247,8 @@ export async function buildApp(deps: AppDeps) {
     new FastifyAdapter({
       // con logs: la URL se escribe sin query y sin el token del QR (LogHelper), nunca con tokens
       logger: loggerOptions(deps.logger),
-      bodyLimit: 256 * 1024,
+      // 16/11 · una publicación de Carta completa (con traducciones y teclas) pasa de 256 KB
+      bodyLimit: 8 * 1024 * 1024,
       // traceId de cada respuesta: el que mande el equipo en X-Trace-Id (si es válido) o uno nuevo
       requestIdHeader: false,
       genReqId: (req: any) => {
@@ -291,5 +302,13 @@ export async function buildApp(deps: AppDeps) {
   registerWeb(app.getHttpAdapter().getInstance(), deps.config);
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
+  if (deps.workers) {
+    app.get(PrintQueueService).start();
+    app.get(CartaReleaseService).start();
+    app.getHttpAdapter().getInstance().addHook("onClose", async () => {
+      app.get(PrintQueueService).stop();
+      app.get(CartaReleaseService).stop();
+    });
+  }
   return { app, database, printer: full.printer, events: full.events };
 }

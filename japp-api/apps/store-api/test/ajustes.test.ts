@@ -130,7 +130,7 @@ describe("Ajustes · altas, cambios y bajas", () => {
         priceTerrace: 5,
         taxRate: 10,
         categoryId: catId,
-        channels: ["BARRA"],
+        channels: ["BEBIDA"],
       },
     });
     expect(p.status, JSON.stringify(p.env)).toBe(201);
@@ -156,7 +156,7 @@ describe("Ajustes · altas, cambios y bajas", () => {
         priceTerrace: 5,
         taxRate: 10,
         categoryId: catId,
-        channels: ["BARRA"],
+        channels: ["BEBIDA"],
       },
     });
     expect(again.body.id).toBe(prodId);
@@ -417,7 +417,7 @@ describe("Ajustes · reglas de cada módulo", () => {
         name: "PDA9",
         kind: "pda",
         ip: "192.168.1.90",
-        channels: { BARRA: pr.body.id },
+        channels: { BEBIDA: pr.body.id },
         paymentMethods: ["card"],
       },
     });

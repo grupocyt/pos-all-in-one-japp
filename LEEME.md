@@ -1,16 +1,16 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0034, consultas de control · 84 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 113 endpoints, todos programados · 343 pruebas de dominio + 379 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0035, consultas de control · 85 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 145 rutas (158 operaciones), todas programadas · 343 pruebas de dominio + 387 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.269 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.270 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.269). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.270). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
 
 ## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
 
@@ -63,6 +63,19 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.270 (16/11/2026): carta del Manager, canales COMIDA y BEBIDA, cola de impresión
+
+Aprobado el 16/11. Migración **0035** (la aplica `actualizar-base.bat`; hay que pasarla antes de arrancar la API nueva).
+
+- **Carta del Manager** (`POST /api/v2/config/carta/sync` con el JSON «Publicación de Carta»: `release` + `categories`, `products`, `questions`, `keys`). Cuatro tipos: **completa**, **solo precios**, **solo nombres** y **retirar**. Cada carga queda registrada (Gestiones › **Carta del Manager**) con su versión: la misma versión con el mismo contenido no hace nada; con otro contenido o una versión anterior se rechaza (409 VERSION_CONFLICT). Con fecha futura (`effectiveAt`) **se aplica sola a su hora**. **Retirar la carta espera a que un encargado la confirme** (Confirmar / No aplicar). Un precio de un producto que no existe rechaza toda la carga (422 con la fila).
+- Lo nuevo de la carta: descripción y traducciones (solo para Order on Table), nombre de la tecla, **teclas en su casilla** (la rejilla sigue de 6 columnas), **calificativos** (`products[].qualifier` y `categories[].qualifiers`, también en la PDA, debajo del comentario), **preguntas obligatorias** con su descripción y tipo (única / múltiple).
+- **Canales de comanda: solo COMIDA y BEBIDA**, los que manda el Manager; un producto puede ir a los dos. La 0035 pasa BARRA a BEBIDA, crea COMIDA y **borra los demás canales de comanda y sus copias** (deja un aviso con sus nombres). COMIDA y BEBIDA no se renombran ni se desactivan; su impresora sí se cambia en cada equipo. **Los canales de ticket** (precuenta y factura por área) **se quedan** como estaban.
+- **Cola de impresión:** guardar y enviar ya no esperan a la impresora. Las comandas, las anulaciones y el aviso de cambio de mesa van a una cola (`print_job`) que imprime en orden por impresora; si una no responde se reintenta sola (2, 5, 15, 30 y 60 s; a los 5 minutos queda «fallida») y se ve en Gestiones › **Impresiones** con un número en rojo: reintentar, mandarla a otra impresora o cancelar. **La precuenta, la factura y los cortes se siguen imprimiendo al momento**: el cajero necesita saber en el acto si salieron.
+- **Order on Table se enciende y se apaga** en Ajustes › Restaurante (encendido por defecto). Apagado: sin botón en la mesa ni QR, sin la opción en Categorías y Productos, y la API no da la carta ni acepta pedidos (409).
+- **Usuarios:** ni el nombre, ni las iniciales, ni la clave se repiten (también con los desactivados; TPV y API, 409 DUPLICATE). Las iniciales automáticas se numeran (SR, SR2…). Colores de usuario más vivos, con el nombre en oscuro.
+- **Ajustes:** el título, el subtítulo y las pestañas se quedan fijos; solo se desplaza la tarjeta.
+- **PDA a pantalla completa:** en el móvil el teclado de la clave ocupa el alto que sobra, las mesas son más grandes y se reparten por el plano (misma forma), y las categorías y los productos son más altos.
 
 ## 1.2.268 (03/11/2026): reglas de descuento, cobro parcial y mesas cerradas
 

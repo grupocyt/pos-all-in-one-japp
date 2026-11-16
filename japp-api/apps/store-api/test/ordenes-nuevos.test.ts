@@ -126,14 +126,16 @@ describe("POST /orders/{id}/save · Guardar y salir", () => {
     await t.call("POST", `/orders/${o.id}/presence`, { token: jeison, body: { action: "leave" } });
   });
 
-  it("impresora apagada → 503 PRINTER_OFFLINE, pero la mesa queda guardada y suelta", async () => {
+  it("impresora apagada → 200 con la comanda en la cola de impresión; la mesa queda guardada y suelta", async () => {
     const o = await newOrder();
     await t.call("POST", `/orders/${o.id}/presence`, { token: sis, body: { action: "enter" } });
     const real = t.printer.print.bind(t.printer);
     t.printer.print = async (job) => (job.kind === "kitchen" ? { ok: false, error: "apagada" } : real(job));
     try {
       const r = await t.call("POST", `/orders/${o.id}/save`, { token: sis, body: {} });
-      expect([r.status, r.error.code]).toEqual([503, "PRINTER_OFFLINE"]);
+      expect(r.status).toBe(200);
+      const queued = (await t.sql.query("SELECT status FROM print_job WHERE order_id=$1", [o.id])).rows;
+      expect(queued.map((x) => x.status)).toContain("pending");
     } finally {
       t.printer.print = real;
     }

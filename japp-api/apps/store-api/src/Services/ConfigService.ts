@@ -310,6 +310,9 @@ export class ConfigService {
       if (!before.active) {
         return { id: before.id, active: false, version: before.version as number };
       }
+      if (m === "canales" && before.code) {
+        fail("VALIDATION", `${before.code} es un canal del Manager: no se desactiva`, { field: "id" });
+      }
       assertCanDeactivate(m, await this.usage(tx, se, m, before));
       await this.config.deactivate(tx, m, before.id);
       const after = await this.one(se, m, d, before.id, tx);
@@ -345,6 +348,7 @@ export class ConfigService {
       }
     }
     if (m === "usuarios") {
+      const autoIni = !rec.initials && !!rec.name;
       if (!rec.initials && rec.name) {
         rec.initials = String(rec.name)
           .split(/\s+/)
@@ -353,8 +357,29 @@ export class ConfigService {
           .slice(0, 2)
           .toUpperCase();
       }
+      // 16/11 · ni el nombre ni las iniciales se repiten (sin mayúsculas ni espacios de más; también los desactivados)
+      const norm = (v: unknown) =>
+        String(v ?? "")
+          .trim()
+          .replace(/\s+/g, " ")
+          .toLowerCase();
+      const people = (await this.config.userNames(tx, S)).filter((u) => u.id !== before?.id);
+      if (rec.name && people.some((u) => norm(u.name) === norm(rec.name))) {
+        fail("DUPLICATE", "Ya hay otra persona con ese nombre", { field: "name" });
+      }
+      if (autoIni) {
+        // iniciales puestas por la API: si ya las tiene otro, se numeran (SR → SR2…)
+        const base = String(rec.initials).slice(0, 3);
+        for (let n = 2; people.some((u) => norm(u.initials) === norm(rec.initials)) && n < 100; n++) {
+          rec.initials = `${base}${n}`.slice(0, 4);
+        }
+      }
+      if (rec.initials && people.some((u) => norm(u.initials) === norm(rec.initials))) {
+        fail("DUPLICATE", "Esas iniciales ya las tiene otra persona", { field: "initials" });
+      }
       if (rec.pin) {
-        const others = (await this.config.activeUserPins(tx, S)).filter((u) => u.id !== before?.id);
+        // la clave tampoco se repite, ni con los desactivados (al volver a activarlos chocarían)
+        const others = (await this.config.allUserPins(tx, S)).filter((u) => u.id !== before?.id);
         for (const u of others) {
           if (await bcrypt.compare(String(rec.pin), u.pinHash)) {
             fail("DUPLICATE", "Ese PIN ya lo usa otra persona", { field: "pin" });
@@ -434,6 +459,30 @@ export class ConfigService {
       }
     }
     if (m === "canales") {
+      // 16/11 · los canales de comanda son solo COMIDA y BEBIDA (los manda el Manager): fijos, sin copias
+      const code = (before?.code as string | null | undefined) ?? null;
+      if ((rec.code ?? null) !== code) {
+        fail("VALIDATION", "El canal del Manager no se cambia aquí", { field: "code" });
+      }
+      if (!before && rec.kind !== "ticket") {
+        fail("VALIDATION", "Los canales de comanda son COMIDA y BEBIDA (los manda el Manager): aquí solo se crean canales de ticket", {
+          field: "kind",
+        });
+      }
+      if (rec.copyOfId) {
+        fail("VALIDATION", "Ya no hay copias de canales: cada equipo elige la impresora de COMIDA y de BEBIDA", {
+          field: "copyOfId",
+        });
+      }
+      if (code && rec.name !== before!.name) {
+        fail("VALIDATION", `${code} es un canal del Manager: no se cambia el nombre`, { field: "name" });
+      }
+      if (code && rec.kind !== "kitchen") {
+        fail("VALIDATION", `${code} es un canal de comanda`, { field: "kind" });
+      }
+      if (!code && rec.kind !== "ticket") {
+        fail("VALIDATION", "Los canales de comanda son COMIDA y BEBIDA (los manda el Manager)", { field: "kind" });
+      }
       if (rec.kind === "ticket" && rec.copyOfId) {
         fail("VALIDATION", "Un canal de tickets no es copia de otro", { field: "copyOfId" });
       }
@@ -533,6 +582,10 @@ export class ConfigService {
       }
       // botón en la toma de pedido: la categoría del producto (una), con su nombre y colores
       // tecla en la toma de pedido: la categoría del producto, con su texto (buttonLabel; si no, el nombre) y colores
+      if ("buttonLabel" in rec) {
+        // 16/11 · el texto del botón también queda en el producto (product.button_label)
+        await this.config.setProductButtonLabel(tx, S, id, (rec.buttonLabel as string | null) ?? null);
+      }
       if (isNew || "categoryId" in rec || "buttonLabel" in rec || "bgColor" in rec || "fgColor" in rec) {
         const { product: p, current: cur } = await this.config.productButton(tx, S, id);
         const label = rec.buttonLabel ?? cur[0]?.label ?? p.name;

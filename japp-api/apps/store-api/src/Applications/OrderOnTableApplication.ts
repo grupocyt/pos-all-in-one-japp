@@ -159,6 +159,12 @@ export class OrderOnTableApplication {
   }
 
   /** URL de Order on Table de Ajustes › Restaurante (se lee siempre: puede cambiar con la tienda abierta). */
+  /** 16/11 · ¿Order on Table encendido? (Ajustes › Restaurante) */
+  async enabled(storeId: string, q: Q = this.database.db): Promise<boolean> {
+    const [r] = await q.select({ on: s.store.ootEnabled }).from(s.store).where(eq(s.store.id, storeId));
+    return r?.on !== false;
+  }
+
   async webOrderUrl(storeId: string, q: Q = this.database.db): Promise<string | null> {
     const [r] = await q.select({ url: s.store.webOrderUrl }).from(s.store).where(eq(s.store.id, storeId));
     return r?.url ?? null;
