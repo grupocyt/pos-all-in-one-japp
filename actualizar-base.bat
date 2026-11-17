@@ -3,7 +3,8 @@ REM ============================================================
 REM  Japp - Actualizar la estructura de la base SIN borrar nada
 REM  Aplica solo las migraciones pendientes (japp-db\migrations).
 REM  Conserva ventas, facturas, cierres, usuarios, carta y cadena VeriFactu.
-REM  Antes hace una copia de seguridad en la carpeta backups.
+REM  Antes hace una copia de seguridad en la carpeta backups (pg_dump). Si Windows bloquea pg_dump.exe
+REM  (Device Guard / AppLocker), la copia se hace dentro de PostgreSQL con psql: una base japp_copia_FECHA.
 REM  Uso: doble clic, o desde CMD:  actualizar-base.bat
 REM ============================================================
 
@@ -25,8 +26,8 @@ echo  PostgreSQL    : %PGBIN%
 echo  Proyecto      : %CD%
 echo.
 
-if not exist "%PGBIN%\pg_dump.exe" (
-  echo  [X] No encuentro pg_dump.exe en "%PGBIN%". Cambia PGBIN al principio de este archivo.
+if not exist "%PGBIN%\psql.exe" (
+  echo  [X] No encuentro psql.exe en "%PGBIN%". Cambia PGBIN al principio de este archivo.
   goto :fin
 )
 if not exist "japp-db\package.json" (
@@ -73,12 +74,32 @@ set "STAMP="
 for /f %%d in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmm"') do set "STAMP=%%d"
 if not defined STAMP set "STAMP=copia"
 set "COPIA=backups\%BASE%-antes-de-actualizar-%STAMP%.dump"
-"%PGBIN%\pg_dump.exe" --dbname="%DBURL%" -Fc -f "%COPIA%"
+if exist "%PGBIN%\pg_dump.exe" (
+  "%PGBIN%\pg_dump.exe" --dbname="%DBURL%" -Fc -f "%COPIA%" 2>nul
+  if not errorlevel 1 (
+    echo      Guardada en %COPIA%
+    goto :migrar
+  )
+)
+REM pg_dump no esta o Windows lo bloquea (Device Guard): copia dentro de PostgreSQL, con psql
+echo      pg_dump no se puede usar en este equipo ^(bloqueado por Windows o no instalado^).
+echo      Hago la copia dentro de PostgreSQL, como otra base de datos...
+set "COPIADB=%BASE%_copia_%STAMP:-=_%"
+"%PGBIN%\psql.exe" -X -w -q -v ON_ERROR_STOP=1 -d "%DBURL%" -c "\connect postgres" -c "CREATE DATABASE %COPIADB% TEMPLATE %BASE%"
 if errorlevel 1 (
-  echo  [X] No se ha podido hacer la copia. No se actualiza nada.
+  echo.
+  echo  [X] Tampoco se ha podido hacer la copia dentro de PostgreSQL. Lo normal es que siga
+  echo      abierta la API, el agente, pgAdmin u otra ventana conectada a la base "%BASE%":
+  echo      cierralos y vuelve a abrir este archivo. Si el usuario de la base no puede crear
+  echo      bases de datos, pide a sistemas que permitan pg_dump.exe en Device Guard.
+  echo      No se actualiza nada.
   goto :fin
 )
-echo      Guardada en %COPIA%
+set "COPIA=la base de datos %COPIADB% (en el mismo PostgreSQL)"
+echo      Guardada como %COPIA%
+echo      Para volver a ella: renombra %BASE% y luego %COPIADB% a %BASE% ^(ALTER DATABASE ... RENAME TO^).
+
+:migrar
 
 echo.
 echo  [2/3] Aplicando migraciones pendientes...
