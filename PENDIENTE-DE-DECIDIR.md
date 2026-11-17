@@ -91,6 +91,8 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Login y configuración | Cada login vuelve a leer configuración y permisos del servidor | OK (17/11): leer antes de entrar; permisos de la API; si el servidor no contesta, copia guardada y aviso | **Hecho 1.2.276** |
 | Zoom en el móvil | El doble toque no debe hacer zoom | OK (17/11) | **Hecho 1.2.276** |
 | Mesas de ejemplo | 300 mesas que nadie configuró (SALON 100–199, TERRAZA 200–399) | **Una mesa por sala en la base nueva** y script para quitarlas de la actual (17/11) | **Hecho 1.2.278** · ejecutar `limpiar-mesas-ejemplo.sql` en JC01 |
+| Hora en la caja | Hora de cada línea en la cuenta de la mesa | OK (17/11) | **Hecho 1.2.280** |
+| Comanda de la PDA de lado | La hoja se movía a izquierda y derecha | Arreglado (17/11) | **Hecho 1.2.280** |
 | Botones de la PDA | Iconos nuevos en la mesa | OK (17/11) | **Hecho 1.2.279** |
 | Comanda de la PDA | Hora por línea, sin camarero ni «Precuenta», precuenta en rojo, quién imprimió solo para encargados | OK (17/11) | **Hecho 1.2.278** |
 | Todo en la base | Nada solo en la caché del equipo (p. ej. ancho y alto de la pantalla) | Ajustes guarda en la base en segundo plano; si el envío falla, el cambio queda solo en el equipo. Propuesta: «Guardar» espera a la API (17/11) | **Pendiente del OK** · 1.2.278 ya quita del equipo lo borrado en la base |
