@@ -300,14 +300,15 @@ UPDATE discount SET percent=10, needs_authorization=TRUE WHERE name='DESCUENTO 1
 -- 0033: «Solo encargados» = los perfiles Administrador y Administrador local
 UPDATE discount SET profiles='["ADMIN","ADMIN_LOCAL"]'::jsonb WHERE needs_authorization AND profiles='[]'::jsonb;
 
--- Salas y mesas: BARRA (1), SALON (100–199) y TERRAZA (200–399)
+-- Salas y mesas: una mesa por sala para empezar, BARRA (1), SALON (100) y TERRAZA (200); el resto lo crea el local en Editar sala
+-- (17/11/2026: antes se creaban 100 mesas de ejemplo en SALON y 200 en TERRAZA)
 INSERT INTO area (id, store_id, name, sort_order, price_list, table_number_from, plan_width, plan_height, active, ticket_channel_id)
 SELECT gen_random_uuid(), s.id, 'SALON', 2, 'general', 100, 1000, 640, TRUE, (SELECT id FROM print_channel WHERE name='TICKET') FROM store s
 WHERE NOT EXISTS (SELECT 1 FROM area WHERE name='SALON');
-UPDATE area SET sort_order=3, table_number_from=200, plan_width=2000, plan_height=640, price_list='terrace' WHERE name='TERRAZA';
+UPDATE area SET sort_order=3, table_number_from=200, plan_width=1000, plan_height=640, price_list='terrace' WHERE name='TERRAZA';
 UPDATE area SET sort_order=1, table_number_from=1, price_list='general' WHERE name='BARRA';
 DELETE FROM dining_table WHERE number='100';
 INSERT INTO dining_table (id, store_id, area_id, number, capacity, pos_x, pos_y, width, height, active)
-SELECT gen_random_uuid(), a.store_id, a.id, (100+n)::text, 4, 20+(n%10)*98, 20+(n/10)*62, 80, 48, TRUE FROM area a, generate_series(0,99) n WHERE a.name='SALON';
+SELECT gen_random_uuid(), a.store_id, a.id, '100', 4, 20, 20, 80, 48, TRUE FROM area a WHERE a.name='SALON';
 INSERT INTO dining_table (id, store_id, area_id, number, capacity, pos_x, pos_y, width, height, active)
-SELECT gen_random_uuid(), a.store_id, a.id, (200+n)::text, 4, 20+(n%20)*98, 20+(n/20)*62, 80, 48, TRUE FROM area a, generate_series(0,199) n WHERE a.name='TERRAZA';
+SELECT gen_random_uuid(), a.store_id, a.id, '200', 4, 20, 20, 80, 48, TRUE FROM area a WHERE a.name='TERRAZA';

@@ -29,7 +29,7 @@ Las peticiones de las pruebas que cambian funcionalidad se aprueban antes de hac
 | # | Petición | Cómo está hoy | Qué hay que decidir |
 |---|---|---|---|
 | 12 | Nombres de los canales de impresión: los acordados (LINEA, CONTROL, BEBIDA, TICKET/FACTURACIÓN) | Los datos iniciales traen TICKET, BEBIDA y COMIDA | ¿Qué canales y con qué nombre se crean en una tienda nueva? (se cambia en los datos iniciales) |
-| 13 | Editar sala: número de mesa nueva secuencial por zona, sin poder pisar una existente | Se escribe el número a mano y avisa si ya existe (100–199 y 200–399 ya existen aunque no se vean en el plano, ver #7) | ¿Se propone solo el siguiente número libre de la zona? |
+| 13 | Editar sala: número de mesa nueva secuencial por zona, sin poder pisar una existente | Se escribe el número a mano y avisa si ya existe (desde la 1.2.277 la base nueva trae una sola mesa por sala; las 300 de ejemplo se quitan con `japp-db/sql/limpiar-mesas-ejemplo.sql`) | ¿Se propone solo el siguiente número libre de la zona? |
 | 14 | «En los canales de impresión no es posible desactivar o mover esta opción» | Un canal con productos no se puede desactivar (avisa «en uso») | Aclarar con Catalina qué opción quiere desactivar o mover |
 
 ## Al diseñar la API de la 1.2.264 (02/11/2026)
@@ -90,6 +90,10 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Diseño de la PDA | Entrar en la PDA como el diseño enviado (17/11) | **Hecho 1.2.275** (PDA, caja, tipo de equipo, reset, bloqueo y letra de base.css), probado en el artefacto | OK del 17/11 |
 | Login y configuración | Cada login vuelve a leer configuración y permisos del servidor | OK (17/11): leer antes de entrar; permisos de la API; si el servidor no contesta, copia guardada y aviso | **Hecho 1.2.276** |
 | Zoom en el móvil | El doble toque no debe hacer zoom | OK (17/11) | **Hecho 1.2.276** |
+| Mesas de ejemplo | 300 mesas que nadie configuró (SALON 100–199, TERRAZA 200–399) | **Una mesa por sala en la base nueva** y script para quitarlas de la actual (17/11) | **Hecho 1.2.278** · ejecutar `limpiar-mesas-ejemplo.sql` en JC01 |
+| Comanda de la PDA | Hora por línea, sin camarero ni «Precuenta», precuenta en rojo, quién imprimió solo para encargados | OK (17/11) | **Hecho 1.2.278** |
+| Todo en la base | Nada solo en la caché del equipo (p. ej. ancho y alto de la pantalla) | Ajustes guarda en la base en segundo plano; si el envío falla, el cambio queda solo en el equipo. Propuesta: «Guardar» espera a la API (17/11) | **Pendiente del OK** · 1.2.278 ya quita del equipo lo borrado en la base |
+| Roles y accesos | «Actualiza roles y accesos» (17/11) | ¿Datos iniciales con los perfiles de JC01, o la tabla de permisos en el LEEME/PDF? | **Por aclarar** |
 | Login de la caja | Texto bajo el logo y marcas | **«Comandero Japp» y la rueda; fuera KFC y CasaRES; vuelve el mundo; tickets con su letra de antes** (17/11). El diseño con foto, logo animado y azulejos con marcas se probó y se descartó | **Hecho 1.2.277** |
 | Datáfonos por API | Que el POS mande el importe al datáfono | Mejora futura (17/11) | A futuro · ver con los proveedores |
 | Equipos por IP | Reconocer el equipo por su IP si cambia el UUID | **Por IP** (16/11 noche), con la IP del equipo en la pantalla sin alta | **Hecho 1.2.273** · reservar las IP en el router |

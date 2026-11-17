@@ -14,12 +14,12 @@ const cif = (nif: string) => { const d = nif.slice(1, 8); let s = 0;
   return String((10 - (s % 10)) % 10) === nif[8]; };
 
 describe("datos de la tienda nueva (04)", () => {
-  it("deja la tienda, la empresa con NIF válido, 301 mesas y los canales BEBIDA y COMIDA", () => rollback(c, async () => {
+  it("deja la tienda, la empresa con NIF válido, 3 mesas (una por sala) y los canales BEBIDA y COMIDA", () => rollback(c, async () => {
     await c.query(SQL);
     expect((await one(c, "SELECT code FROM store")).code).toBe("JC01");
     const nif = (await one(c, "SELECT tax_id FROM company")).tax_id as string;
     expect(cif(nif)).toBe(true);
-    expect(n((await one(c, "SELECT count(*) FROM dining_table")).count)).toBe(301);
+    expect(n((await one(c, "SELECT count(*) FROM dining_table")).count)).toBe(3);
     const ch = (await c.query("SELECT c.name, count(pc.*)::int AS n FROM print_channel c LEFT JOIN product_channel pc ON pc.channel_id=c.id GROUP BY c.name")).rows;
     expect(ch.find(r => r.name === "COMIDA")?.n).toBeGreaterThan(0);
     expect(ch.find(r => r.name === "BEBIDA")?.n).toBeGreaterThan(0);

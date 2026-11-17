@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0037, consultas de control · 87 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 348 pruebas de dominio + 400 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.277 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.278 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,17 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.278 (17/11/2026): la base manda; comanda de la PDA con hora; una mesa por sala
+
+Sin migración (la API solo cambia el número de versión). La comanda de la PDA se probó primero en el artefacto «TPV Japp».
+
+- **PDA › Comanda:** cada línea lleva la hora en que se marcó. Ya no salen el nombre del camarero ni el texto «Precuenta»: lo que está en precuenta va en **rojo**. Los encargados (permiso «Autorizar») ven además, en pequeño, quién imprimió la precuenta y a qué hora.
+- **La base manda:** al leer la configuración (al entrar y cada 15 s), las mesas, salas, estaciones, impuestos y categorías que ya no están en la base desaparecen también de la caja y de la PDA. Antes, una mesa borrada en la base seguía saliendo porque el equipo la tenía guardada.
+- **Una mesa por sala:** la base nueva (`SEED=1`) arranca con BARRA 1, SALON 100 y TERRAZA 200. Ya no se crean las 300 mesas de ejemplo (SALON 100–199 y TERRAZA 200–399).
+- **Quitar las mesas de ejemplo de una base que ya las tiene:** `japp-db/sql/limpiar-mesas-ejemplo.sql` (con la API parada): enseña cuántas salen, borra las que nunca se usaron, da de baja las que tienen pedidos (no se pierde el historial), deja la 100 y la 200 y sube la versión de la configuración para que todos los equipos lo lean al entrar.
+
+  `psql -d "postgresql://USUARIO:CLAVE@localhost:5432/japp" -f japp-db\sql\limpiar-mesas-ejemplo.sql`
 
 ## 1.2.277 (17/11/2026): «Comandero Japp» bajo el logo; fuera KFC y CasaRES
 
@@ -251,7 +262,7 @@ npm run dev        # también sirve el TPV en http://localhost:8080/
 ## Instalación nueva (base vacía) con los datos de la tienda
 
 Con `SEED=1` la base se crea con la carta y con los datos de la tienda del formulario «Datos iniciales Japp» (`japp-db/sql/04_datos_tienda_inicial.sql`):
-tienda **JC01 · Nueva Sucursal Japp**, empresa con NIF B12300141, salas BARRA (mesa 1), SALON (100–199) y TERRAZA (200–399), canales BEBIDA (impresora BARRA) y COMIDA (impresora LINEA), y la matriz de permisos (el Cajero ya puede abrir el periodo).
+tienda **JC01 · Nueva Sucursal Japp**, empresa con NIF B12300141, salas BARRA (mesa 1), SALON (mesa 100) y TERRAZA (mesa 200), una mesa por sala, canales BEBIDA (impresora BARRA) y COMIDA (impresora LINEA), y la matriz de permisos (el Cajero ya puede abrir el periodo).
 Usuarios de prueba: Sistemas, Jeison, Barra, Mesero y **Capitan Mesero (PIN 7070)**. **Cambia todos los PIN antes de producción.**
 Solo se aplica al crear la base desde cero; una base que ya existe (como la de LG01) no cambia.
 
