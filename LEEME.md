@@ -70,8 +70,8 @@ Sin migración (la API solo cambia el número de versión). La comanda de la PDA
 
 - **PDA › Comanda:** cada línea lleva la hora en que se marcó. Ya no salen el nombre del camarero ni el texto «Precuenta»: lo que está en precuenta va en **rojo**. Los encargados (permiso «Autorizar») ven además, en pequeño, quién imprimió la precuenta y a qué hora.
 - **La base manda:** al leer la configuración (al entrar y cada 15 s), las mesas, salas, estaciones, impuestos y categorías que ya no están en la base desaparecen también de la caja y de la PDA. Antes, una mesa borrada en la base seguía saliendo porque el equipo la tenía guardada.
-- **Una mesa por sala:** la base nueva (`SEED=1`) arranca con BARRA 1, SALON 100 y TERRAZA 200. Ya no se crean las 300 mesas de ejemplo (SALON 100–199 y TERRAZA 200–399).
-- **Quitar las mesas de ejemplo de una base que ya las tiene:** `japp-db/sql/limpiar-mesas-ejemplo.sql` (con la API parada): enseña cuántas salen, borra las que nunca se usaron, da de baja las que tienen pedidos (no se pierde el historial), deja la 100 y la 200 y sube la versión de la configuración para que todos los equipos lo lean al entrar.
+- **Una mesa por sala:** la base nueva (`SEED=1`, también con `reiniciar-base.bat`, que al final enseña las mesas creadas) arranca con BARRA 1, SALON 100 y TERRAZA 200. Ya no se crean las 300 mesas de ejemplo (SALON 100–199 y TERRAZA 200–399).
+- **Quitar las mesas de ejemplo de una base que ya las tiene:** doble clic en **`limpiar-mesas.bat`** (con la API parada; no borra ventas). Ejecuta `japp-db/sql/limpiar-mesas-ejemplo.sql`: enseña cuántas salen, borra las que nunca se usaron, da de baja las que tienen pedidos (no se pierde el historial), deja la 100 y la 200 y sube la versión de la configuración para que todos los equipos lo lean al entrar.
 
   `psql -d "postgresql://USUARIO:CLAVE@localhost:5432/japp" -f japp-db\sql\limpiar-mesas-ejemplo.sql`
 

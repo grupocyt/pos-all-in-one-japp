@@ -2,6 +2,8 @@
 REM ============================================================
 REM  Japp - Borrar la base y crearla de nuevo con los datos iniciales (tienda JC01)
 REM  BORRA TODO: ventas, facturas, cierres y cadena VeriFactu. Solo para pruebas.
+REM  Desde la 1.2.278 la base nueva trae UNA mesa por sala (BARRA 1, SALON 100, TERRAZA 200), sin las 300 de ejemplo.
+REM  Para quitar solo las mesas de ejemplo sin borrar ventas: limpiar-mesas.bat
 REM  Uso: doble clic, o desde CMD:  reiniciar-base.bat
 REM ============================================================
 
@@ -68,12 +70,18 @@ if errorlevel 1 (
   goto :fin
 )
 set "SEED="
+echo.
+echo  Mesas creadas (una por sala; las demas se crean en Editar sala):
+set "DBURL="
+for /f "usebackq tokens=1,* delims==" %%a in (`findstr /B /C:"DATABASE_URL=" "%PROYECTO%japp-db\.env"`) do set "DBURL=%%b"
+"%PGBIN%\psql.exe" -X -w -A -t -F " : " -c "SELECT '   ' || a.name, string_agg(t.number, ', ' ORDER BY t.number) FROM dining_table t JOIN area a ON a.id = t.area_id GROUP BY a.name, a.sort_order ORDER BY a.sort_order" -d "%DBURL%"
 
 echo.
 echo  [3/3] Listo. Ahora:
 echo    1. Arranca la API:      cd "%PROYECTO%japp-api"  y  npm start
 echo    2. Arranca el agente:   en otra ventana,  npm start -w sync-agent
 echo    3. En cada TPV y PDA:   "Resetear equipo", Ctrl+F5 y configura la CAJA1
+echo       (en la PDA, cierra la pestana del navegador y vuelve a abrir la direccion)
 echo    Usuarios de prueba: Sistemas, Jeison, Barra, Mesero, Capitan Mesero (PIN 7070).
 echo    Cambia todos los PIN antes de abrir al publico.
 
