@@ -43,6 +43,8 @@ export interface StoreInfo {
   ticketLogo: string | null;
   /** 0033 · datáfonos del local */
   cardTerminals: number;
+  /** 0037 · caja chica: fondo fijo del gerente */
+  pettyCashLimit: number;
   cashFloat: number;
   cashDiffThreshold: number;
   pinAttempts: number;
@@ -128,6 +130,7 @@ export class StoreApplication {
       simplifiedLimit: Number(r.b.simplifiedLimit ?? 0),
       ticketLogo: r.p.ticketLogo ?? null,
       cardTerminals: Number((r.p as any).cardTerminals ?? 1) || 1,
+      pettyCashLimit: Number((r.p as any).pettyCashLimit ?? 50) || 50,
       cashFloat: Number(r.p.cashFloat),
       cashDiffThreshold: Number(r.p.cashDiffThreshold),
       pinAttempts: r.p.pinAttempts,

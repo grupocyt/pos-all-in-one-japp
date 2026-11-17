@@ -5,10 +5,14 @@ import {
   assertMainStation,
   cashDifference,
   cutTicket,
+  cutXCountTicket,
   fail,
+  pettyCashBalance,
+  planPettyCash,
   r2,
   type TicketLine,
 } from "@japp/domain";
+import { sql } from "drizzle-orm";
 import { CLOCK, DATABASE, PRINTER, type Clock } from "../Constants/Injection.js";
 import type { PrinterPort } from "../Clases/Printers.js";
 import { OrdersService } from "./OrdersService.js";
@@ -20,7 +24,7 @@ import { AuthorizationService } from "./AuthorizationService.js";
 import { StoreApplication } from "../Applications/StoreApplication.js";
 import { PeriodsApplication } from "../Applications/PeriodsApplication.js";
 import { CashApplication } from "../Applications/CashApplication.js";
-import type { CashCountInput, CashMovementInput, DrawerOpenInput } from "../Models/CashModels.js";
+import type { CashCountInput, CashMovementInput, DrawerOpenInput, PettyCashInput } from "../Models/CashModels.js";
 
 /** Caja del periodo abierto: resumen, movimientos (retiro, fondo, depósito), arqueo sin cierre, abrir cajón y corte X. */
 @Injectable()
@@ -56,6 +60,9 @@ export class CashService {
       // que se propone para mañana (el de hoy − retiros + ingresos)
       deposits: c.deposits,
       cashTips: c.cashTips,
+      // 0037 · propinas con tarjeta (las marca el datáfono) y lo que deberían marcar los datáfonos
+      cardTips: c.cardTips,
+      expectedCard: r2(c.card + c.cardTips),
       expectedCash: c.expected,
       cardSales: c.card,
       otherSales: c.other,
@@ -81,10 +88,11 @@ export class CashService {
       reasonId = r?.id ?? null;
       note = note ?? r?.name ?? b.reasonId;
     }
+    // 0037 (auditoría) · el retiro es siempre un traslado de efectivo a la caja fuerte: sigue en la venta y en el arqueo
     if (b.kind === "withdrawal" && !note?.trim()) {
-      fail("VALIDATION", "El retiro necesita motivo", { field: "reasonId" });
+      note = "Traslado a caja fuerte";
     }
-    // 11/11 (D2) · ingreso (abono de la caja fuerte a la caja chica): suma a lo esperado y al fondo de mañana
+    // 11/11 (D2) · ingreso (efectivo de la caja fuerte al cajón): suma a lo esperado y al fondo de mañana
     if (b.kind === "deposit" && !note?.trim()) {
       note = "Ingreso a caja";
     }
@@ -115,10 +123,15 @@ export class CashService {
    */
   async count(se: Session, b: CashCountInput) {
     assertDetailMatches(b.detail, b.countedCash); // el desglose suma lo contado al céntimo
+    const type = b.type ?? "arqueo";
     const cards = (b.cards ?? []).map((x) => ({ name: x.name, amount: r2(x.amount) }));
     const countedCard = cards.length ? r2(cards.reduce((t, x) => t + x.amount, 0)) : null;
-    const g = await this.auth.require(se, "funciones.caja", b.authorization);
+    // 0037 · el arqueo de auditoría es de quien tenga ese permiso (o con su clave)
+    const g = await this.auth.require(se, type === "auditoria" ? "funciones.arqueoAuditoria" : "funciones.caja", b.authorization);
     assertMainStation(se.station);
+    if (type === "cortex" && b.tipsConfirmed !== true) {
+      fail("VALIDATION", "Confirma las propinas que calcula el sistema", { field: "tipsConfirmed" });
+    }
     const store = await this.stores.store();
     const p = await this.periods.current(null, se.storeId);
     if (!p) {
@@ -126,6 +139,24 @@ export class CashService {
     }
     const c = await this.periods.cashState(null, se.storeId, p!.id, store.cashFloat);
     const d = cashDifference(b.countedCash, c.expected, store.cashDiffThreshold);
+    // 0037 · los datáfonos marcan ventas + propinas con tarjeta
+    const expectedCard = r2(c.card + c.cardTips);
+    const cardDiff = countedCard == null ? null : r2(countedCard - (type === "arqueo" ? c.card : expectedCard));
+    if (type !== "arqueo") {
+      const big = d.needsReason || (cardDiff != null && Math.abs(cardDiff) > store.cashDiffThreshold);
+      if (big && !b.note?.trim()) {
+        fail("VALIDATION", "El descuadre supera el umbral: escribe el motivo", {
+          field: "note",
+          expectedCash: c.expected,
+          countedCash: r2(b.countedCash),
+          difference: d.diff,
+          expectedCard,
+          countedCard,
+          cardDifference: cardDiff,
+          threshold: store.cashDiffThreshold,
+        });
+      }
+    }
     const a = se.actor(this.clock());
     const id = crypto.randomUUID();
     await this.cash.insertMovement(
@@ -142,17 +173,27 @@ export class CashService {
         countedCard,
         note: b.note ?? null,
         authorizedBy: g.authorizerActor?.user ?? null,
+        countType: type,
+        expectedCash: c.expected,
+        expectedCard,
+        cashTips: c.cashTips,
+        cardTips: c.cardTips,
+        tipsConfirmed: b.tipsConfirmed ?? null,
+        difference: d.diff,
       },
       a,
     );
     const out = {
       id,
+      type,
       countedCash: r2(b.countedCash),
       expectedCash: c.expected,
       difference: d.diff,
       countedCard,
       cardSales: c.card,
-      cardDifference: countedCard == null ? null : r2(countedCard - c.card),
+      expectedCard,
+      tips: { cash: c.cashTips, card: c.cardTips, confirmed: b.tipsConfirmed === true },
+      cardDifference: cardDiff,
       at: a.at,
       by: { user: a.user, device: a.device ?? "" },
       printed: null as boolean | null,
@@ -160,12 +201,155 @@ export class CashService {
       error: null as string | null,
       ticket: null as TicketLine[] | null,
     };
+    // 0037 · corte X y arqueo de auditoría: el ticket corto sale solo (el detallado, desde Movimiento de caja)
+    if (type !== "arqueo") {
+      const ticket = cutXCountTicket({
+        store: { tradeName: store.name, legalName: store.issuerName, taxId: store.nif, chain: store.chainName ?? undefined, local: store.name, logoRaster: store.ticketLogo ?? undefined },
+        station: se.station.name,
+        at: new Date(a.at),
+        user: a.user,
+        type,
+        float: c.opening,
+        withdrawals: c.withdrawals,
+        deposits: c.deposits,
+        cash: { counted: r2(b.countedCash), expected: c.expected, difference: d.diff },
+        cards,
+        card: { counted: countedCard, expected: expectedCard, difference: cardDiff },
+        tips: { cash: c.cashTips, card: c.cardTips, confirmed: b.tipsConfirmed === true },
+        note: b.note ?? null,
+      });
+      const r = await this.printShort(se, ticket, type === "auditoria" ? "Arqueo de auditoría" : "Corte X");
+      Object.assign(out, r, { ticket });
+      return out;
+    }
     // 11/11 (D2) · resumen corto del arqueo en papel (todas las partes del corte y lo contado)
     if (b.print) {
       const r = await this.countReport(se, id, true, true);
       Object.assign(out, { printed: r.printed, printer: r.printer, error: r.error, ticket: r.ticket });
     }
     return out;
+  }
+
+  /** 0037 · ticket corto por la impresora de tickets de la estación (si no responde no falla: printed = false). */
+  private async printShort(se: Session, ticket: TicketLine[], title: string) {
+    const out = { printed: false, printer: null as string | null, error: null as string | null };
+    try {
+      const printer = await this.database.withTx((tx) => this.orders.ticketPrinter(tx, se));
+      const res = await this.printer.print({ kind: "cutx", channel: printer.channel, printer: printer.name, connection: printer.connection, title, ticket });
+      out.printer = printer.name;
+      out.printed = !!res.ok;
+      out.error = res.ok ? null : `La impresora ${printer.name} no responde`;
+    } catch (e: any) {
+      out.error = e?.message ?? "No hay impresora de tickets para esta estación";
+    }
+    return out;
+  }
+
+  /**
+   * 0037 · Movimiento de caja del periodo (abierto o el que se pida): la operativa (fondo, apertura contada, retiros a caja
+   * fuerte, ingresos, arqueos y cortes X) o los arqueos de auditoría, del más nuevo al más viejo.
+   */
+  async movementsList(se: Session, scope: "ops" | "audit" | "all", periodId?: string | null) {
+    await this.auth.requireAny(se, scope === "audit" ? ["funciones.arqueoAuditoria"] : ["funciones.caja", "funciones.arqueoAuditoria"]);
+    let pid = periodId ?? null;
+    if (!pid) {
+      const p = await this.periods.current(null, se.storeId);
+      if (!p) {
+        fail("PERIOD_CLOSED", "No hay periodo abierto");
+      }
+      pid = p!.id;
+    }
+    const n = (v: unknown) => (v == null ? null : Number(v));
+    const rows = (await this.cash.movements(se.storeId, pid!)).filter((m) =>
+      scope === "all" ? true : scope === "audit" ? m.countType === "auditoria" : m.countType !== "auditoria",
+    );
+    return {
+      periodId: pid,
+      scope,
+      items: rows.map((m) => ({
+        id: m.id,
+        kind: m.kind,
+        type: m.countType ?? null,
+        amount: Number(m.amount),
+        note: m.note ?? null,
+        by: { user: m.byUserName, device: m.byDevice ?? "", at: new Date(m.byAt).toISOString() },
+        authorizedBy: m.authorizedBy ?? null,
+        counted:
+          m.kind === "count"
+            ? {
+                cash: Number(m.amount),
+                card: n(m.countedCard),
+                cards: Array.isArray(m.cardDetail) ? m.cardDetail : [],
+                detail: m.countedDetail ?? null,
+              }
+            : null,
+        expected: m.kind === "count" ? { cash: n(m.expectedCash), card: n(m.expectedCard) } : null,
+        difference: n(m.difference),
+        tips: m.kind === "count" && m.cashTips != null ? { cash: n(m.cashTips), card: n(m.cardTips), confirmed: m.tipsConfirmed === true } : null,
+        printable: m.kind === "count" && m.countType !== "apertura",
+      })),
+    };
+  }
+
+  /** 0037 · Caja chica: fondo, saldo y los últimos apuntes. */
+  async petty(se: Session) {
+    await this.auth.require(se, "funciones.cajaChica");
+    const store = await this.stores.store();
+    const moves = await this.cash.pettyMoves(se.storeId);
+    const balance = pettyCashBalance(
+      store.pettyCashLimit,
+      moves.map((m) => ({ kind: m.kind as "expense" | "replenish", amount: Number(m.amount) })),
+    );
+    return {
+      limit: store.pettyCashLimit,
+      balance,
+      spent: r2(store.pettyCashLimit - balance),
+      items: moves.slice(0, 100).map((m) => ({
+        id: m.id,
+        kind: m.kind,
+        amount: Number(m.amount),
+        reason: m.reason,
+        balanceAfter: Number(m.balanceAfter),
+        by: { user: m.byUserName, device: m.byDevice ?? "", at: new Date(m.byAt).toISOString() },
+      })),
+    };
+  }
+
+  /** 0037 · gasto (con motivo, sin pasar del saldo) o reposición (hasta el fondo) de la caja chica. */
+  async pettyMove(se: Session, b: PettyCashInput) {
+    await this.auth.require(se, "funciones.cajaChica", b.authorization);
+    if (b.kind === "expense" && !b.reason?.trim()) {
+      fail("VALIDATION", "Escribe en qué se ha gastado", { field: "reason" });
+    }
+    const store = await this.stores.store();
+    const p = await this.periods.current(null, se.storeId);
+    const a = se.actor(this.clock());
+    return this.database.withTx(async (tx) => {
+      // dos equipos a la vez no gastan el mismo saldo
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"petty:" + se.storeId}))`);
+      const moves = await this.cash.pettyMoves(se.storeId, tx);
+      const balance = pettyCashBalance(
+        store.pettyCashLimit,
+        moves.map((m) => ({ kind: m.kind as "expense" | "replenish", amount: Number(m.amount) })),
+      );
+      const plan = planPettyCash(store.pettyCashLimit, balance, b.kind, b.amount ?? null);
+      const id = crypto.randomUUID();
+      await this.cash.insertPetty(tx, {
+        id,
+        storeId: se.storeId,
+        kind: b.kind,
+        amount: plan.amount.toFixed(2),
+        reason: b.reason?.trim() || (b.kind === "replenish" ? "Reposición" : ""),
+        balanceAfter: plan.balanceAfter.toFixed(2),
+        periodId: p?.id ?? null,
+        stationId: se.station.id,
+        byUserId: a.userId,
+        byUserName: a.user,
+        byDevice: a.device ?? null,
+        byAt: a.at,
+      });
+      return { id, kind: b.kind, amount: plan.amount, balance: plan.balanceAfter, limit: store.pettyCashLimit };
+    });
   }
 
   /**

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { schema as s, type Database, type Db, type Tx } from "@japp/db";
 import type { Actor } from "@japp/domain";
 import { DATABASE } from "../Constants/Injection.js";
@@ -21,7 +21,16 @@ export interface CashMovementRow {
   /** 0033 · arqueo: lo que marcó cada datáfono y la suma */
   cardDetail?: { name: string; amount: number }[] | null;
   countedCard?: number | null;
+  /** 0037 · conteos */
+  countType?: "arqueo" | "apertura" | "cortex" | "auditoria" | null;
+  expectedCash?: number | null;
+  expectedCard?: number | null;
+  cashTips?: number | null;
+  cardTips?: number | null;
+  tipsConfirmed?: boolean | null;
+  difference?: number | null;
 }
+const n2 = (v: number | null | undefined) => (v == null ? null : v.toFixed(2));
 
 /** Movimientos de caja (cash_movement) y motivos (reason). */
 @Injectable()
@@ -43,6 +52,13 @@ export class CashApplication {
       countedDetail: m.countedDetail,
       cardDetail: m.cardDetail ?? null,
       countedCard: m.countedCard == null ? null : m.countedCard.toFixed(2),
+      countType: m.countType ?? (m.kind === "count" ? "arqueo" : null),
+      expectedCash: n2(m.expectedCash),
+      expectedCard: n2(m.expectedCard),
+      cashTips: n2(m.cashTips),
+      cardTips: n2(m.cardTips),
+      tipsConfirmed: m.tipsConfirmed ?? null,
+      difference: n2(m.difference),
       note: m.note,
       byUserId: a.userId,
       byUserName: a.user,
@@ -62,6 +78,27 @@ export class CashApplication {
         and(eq(s.cashMovement.storeId, storeId), eq(s.cashMovement.id, id), eq(s.cashMovement.kind, "count")),
       );
     return r ?? null;
+  }
+
+  /** 0037 · movimientos de caja de un periodo, del más nuevo al más viejo. */
+  async movements(storeId: string, periodId: string) {
+    return this.database.db
+      .select()
+      .from(s.cashMovement)
+      .where(and(eq(s.cashMovement.storeId, storeId), eq(s.cashMovement.periodId, periodId)))
+      .orderBy(desc(s.cashMovement.byAt));
+  }
+
+  /** 0037 · caja chica: todos los apuntes (para el saldo) y los últimos para enseñar. */
+  async pettyMoves(storeId: string, q: Q = this.database.db) {
+    return q
+      .select()
+      .from(s.pettyCashMovement)
+      .where(eq(s.pettyCashMovement.storeId, storeId))
+      .orderBy(desc(s.pettyCashMovement.byAt), desc(s.pettyCashMovement.createdAt));
+  }
+  async insertPetty(tx: Tx, r: Record<string, unknown>) {
+    await tx.insert(s.pettyCashMovement).values(r as any);
   }
 
   /** Motivo por nombre o por id, o undefined. */

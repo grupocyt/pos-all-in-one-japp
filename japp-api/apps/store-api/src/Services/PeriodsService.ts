@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database } from "@japp/db";
-import { assertMainStation, cashDifference, fail, r2 } from "@japp/domain";
+import { assertDetailMatches, assertMainStation, cashDifference, fail, r2 } from "@japp/domain";
 import { CLOCK, DATABASE, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { AuthorizationService } from "./AuthorizationService.js";
@@ -65,6 +65,22 @@ export class PeriodsService {
       // 11/11 (D2) · el fondo es el que se dejó en el último cierre (con sus retiros e ingresos); sin cierres, el de Parámetros
       const last = await this.periods.lastClosing(tx, session.storeId);
       const float = last ? Number(last.nextFloat) : store.cashFloat;
+      // 0037 (auditoría) · la base se confirma contando los billetes: si no cuadra (por encima del umbral), con motivo
+      let opening: { expected: number; counted: number; difference: number } | null = null;
+      if (b.countedFloat != null) {
+        assertDetailMatches(b.detail, b.countedFloat);
+        const d = cashDifference(b.countedFloat, float, store.cashDiffThreshold);
+        if (d.needsReason && !b.note?.trim()) {
+          fail("VALIDATION", "La base contada no cuadra con la del cierre anterior: escribe el motivo", {
+            field: "note",
+            expectedFloat: r2(float),
+            countedFloat: r2(b.countedFloat),
+            difference: d.diff,
+            threshold: store.cashDiffThreshold,
+          });
+        }
+        opening = { expected: r2(float), counted: r2(b.countedFloat), difference: d.diff };
+      }
       await this.cash.insertMovement(
         tx,
         {
@@ -78,7 +94,26 @@ export class PeriodsService {
         },
         a,
       );
-      return this.view((await this.periods.current(tx, session.storeId))!);
+      if (opening) {
+        await this.cash.insertMovement(
+          tx,
+          {
+            id: crypto.randomUUID(),
+            storeId: session.storeId,
+            periodId: id,
+            stationId: session.station.id,
+            kind: "count",
+            amount: opening.counted,
+            countedDetail: b.detail ?? null,
+            note: b.note?.trim() || null,
+            countType: "apertura",
+            expectedCash: opening.expected,
+            difference: opening.difference,
+          },
+          a,
+        );
+      }
+      return { ...this.view((await this.periods.current(tx, session.storeId))!), opening };
     });
   }
 

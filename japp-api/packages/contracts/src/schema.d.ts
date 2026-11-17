@@ -132,6 +132,8 @@ export interface paths {
          *     11/11 (API 1.2.269, migración 0033): el fondo del periodo nuevo es el «fondo para mañana» del último cierre; sin cierres, el de Parámetros (cashFloat).
          *
          *     16/11 (API 1.2.271, migración 0036): abre quien tenga funciones.iniciarDia («Iniciar el día», el Cajero) o funciones.periodo (que además cierra); sin ninguno, con la clave de quien lo tenga (PERMISSION_REQUIRED nombra funciones.periodo).
+         *
+         *     16/11 (API 1.2.274, migración 0037): countedFloat (+ detail por billetes y monedas, que tiene que sumar lo contado) = la base contada al abrir (auditoría). Se compara con el fondo del cierre anterior: por encima del umbral sin note → 422 field note (details expectedFloat, countedFloat, difference, threshold). Queda como conteo «apertura» en Movimiento de caja y la respuesta lleva opening {expected, counted, difference}.
          */
         post: operations["store_POST_periods"];
         delete?: never;
@@ -268,6 +270,8 @@ export interface paths {
          *     16/11 (API 1.2.271, migración 0036): estaciones.lastSeenAt = última vez que el equipo se identificó; solo lectura (si se manda, no se guarda).
          *
          *     16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba «Permisos que no existen» al guardar el Cajero desde el TPV).
+         *
+         *     16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -324,6 +328,8 @@ export interface paths {
          *     16/11 (API 1.2.271, migración 0036): estaciones.lastSeenAt = última vez que el equipo se identificó; solo lectura (si se manda, no se guarda).
          *
          *     16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba «Permisos que no existen» al guardar el Cajero desde el TPV).
+         *
+         *     16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -1392,6 +1398,8 @@ export interface paths {
          *     Tablas: cash_movement, payment, invoice
          *
          *     11/11 (API 1.2.269, migración 0033): deposits, cashTips, otherSales, cardTerminals y nextFloat (fondo propuesto para el día siguiente).
+         *
+         *     16/11 (API 1.2.274, migración 0037): cardTips = propinas con tarjeta (las marca el datáfono, no son venta); expectedCard = lo que deberían marcar los datáfonos (ventas con tarjeta + propinas con tarjeta).
          */
         get: operations["store_GET_cash_summary"];
         put?: never;
@@ -1409,7 +1417,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Movimiento de caja
+         * @description 16/11 (API 1.2.274, migración 0037): los apuntes de caja del periodo abierto (o periodId): scope=ops la operativa (fondo, base contada, traslados a caja fuerte, ingresos, arqueos y cortes X) y scope=audit los arqueos de auditoría (permiso funciones.arqueoAuditoria). Cada conteo lleva lo contado (efectivo, datáfonos y desglose), lo esperado, la diferencia y las propinas; printable = se puede imprimir su ticket detallado con POST /cash/counts/{id}/print.
+         *
+         *
+         *     Lo llama: TPV
+         *
+         *
+         *     Tablas: cash_movement
+         */
+        get: operations["store_GET_cash_movements"];
         put?: never;
         /**
          * Retiro, fondo o depósito
@@ -1422,6 +1440,8 @@ export interface paths {
          *     Tablas: cash_movement
          *
          *     11/11 (API 1.2.269, migración 0033): kind deposit = ingreso a la caja chica (p. ej. +5 € desde la caja fuerte): suma a lo esperado y al fondo del día siguiente; sin nota, «Ingreso a caja».
+         *
+         *     16/11 (API 1.2.274, migración 0037): el retiro es siempre un traslado de efectivo a la caja fuerte (sin motivo: «Traslado a caja fuerte»); sigue dentro de la venta y del arqueo. deposit = ingreso a caja.
          */
         post: operations["store_POST_cash_movements"];
         delete?: never;
@@ -1450,6 +1470,8 @@ export interface paths {
          *     Tablas: cash_movement
          *
          *     11/11 (API 1.2.269, migración 0033): cards = lo de cada datáfono (se guarda en cash_movement.card_detail); la respuesta compara con la tarjeta del sistema (cardSales, cardDifference). print = true imprime el resumen del arqueo: todas las partes del corte (ventas, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja) y el arqueo; se reimprime con POST /cash/counts/{countId}/print.
+         *
+         *     16/11 (API 1.2.274, migración 0037): type = arqueo (como antes), cortex (corte X contado en pantalla) o auditoria (arqueo de auditoría, permiso funciones.arqueoAuditoria; va a Movimiento de caja › Auditoría). cortex pide tipsConfirmed = true (el encargado ha visto las propinas: 422 field tipsConfirmed). En cortex y auditoria: tarjeta esperada = ventas + propinas con tarjeta; si el efectivo o la tarjeta descuadran por encima del umbral sin note → 422 field note con lo esperado; el ticket corto (contado, cada datáfono, esperado, diferencia, retiros a caja fuerte y propinas confirmadas) sale solo; el detallado, con POST /cash/counts/{id}/print. Cada conteo guarda lo esperado, las propinas y la diferencia (0037).
          */
         post: operations["store_POST_cash_counts"];
         delete?: never;
@@ -3988,6 +4010,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/cash/petty": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Caja chica
+         * @description 16/11 (API 1.2.274, migración 0037): fondo fijo del gerente (Parámetros › Caja chica, 50 € por defecto), aparte del cajón (no entra en el arqueo): fondo, saldo, gastado y los últimos apuntes. Permiso funciones.cajaChica.
+         *
+         *
+         *     Lo llama: TPV
+         *
+         *
+         *     Tablas: petty_cash_movement, store_parameters
+         */
+        get: operations["store_GET_cash_petty"];
+        put?: never;
+        /**
+         * Gasto o reposición de la caja chica
+         * @description 16/11 (API 1.2.274, migración 0037): kind expense (importe y motivo; no puede pasar del saldo → 422 PETTY_CASH_LIMIT) o replenish (sin importe repone hasta el fondo; nunca por encima → 422 PETTY_CASH_LIMIT). Queda quién, desde qué equipo y el saldo después.
+         *
+         *
+         *     Lo llama: TPV
+         *
+         *
+         *     Tablas: petty_cash_movement
+         */
+        post: operations["store_POST_cash_petty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4515,7 +4573,7 @@ export interface components {
         };
         ErrorItem: {
             /** @enum {string} */
-            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP" | "ACCOUNT_LOCKED" | "RECONNECTION_PENDING" | "RECONNECTION_DECIDED" | "SIMPLIFIED_LIMIT";
+            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP" | "ACCOUNT_LOCKED" | "RECONNECTION_PENDING" | "RECONNECTION_DECIDED" | "SIMPLIFIED_LIMIT" | "PETTY_CASH_LIMIT";
             message: string;
             /** @description Campo con el problema, si lo hay */
             field: string | null;
@@ -4846,6 +4904,11 @@ export interface operations {
                                 user?: string | null;
                                 device?: string | null;
                                 at?: string;
+                            } | null;
+                            opening?: {
+                                expected?: number;
+                                counted?: number;
+                                difference?: number;
                             } | null;
                         };
                     } & components["schemas"]["Envelope"];
@@ -8986,8 +9049,72 @@ export interface operations {
                             cardTerminals?: number;
                             /** @description Fondo que se propone para mañana: el de hoy − retiros + ingresos */
                             nextFloat?: number;
+                            cardTips?: number;
+                            expectedCard?: number;
                         };
                     } & components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    store_GET_cash_movements: {
+        parameters: {
+            query?: {
+                scope?: "ops" | "audit" | "all";
+                periodId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            periodId?: string;
+                            scope?: string;
+                            items?: {
+                                id?: string;
+                                kind?: string;
+                                type?: string | null;
+                                amount?: number;
+                                note?: string | null;
+                                by?: Record<string, never>;
+                                authorizedBy?: string | null;
+                                counted?: Record<string, never> | null;
+                                expected?: Record<string, never> | null;
+                                difference?: number | null;
+                                tips?: Record<string, never> | null;
+                                printable?: boolean;
+                            }[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PERIOD_CLOSED: No hay periodo abierto */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -9122,6 +9249,13 @@ export interface operations {
                             printer?: string | null;
                             error?: unknown;
                             ticket?: unknown[] | null;
+                            type?: string;
+                            expectedCard?: number;
+                            tips?: {
+                                cash?: number;
+                                card?: number;
+                                confirmed?: boolean;
+                            };
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -17079,6 +17213,102 @@ export interface operations {
             };
             /** @description PIN_LOCKED: Teclado bloqueado unos segundos */
             423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_cash_petty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            limit?: number;
+                            balance?: number;
+                            spent?: number;
+                            items?: Record<string, never>[];
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_POST_cash_petty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "expense" | "replenish";
+                    amount?: number | null;
+                    reason?: string | null;
+                    authorization?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            kind?: string;
+                            amount?: number;
+                            balance?: number;
+                            limit?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description PERMISSION_REQUIRED: Sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description VALIDATION: Escribe en qué se ha gastado */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

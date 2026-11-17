@@ -374,6 +374,20 @@ describe("migraciones", () => {
     await expect(c.query("UPDATE print_job SET status='lost'")).rejects.toMatchObject({ code: "23514" });
     await c.query("ROLLBACK TO SAVEPOINT s");
   }));
+  it("0037: conteos con tipo, lo esperado y propinas; caja chica con su fondo (50 €) y saldo nunca negativo", () => rollback(c, async () => {
+    const col = async (t: string, k: string) => (await one(c, "SELECT data_type d FROM information_schema.columns WHERE table_name=$1 AND column_name=$2", [t, k]))?.d ?? null;
+    for (const k of ["count_type", "expected_cash", "expected_card", "cash_tips", "card_tips", "tips_confirmed", "difference"]) expect(await col("cash_movement", k)).not.toBeNull();
+    expect((await one(c, "SELECT petty_cash_limit::float8 l FROM store_parameters LIMIT 1")).l).toBe(50);
+    const st = await one(c, "SELECT id FROM store LIMIT 1");
+    await expect(c.query("INSERT INTO petty_cash_movement (id, store_id, kind, amount, reason, balance_after, by_user_name, by_at) VALUES (gen_random_uuid(), $1, 'expense', 10, 'x', -1, 'P', now())", [st.id])).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK"); await c.query("BEGIN");
+    await expect(c.query("INSERT INTO petty_cash_movement (id, store_id, kind, amount, reason, balance_after, by_user_name, by_at) VALUES (gen_random_uuid(), $1, 'otro', 10, 'x', 1, 'P', now())", [st.id])).rejects.toMatchObject({ code: "23514" });
+    await c.query("ROLLBACK"); await c.query("BEGIN");
+    const codes = (await all(c, "SELECT code FROM permission WHERE code IN ('funciones.arqueoAuditoria','funciones.cajaChica')")).length;
+    expect(codes).toBe(2);
+    const ck = await one(c, "SELECT pg_get_constraintdef(oid) d FROM pg_constraint WHERE conname = 'ck_cash_movement_count_type'");
+    expect(ck.d).toContain("auditoria");
+  }));
   it("0036: última conexión del equipo (station.last_seen_at, vacía hasta que se identifica)", () => rollback(c, async () => {
     const r = await one(c, "SELECT data_type FROM information_schema.columns WHERE table_name='station' AND column_name='last_seen_at'");
     expect(r?.data_type).toBe("timestamp with time zone");

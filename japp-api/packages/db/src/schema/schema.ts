@@ -49,6 +49,14 @@ export const cashMovement = pgTable("cash_movement", {
 	countedDetail: jsonb("counted_detail"),
 	cardDetail: jsonb("card_detail"),
 	countedCard: numeric("counted_card", { precision: 10, scale:  2 }),
+	// 0037 · conteos: tipo, lo esperado al contar, propinas y diferencia
+	countType: varchar("count_type", { length: 12 }),
+	expectedCash: numeric("expected_cash", { precision: 10, scale:  2 }),
+	expectedCard: numeric("expected_card", { precision: 10, scale:  2 }),
+	cashTips: numeric("cash_tips", { precision: 10, scale:  2 }),
+	cardTips: numeric("card_tips", { precision: 10, scale:  2 }),
+	tipsConfirmed: boolean("tips_confirmed"),
+	difference: numeric({ precision: 10, scale:  2 }),
 	byUserId: uuid("by_user_id"),
 	byUserName: varchar("by_user_name", { length: 60 }).notNull(),
 	byRole: varchar("by_role", { length: 30 }),
@@ -995,6 +1003,8 @@ export const storeParameters = pgTable("store_parameters", {
 	ticketFormats: jsonb("ticket_formats").default({}).notNull(),
 	ticketLogo: text("ticket_logo"),
 	cardTerminals: smallint("card_terminals").default(1).notNull(),
+	// 0037 · caja chica: fondo fijo del gerente
+	pettyCashLimit: numeric("petty_cash_limit", { precision: 10, scale:  2 }).default('50').notNull(),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),
@@ -1978,4 +1988,27 @@ export const invoiceCreditLine = pgTable("invoice_credit_line", {
 	unique("uq_invoice_credit_line").on(table.creditInvoiceId, table.orderLineId),
 	check("invoice_credit_line_amount_check", sql`amount >= (0)::numeric`),
 	check("invoice_credit_line_quantity_check", sql`quantity > (0)::numeric`),
+]);
+
+// 0037 · caja chica (fondo del gerente, aparte del cajón)
+export const pettyCashMovement = pgTable("petty_cash_movement", {
+	id: uuid().primaryKey().notNull(),
+	storeId: uuid("store_id").notNull(),
+	kind: varchar({ length: 12 }).notNull(),
+	amount: numeric({ precision: 10, scale:  2 }).notNull(),
+	reason: varchar({ length: 200 }).notNull(),
+	balanceAfter: numeric("balance_after", { precision: 10, scale:  2 }).notNull(),
+	periodId: uuid("period_id"),
+	stationId: uuid("station_id"),
+	byUserId: uuid("by_user_id"),
+	byUserName: varchar("by_user_name", { length: 60 }).notNull(),
+	byDevice: varchar("by_device", { length: 40 }),
+	byAt: timestamp("by_at", { precision: 3, withTimezone: true, mode: 'string' }).notNull(),
+	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("ix_petty_cash_movement_store_at").using("btree", table.storeId.asc().nullsLast().op("uuid_ops"), table.byAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "petty_cash_movement_store_id_fkey" }),
+	check("petty_cash_movement_kind_check", sql`(kind)::text = ANY ((ARRAY['expense'::character varying, 'replenish'::character varying])::text[])`),
+	check("petty_cash_movement_amount_check", sql`amount > (0)::numeric`),
+	check("petty_cash_movement_balance_after_check", sql`balance_after >= (0)::numeric`),
 ]);

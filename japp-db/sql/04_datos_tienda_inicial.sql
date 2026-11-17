@@ -257,6 +257,17 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO profile_permission (profile_id, permission_code, store_id)
   SELECT p.id, 'funciones.iniciarDia', p.store_id FROM user_profile p WHERE p.code IN ('CAJERO', 'ADMIN')
 ON CONFLICT DO NOTHING;
+-- 0037 · arqueo de auditoría (Administrador) y caja chica (Administrador y Encargado)
+INSERT INTO permission (code, module, name, sort_order) VALUES
+  ('funciones.arqueoAuditoria', 'Funciones', 'Arqueo de auditoría', 35),
+  ('funciones.cajaChica', 'Funciones', 'Caja chica', 36)
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT p.id, 'funciones.arqueoAuditoria', p.store_id FROM user_profile p WHERE p.code = 'ADMIN'
+ON CONFLICT DO NOTHING;
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT p.id, 'funciones.cajaChica', p.store_id FROM user_profile p WHERE p.code IN ('ADMIN', 'ADMIN_LOCAL')
+ON CONFLICT DO NOTHING;
 
 
 -- Impresoras y canales: BARRA pasa a llamarse BEBIDA y se crea COMIDA (impresora LINEA)

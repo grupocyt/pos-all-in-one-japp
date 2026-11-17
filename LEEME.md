@@ -1,16 +1,16 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0036, consultas de control · 86 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 146 rutas (159 operaciones), todas programadas · 345 pruebas de dominio + 395 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0037, consultas de control · 87 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 348 pruebas de dominio + 400 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.273 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.275 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
-**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.273). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+**Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.274). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
 
 ## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
 
@@ -63,6 +63,33 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.275 (17/11/2026): pantallas de entrada con el diseño nuevo
+
+Sin migración. Probado primero en el artefacto «TPV Japp» y pasado al código con el OK del 17/11.
+
+- **Entrar en la PDA** (diseño enviado): logo del local (Ajustes › Restaurante) en un círculo, el local y el equipo con su IP y la rueda de ajustes; «Contraseña» hace de marcador y al teclear se cambia por puntos dorados, uno por número; teclas blancas redondas con sombra (la papelera borra toda la clave, la flecha el último número); «Ingresar» dorado; idiomas ES · CA · EN; abajo «Japp · versión». Sin el aviso «Periodo abierto…»; con el periodo cerrado sí sale el aviso. Se adapta al alto de cada móvil.
+- **Entrar en la caja:** sin «Iniciar sesión», sin «Periodo abierto desde las … por …» y sin «Clave de mesero o encargado». Al abrir el periodo («Paso 1 de 2», «No hay periodo abierto», «Clave del encargado») sigue igual.
+- **¿Cómo se va a usar este equipo?:** con el estilo nuevo y adaptada al móvil (cabe en una pantalla; en tablet y escritorio, las dos opciones lado a lado). Sin «Ej.: localhost…», sin «Después, elige el tipo de equipo» y sin «Para cambiarlo después…».
+- **¿Resetear este equipo?:** un solo aviso, sin explicar el UUID ni el recuadro con dominio, tipo y UUID.
+- **Japp bloqueado:** solo «Ingrese su clave para continuar».
+- **Letra:** la de base.css en todo el TPV (Helvetica Neue › Helvetica › Arial). Viene de serie en iPhone y Mac; en Windows sale Arial y en Android la del sistema.
+- **Modo mock:** en un móvil entra como PDA1 con el periodo abierto (entra Mesero, 1111); «Pasar a móvil» / «Pasar a caja» en la etiqueta MOCK.
+
+## 1.2.274 (17/11/2026): Mesas en servicio y arqueo de caja (reuniones con el Area Manager y con auditoría)
+
+Migración **0037**. Lo pidió Catalina tras las reuniones con Francisco (Area Manager) y Julián (auditoría), para cerrar la versión antes del piloto en LG01 y TJ03.
+
+- **Mesas en servicio** (Gestiones): dos bloques, **«En servicio»** y **«En precuenta»**. En cada bloque, primero las mesas fuera de SLA, luego las cercanas al límite y al final las que van en tiempo; dentro de cada grupo, la que más ha gastado de su límite va arriba, y el orden se recalcula cada 30 s. Cada tarjeta enseña solo la mesa, el camarero, el tiempo grande con su color y la barra; lo demás se abre con un toque. Las medias de hoy y por camarero quedan plegadas abajo.
+- **Abrir el periodo:** antes de abrir se **cuenta la base por billetes y monedas**. Si no cuadra con la base del cierre anterior (por encima del umbral), pide el motivo. Queda como movimiento «Base contada al abrir».
+- **Caja › Corte X** (nuevo, sustituye a «Arqueo»): se cuenta **en pantalla**. Arriba, las **propinas hasta ahora** (las calcula el sistema; efectivo y tarjeta) con el check **«He visto las propinas»**. Abajo, el efectivo por billetes y monedas y **lo que marca cada datáfono**. Lo que espera el sistema no se ve hasta confirmar. Al confirmar sale solo el **ticket corto** (efectivo contado, esperado y diferencia; cada datáfono y su diferencia; propinas confirmadas y quién). Si la diferencia pasa del umbral, pide el motivo.
+- **Fórmula del corte X** (la estándar; Julián puede ajustarla): efectivo esperado = base + ventas en efectivo + propinas en efectivo − traslados a caja fuerte + ingresos. Tarjeta esperada = ventas con tarjeta + propinas con tarjeta. Los traslados ya hechos entran solos. **Abonos:** la API no resta del cajón el dinero devuelto en efectivo (el TPV sin servidor sí): está en `PENDIENTE-DE-DECIDIR.md`.
+- **Caja › Movimientos:** dos apartados, **«Movimiento de caja»** (la operativa: base, cortes X, traslados, ingresos) y **«Movimiento de caja – Auditoría»** (los arqueos de auditoría). Cada corte tiene su **ticket detallado** (ventas, formas de pago, descuentos, eliminaciones, abonos, propinas, caja, cada datáfono y la diferencia).
+- **Arqueo de auditoría:** el mismo corte X con la casilla «Arqueo de auditoría». Solo con el permiso nuevo **«Arqueo de auditoría»** (por defecto, el Administrador). Va a su apartado y no se mezcla con la operativa.
+- **Traslado a caja fuerte:** el retiro es solo eso (ya no se elige motivo). Registra importe, quién lo hace y quién lo autoriza. No es un gasto: sigue en la venta y en el arqueo.
+- **Caja › Caja chica** (nueva): fondo fijo del gerente de **50 €** (Ajustes › Parámetros), **aparte del cajón**: no entra en el arqueo, ni en la venta, ni en las propinas. «Apuntar gasto» (importe, en qué se gasta y quién); no deja gastar más del saldo. «Reponer hasta 50 €». Permiso nuevo **«Caja chica»** (Administrador y Administrador local).
+- **Probado el 17/11** contra la API real con ventas de prueba (propinas, descuento, eliminación y abono): 49 de 49 comprobaciones bien con Sistemas, cajero, encargado y PDA. Retoques tras las pruebas: el traslado se guarda como «Traslado a caja fuerte» (antes «A caja fuerte»); el ticket dice «Traslados a caja fuerte»; «Ingreso a caja» ya no habla de caja chica; en Mesas en servicio el tiempo va en minutos enteros.
+- **A futuro:** datáfonos integrados por API (el POS manda el importe al datáfono). Se verá con los proveedores.
 
 ## 1.2.273 (16/11/2026, noche): el equipo se reconoce por su IP
 
@@ -167,7 +194,7 @@ Probado contra la API y PostgreSQL de este zip (tienda JC01): corte simulado, re
 - **La base ya está lista:** `japp-db` trae las migraciones **0023–0026** (Sistema, Resumen semana, Delivery y reglas del 28/10) con sus pruebas (76 en verde). `npm run db:init` las aplica sin borrar nada.
 - **El contrato ya está listo:** `japp-api/docs/openapi.yaml` y `docs/api-japp.html` (sección «4 · Nuevo en el TPV 1.2.264») traen los 9 endpoints nuevos, los módulos `pedidos` y `motorizados` y las reglas nuevas. Lo mismo en el TPV, en Administración › API backend (29 «nuevos» y 28 que «cambian») y Base de datos (72 tablas).
 - **Programado en la 1.2.267** (ver arriba). Antes, Sistema, Delivery y Resumen semana solo guardaban en el equipo.
-- **Probar sin base de datos:** abre `http://localhost:8080/?mock`, o el `index.html` suelto añadiendo `?mock`. Entra como CAJA1, no llama a la API y guarda en el navegador. Abre el periodo con 1012 y entra con 0186. Se quita con «Salir» en el chip de abajo o con `?mock=0`. Sin `?mock` no hace nada.
+- **Probar sin base de datos:** abre `http://localhost:8080/?mock`, o el `index.html` suelto añadiendo `?mock`. Entra como CAJA1 (en un móvil, como PDA1; o con `?mock=1&modo=movil`), no llama a la API y guarda en el navegador. La etiqueta «MOCK» de abajo tiene «Pasar a móvil» / «Pasar a caja». En el móvil el periodo se abre solo (en mock no hay otra caja que lo abra); entra con Mesero (1111). Abre el periodo con 1012 y entra con 0186. Se quita con «Salir» en el chip de abajo o con `?mock=0`. Sin `?mock` no hace nada.
 
 ## Opción A · Docker (lo más rápido)
 

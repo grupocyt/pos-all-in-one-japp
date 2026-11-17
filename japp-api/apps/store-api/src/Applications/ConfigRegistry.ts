@@ -217,6 +217,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       ),
       // 0033 · D2: cuántos datáfonos tiene el local (un campo por datáfono en el arqueo y el cierre)
       cardTerminals: F("card_terminals", "i", z.number().int().min(1).max(9), "Datáfonos", { default: 1 }),
+      // 0037 · caja chica: fondo fijo del gerente (aparte del cajón)
+      pettyCashLimit: F("petty_cash_limit", "n", z.number().positive().max(10000), "Caja chica (fondo)", { default: 50 }),
     },
   },
   usuarios: {

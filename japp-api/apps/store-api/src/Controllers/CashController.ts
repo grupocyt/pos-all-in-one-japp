@@ -1,7 +1,7 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query } from "@nestjs/common";
 import { CurrentSession, type Session } from "../Helpers/AuthGuard.js";
 import { parse } from "../Helpers/ValidationHelper.js";
-import { CashCountModel, CashMovementModel, DrawerOpenModel } from "../Models/CashModels.js";
+import { CashCountModel, CashMovementModel, CashMovementsQueryModel, DrawerOpenModel, PettyCashModel } from "../Models/CashModels.js";
 import { PeriodIdModel } from "../Models/PeriodsModels.js";
 import { CashService } from "../Services/CashService.js";
 
@@ -15,7 +15,28 @@ export class CashController {
     return this.cash.summary(session);
   }
 
-  /** Retiro (a caja fuerte / banco), fondo o depósito. El retiro necesita motivo. */
+  /** 0037 · Movimiento de caja: la operativa (scope=ops) o los arqueos de auditoría (scope=audit). */
+  @Get("cash/movements")
+  async movements(@CurrentSession() se: Session, @Query() q: unknown) {
+    const b = parse(CashMovementsQueryModel, q);
+    return this.cash.movementsList(se, b.scope, b.periodId ?? null);
+  }
+
+  /** 0037 · Caja chica: fondo, saldo y apuntes. */
+  @Get("cash/petty")
+  async petty(@CurrentSession() se: Session) {
+    return this.cash.petty(se);
+  }
+
+  /** 0037 · Gasto (con motivo) o reposición de la caja chica. */
+  @Post("cash/petty")
+  @HttpCode(201)
+  async pettyMove(@CurrentSession() se: Session, @Body() body: unknown) {
+    const b = parse(PettyCashModel, body);
+    return this.cash.pettyMove(se, b);
+  }
+
+  /** Retiro (traslado a caja fuerte), fondo o ingreso a caja. */
   @Post("cash/movements")
   @HttpCode(201)
   async movement(@CurrentSession() se: Session, @Body() body: unknown) {

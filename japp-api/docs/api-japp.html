@@ -10886,7 +10886,7 @@ paths:
               permission: pedido.elimEnviado
   /api/v2/sessions/current:
     get:
-      tags: &amp;id014
+      tags: &amp;id016
       - API de tienda v2 · Equipo y sesión
       summary: Mi sesión
       description: &#x27;Usuario, estación, permisos y segundos de bloqueo vigentes (cambian si se editan en Ajustes sin volver
@@ -11171,7 +11171,13 @@ paths:
 
 
         16/11 (API 1.2.271, migración 0036): abre quien tenga funciones.iniciarDia («Iniciar el día», el Cajero) o funciones.periodo
-        (que además cierra); sin ninguno, con la clave de quien lo tenga (PERMISSION_REQUIRED nombra funciones.periodo).&#x27;
+        (que además cierra); sin ninguno, con la clave de quien lo tenga (PERMISSION_REQUIRED nombra funciones.periodo).
+
+
+        16/11 (API 1.2.274, migración 0037): countedFloat (+ detail por billetes y monedas, que tiene que sumar lo contado)
+        = la base contada al abrir (auditoría). Se compara con el fondo del cierre anterior: por encima del umbral sin note
+        → 422 field note (details expectedFloat, countedFloat, difference, threshold). Queda como conteo «apertura» en Movimiento
+        de caja y la respuesta lleva opening {expected, counted, difference}.&#x27;
       operationId: store_POST_periods
       security:
       - session: []
@@ -11210,6 +11216,17 @@ paths:
                             - &#x27;null&#x27;
                           at:
                             type: string
+                      opening:
+                        type:
+                        - object
+                        - &#x27;null&#x27;
+                        properties:
+                          expected:
+                            type: number
+                          counted:
+                            type: number
+                          difference:
+                            type: number
               example:
                 title: Abrir periodo
                 type: success
@@ -12298,7 +12315,11 @@ paths:
 
 
         16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba
-        «Permisos que no existen» al guardar el Cajero desde el TPV).&#x27;
+        «Permisos que no existen» al guardar el Cajero desde el TPV).
+
+
+        16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos
+        nuevos funciones.arqueoAuditoria y funciones.cajaChica.&#x27;
       operationId: store_POST_config_module
       security:
       - session: []
@@ -12623,7 +12644,11 @@ paths:
 
 
         16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba
-        «Permisos que no existen» al guardar el Cajero desde el TPV).&#x27;
+        «Permisos que no existen» al guardar el Cajero desde el TPV).
+
+
+        16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos
+        nuevos funciones.arqueoAuditoria y funciones.cajaChica.&#x27;
       operationId: store_PATCH_config_module_id
       security:
       - session: []
@@ -25889,7 +25914,7 @@ paths:
           type: string
   /api/v2/cash/summary:
     get:
-      tags:
+      tags: &amp;id001
       - API de tienda v2 · Facturas, caja e informes
       summary: Resumen de caja del periodo
       description: &#x27;Lo esperado en caja del periodo abierto. También con funciones.periodo: quien cierra el periodo compara
@@ -25906,7 +25931,11 @@ paths:
 
 
         11/11 (API 1.2.269, migración 0033): deposits, cashTips, otherSales, cardTerminals y nextFloat (fondo propuesto para
-        el día siguiente).&#x27;
+        el día siguiente).
+
+
+        16/11 (API 1.2.274, migración 0037): cardTips = propinas con tarjeta (las marca el datáfono, no son venta); expectedCard
+        = lo que deberían marcar los datáfonos (ventas con tarjeta + propinas con tarjeta).&#x27;
       operationId: store_GET_cash_summary
       security:
       - session: []
@@ -25953,6 +25982,10 @@ paths:
                       nextFloat:
                         type: number
                         description: &#x27;Fondo que se propone para mañana: el de hoy − retiros + ingresos&#x27;
+                      cardTips:
+                        type: number
+                      expectedCard:
+                        type: number
               example:
                 title: Resumen de caja del periodo
                 type: success
@@ -25987,7 +26020,11 @@ paths:
 
 
         11/11 (API 1.2.269, migración 0033): kind deposit = ingreso a la caja chica (p. ej. +5 € desde la caja fuerte): suma
-        a lo esperado y al fondo del día siguiente; sin nota, «Ingreso a caja».&#x27;
+        a lo esperado y al fondo del día siguiente; sin nota, «Ingreso a caja».
+
+
+        16/11 (API 1.2.274, migración 0037): el retiro es siempre un traslado de efectivo a la caja fuerte (sin motivo: «Traslado
+        a caja fuerte»); sigue dentro de la venta y del arqueo. deposit = ingreso a caja.&#x27;
       operationId: store_POST_cash_movements
       security:
       - session: []
@@ -26095,6 +26132,150 @@ paths:
               reasonId: retSafe
               note: null
               authorization: auth_…
+    get:
+      tags: *id001
+      summary: Movimiento de caja
+      description: &#x27;16/11 (API 1.2.274, migración 0037): los apuntes de caja del periodo abierto (o periodId): scope=ops la
+        operativa (fondo, base contada, traslados a caja fuerte, ingresos, arqueos y cortes X) y scope=audit los arqueos de
+        auditoría (permiso funciones.arqueoAuditoria). Cada conteo lleva lo contado (efectivo, datáfonos y desglose), lo esperado,
+        la diferencia y las propinas; printable = se puede imprimir su ticket detallado con POST /cash/counts/{id}/print.
+
+
+
+        Lo llama: TPV
+
+
+
+        Tablas: cash_movement&#x27;
+      operationId: store_GET_cash_movements
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      periodId:
+                        type: string
+                      scope:
+                        type: string
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            kind:
+                              type: string
+                            type:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            amount:
+                              type: number
+                            note:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            by:
+                              type: object
+                            authorizedBy:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                            counted:
+                              type:
+                              - object
+                              - &#x27;null&#x27;
+                            expected:
+                              type:
+                              - object
+                              - &#x27;null&#x27;
+                            difference: &amp;id002
+                              type:
+                              - number
+                              - &#x27;null&#x27;
+                            tips:
+                              type:
+                              - object
+                              - &#x27;null&#x27;
+                            printable:
+                              type: boolean
+              example:
+                title: Movimiento de caja
+                type: success
+                status: 200
+                data:
+                  periodId: …
+                  scope: ops
+                  items: []
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Sin permiso&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Movimiento de caja
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Sin permiso
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;409&#x27;:
+          description: &#x27;PERIOD_CLOSED: No hay periodo abierto&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Movimiento de caja
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: PERIOD_CLOSED
+                  message: No hay periodo abierto
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ops
+          - audit
+          - all
+      - name: periodId
+        in: query
+        required: false
+        schema:
+          type: string
   /api/v2/cash/counts:
     post:
       tags:
@@ -26120,7 +26301,16 @@ paths:
         11/11 (API 1.2.269, migración 0033): cards = lo de cada datáfono (se guarda en cash_movement.card_detail); la respuesta
         compara con la tarjeta del sistema (cardSales, cardDifference). print = true imprime el resumen del arqueo: todas
         las partes del corte (ventas, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja)
-        y el arqueo; se reimprime con POST /cash/counts/{countId}/print.&#x27;
+        y el arqueo; se reimprime con POST /cash/counts/{countId}/print.
+
+
+        16/11 (API 1.2.274, migración 0037): type = arqueo (como antes), cortex (corte X contado en pantalla) o auditoria
+        (arqueo de auditoría, permiso funciones.arqueoAuditoria; va a Movimiento de caja › Auditoría). cortex pide tipsConfirmed
+        = true (el encargado ha visto las propinas: 422 field tipsConfirmed). En cortex y auditoria: tarjeta esperada = ventas
+        + propinas con tarjeta; si el efectivo o la tarjeta descuadran por encima del umbral sin note → 422 field note con
+        lo esperado; el ticket corto (contado, cada datáfono, esperado, diferencia, retiros a caja fuerte y propinas confirmadas)
+        sale solo; el detallado, con POST /cash/counts/{id}/print. Cada conteo guarda lo esperado, las propinas y la diferencia
+        (0037).&#x27;
       operationId: store_POST_cash_counts
       security:
       - session: []
@@ -26167,10 +26357,7 @@ paths:
                         - &#x27;null&#x27;
                       cardSales:
                         type: number
-                      cardDifference:
-                        type:
-                        - number
-                        - &#x27;null&#x27;
+                      cardDifference: *id002
                       printed:
                         type:
                         - boolean
@@ -26184,6 +26371,19 @@ paths:
                         type:
                         - array
                         - &#x27;null&#x27;
+                      type:
+                        type: string
+                      expectedCard:
+                        type: number
+                      tips:
+                        type: object
+                        properties:
+                          cash:
+                            type: number
+                          card:
+                            type: number
+                          confirmed:
+                            type: boolean
               example:
                 title: Arqueo
                 type: success
@@ -26608,7 +26808,7 @@ paths:
               connection: 192.168.1.50
   /api/v2/printers/print:
     post:
-      tags: &amp;id010
+      tags: &amp;id012
       - API de tienda v2 · Prueba de impresoras
       summary: Imprimir un ticket de ejemplo por IP
       description: &#x27;Permiso: ajustes.impresoras
@@ -29624,7 +29824,7 @@ paths:
               note: Precio terraza aprobado
   /api/v2/config/carta:
     get:
-      tags: &amp;id007
+      tags: &amp;id009
       - Japp Manager · sincronización · Sincronización tienda ↔ Manager
       summary: Carta completa (categorías, productos y preguntas)
       description: &#x27;Lo mismo que se manda en los sync, con id y externalId de cada registro (también los desactivados con
@@ -30166,7 +30366,7 @@ paths:
                         type:
                         - string
                         - &#x27;null&#x27;
-                      translations: &amp;id001
+                      translations: &amp;id003
                         type: object
                         description: &#x27;Textos por idioma (es, en, fr…): {&quot;en&quot;:{&quot;name&quot;:&quot;SET MENU 1&quot;}}&#x27;
                         additionalProperties:
@@ -30237,7 +30437,7 @@ paths:
                         type: boolean
                       orderOnTable:
                         type: boolean
-                      translations: *id001
+                      translations: *id003
                       printChannels:
                         type: array
                         items:
@@ -30287,7 +30487,7 @@ paths:
                               type:
                               - string
                               - &#x27;null&#x27;
-                            translations: *id001
+                            translations: *id003
                       plu:
                         type:
                         - integer
@@ -30307,7 +30507,7 @@ paths:
                         type:
                         - string
                         - &#x27;null&#x27;
-                      translations: *id001
+                      translations: *id003
                 release:
                   type: object
                   properties:
@@ -31390,7 +31590,7 @@ paths:
               type: desktop
   /api/v2/devices/claim-main:
     post:
-      tags: &amp;id013
+      tags: &amp;id015
       - API de tienda v2 · Equipo y sesión
       summary: Configurar este equipo como caja principal
       description: &#x27;La caja principal (CAJA 1) se configura en cualquier equipo de escritorio con la clave de un administrador
@@ -35582,7 +35782,7 @@ paths:
           type: string
   /api/v2/invoices/{invoiceId}/credit:
     post:
-      tags: &amp;id006
+      tags: &amp;id008
       - API de tienda v2 · Facturas, caja e informes
       summary: Abono (factura rectificativa)
       description: &#x27;Rectificativa por diferencias en la serie de abonos de Ajustes › Facturación: R5 si la factura es simplificada
@@ -42043,7 +42243,7 @@ paths:
                     properties:
                       items:
                         type: array
-                        items: &amp;id002
+                        items: &amp;id004
                           type: object
                           required:
                           - id
@@ -42134,7 +42334,7 @@ paths:
                 status: 201
                 data:
                   items:
-                  - &amp;id003
+                  - &amp;id005
                     id: …
                     clientId: pda1-1730730000000-1
                     orderId: …
@@ -42146,10 +42346,10 @@ paths:
                     quantity: 2
                     unitPrice: 2.2
                     comment: null
-                    modifiers: &amp;id004 []
+                    modifiers: &amp;id006 []
                     status: pending
                     offlineReason: Sin red (wifi)
-                    markedBy: &amp;id005
+                    markedBy: &amp;id007
                       user: Pedro
                       device: PDA1
                       at: &#x27;2026-11-04T20:10:00.000Z&#x27;
@@ -42245,14 +42445,14 @@ paths:
                     properties:
                       items:
                         type: array
-                        items: *id002
+                        items: *id004
               example:
                 title: Reconexiones
                 type: success
                 status: 200
                 data:
                   items:
-                  - *id003
+                  - *id005
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -42336,7 +42536,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      reconnection: *id002
+                      reconnection: *id004
                       printed:
                         type: array
               example:
@@ -42356,10 +42556,10 @@ paths:
                     quantity: 2
                     unitPrice: 2.2
                     comment: null
-                    modifiers: *id004
+                    modifiers: *id006
                     status: accepted
                     offlineReason: Sin red (wifi)
-                    markedBy: *id005
+                    markedBy: *id007
                     decidedBy:
                       user: Ana
                       authorizedBy: null
@@ -42485,7 +42685,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      reconnection: *id002
+                      reconnection: *id004
               example:
                 title: Descartar una reconexión
                 type: success
@@ -42503,10 +42703,10 @@ paths:
                     quantity: 2
                     unitPrice: 2.2
                     comment: null
-                    modifiers: *id004
+                    modifiers: *id006
                     status: discarded
                     offlineReason: Sin red (wifi)
-                    markedBy: *id005
+                    markedBy: *id007
                     decidedBy:
                       user: Ana
                       authorizedBy: null
@@ -42595,7 +42795,7 @@ paths:
                 mode: developer
   /api/v2/invoices/{invoiceId}/full:
     post:
-      tags: *id006
+      tags: *id008
       summary: Factura completa que sustituye a una simplificada
       description: &#x27;F1 (decidido el 04/11/2026, API 1.2.268): el cliente pide la factura con sus datos cuando ya se le hizo
         la simplificada. Nada de lo facturado se edita: la simplificada queda status = substituted y se emite una factura
@@ -42954,7 +43154,7 @@ paths:
         description: Id del arqueo (POST /cash/counts)
   /api/v2/config/carta/releases:
     get:
-      tags: *id007
+      tags: *id009
       summary: Cargas de la carta (publicaciones de Carta)
       description: &#x27;16/11 (API 1.2.270, migración 0035): las últimas cargas del Manager (más nuevas primero) con su estado:
         pending (espera su hora), confirm (retirar: espera a un encargado), applied, unchanged, failed (con error), superseded
@@ -42987,7 +43187,7 @@ paths:
                     properties:
                       items:
                         type: array
-                        items: &amp;id008
+                        items: &amp;id010
                           type: object
                           properties:
                             id:
@@ -43093,7 +43293,7 @@ paths:
         description: 1–200 (50)
   /api/v2/config/carta/releases/{id}/confirm:
     post:
-      tags: *id007
+      tags: *id009
       summary: Confirmar una carga de la carta
       description: &#x27;16/11 (API 1.2.270, migración 0035): Un encargado confirma «retirar la carta» (withdraw) o aplica ya una
         carga programada. Se aplica en una transacción (todo o nada).
@@ -43123,7 +43323,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      release: *id008
+                      release: *id010
                       result:
                         type:
                         - object
@@ -43212,7 +43412,7 @@ paths:
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
       parameters:
-      - &amp;id009
+      - &amp;id011
         name: id
         in: path
         required: true
@@ -43221,7 +43421,7 @@ paths:
           format: uuid
   /api/v2/config/carta/releases/{id}/cancel:
     post:
-      tags: *id007
+      tags: *id009
       summary: Cancelar una carga de la carta
       description: &#x27;16/11 (API 1.2.270, migración 0035): No se aplica (retirar o programada). Body opcional {reason}.
 
@@ -43250,7 +43450,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      release: *id008
+                      release: *id010
                       result:
                         type:
                         - object
@@ -43339,7 +43539,7 @@ paths:
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
       parameters:
-      - *id009
+      - *id011
       requestBody:
         required: false
         content:
@@ -43353,7 +43553,7 @@ paths:
                   - &#x27;null&#x27;
   /api/v2/print-jobs:
     get:
-      tags: *id010
+      tags: *id012
       summary: Cola de impresión
       description: &#x27;16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio
         de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas
@@ -43396,7 +43596,7 @@ paths:
                             type: integer
                       items:
                         type: array
-                        items: &amp;id011
+                        items: &amp;id013
                           type: object
                           properties:
                             id:
@@ -43463,7 +43663,7 @@ paths:
                   counts:
                     pending: 1
                   items:
-                  - &amp;id012
+                  - &amp;id014
                     id: …
                     kind: kitchen
                     title: Mesa 12
@@ -43501,7 +43701,7 @@ paths:
         description: 1–500 (100)
   /api/v2/print-jobs/{id}/retry:
     post:
-      tags: *id010
+      tags: *id012
       summary: Reintentar un papel ya
       description: &#x27;16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio
         de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas
@@ -43530,12 +43730,12 @@ paths:
                 properties:
                   type:
                     const: success
-                  data: *id011
+                  data: *id013
               example:
                 title: Reintentar un papel ya
                 type: success
                 status: 200
-                data: *id012
+                data: *id014
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -43579,10 +43779,10 @@ paths:
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
       parameters:
-      - *id009
+      - *id011
   /api/v2/print-jobs/{id}/reassign:
     post:
-      tags: *id010
+      tags: *id012
       summary: Mandar un papel a otra impresora
       description: &#x27;16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio
         de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas
@@ -43611,12 +43811,12 @@ paths:
                 properties:
                   type:
                     const: success
-                  data: *id011
+                  data: *id013
               example:
                 title: Mandar un papel a otra impresora
                 type: success
                 status: 200
-                data: *id012
+                data: *id014
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -43698,7 +43898,7 @@ paths:
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
       parameters:
-      - *id009
+      - *id011
       requestBody:
         required: false
         content:
@@ -43715,7 +43915,7 @@ paths:
                   - &#x27;null&#x27;
   /api/v2/print-jobs/{id}/cancel:
     post:
-      tags: *id010
+      tags: *id012
       summary: Cancelar un papel
       description: &#x27;16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio
         de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas
@@ -43744,12 +43944,12 @@ paths:
                 properties:
                   type:
                     const: success
-                  data: *id011
+                  data: *id013
               example:
                 title: Cancelar un papel
                 type: success
                 status: 200
-                data: *id012
+                data: *id014
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -43831,7 +44031,7 @@ paths:
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
       parameters:
-      - *id009
+      - *id011
       requestBody:
         required: false
         content:
@@ -43849,7 +44049,7 @@ paths:
                   - &#x27;null&#x27;
   /api/v2/devices/claim:
     post:
-      tags: *id013
+      tags: *id015
       summary: Vincular este equipo a su estación
       description: &#x27;16/11 (API 1.2.271, migración 0036): el equipo se vincula a una estación desde el propio equipo, con la
         clave de quien tenga ajustes.estaciones (sin sesión). Para cuando su UUID cambió (navegador borrado, otra dirección…)
@@ -44067,7 +44267,7 @@ paths:
                   - &#x27;null&#x27;
   /api/v2/sessions/current/pin:
     put:
-      tags: *id014
+      tags: *id016
       summary: Cambiar mi clave
       description: &#x27;16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, 4 cifras),
         sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API
@@ -44203,6 +44403,195 @@ paths:
                   type: string
                 newPin:
                   type: string
+  /api/v2/cash/petty:
+    get:
+      tags: *id001
+      summary: Caja chica
+      description: &#x27;16/11 (API 1.2.274, migración 0037): fondo fijo del gerente (Parámetros › Caja chica, 50 € por defecto),
+        aparte del cajón (no entra en el arqueo): fondo, saldo, gastado y los últimos apuntes. Permiso funciones.cajaChica.
+
+
+
+        Lo llama: TPV
+
+
+
+        Tablas: petty_cash_movement, store_parameters&#x27;
+      operationId: store_GET_cash_petty
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      limit:
+                        type: number
+                      balance:
+                        type: number
+                      spent:
+                        type: number
+                      items:
+                        type: array
+                        items:
+                          type: object
+              example:
+                title: Caja chica
+                type: success
+                status: 200
+                data:
+                  limit: 50
+                  balance: 37.5
+                  spent: 12.5
+                  items: []
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Sin permiso&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Caja chica
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Sin permiso
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+    post:
+      tags: *id001
+      summary: Gasto o reposición de la caja chica
+      description: &#x27;16/11 (API 1.2.274, migración 0037): kind expense (importe y motivo; no puede pasar del saldo → 422 PETTY_CASH_LIMIT)
+        o replenish (sin importe repone hasta el fondo; nunca por encima → 422 PETTY_CASH_LIMIT). Queda quién, desde qué equipo
+        y el saldo después.
+
+
+
+        Lo llama: TPV
+
+
+
+        Tablas: petty_cash_movement&#x27;
+      operationId: store_POST_cash_petty
+      security:
+      - session: []
+      responses:
+        &#x27;201&#x27;:
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      kind:
+                        type: string
+                      amount:
+                        type: number
+                      balance:
+                        type: number
+                      limit:
+                        type: number
+              example:
+                title: Gasto o reposición de la caja chica
+                type: success
+                status: 201
+                data:
+                  id: …
+                  kind: expense
+                  amount: 12.5
+                  balance: 37.5
+                  limit: 50
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;403&#x27;:
+          description: &#x27;PERMISSION_REQUIRED: Sin permiso&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Gasto o reposición de la caja chica
+                type: error
+                status: 403
+                data: null
+                errors:
+                - code: PERMISSION_REQUIRED
+                  message: Sin permiso
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        &#x27;422&#x27;:
+          description: &#x27;VALIDATION: Escribe en qué se ha gastado&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Gasto o reposición de la caja chica
+                type: error
+                status: 422
+                data: null
+                errors:
+                - code: VALIDATION
+                  message: Escribe en qué se ha gastado
+                  field: reason
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - kind
+              properties:
+                kind:
+                  type: string
+                  enum:
+                  - expense
+                  - replenish
+                amount: *id002
+                reason:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
+                authorization:
+                  type:
+                  - string
+                  - &#x27;null&#x27;
 components:
   securitySchemes:
     session:
@@ -45057,6 +45446,7 @@ components:
           - RECONNECTION_PENDING
           - RECONNECTION_DECIDED
           - SIMPLIFIED_LIMIT
+          - PETTY_CASH_LIMIT
         message:
           type: string
         field:

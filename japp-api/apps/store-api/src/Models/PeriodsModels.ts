@@ -1,7 +1,15 @@
 import { z } from "zod";
 
 /** POST /periods: abrir periodo (con autorización de encargado si hace falta). */
-export const OpenPeriodModel = z.object({ authorization: z.string().nullish() }).passthrough();
+export const OpenPeriodModel = z
+  .object({
+    authorization: z.string().nullish(),
+    /** 0037 · la base contada al abrir (billetes y monedas en detail); sin ella abre como antes */
+    countedFloat: z.number().min(0).max(100000).nullish(),
+    detail: z.record(z.string().max(10), z.number().int().min(0).max(100_000)).nullish(),
+    note: z.string().trim().max(200).nullish(),
+  })
+  .passthrough();
 export type OpenPeriodInput = z.infer<typeof OpenPeriodModel>;
 
 /** Id del periodo en la ruta. */

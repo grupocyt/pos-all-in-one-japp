@@ -28,6 +28,10 @@ export const CashCountModel = z
       .nullish(),
     /** 11/11 (D2) · imprimir el resumen del arqueo al guardarlo */
     print: z.boolean().optional(),
+    /** 0037 · arqueo (como antes), cortex (corte X contado: ticket corto) o auditoria (arqueo de auditoría) */
+    type: z.enum(["arqueo", "cortex", "auditoria"]).optional(),
+    /** 0037 · corte X: el encargado ha visto y confirma las propinas que calcula el sistema */
+    tipsConfirmed: z.boolean().optional(),
   })
   .strict();
 export type CashCountInput = z.infer<typeof CashCountModel>;
@@ -38,3 +42,20 @@ export const DrawerOpenModel = z.object({
   authorization: z.string().nullish(),
 });
 export type DrawerOpenInput = z.infer<typeof DrawerOpenModel>;
+
+/** GET /cash/movements: los de la operativa (ops) o los de auditoría (audit). */
+export const CashMovementsQueryModel = z.object({
+  scope: z.enum(["ops", "audit", "all"]).default("ops"),
+  periodId: z.string().uuid().nullish(),
+});
+
+/** POST /cash/petty: gasto de la caja chica (con motivo) o reposición. */
+export const PettyCashModel = z
+  .object({
+    kind: z.enum(["expense", "replenish"]),
+    amount: z.number().positive().max(10000).nullish(),
+    reason: z.string().trim().max(200).nullish(),
+    authorization: z.string().nullish(),
+  })
+  .strict();
+export type PettyCashInput = z.infer<typeof PettyCashModel>;

@@ -225,7 +225,9 @@ describe("Tablero de pedidos (delivery)", () => {
     expect(it).toMatchObject({ light: "red" });
     expect(it.waitMinutes).toBeGreaterThanOrEqual(31);
     expect(board.body.counts.received).toBeGreaterThanOrEqual(1);
-    expect(board.body.finished).toBeGreaterThanOrEqual(1);
+    // «terminados» cuenta los de hoy: si los 31 minutos cruzan la medianoche, el de antes ya es de ayer
+    if (new Date(t.clock.now).toDateString() === new Date().toDateString())
+      expect(board.body.finished).toBeGreaterThanOrEqual(1);
     t.clock.now = new Date();
     const c = await t.call("POST", `/delivery/orders/${r.body.id}/cancel`, {
       token: admin,

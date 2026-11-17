@@ -844,7 +844,7 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
         out.push(T(lr("- Abonos en efectivo", eur(c.cash.creditsCash))));
       }
       if (c.cash.withdrawals) {
-        out.push(T(lr("- Retiros", eur(c.cash.withdrawals))));
+        out.push(T(lr("- Traslados a caja fuerte", eur(c.cash.withdrawals)))); // 1.2.274 · el retiro es solo eso
       }
       if (c.cash.deposits) {
         out.push(T(lr("+ Ingresos", eur(c.cash.deposits))));
@@ -859,7 +859,8 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
     out.push({ k: "feed" }, T(c.arqueo ? "ARQUEO" : "ARQUEO DE CIERRE", H), R("-"));
     out.push(T(lr("Efectivo esperado", eur(c.expectedCash))), T(lr("Efectivo contado", eur(c.counted.cash))));
     const cards = c.counted.cards ?? [];
-    if (cards.length > 1) {
+    // 1.2.274 · auditoría: cada datáfono con su nombre, aunque sea uno solo
+    if (cards.length > 1 || (c.arqueo && cards.length === 1)) {
       cards.forEach((x) => out.push(T(lr(`  ${x.name}`, eur(x.amount)))));
     }
     if (c.counted.card != null) {
@@ -1044,4 +1045,75 @@ export function renderEscPos(lines: TicketLine[], o: EscPosOptions = {}): Uint8A
     } // avanzar y corte parcial
   }
   return Uint8Array.from(b);
+}
+
+/**
+ * 0037 (16/11/2026, auditoría) · Ticket corto del corte X contado en pantalla: lo contado (efectivo y cada datáfono),
+ * lo esperado, la diferencia, los retiros a caja fuerte y las propinas confirmadas. El detallado (todas las partes del
+ * corte) se imprime desde Movimiento de caja (POST /cash/counts/{id}/print).
+ */
+export interface CutXCountData {
+  store: Pick<StoreHeader, "tradeName" | "legalName" | "taxId"> & Partial<StoreHeader>;
+  station?: string;
+  at: Date;
+  user: string;
+  /** cortex o auditoria (el título cambia) */
+  type: "cortex" | "auditoria" | "arqueo" | "apertura";
+  float: number;
+  withdrawals: number;
+  deposits: number;
+  cash: { counted: number; expected: number; difference: number };
+  cards: { name: string; amount: number }[];
+  card: { counted: number | null; expected: number; difference: number | null };
+  tips: { cash: number; card: number; confirmed: boolean };
+  note?: string | null;
+  threshold?: number;
+}
+export function cutXCountTicket(c: CutXCountData): TicketLine[] {
+  const at = madridParts(c.at);
+  const H = { bold: true };
+  const st = (d: number | null) => (d == null ? "—" : Math.abs(d) < 0.005 ? "CUADRA" : d > 0 ? `SOBRA ${eur(d)}` : `FALTA ${eur(-d)}`);
+  const title =
+    c.type === "auditoria" ? "ARQUEO DE AUDITORÍA" : c.type === "apertura" ? "APERTURA · BASE CONTADA" : "CORTE X · ARQUEO";
+  const out: TicketLine[] = [];
+  out.push(...storeBlock({ ...c.store, logo: c.store.logo ?? true }, { razon: false, nif: false, direccion: false, telefono: false }).filter((l) => l.k !== "feed"));
+  out.push(
+    R("="),
+    T(title, { align: "center", bold: true }),
+    T(lr(`${at.date} ${at.hm}`, `Por: ${c.user}`)),
+    ...(c.station ? [T(`Estación: ${c.station}`)] : []),
+    R("="),
+  );
+  out.push(T("EFECTIVO", H), R("-"), T(lr("Contado", eur(c.cash.counted)), H), T(lr("Esperado", eur(c.cash.expected))));
+  out.push(T(lr("  Base", eur(c.float))));
+  if (c.withdrawals) {
+    out.push(T(lr("  Traslados a caja fuerte", eur(-c.withdrawals))));
+  }
+  if (c.deposits) {
+    out.push(T(lr("  Ingresos a caja", eur(c.deposits))));
+  }
+  out.push(T(lr("Diferencia", st(c.cash.difference)), H));
+  if (c.type !== "apertura") {
+    out.push({ k: "feed" }, T("TARJETAS (DATÁFONOS)", H), R("-"));
+    for (const x of c.cards) {
+      out.push(T(lr(x.name, eur(x.amount))));
+    }
+    out.push(
+      T(lr("Total contado", c.card.counted == null ? "—" : eur(c.card.counted)), H),
+      T(lr("Esperado (ventas + propinas)", eur(c.card.expected))),
+      T(lr("Diferencia", st(c.card.difference)), H),
+      { k: "feed" },
+      T("PROPINAS", H),
+      R("-"),
+      T(lr("En efectivo", eur(c.tips.cash))),
+      T(lr("Con tarjeta", eur(c.tips.card))),
+      T(lr("Total", eur(r2(c.tips.cash + c.tips.card))), H),
+      T(c.tips.confirmed ? `Confirmadas por ${c.user}` : "Sin confirmar"),
+    );
+  }
+  if (c.note) {
+    out.push({ k: "feed" }, T(`Motivo: ${c.note}`));
+  }
+  out.push(R("="), T("Detalle: Gestiones › Caja › Movimientos", { align: "center" }), { k: "feed", n: 2 }, { k: "cut" });
+  return out;
 }

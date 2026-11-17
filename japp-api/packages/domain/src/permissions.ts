@@ -60,6 +60,8 @@ export const PERMISSION_TREE = {
     "sir",
     "semanaEditar", // 0033 · Resumen semana › observaciones de días anteriores
     "iniciarDia", // 0036 · abrir el periodo (como en el TPV; funciones.periodo también abre y además cierra)
+    "arqueoAuditoria", // 0037 · arqueos de auditoría (Movimiento de caja › Auditoría)
+    "cajaChica", // 0037 · caja chica (fondo del gerente, aparte del cajón)
   ],
   ajustes: ["acceso", ...SETTINGS_MODULES],
   sistema: ["autorizar"],

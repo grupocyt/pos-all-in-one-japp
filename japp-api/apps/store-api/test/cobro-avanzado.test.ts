@@ -153,10 +153,7 @@ describe("mesa", () => {
 describe("caja, informes y developer", () => {
   it("retiro con motivo baja el efectivo esperado", async () => {
     const a = (await t.call("GET", "/cash/summary", { token: sistemas })).body;
-    expect(
-      (await t.call("POST", "/cash/movements", { token: sistemas, body: { kind: "withdrawal", amount: 20 } }))
-        .error.code,
-    ).toBe("VALIDATION");
+    // 1.2.274 · el retiro es siempre «traslado a caja fuerte»: sin motivo ya no es un error
     const r = await t.call("POST", "/cash/movements", {
       token: sistemas,
       body: { kind: "withdrawal", amount: 20, reasonId: "A caja fuerte" },

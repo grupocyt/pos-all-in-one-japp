@@ -80,6 +80,16 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Logo | Cambiar el logo en todas partes (impresos sobre todo) | Pendiente de respuesta (puntos 7–9) | Pendiente |
 | Manager y SIR | SP de facturacionJapp, tablas del SIR | **Lo hacemos luego** (16/11) | En espera |
 | Login | «Clave incorrecta» a veces con la clave buena | **El login pregunta siempre a la base de datos** (16/11 noche); «Cambiar mi clave» en el servidor; las personas llegan a todos los equipos | **Hecho 1.2.272** |
+| Mesas en servicio | Lectura rápida para el Area Manager | **Dos bloques (en servicio y en precuenta), lo más crítico arriba y tarjeta con lo justo** (17/11) | **Hecho 1.2.274** |
+| Apertura | Contar la base al abrir | **Por billetes y monedas**; si no cuadra, motivo (17/11) | **Hecho 1.2.274** (0037) |
+| Corte X | Contar en pantalla y no a partir del ticket | **Propinas del sistema con check; efectivo y cada datáfono escritos; ticket corto solo; el detallado en Movimientos** (17/11) | **Hecho 1.2.274** · **Julián debe validar la fórmula** (estándar, ajustable) |
+| Auditoría | Separar sus arqueos de la operativa | **Permiso «Arqueo de auditoría»** y apartado «Movimiento de caja – Auditoría» (17/11) | **Hecho 1.2.274** (0037) |
+| Retiros | Solo traslado a caja fuerte | **Siempre «Traslado a caja fuerte»**, sin motivo (17/11) | **Hecho 1.2.274** |
+| Caja chica | Fondo del gerente aparte | **Fondo fijo de 50 € aparte del cajón, se repone hasta el límite** (17/11) | **Hecho 1.2.274** (0037) |
+| Abonos en efectivo | Al abonar una factura cobrada en efectivo, la API no resta del efectivo esperado lo devuelto (el TPV sin servidor sí lo resta). Si el dinero sale del cajón, el corte X da «falta» por ese importe | **Por decidir con Julián:** ¿la devolución sale del cajón (restarla) o de la caja fuerte (como ahora)? | Visto en las pruebas de la 1.2.274 (17/11) |
+| Diseño de la PDA | Entrar en la PDA como el diseño enviado (17/11) | **Hecho 1.2.275** (PDA, caja, tipo de equipo, reset, bloqueo y letra de base.css), probado en el artefacto | OK del 17/11 |
+| Login y configuración | Cada login vuelve a leer configuración y permisos del servidor | Propuesto (17/11): leer antes de entrar; permisos de la API; ¿entrar con la copia si el servidor no responde? | **Esperando OK** |
+| Datáfonos por API | Que el POS mande el importe al datáfono | Mejora futura (17/11) | A futuro · ver con los proveedores |
 | Equipos por IP | Reconocer el equipo por su IP si cambia el UUID | **Por IP** (16/11 noche), con la IP del equipo en la pantalla sin alta | **Hecho 1.2.273** · reservar las IP en el router |
 | Permisos | «Permisos que no existen» al guardar el perfil Cajero | **«Iniciar el día» pasa a la API** (Cajero y Administrador) (16/11 noche) | **Hecho 1.2.271** (0036) |
 | Equipos | El UUID cambiaba al pasar de versión y las estaciones se mezclaban | **UUID en varios sitios del equipo, «¿Qué equipo es este?» con clave de encargado, sin «primera libre», última conexión** (16/11, noche) | **Hecho 1.2.271** (0036) · revisar en JC01 |

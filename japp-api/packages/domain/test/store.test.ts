@@ -43,6 +43,7 @@ describe("caja", () => {
       withdrawals: 100,
       deposits: 20,
       cashTips: 0,
+      cardTips: 0,
       expected: 98.5,
     });
   });
