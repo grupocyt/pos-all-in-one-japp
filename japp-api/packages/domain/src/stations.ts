@@ -5,8 +5,8 @@ import { fail } from "./errors.js";
  * - Cada tienda tiene una estación principal (station.is_main, CAJA1 en la Sucursal Pruebas).
  * - Un perfil con allowed_stations = 'main' (Cajero) solo entra y trabaja en la caja principal.
  * - Arqueo, retiros, fondo y cierre de periodo solo desde la caja principal. Abrir periodo, desde cualquiera.
- * - Identidad del equipo: si la estación tiene device_uuid, la cabecera X-Station-Id debe ser ese UUID
- *   (por nombre o id no vale: otro equipo podría hacerse pasar por ella). Sin device_uuid, vale id o nombre.
+ * - Identidad del equipo: desde 1.2.281 el equipo se reconoce por su IP (devices/identify); la cabecera
+ *   X-Station-Id lleva el id o el nombre de la estación. El UUID ya no se usa.
  */
 export type AllowedStations = "any" | "main";
 export interface StationLike {
@@ -37,23 +37,14 @@ export function assertMainStation(station: Pick<StationLike, "name" | "isMain">)
 
 /**
  * Qué estación es este equipo según la cabecera X-Station-Id.
- * - Coincide con el device_uuid de una estación → esa.
- * - Coincide con el id o el nombre de una estación que tiene device_uuid → 403 STATION_NOT_ALLOWED («Este equipo no es esa estación»).
- * - Coincide con el id o el nombre de una estación sin device_uuid → esa (como hasta ahora).
+ * - Coincide con el id o el nombre de una estación → esa (1.2.281: ya no se exige el UUID del equipo).
  * - Sin cabecera o sin coincidencia → la primera caja (kind station) o la primera estación.
  */
 export function resolveStation<S extends StationLike>(stations: S[], header?: string | null): S | null {
   const h = header?.trim();
   if (h) {
-    const byDevice = stations.find((x) => x.deviceUuid && x.deviceUuid === h);
-    if (byDevice) {
-      return byDevice;
-    }
     const byName = stations.find((x) => x.id === h || x.name === h);
     if (byName) {
-      if (byName.deviceUuid) {
-        fail("STATION_NOT_ALLOWED", "Este equipo no es esa estación", { station: byName.name });
-      }
       return byName;
     }
   }
@@ -61,8 +52,7 @@ export function resolveStation<S extends StationLike>(stations: S[], header?: st
 }
 
 /**
- * Identidad del equipo para el bloqueo de PIN: su UUID si la estación lo tiene (el equipo registrado) o, si no, la estación.
+ * Identidad del equipo para el bloqueo de PIN: la estación (1.2.281: ya no por UUID).
  * No se cuenta por dirección IP: detrás de un proxy todas las peticiones llegan con la misma y se bloquearía toda la tienda.
  */
-export const pinLockKey = (st: Pick<StationLike, "id" | "deviceUuid">) =>
-  st.deviceUuid ? `device:${st.deviceUuid}` : `station:${st.id}`;
+export const pinLockKey = (st: Pick<StationLike, "id">) => `station:${st.id}`;

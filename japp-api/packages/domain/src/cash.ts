@@ -77,8 +77,8 @@ export function assertDetailMatches(
   detail: Record<string, number> | null | undefined,
   counted: number,
 ): void {
-  if (!detail) {
-    return;
+  if (!detail || Object.keys(detail).length === 0) {
+    return; // 1.2.281 · sin billetes ni monedas (el corte X va por forma de pago): {} vale como «sin desglose»
   }
   const t = detailTotal(detail);
   if (t !== r2(counted)) {
@@ -91,48 +91,34 @@ export function assertDetailMatches(
 }
 
 /**
- * 0037 · Caja chica: fondo fijo del gerente (Parámetros › Caja chica, 50 € por defecto), aparte del cajón.
- * Saldo = fondo − gastos + reposiciones (nunca más que el fondo). Un gasto no puede pasar del saldo; una reposición no
- * puede dejarlo por encima del fondo (sin importe, repone hasta el fondo).
+ * Caja chica (0037; 1.2.281 sin fondo fijo): aparte del cajón. Saldo = ingresos − gastos (parte de 0); un gasto no puede
+ * pasar del saldo.
  */
-export function pettyCashBalance(limit: number, moves: { kind: "expense" | "replenish"; amount: number }[]): number {
-  let b = D(limit);
+export type PettyKind = "expense" | "replenish" | "deposit";
+/** 1.2.281 · saldo de la caja chica: parte de 0; ingresos (deposit, y las reposiciones de antes) suman y los gastos restan. */
+export function pettyCashBalance(_limit: number, moves: { kind: PettyKind; amount: number }[]): number {
+  let b = D(0);
   for (const m of moves) {
     b = m.kind === "expense" ? b.minus(m.amount) : b.plus(m.amount);
   }
   return r2(b);
 }
+/** 1.2.281 · ingreso: cualquier importe > 0; gasto: > 0 y sin pasar del saldo. (Reponer hasta un fondo ya no existe.) */
 export function planPettyCash(
-  limit: number,
+  _limit: number,
   balance: number,
-  kind: "expense" | "replenish",
+  kind: PettyKind,
   amount?: number | null,
 ): { amount: number; balanceAfter: number } {
+  const a = r2(amount ?? 0);
+  if (!(a > 0)) {
+    fail("VALIDATION", kind === "expense" ? "Escribe el importe del gasto" : "Escribe el importe a ingresar", { field: "amount" });
+  }
   if (kind === "expense") {
-    const a = r2(amount ?? 0);
-    if (!(a > 0)) {
-      fail("VALIDATION", "Escribe el importe del gasto", { field: "amount" });
-    }
     if (a > balance) {
-      fail("PETTY_CASH_LIMIT", `La caja chica solo tiene ${eur(balance)} €: el gasto no puede pasar de ahí`, {
-        field: "amount",
-        balance,
-        limit,
-      });
+      fail("PETTY_CASH_LIMIT", `La caja chica solo tiene ${eur(balance)} €: el gasto no puede pasar de ahí`, { field: "amount", balance });
     }
     return { amount: a, balanceAfter: r2(D(balance).minus(a)) };
-  }
-  const room = r2(D(limit).minus(balance));
-  const a = amount == null ? room : r2(amount);
-  if (!(a > 0)) {
-    fail("VALIDATION", "La caja chica ya está completa", { field: "amount", balance, limit });
-  }
-  if (a > room) {
-    fail("PETTY_CASH_LIMIT", `Con ${eur(a)} € la caja chica pasaría de ${eur(limit)} €: como mucho ${eur(room)} €`, {
-      field: "amount",
-      balance,
-      limit,
-    });
   }
   return { amount: a, balanceAfter: r2(D(balance).plus(a)) };
 }

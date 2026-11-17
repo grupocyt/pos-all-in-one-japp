@@ -22,13 +22,13 @@ describe("1.2.274 · arqueo de auditoría", () => {
     expect([r.expected, r.cashTips, r.cardTips, r.card]).toEqual([122, 2, 3, 20]);
   });
   it("caja chica: saldo, gasto hasta el saldo, reposición hasta el fondo", () => {
-    expect(pettyCashBalance(50, [{ kind: "expense", amount: 12.5 }, { kind: "expense", amount: 7.5 }, { kind: "replenish", amount: 10 }])).toBe(40);
-    expect(planPettyCash(50, 40, "expense", 40)).toEqual({ amount: 40, balanceAfter: 0 });
-    expect(code(() => planPettyCash(50, 40, "expense", 40.01))).toBe("PETTY_CASH_LIMIT");
-    expect(code(() => planPettyCash(50, 40, "expense", 0))).toBe("VALIDATION");
-    expect(planPettyCash(50, 40, "replenish")).toEqual({ amount: 10, balanceAfter: 50 });
-    expect(code(() => planPettyCash(50, 40, "replenish", 11))).toBe("PETTY_CASH_LIMIT");
-    expect(code(() => planPettyCash(50, 50, "replenish"))).toBe("VALIDATION");
+    // 1.2.281 · parte de 0: ingresos (y reposiciones antiguas) suman, gastos restan; ingreso libre, gasto sin pasar del saldo
+    expect(pettyCashBalance(50, [{ kind: "deposit", amount: 100 }, { kind: "expense", amount: 12.5 }, { kind: "replenish", amount: 10 }])).toBe(97.5);
+    expect(planPettyCash(0, 40, "expense", 40)).toEqual({ amount: 40, balanceAfter: 0 });
+    expect(code(() => planPettyCash(0, 40, "expense", 40.01))).toBe("PETTY_CASH_LIMIT");
+    expect(code(() => planPettyCash(0, 40, "expense", 0))).toBe("VALIDATION");
+    expect(planPettyCash(0, 40, "deposit", 100)).toEqual({ amount: 100, balanceAfter: 140 });
+    expect(code(() => planPettyCash(0, 40, "deposit", 0))).toBe("VALIDATION");
   });
   it("ticket corto del corte X: contado, datáfonos, esperado, diferencia, retiros y propinas confirmadas", () => {
     const tk = cutXCountTicket({

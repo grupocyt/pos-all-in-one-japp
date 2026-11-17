@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database, Tx } from "@japp/db";
-import { DomainError, deviceTypeOf, fail, describeDiff, identifyDevice, normIp, planClaimMain, planClaimStation, stationByIp, stationMethods, type Actor } from "@japp/domain";
+import { deviceTypeOf, fail, describeDiff, normIp, stationByIp, stationMethods, type Actor } from "@japp/domain";
 import { CLOCK, DATABASE, type Clock } from "../Constants/Injection.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { SessionsService } from "./SessionsService.js";
@@ -11,13 +11,16 @@ import type { ClaimMainInput, ClaimStationInput, IdentifyDeviceInput } from "../
 
 type StationRow = Awaited<ReturnType<DevicesApplication["lockStations"]>>[number];
 
+/** El propio servidor (la caja que abre localhost). */
+const isLoopback = (ip: string) => ip === "127.0.0.1" || ip === "::1" || ip === "localhost";
+
 /** Lo que se guarda de la estación en el historial de Ajustes y en la cola (lo que cambia aquí). */
 const snapOf = (st: StationRow) => ({
   id: st.id,
   name: st.name,
   kind: st.kind,
   isMain: st.isMain,
-  deviceUuid: st.deviceUuid ?? null,
+  ip: st.ip ?? null,
   version: st.version,
 });
 
@@ -41,24 +44,18 @@ export class DevicesService {
     @Inject(SessionsService) private readonly sessions: SessionsService,
   ) {}
 
+  /**
+   * 1.2.281 (17/11/2026) · el equipo se reconoce SOLO por su IP: la estación activa de su tipo con esa IP (una sola).
+   * La caja que corre en el propio servidor (localhost) es la caja principal. El UUID ya no se usa ni se guarda.
+   */
   async identify(b: IdentifyDeviceInput, clientIp?: string) {
     const store = await this.stores.store();
     const ip = normIp(clientIp) || null;
-    let st;
-    let matchedBy: "uuid" | "ip" = "uuid";
-    try {
-      st = identifyDevice(await this.devices.activeStations(store.id), b.deviceUuid, b.type);
-    } catch (e) {
-      if (!(e instanceof DomainError) || e.code !== "DEVICE_NOT_REGISTERED") {
-        throw e;
-      }
-      // 1.2.273 · UUID desconocido (navegador borrado…): si la IP es la de una sola estación de su tipo, es esa
-      st = ip ? await this.claimByIp(store.id, b, ip) : null;
-      if (!st) {
-        // la IP del equipo, para enseñarla en la pantalla y ponerla en Ajustes › Equipos
-        fail("DEVICE_NOT_REGISTERED", e.message, { deviceUuid: b.deviceUuid, clientIp: ip });
-      }
-      matchedBy = "ip";
+    const all = await this.devices.activeStations(store.id);
+    const st = this.byIp(all, ip, b.type);
+    if (!st) {
+      // la IP del equipo, para enseñarla en la pantalla y ponerla en Ajustes › Equipos
+      fail("DEVICE_NOT_REGISTERED", "Este equipo no está dado de alta: pon su IP en Ajustes › Equipos", { clientIp: ip });
     }
     await this.devices.touch(store.id, st!.id); // 0036 · última conexión (Ajustes › Equipos)
     // la tienda (código y nombre) para que el equipo enseñe la suya antes de entrar con una clave (1.2.199)
@@ -69,88 +66,74 @@ export class DevicesService {
       main: st!.isMain,
       ip: st!.ip ?? null,
       clientIp: ip,
-      matchedBy,
+      matchedBy: "ip" as const,
       store: { code: store.code ?? null, name: store.name ?? null },
     };
   }
 
-  /** La estación con esa IP (una sola, de su tipo) se queda con el UUID nuevo; historial «reconocido por su IP». */
-  private async claimByIp(storeId: string, b: IdentifyDeviceInput, ip: string) {
-    return this.database.withTx(async (tx) => {
-      const all = await this.devices.lockStations(tx, storeId);
-      const st = stationByIp(all, ip, b.type);
-      if (!st) {
-        return null;
-      }
-      const plan = planClaimStation(all, st.id, b.deviceUuid, b.type);
-      if (plan.unchanged) {
-        return st;
-      }
-      const a: Actor = { userId: null as any, user: `Equipo ${ip}`, role: "system" as any, device: st.name, at: this.clock().toISOString() };
-      const v = await this.changes.bumpConfigVersion(tx, storeId);
-      for (const other of plan.clearFrom) {
-        const after = await this.devices.setDeviceUuid(tx, storeId, other.id, null);
-        await this.record(tx, storeId, a, v, other, after);
-      }
-      const after = await this.devices.setDeviceUuid(tx, storeId, st.id, b.deviceUuid);
-      await this.record(tx, storeId, a, v, st, after, `Reconocido por su IP ${ip}`);
-      return after;
-    });
+  /** La estación de esta IP; en el propio servidor (127.0.0.1 / ::1), la caja principal. */
+  private byIp<S extends StationRow>(all: S[], ip: string | null, type: "desktop" | "mobile"): S | null {
+    if (!ip) {
+      return null;
+    }
+    const st = stationByIp(all, ip, type);
+    if (st) {
+      return st;
+    }
+    if (type === "desktop" && isLoopback(ip)) {
+      return all.find((x) => x.active && x.isMain) ?? null;
+    }
+    return null;
   }
 
-  async claimMain(b: ClaimMainInput) {
+  /**
+   * Vincular: la estación elegida se queda con la IP de este equipo y la pierde cualquier otra de su tipo que la tuviera
+   * (una IP, una estación). En el propio servidor (localhost) no se cambia la IP: ya se reconoce como caja principal.
+   */
+  private async bindIp(tx: Tx, storeId: string, all: StationRow[], st: StationRow, ip: string | null, a: Actor, why: string) {
+    const k = normIp(ip);
+    if (!k || isLoopback(k) || normIp(st.ip) === k) {
+      return { after: st, changed: false };
+    }
+    const v = await this.changes.bumpConfigVersion(tx, storeId);
+    for (const other of all.filter((x) => x.id !== st.id && x.active && normIp(x.ip) === k && deviceTypeOf(x) === deviceTypeOf(st))) {
+      const o = await this.devices.setIp(tx, storeId, other.id, null);
+      await this.record(tx, storeId, a, v, other, o, `La IP ${k} pasa a ${st.name}`);
+    }
+    const after = await this.devices.setIp(tx, storeId, st.id, k);
+    await this.record(tx, storeId, a, v, st, after, why);
+    return { after, changed: true, v };
+  }
+
+  async claimMain(b: ClaimMainInput, clientIp?: string) {
     const store = await this.stores.store();
+    const ip = normIp(clientIp) || null;
     // la clave se comprueba antes de bloquear nada: un fallo cuenta para el bloqueo de ESTE equipo y el de la tienda
-    const u = await this.sessions.userWithPermission(
-      b.pin,
-      [`device:${b.deviceUuid}`, `claim-main:${store.id}`],
-      "ajustes.estaciones",
-    );
+    const u = await this.sessions.userWithPermission(b.pin, [`device:${ip || "?"}`, `claim-main:${store.id}`], "ajustes.estaciones");
     return this.database.withTx(async (tx) => {
       const all = await this.devices.lockStations(tx, store.id);
-      const plan = planClaimMain(all, b.deviceUuid);
-      const result = {
-        stationId: plan.main.id,
-        name: plan.main.name,
+      const main = all.find((x) => x.active && x.isMain) ?? fail("NOT_FOUND", "La tienda no tiene caja principal");
+      const a: Actor = { userId: u.id, user: u.name, role: roleOf(u), device: main.name, at: this.clock().toISOString() };
+      const r = await this.bindIp(tx, store.id, all, main, ip, a, `Caja principal en el equipo ${ip}`);
+      return {
+        stationId: main.id,
+        name: main.name,
         main: true,
-        previousUuid: plan.previousUuid,
+        ip: r.after.ip ?? null,
         store: { code: store.code ?? null, name: store.name ?? null },
+        configVersion: r.changed ? r.v : await this.changes.configVersion(store.id, tx),
       };
-      if (plan.unchanged) {
-        return { ...result, configVersion: await this.changes.configVersion(store.id, tx) };
-      }
-      const now = this.clock();
-      const a: Actor = {
-        userId: u.id,
-        user: u.name,
-        role: roleOf(u),
-        device: plan.main.name,
-        at: now.toISOString(),
-      };
-      const v = await this.changes.bumpConfigVersion(tx, store.id);
-      // el UUID es único entre las estaciones activas (uq_station_device_uuid): primero se quita de las otras, luego se pone
-      for (const other of plan.clearFrom) {
-        const after = await this.devices.setDeviceUuid(tx, store.id, other.id, null);
-        await this.record(tx, store.id, a, v, other, after);
-      }
-      const after = await this.devices.setDeviceUuid(tx, store.id, plan.main.id, b.deviceUuid);
-      await this.record(tx, store.id, a, v, plan.main, after);
-      return { ...result, configVersion: v };
     });
   }
 
   /**
-   * 1.2.271 · vincular este equipo a una estación desde el propio equipo (el UUID cambió: navegador borrado, otra
-   * dirección…). La clave cuenta para los mismos bloqueos que claim-main (el del equipo y uno fijo de la tienda).
-   * Sin stationId → solo la lista de estaciones de su tipo para elegir (no cambia nada).
+   * 1.2.271 · vincular este equipo a una estación desde el propio equipo, con la clave de quien tenga
+   * ajustes.estaciones. 1.2.281: lo que se guarda es la IP del equipo. Sin stationId → solo la lista para elegir.
    */
-  async claim(b: ClaimStationInput) {
+  async claim(b: ClaimStationInput, clientIp?: string) {
     const store = await this.stores.store();
-    const u = await this.sessions.userWithPermission(
-      b.pin,
-      [`device:${b.deviceUuid}`, `claim:${store.id}`],
-      "ajustes.estaciones",
-    );
+    const ip = normIp(clientIp) || null;
+    const u = await this.sessions.userWithPermission(b.pin, [`device:${ip || "?"}`, `claim:${store.id}`], "ajustes.estaciones");
     if (!b.stationId) {
       const all = await this.devices.activeStations(store.id);
       return {
@@ -163,39 +146,30 @@ export class DevicesService {
             kind: x.kind,
             main: x.isMain,
             ip: x.ip ?? null,
-            hasDevice: !!x.deviceUuid,
-            thisDevice: !!x.deviceUuid && x.deviceUuid.toLowerCase() === b.deviceUuid.toLowerCase(),
+            hasDevice: !!x.ip,
+            thisDevice: !!ip && normIp(x.ip) === ip,
             lastSeenAt: x.lastSeenAt ?? null,
           })),
       };
     }
     return this.database.withTx(async (tx) => {
       const all = await this.devices.lockStations(tx, store.id);
-      const plan = planClaimStation(all, b.stationId!, b.deviceUuid, b.type);
-      const st = plan.station;
-      const result = {
+      const st = all.find((x) => x.id === b.stationId && x.active) ?? fail("NOT_FOUND", "Esa estación no existe o está desactivada");
+      if (deviceTypeOf(st) !== b.type) {
+        fail("DEVICE_TYPE_MISMATCH", `${st.name} es ${b.type === "mobile" ? "de escritorio" : "una PDA"}`, { station: st.name });
+      }
+      const a: Actor = { userId: u.id, user: u.name, role: roleOf(u), device: st.name, at: this.clock().toISOString() };
+      const r = await this.bindIp(tx, store.id, all, st, ip, a, `Vinculada al equipo ${ip}`);
+      await this.devices.touch(store.id, st.id, tx);
+      return {
         stationId: st.id,
         name: st.name,
         kind: st.kind,
         main: st.isMain,
-        ip: st.ip ?? null,
-        previousUuid: plan.previousUuid,
+        ip: r.after.ip ?? null,
         store: { code: store.code ?? null, name: store.name ?? null },
+        configVersion: r.changed ? r.v : await this.changes.configVersion(store.id, tx),
       };
-      if (plan.unchanged) {
-        await this.devices.touch(store.id, st.id, tx);
-        return { ...result, configVersion: await this.changes.configVersion(store.id, tx) };
-      }
-      const a: Actor = { userId: u.id, user: u.name, role: roleOf(u), device: st.name, at: this.clock().toISOString() };
-      const v = await this.changes.bumpConfigVersion(tx, store.id);
-      for (const other of plan.clearFrom) {
-        const after = await this.devices.setDeviceUuid(tx, store.id, other.id, null);
-        await this.record(tx, store.id, a, v, other, after);
-      }
-      const after = await this.devices.setDeviceUuid(tx, store.id, st.id, b.deviceUuid);
-      await this.record(tx, store.id, a, v, st, after);
-      await this.devices.touch(store.id, st.id, tx);
-      return { ...result, configVersion: v };
     });
   }
 
@@ -211,7 +185,7 @@ export class DevicesService {
       module: "estaciones",
       action: "update",
       recordName: after.name,
-      diff: [describeDiff(b, n, { deviceUuid: "UUID del equipo" }) || "Sin cambios", why].filter(Boolean).join(" · "),
+      diff: [describeDiff(b, n, { ip: "IP" }) || "Sin cambios", why].filter(Boolean).join(" · "),
       recordId: after.id,
       before: b,
       after: n,

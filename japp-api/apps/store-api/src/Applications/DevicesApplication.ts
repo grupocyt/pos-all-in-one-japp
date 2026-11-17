@@ -45,6 +45,16 @@ export class DevicesApplication {
     return r!;
   }
 
+  /** 1.2.281 · cambia la IP de una estación (los equipos se reconocen por su IP) y sube la versión del registro. */
+  async setIp(tx: Tx, storeId: string, stationId: string, ip: string | null) {
+    const [r] = await tx
+      .update(s.station)
+      .set({ ip, version: sql`${s.station.version} + 1`, updatedAt: sql`now()` } as any)
+      .where(and(eq(s.station.storeId, storeId), eq(s.station.id, stationId)))
+      .returning();
+    return r!;
+  }
+
   /** La estación (activa o no) por id. */
   async station(storeId: string, stationId: string) {
     const [r] = await this.database.db

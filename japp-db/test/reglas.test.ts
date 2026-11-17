@@ -20,11 +20,7 @@ describe("reglas en la base", () => {
       expect(await fails(`INSERT INTO invoice_series (store_id, series, kind) VALUES ($1, $2, $3)`, [store, `T${kind}`, kind], "23514")).toBe("OK");
     }
   }));
-  it("dos estaciones activas no pueden tener el mismo UUID de equipo (23505, migración 0011)", () => rollback(c, async () => {
-    const st = await one(c, "SELECT id FROM station WHERE store_id=$1 LIMIT 1", [store]);
-    await c.query("UPDATE station SET device_uuid='AAAA1111-2222-4333-8444-555566667777' WHERE id=$1", [st.id]);
-    await fails(`INSERT INTO station (id, store_id, name, kind, device_uuid, ip, active) VALUES ($1, $2, 'DUP', 'pda', 'aaaa1111-2222-4333-8444-555566667777', '10.0.0.9', TRUE)`, [uuid(), store], "23505");
-  }));
+  // 1.2.281 · la regla «un UUID de equipo, una estación» (0011) se quitó en la 0038: los equipos van por IP
   it("el external_id del App Manager no se repite en la tienda (23505, migración 0012)", () => rollback(c, async () => {
     const [p1, p2] = (await c.query("SELECT id FROM product WHERE store_id=$1 ORDER BY plu LIMIT 2", [store])).rows;
     await c.query("UPDATE product SET external_id='MGR-P-1' WHERE id=$1", [p1.id]);

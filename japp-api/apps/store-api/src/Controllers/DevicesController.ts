@@ -4,7 +4,7 @@ import { parse } from "../Helpers/ValidationHelper.js";
 import { ClaimMainModel, ClaimStationModel, IdentifyDeviceModel } from "../Models/DevicesModels.js";
 import { DevicesService } from "../Services/DevicesService.js";
 
-/** Equipo: reconocerlo por su UUID, configurarlo como caja principal y la configuración de su estación. */
+/** Equipo: reconocerlo por su IP (1.2.281), configurarlo como caja principal y la configuración de su estación. */
 @Controller()
 export class DevicesController {
   constructor(@Inject(DevicesService) private readonly devices: DevicesService) {}
@@ -22,18 +22,18 @@ export class DevicesController {
   @Public()
   @Post("devices/claim-main")
   @HttpCode(200)
-  async claimMain(@Body() body: unknown) {
+  async claimMain(@Body() body: unknown, @Req() req: any) {
     const b = parse(ClaimMainModel, body);
-    return this.devices.claimMain(b);
+    return this.devices.claimMain(b, req.ip);
   }
 
   /** 1.2.271 · vincular este equipo a una estación con la clave de un encargado (sin sesión); sin stationId, la lista. */
   @Public()
   @Post("devices/claim")
   @HttpCode(200)
-  async claim(@Body() body: unknown) {
+  async claim(@Body() body: unknown, @Req() req: any) {
     const b = parse(ClaimStationModel, body);
-    return this.devices.claim(b);
+    return this.devices.claim(b, req.ip);
   }
 
   /** Configuración de la estación de la sesión. */

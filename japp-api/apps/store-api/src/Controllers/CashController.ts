@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Post, Query } from "@nestjs/common";
 import { CurrentSession, type Session } from "../Helpers/AuthGuard.js";
 import { parse } from "../Helpers/ValidationHelper.js";
 import { CashCountModel, CashMovementModel, CashMovementsQueryModel, DrawerOpenModel, PettyCashModel } from "../Models/CashModels.js";
@@ -82,6 +82,14 @@ export class CashController {
   async printCount(@CurrentSession() se: Session, @Param("countId") countId: string) {
     parse(PeriodIdModel, countId);
     return this.cash.countReport(se, countId);
+  }
+
+  /** 1.2.281 · eliminar (anular) un corte X o arqueo mal escrito del periodo abierto. */
+  @Delete("cash/counts/:countId")
+  @HttpCode(200)
+  async voidCount(@CurrentSession() se: Session, @Param("countId") countId: string) {
+    parse(PeriodIdModel, countId);
+    return this.cash.voidCount(se, countId);
   }
 
   @Get("cash/x-report")

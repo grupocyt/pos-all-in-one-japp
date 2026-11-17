@@ -90,28 +90,32 @@ describe("retiro = traslado a caja fuerte", () => {
   });
 });
 
-describe("caja chica (fondo de 50 €, aparte del cajón)", () => {
-  it("gasto con motivo hasta el saldo; más → 422 PETTY_CASH_LIMIT; reponer hasta el fondo; no toca lo esperado; sin permiso → 403", async () => {
+describe("caja chica (1.2.281: ingresos libres y gastos con foto, aparte del cajón)", () => {
+  it("ingreso libre; gasto con descripción hasta el saldo y con foto; más → 422 PETTY_CASH_LIMIT; en el corte X; no toca lo esperado; sin permiso → 403", async () => {
     const p0 = (await t.call("GET", "/cash/petty", { token: sis })).body;
-    expect(p0.limit).toBe(50);
-    if (p0.balance < 50) await t.call("POST", "/cash/petty", { token: sis, body: { kind: "replenish" } });
+    const b0 = p0.balance as number;
     const cash0 = (await t.call("GET", "/cash/summary", { token: sis })).body.expectedCash;
+    const dep = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "deposit", amount: 100 } });
+    expect([dep.status, dep.body.balance]).toEqual([201, b0 + 100]);
     const noReason = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "expense", amount: 5 } });
     expect([noReason.status, noReason.error.field]).toEqual([422, "reason"]);
-    const e1 = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "expense", amount: 12.5, reason: "Hielo urgente" } });
-    expect([e1.status, e1.body.balance]).toEqual([201, 37.5]);
-    const over = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "expense", amount: 40, reason: "Bombona" } });
-    expect([over.status, over.error.code, over.error.details.balance]).toEqual([422, "PETTY_CASH_LIMIT", 37.5]);
-    const tooMuch = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "replenish", amount: 20 } });
-    expect(tooMuch.error.code).toBe("PETTY_CASH_LIMIT");
-    const rep = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "replenish" } });
-    expect([rep.body.amount, rep.body.balance]).toEqual([12.5, 50]);
-    const full = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "replenish" } });
-    expect(full.status).toBe(422);
+    const photo = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ==";
+    const e1 = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "expense", amount: 12.5, reason: "Hielo urgente", photo } });
+    expect([e1.status, e1.body.balance]).toEqual([201, b0 + 87.5]);
+    const badPhoto = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "expense", amount: 1, reason: "x", photo: "javascript:alert(1)" } });
+    expect(badPhoto.status).toBe(422);
+    const over = await t.call("POST", "/cash/petty", { token: sis, body: { kind: "expense", amount: b0 + 88, reason: "Bombona" } });
+    expect([over.status, over.error.code]).toEqual([422, "PETTY_CASH_LIMIT"]);
+    expect((await t.call("POST", "/cash/petty", { token: sis, body: { kind: "replenish" } })).status).toBe(422); // ya no existe
     const p1 = (await t.call("GET", "/cash/petty", { token: sis })).body;
-    expect(p1.items.slice(0, 2).map((x: any) => [x.kind, x.amount, x.balanceAfter])).toEqual([["replenish", 12.5, 50], ["expense", 12.5, 37.5]]);
-    expect(p1.items[1]).toMatchObject({ reason: "Hielo urgente", by: { user: "Sistemas" } });
+    expect(p1.items.slice(0, 2).map((x: any) => [x.kind, x.amount])).toEqual([["expense", 12.5], ["deposit", 100]]);
+    expect(p1.items[0]).toMatchObject({ reason: "Hielo urgente", photo, by: { user: "Sistemas" } });
     expect((await t.call("GET", "/cash/summary", { token: sis })).body.expectedCash).toBe(cash0); // aparte del cajón
+    const x = await t.call("POST", "/cash/x-report/print", { token: sis });
+    const txt = JSON.stringify(x.body?.ticket ?? []);
+    expect(x.status).toBe(200);
+    expect(txt).toContain("CAJA CHICA");
+    expect(txt).toContain("Hielo urgente");
     const barra = await t.login(PIN.barra);
     expect((await t.call("GET", "/cash/petty", { token: barra })).error.code).toBe("PERMISSION_REQUIRED");
   });

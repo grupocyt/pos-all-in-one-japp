@@ -168,7 +168,7 @@ export class CashService {
         stationId: se.station.id,
         kind: "count",
         amount: b.countedCash,
-        countedDetail: b.detail ?? null,
+        countedDetail: b.detail && Object.keys(b.detail).length ? b.detail : null,
         cardDetail: cards.length ? cards : null,
         countedCard,
         note: b.note ?? null,
@@ -218,6 +218,11 @@ export class CashService {
         tips: { cash: c.cashTips, card: c.cardTips, confirmed: b.tipsConfirmed === true },
         note: b.note ?? null,
       });
+      // 1.2.281 · con print:false solo se guarda (se imprime luego desde Caja › Resumen)
+      if (b.print === false) {
+        Object.assign(out, { ticket });
+        return out;
+      }
       const r = await this.printShort(se, ticket, type === "auditoria" ? "Arqueo de auditoría" : "Corte X");
       Object.assign(out, r, { ticket });
       return out;
@@ -260,7 +265,7 @@ export class CashService {
       pid = p!.id;
     }
     const n = (v: unknown) => (v == null ? null : Number(v));
-    const rows = (await this.cash.movements(se.storeId, pid!)).filter((m) =>
+    const rows = (await this.cash.movements(se.storeId, pid!)).filter((m) => !m.voidedAt).filter((m) =>
       scope === "all" ? true : scope === "audit" ? m.countType === "auditoria" : m.countType !== "auditoria",
     );
     return {
@@ -291,24 +296,44 @@ export class CashService {
     };
   }
 
+  /**
+   * 1.2.281 · eliminar un corte X o arqueo mal escrito (Caja › Resumen): solo del periodo abierto, con funciones.caja.
+   * No se borra: queda anulado con quién y cuándo (auditoría) y ya no sale en la lista.
+   */
+  async voidCount(se: Session, countId: string) {
+    await this.auth.require(se, "funciones.caja");
+    const m = await this.cash.countById(se.storeId, countId);
+    if (!m || m.voidedAt) {
+      fail("NOT_FOUND", "Ese corte no existe o ya está eliminado", { countId });
+    }
+    const p = await this.periods.current(null, se.storeId);
+    if (!p || p.id !== m!.periodId) {
+      fail("PERIOD_CLOSED", "Solo se puede eliminar un corte del periodo abierto");
+    }
+    if (m!.countType === "apertura") {
+      fail("VALIDATION", "La base contada al abrir no se elimina");
+    }
+    const a = se.actor(this.clock());
+    await this.cash.voidCount(se.storeId, countId, a.at, a.user);
+    return { id: countId, voided: true, by: a.user, at: a.at };
+  }
+
   /** 0037 · Caja chica: fondo, saldo y los últimos apuntes. */
   async petty(se: Session) {
     await this.auth.require(se, "funciones.cajaChica");
-    const store = await this.stores.store();
     const moves = await this.cash.pettyMoves(se.storeId);
     const balance = pettyCashBalance(
-      store.pettyCashLimit,
-      moves.map((m) => ({ kind: m.kind as "expense" | "replenish", amount: Number(m.amount) })),
+      0,
+      moves.map((m) => ({ kind: m.kind as "expense" | "deposit", amount: Number(m.amount) })),
     );
     return {
-      limit: store.pettyCashLimit,
       balance,
-      spent: r2(store.pettyCashLimit - balance),
       items: moves.slice(0, 100).map((m) => ({
         id: m.id,
         kind: m.kind,
         amount: Number(m.amount),
         reason: m.reason,
+        photo: m.photo ?? null,
         balanceAfter: Number(m.balanceAfter),
         by: { user: m.byUserName, device: m.byDevice ?? "", at: new Date(m.byAt).toISOString() },
       })),
@@ -321,7 +346,6 @@ export class CashService {
     if (b.kind === "expense" && !b.reason?.trim()) {
       fail("VALIDATION", "Escribe en qué se ha gastado", { field: "reason" });
     }
-    const store = await this.stores.store();
     const p = await this.periods.current(null, se.storeId);
     const a = se.actor(this.clock());
     return this.database.withTx(async (tx) => {
@@ -329,17 +353,18 @@ export class CashService {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"petty:" + se.storeId}))`);
       const moves = await this.cash.pettyMoves(se.storeId, tx);
       const balance = pettyCashBalance(
-        store.pettyCashLimit,
-        moves.map((m) => ({ kind: m.kind as "expense" | "replenish", amount: Number(m.amount) })),
+        0,
+        moves.map((m) => ({ kind: m.kind as "expense" | "deposit", amount: Number(m.amount) })),
       );
-      const plan = planPettyCash(store.pettyCashLimit, balance, b.kind, b.amount ?? null);
+      const plan = planPettyCash(0, balance, b.kind, b.amount);
       const id = crypto.randomUUID();
       await this.cash.insertPetty(tx, {
         id,
         storeId: se.storeId,
         kind: b.kind,
         amount: plan.amount.toFixed(2),
-        reason: b.reason?.trim() || (b.kind === "replenish" ? "Reposición" : ""),
+        reason: b.reason?.trim() || (b.kind === "deposit" ? "Ingreso" : ""),
+        photo: b.kind === "expense" ? (b.photo ?? null) : null,
         balanceAfter: plan.balanceAfter.toFixed(2),
         periodId: p?.id ?? null,
         stationId: se.station.id,
@@ -348,7 +373,7 @@ export class CashService {
         byDevice: a.device ?? null,
         byAt: a.at,
       });
-      return { id, kind: b.kind, amount: plan.amount, balance: plan.balanceAfter, limit: store.pettyCashLimit };
+      return { id, kind: b.kind, amount: plan.amount, balance: plan.balanceAfter };
     });
   }
 
@@ -441,6 +466,33 @@ export class CashService {
    * (summarizePeriod + cashState, lo de todos los equipos) por la impresora de tickets de la estación.
    * Si la impresora no responde no falla: devuelve printed=false y el ticket, para que el TPV lo enseñe.
    */
+  /** Líneas del ticket con los traslados a caja fuerte (y entradas de efectivo) y la caja chica del periodo. */
+  private async movementLines(storeId: string, periodId: string): Promise<TicketLine[]> {
+    const W = 48;
+    const L = (a: string, b: string): TicketLine => ({ k: "text", text: a.slice(0, W - b.length - 1).padEnd(W - b.length) + b });
+    const hm = (d: string | Date) => new Date(d).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
+    const e2 = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
+    const out: TicketLine[] = [];
+    const cm = (await this.cash.movements(storeId, periodId)).filter((m) => m.kind === "withdrawal" || m.kind === "deposit").reverse();
+    if (cm.length) {
+      out.push({ k: "rule", ch: "-" }, { k: "text", text: "MOVIMIENTOS DE EFECTIVO", bold: true });
+      for (const m of cm) {
+        const lab = m.kind === "withdrawal" ? "Traslado a caja fuerte" : "Ingreso a caja";
+        out.push(L(`${hm(m.byAt)} ${lab}${m.note ? " · " + m.note : ""}`, (m.kind === "withdrawal" ? "-" : "+") + e2(Number(m.amount))));
+      }
+    }
+    const pc = (await this.cash.pettyMoves(storeId)).filter((m) => m.periodId === periodId).reverse();
+    if (pc.length) {
+      out.push({ k: "rule", ch: "-" }, { k: "text", text: "CAJA CHICA", bold: true });
+      for (const m of pc) {
+        const lab = m.kind === "expense" ? m.reason || "Gasto" : "Ingreso caja chica";
+        out.push(L(`${hm(m.byAt)} ${lab}`, (m.kind === "expense" ? "-" : "+") + e2(Number(m.amount))));
+      }
+      out.push(L("Saldo caja chica", e2(Number(pc[pc.length - 1]!.balanceAfter))));
+    }
+    return out;
+  }
+
   async cutReport(
     se: Session,
     kind: "X" | "Z",
@@ -551,6 +603,8 @@ export class CashService {
             }
           : null,
     });
+    // 1.2.281 · detalle de lo que entra y sale del efectivo en el periodo: traslados a caja fuerte y caja chica
+    ticket.splice(Math.max(0, ticket.findIndex((x) => x.k === "feed" || x.k === "cut")), 0, ...(await this.movementLines(se.storeId, pid!)));
     const out = {
       kind,
       periodId: pid!,

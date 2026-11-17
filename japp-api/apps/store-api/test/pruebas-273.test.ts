@@ -22,17 +22,16 @@ afterAll(async () => {
 });
 
 describe("POST /devices/identify por IP", () => {
-  it("UUID nuevo desde la IP de una PDA → es esa PDA, se le guarda el UUID y queda en el historial «Reconocido por su IP»", async () => {
+  it("desde la IP de una PDA → es esa PDA (1.2.281: sin guardar ningún UUID ni tocar el historial); desde otra IP ya no", async () => {
     await t.sql.query("UPDATE station SET ip = '10.77.0.15' WHERE id = $1", [pda.id]);
+    const logs = (await t.sql.query("SELECT count(*)::int n FROM config_change_log WHERE record_id = $1", [pda.id])).rows[0].n;
     const u = crypto.randomUUID();
     const r = await identify(u, "mobile", "::ffff:10.77.0.15");
     const b = JSON.parse(r.body).data;
     expect([r.statusCode, b.stationId, b.matchedBy, b.clientIp]).toEqual([200, pda.id, "ip", "10.77.0.15"]);
-    expect((await t.sql.query("SELECT device_uuid FROM station WHERE id = $1", [pda.id])).rows[0].device_uuid).toBe(u);
-    const h = (await t.sql.query("SELECT diff, user_name FROM config_change_log WHERE record_id = $1 ORDER BY at DESC LIMIT 1", [pda.id])).rows[0];
-    expect(h.diff).toContain("Reconocido por su IP 10.77.0.15");
-    const again = JSON.parse((await identify(u, "mobile", "10.1.1.1")).body).data; // con el UUID ya vale desde cualquier IP
-    expect([again.stationId, again.matchedBy]).toEqual([pda.id, "uuid"]);
+    expect((await t.sql.query("SELECT device_uuid FROM station WHERE id = $1", [pda.id])).rows[0].device_uuid).toBeNull();
+    expect((await t.sql.query("SELECT count(*)::int n FROM config_change_log WHERE record_id = $1", [pda.id])).rows[0].n).toBe(logs);
+    expect((await identify(u, "mobile", "10.1.1.1")).statusCode).toBe(404); // el UUID ya no sirve desde otra IP
   });
   it("IP que no es de ninguna estación (o de otro tipo) → 404 DEVICE_NOT_REGISTERED con la IP del equipo", async () => {
     const r = await identify(crypto.randomUUID(), "mobile", "10.77.0.99");

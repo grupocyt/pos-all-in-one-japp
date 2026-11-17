@@ -109,26 +109,12 @@ describe("caja principal", () => {
 });
 
 describe("identidad del equipo", () => {
-  it("con UUID de equipo, la estación solo se reconoce por ese UUID", async () => {
+  it("1.2.281: la estación se reconoce por su nombre o id aunque tenga un UUID guardado (ya no se usa)", async () => {
     await t.sql.query("UPDATE station SET device_uuid = 'dev-caja2-0001' WHERE id = $1", [CAJA2]);
-    const byName = await t.call("POST", "/sessions", {
-      body: { pin: PIN.mesero },
-      headers: { "x-station-id": "CAJA2" },
-    });
-    expect([byName.status, byName.error.code, byName.error.message]).toEqual([
-      403,
-      "STATION_NOT_ALLOWED",
-      "Este equipo no es esa estación",
-    ]);
-    expect(
-      (await t.call("POST", "/sessions", { body: { pin: PIN.mesero }, headers: { "x-station-id": CAJA2 } }))
-        .error.code,
-    ).toBe("STATION_NOT_ALLOWED");
-    const ok = await t.call("POST", "/sessions", {
-      body: { pin: PIN.mesero },
-      headers: { "x-station-id": "dev-caja2-0001" },
-    });
-    expect([ok.status, ok.body.station.name]).toEqual([201, "CAJA2"]);
+    for (const h of ["CAJA2", CAJA2]) {
+      const r = await t.call("POST", "/sessions", { body: { pin: PIN.mesero }, headers: { "x-station-id": h } });
+      expect([r.status, r.body.station.name]).toEqual([201, "CAJA2"]);
+    }
   });
 });
 
@@ -147,7 +133,7 @@ describe("bloqueo de PIN (en la base, por equipo)", () => {
       (
         await t.call("POST", "/sessions", {
           body: { pin: PIN.mesero },
-          headers: { "x-station-id": "dev-caja2-0001" },
+          headers: { "x-station-id": "CAJA2" },
         })
       ).status,
     ).toBe(201);
@@ -171,7 +157,7 @@ describe("bloqueo de PIN (en la base, por equipo)", () => {
       await t2.close();
     }
     // clave de encargado: por usuario de la sesión
-    const mesero = await t.login(PIN.mesero, "dev-caja2-0001");
+    const mesero = await t.login(PIN.mesero, "CAJA2");
     for (let i = 0; i < 3; i++) {
       await t.call("POST", "/sessions/authorize", {
         token: mesero,
@@ -229,7 +215,7 @@ describe("abrir el periodo con la clave de un encargado", () => {
   it("encargado en CAJA1; el Mesero en la PDA1 abre el periodo con su autorización; el token del encargado sigue valiendo", async () => {
     const encargado = await t.login(PIN.sistemas, "CAJA1");
     await t.sql.query("UPDATE station SET device_uuid = 'pda-0001-aaaa' WHERE name = 'PDA1'");
-    const mesero = await t.login(PIN.mesero, "pda-0001-aaaa");
+    const mesero = await t.login(PIN.mesero, "PDA1");
     // sin periodo abierto: GET /periods/current → 409 PERIOD_CLOSED
     await t.sql.query(
       "UPDATE sales_period SET status = 'closed', open_flag = NULL, closed_by_user_name = 'Prueba', closed_by_at = now() WHERE open_flag = 1",
@@ -304,6 +290,22 @@ describe("arqueo sin cierre (POST /cash/counts)", () => {
     // el arqueo no cambia lo esperado
     expect((await t.call("GET", "/cash/summary", { token: sis2 })).body.expectedCash).toBe(sum.expectedCash);
   });
+  it("1.2.281 · print:false guarda sin imprimir; DELETE /cash/counts/{id} lo anula (no se borra) y deja de salir en los movimientos", async () => {
+    const sis2 = await t.login(PIN.sistemas, "CAJA1");
+    const r = await t.call("POST", "/cash/counts", { token: sis2, body: { countedCash: 12.34, type: "cortex", print: false, tipsConfirmed: true, note: "Prueba de corte para eliminar" } });
+    expect(r.status).toBe(201);
+    expect(r.body.printed).toBeFalsy(); // no se imprime
+    const ids = async () => ((await t.call("GET", "/cash/movements?scope=ops", { token: sis2 })).body.items as any[]).map((m) => m.id);
+    expect(await ids()).toContain(r.body.id);
+    const d = await t.call("DELETE", `/cash/counts/${r.body.id}`, { token: sis2 });
+    expect([d.status, d.body.voided, d.body.by]).toEqual([200, true, "Sistemas"]);
+    expect(await ids()).not.toContain(r.body.id);
+    const row = (await t.sql.query("SELECT voided_at IS NOT NULL AS v, voided_by_name FROM cash_movement WHERE id = $1", [r.body.id])).rows[0];
+    expect(row).toEqual({ v: true, voided_by_name: "Sistemas" });
+    const again = await t.call("DELETE", `/cash/counts/${r.body.id}`, { token: sis2 });
+    expect([again.status, again.error.code]).toEqual([404, "NOT_FOUND"]);
+    expect((await t.call("DELETE", `/cash/counts/${crypto.randomUUID()}`, { token: sis2 })).status).toBe(404);
+  });
   it("422 con datos malos; el Mesero necesita encargado; fuera de la caja principal 403", async () => {
     const sis2 = await t.login(PIN.sistemas, "CAJA1");
     expect((await t.call("POST", "/cash/counts", { token: sis2, body: { countedCash: -1 } })).status).toBe(
@@ -336,7 +338,7 @@ describe("arqueo sin cierre (POST /cash/counts)", () => {
     expect(
       (await t.call("POST", "/cash/counts", { token: mesero, body: { countedCash: 1 } })).error,
     ).toMatchObject({ code: "PERMISSION_REQUIRED", details: { permission: "funciones.caja" } });
-    const enCaja2 = await t.login(PIN.jeison, "dev-caja2-0001");
+    const enCaja2 = await t.login(PIN.jeison, "CAJA2");
     const r = await t.call("POST", "/cash/counts", { token: enCaja2, body: { countedCash: 1 } });
     expect([r.status, r.error.code]).toEqual([403, "MAIN_STATION_REQUIRED"]);
   });

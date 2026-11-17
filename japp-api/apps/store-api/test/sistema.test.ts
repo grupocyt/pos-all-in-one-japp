@@ -45,7 +45,7 @@ describe("sistema y sesiones", () => {
     expect((await t.call("POST", "/sessions", { body: { pin: "12" } })).error.code).toBe("VALIDATION");
     const r = await t.call("POST", "/sessions", {
       body: { pin: "9999" },
-      headers: { "x-station-id": "pda-0001-aaaa" },
+      headers: { "x-station-id": "PDA1" },
     });
     expect([r.status, r.error.code]).toEqual([401, "BAD_PIN"]);
   });
@@ -89,7 +89,7 @@ describe("sistema y sesiones", () => {
       await t.sql.query("UPDATE station SET device_uuid='pda-0001-aaaa' WHERE name='PDA1'"); // (1.2.271: sin /devices/register)
       const pda = await t.call("POST", "/sessions", {
         body: { pin: PIN.mesero },
-        headers: { "x-station-id": "pda-0001-aaaa" },
+        headers: { "x-station-id": "PDA1" },
       }); // la PDA1 con su UUID de equipo
       expect(pda.body.lockSeconds).toBe(10);
       // una sesión por usuario: la del TPV queda sustituida

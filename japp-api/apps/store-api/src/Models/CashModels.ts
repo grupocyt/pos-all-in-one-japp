@@ -49,12 +49,17 @@ export const CashMovementsQueryModel = z.object({
   periodId: z.string().uuid().nullish(),
 });
 
-/** POST /cash/petty: gasto de la caja chica (con motivo) o reposición. */
+/** POST /cash/petty: ingreso de efectivo (deposit) o gasto con descripción y, si se hizo, la foto del ticket (1.2.281). */
 export const PettyCashModel = z
   .object({
-    kind: z.enum(["expense", "replenish"]),
-    amount: z.number().positive().max(10000).nullish(),
+    kind: z.enum(["expense", "deposit"]),
+    amount: z.number().positive().max(10000),
     reason: z.string().trim().max(200).nullish(),
+    photo: z
+      .string()
+      .max(3_000_000, "La foto del ticket es demasiado grande")
+      .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, "La foto del ticket no es una imagen válida")
+      .nullish(),
     authorization: z.string().nullish(),
   })
   .strict();

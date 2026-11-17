@@ -269,7 +269,7 @@ describe("5 y 7 · formas de pago de Ajustes y reglas del cobro", () => {
       ).error.code,
     ).toBe("METHOD_NOT_ALLOWED");
     await t.sql.query("UPDATE station SET device_uuid = 'pda-0001-aaaa' WHERE name = 'PDA1'");
-    const pda = await t.login(PIN.jeison, "pda-0001-aaaa"); // otro usuario: una sesión por usuario
+    const pda = await t.login(PIN.jeison, "PDA1"); // otro usuario: una sesión por usuario
     const r = await t.call("POST", `/orders/${o.orderId}/accounts/${o.accountId}/payments`, {
       token: pda,
       body: { method: "cash", amount: 1 },

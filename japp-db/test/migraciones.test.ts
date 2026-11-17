@@ -388,6 +388,21 @@ describe("migraciones", () => {
     const ck = await one(c, "SELECT pg_get_constraintdef(oid) d FROM pg_constraint WHERE conname = 'ck_cash_movement_count_type'");
     expect(ck.d).toContain("auditoria");
   }));
+  it("0038: sin la regla «un UUID, una estación» y sin UUID en las estaciones (los equipos van por IP)", () => rollback(c, async () => {
+    expect(await one(c, "SELECT 1 x FROM pg_indexes WHERE indexname = 'uq_station_device_uuid'")).toBeFalsy();
+    expect((await one(c, "SELECT count(*)::int n FROM station WHERE device_uuid IS NOT NULL")).n).toBe(0);
+    const [a, b] = await all(c, "SELECT id FROM station LIMIT 2");
+    const u = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    await c.query("UPDATE station SET device_uuid = $1, active = TRUE WHERE id IN ($2, $3)", [u, a.id, b.id]); // ya no falla
+    expect((await one(c, "SELECT count(*)::int n FROM station WHERE device_uuid = $1", [u])).n).toBe(2);
+  }));
+  it("0039: caja chica con ingresos y foto; cortes anulables (cash_movement.voided_at, voided_by_name)", () => rollback(c, async () => {
+    const ck = await one(c, "SELECT pg_get_constraintdef(oid) d FROM pg_constraint WHERE conname = 'petty_cash_movement_kind_check'");
+    expect(ck?.d ?? "").toContain("deposit");
+    const cols = (await all(c, "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'cash_movement' AND column_name LIKE 'voided%' ORDER BY 1")).map((r: any) => `${r.column_name}:${r.data_type}`);
+    expect(cols).toEqual(["voided_at:timestamp with time zone", "voided_by_name:character varying"]);
+    expect((await one(c, "SELECT count(*)::int n FROM cash_movement WHERE voided_at IS NOT NULL")).n).toBe(0);
+  }));
   it("0036: última conexión del equipo (station.last_seen_at, vacía hasta que se identifica)", () => rollback(c, async () => {
     const r = await one(c, "SELECT data_type FROM information_schema.columns WHERE table_name='station' AND column_name='last_seen_at'");
     expect(r?.data_type).toBe("timestamp with time zone");

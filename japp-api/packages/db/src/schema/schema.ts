@@ -57,6 +57,8 @@ export const cashMovement = pgTable("cash_movement", {
 	cardTips: numeric("card_tips", { precision: 10, scale:  2 }),
 	tipsConfirmed: boolean("tips_confirmed"),
 	difference: numeric({ precision: 10, scale:  2 }),
+	voidedAt: timestamp("voided_at", { precision: 3, withTimezone: true, mode: 'string' }),
+	voidedByName: varchar("voided_by_name", { length: 60 }),
 	byUserId: uuid("by_user_id"),
 	byUserName: varchar("by_user_name", { length: 60 }).notNull(),
 	byRole: varchar("by_role", { length: 30 }),
@@ -2005,10 +2007,11 @@ export const pettyCashMovement = pgTable("petty_cash_movement", {
 	byDevice: varchar("by_device", { length: 40 }),
 	byAt: timestamp("by_at", { precision: 3, withTimezone: true, mode: 'string' }).notNull(),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	photo: text(),
 }, (table) => [
 	index("ix_petty_cash_movement_store_at").using("btree", table.storeId.asc().nullsLast().op("uuid_ops"), table.byAt.desc().nullsFirst().op("timestamptz_ops")),
 	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "petty_cash_movement_store_id_fkey" }),
-	check("petty_cash_movement_kind_check", sql`(kind)::text = ANY ((ARRAY['expense'::character varying, 'replenish'::character varying])::text[])`),
+	check("petty_cash_movement_kind_check", sql`(kind)::text = ANY ((ARRAY['expense'::character varying, 'replenish'::character varying, 'deposit'::character varying])::text[])`),
 	check("petty_cash_movement_amount_check", sql`amount > (0)::numeric`),
 	check("petty_cash_movement_balance_after_check", sql`balance_after >= (0)::numeric`),
 ]);

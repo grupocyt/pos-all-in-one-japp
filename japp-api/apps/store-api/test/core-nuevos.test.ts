@@ -6,8 +6,6 @@ let t: T;
 let sistemas: string;
 let barra: string;
 let mesero: string;
-const U1 = "2a6c930e-b2a3-4f71-9281-e06f4d425746";
-const U2 = "9f1d0c4e-1111-4222-8333-944455556666";
 
 beforeAll(async () => {
   t = await setup();
@@ -58,117 +56,7 @@ async function invoiced(token = barra) {
 }
 
 describe("equipos", () => {
-  it("poner en una estación el UUID que ya tiene otra activa → 409 DUPLICATE con field deviceUuid y un mensaje claro", async () => {
-    await t.sql.query("UPDATE station SET device_uuid=$1 WHERE name='PDA1'", [U1]);
-    const caja = (await t.sql.query("SELECT id::text, version FROM station WHERE name='CAJA1'")).rows[0];
-    const r = await t.call("PATCH", `/config/estaciones/${caja.id}`, {
-      token: sistemas,
-      body: { deviceUuid: U1, version: caja.version },
-    });
-    expect([r.status, r.error.code, r.error.field]).toEqual([409, "DUPLICATE", "deviceUuid"]);
-    expect(r.error.message).toMatch(/otra estación activa/);
-  });
-  it("identify: reconoce el equipo por su UUID (sin sesión); otro tipo → 409; sin estación → 404; UUID mal → 422", async () => {
-    await t.sql.query("UPDATE station SET device_uuid=$1 WHERE name='PDA1'", [U1]);
-    const ok = await t.call("POST", "/devices/identify", {
-      body: { deviceUuid: U1.toUpperCase(), type: "mobile" },
-    });
-    expect(ok.status).toBe(200);
-    expect(ok.body).toMatchObject({ name: "PDA1", kind: "pda", main: false });
-    const mm = await t.call("POST", "/devices/identify", { body: { deviceUuid: U1, type: "desktop" } });
-    expect([mm.status, mm.error.code, mm.error.details.actual]).toEqual([
-      409,
-      "DEVICE_TYPE_MISMATCH",
-      "mobile",
-    ]);
-    const nf = await t.call("POST", "/devices/identify", { body: { deviceUuid: U2, type: "desktop" } });
-    expect([nf.status, nf.error.code]).toEqual([404, "DEVICE_NOT_REGISTERED"]);
-    const bad = await t.call("POST", "/devices/identify", {
-      body: { deviceUuid: "equipo-1", type: "desktop" },
-    });
-    expect([bad.status, bad.error.code]).toEqual([422, "VALIDATION"]);
-    expect(
-      (await t.call("POST", "/devices/identify", { body: { deviceUuid: U1, type: "tablet" } })).status,
-    ).toBe(422);
-  });
-
-  it("claim-main: clave mala o sin el permiso → 401 y cuenta para el bloqueo del equipo; 422", async () => {
-    await t.sql.query("DELETE FROM pin_attempt WHERE key=$1 OR key LIKE 'claim-main:%'", [`device:${U1}`]);
-    const bad = await t.call("POST", "/devices/claim-main", { body: { deviceUuid: U1, pin: "9999" } });
-    expect([bad.status, bad.error.code]).toEqual([401, "BAD_PIN"]);
-    expect((await one("SELECT failures FROM pin_attempt WHERE key=$1", [`device:${U1}`])).failures).toBe(1);
-    // sin ajustes.estaciones: lo mismo que una clave mala (revisión 19/10/2026: no se dice de quién es la clave)
-    const no = await t.call("POST", "/devices/claim-main", { body: { deviceUuid: U1, pin: PIN.mesero } });
-    expect([no.status, no.error.code]).toEqual([401, "BAD_PIN"]);
-    expect((await one("SELECT failures FROM pin_attempt WHERE key=$1", [`device:${U1}`])).failures).toBe(2);
-    await t.sql.query("DELETE FROM pin_attempt WHERE key=$1 OR key LIKE 'claim-main:%'", [`device:${U1}`]);
-    expect(
-      (await t.call("POST", "/devices/claim-main", { body: { deviceUuid: U1, pin: "12" } })).status,
-    ).toBe(422);
-    expect((await t.call("POST", "/devices/claim-main", { body: { pin: PIN.sistemas } })).status).toBe(422);
-  });
-
-  it("claim-main: el UUID pasa a la principal y se quita de la otra; versión, configuración, historial y cola; repetir no cambia nada", async () => {
-    // PDA1 tiene U1: configurar la principal con U1 se lo quita
-    await t.sql.query("UPDATE station SET device_uuid=$1 WHERE name='PDA1'", [U1]);
-    const before = { config_version: Number((await one("SELECT config_version FROM store")).config_version) };
-    const caja = await one("SELECT id::text, version, device_uuid FROM station WHERE name='CAJA1'");
-    const pda = await one("SELECT version FROM station WHERE name='PDA1'");
-    const logs = Number((await one("SELECT count(*) n FROM config_change_log WHERE module='estaciones'")).n);
-    const r = await t.call("POST", "/devices/claim-main", { body: { deviceUuid: U1, pin: PIN.sistemas } });
-    expect(r.status).toBe(200);
-    expect(r.body).toEqual({
-      stationId: caja.id,
-      name: "CAJA1",
-      main: true,
-      previousUuid: caja.device_uuid,
-      configVersion: before.config_version + 1,
-      store: { code: expect.any(String), name: expect.any(String) },
-    });
-    expect(Number((await one("SELECT config_version FROM store")).config_version)).toBe(
-      before.config_version + 1,
-    );
-    const now = await one("SELECT device_uuid, version FROM station WHERE name='CAJA1'");
-    expect(now).toEqual({ device_uuid: U1, version: caja.version + 1 });
-    expect(await one("SELECT device_uuid, version FROM station WHERE name='PDA1'")).toEqual({
-      device_uuid: null,
-      version: pda.version + 1,
-    });
-    const log = (
-      await t.sql.query(
-        "SELECT record_name, diff, user_name, config_version FROM config_change_log WHERE module='estaciones' ORDER BY at DESC, record_name LIMIT 2",
-      )
-    ).rows;
-    expect(Number((await one("SELECT count(*) n FROM config_change_log WHERE module='estaciones'")).n)).toBe(
-      logs + 2,
-    );
-    expect(log.map((x) => x.record_name).sort()).toEqual(["CAJA1", "PDA1"]);
-    expect(
-      log.every((x) => x.user_name === "Sistemas" && Number(x.config_version) === before.config_version + 1),
-    ).toBe(true);
-    expect(log.find((x) => x.record_name === "CAJA1").diff).toContain(U1);
-    expect(
-      Number(
-        (
-          await one(
-            "SELECT count(*) n FROM sync_outbox WHERE entity='config' AND entity_id=$1 AND payload->>'configVersion' = $2",
-            [caja.id, String(before.config_version + 1)],
-          )
-        ).n,
-      ),
-    ).toBe(1);
-    // el equipo ya se reconoce como la principal
-    const id = await t.call("POST", "/devices/identify", { body: { deviceUuid: U1, type: "desktop" } });
-    expect(id.body).toMatchObject({ name: "CAJA1", main: true });
-    // repetir: no cambia nada (ni versión ni historial)
-    const again = await t.call("POST", "/devices/claim-main", {
-      body: { deviceUuid: U1, pin: PIN.sistemas },
-    });
-    expect(again.body).toMatchObject({ configVersion: before.config_version + 1, previousUuid: U1 });
-    expect((await one("SELECT version FROM station WHERE name='CAJA1'")).version).toBe(caja.version + 1);
-    await t.sql.query("UPDATE station SET device_uuid = NULL WHERE name='CAJA1'");
-  });
-
+  // 1.2.281 · identify / claim-main por IP: ver pruebas-281.test.ts (el UUID del equipo ya no se usa)
   it("me: la estación de la sesión con cajón, formas de pago (en la PDA solo tarjeta) y canales", async () => {
     const r = await t.call("GET", "/devices/me", { token: sistemas });
     expect(r.status).toBe(200);

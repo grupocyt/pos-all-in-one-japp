@@ -47,10 +47,10 @@ async function openTable(token = sistemas) {
 describe("claim-main: bloqueo de PIN por tienda", () => {
   const claimKey = () => `claim-main:${storeId}`;
   beforeEach(async () => {
-    await t.sql.query("DELETE FROM pin_attempt WHERE key LIKE 'claim-main:%'");
+    await t.sql.query("DELETE FROM pin_attempt WHERE key LIKE 'claim-main:%' OR key LIKE 'device:%'");
   });
 
-  it("cambiar de UUID en cada intento no sirve: a los 3 fallos 423 PIN_LOCKED, también con la clave buena", async () => {
+  it("cambiar de UUID (o de equipo) en cada intento no sirve: a los 3 fallos 423 PIN_LOCKED, también con la clave buena", async () => {
     for (let i = 0; i < 3; i++) {
       const r = await t.call("POST", "/devices/claim-main", {
         body: { deviceUuid: crypto.randomUUID(), pin: "9999" },
@@ -74,9 +74,8 @@ describe("claim-main: bloqueo de PIN por tienda", () => {
     expect(r.error.message).toBe("Clave incorrecta");
     expect(r.error.details.attemptsLeft).toBe(2);
     expect((await one("SELECT failures FROM pin_attempt WHERE key = $1", [claimKey()])).failures).toBe(1);
-    expect((await one("SELECT failures FROM pin_attempt WHERE key = $1", [`device:${uuid}`])).failures).toBe(
-      1,
-    );
+    // 1.2.281 · el bloqueo del equipo es por su IP (las pruebas llegan desde 127.0.0.1)
+    expect((await one("SELECT failures FROM pin_attempt WHERE key = $1", ["device:127.0.0.1"])).failures).toBe(1);
   });
 });
 

@@ -36,13 +36,10 @@ describe("caja principal", () => {
 
 describe("identidad del equipo (X-Station-Id)", () => {
   const all = [CAJA1, CAJA2, PDA1];
-  it("por UUID del equipo → su estación", () => expect(resolveStation(all, "dev-pda-0001")).toBe(PDA1));
-  it("por nombre o id de una estación que tiene UUID → STATION_NOT_ALLOWED", () => {
-    expect(err(() => resolveStation(all, "PDA1"))).toMatchObject({
-      code: "STATION_NOT_ALLOWED",
-      message: "Este equipo no es esa estación",
-    });
-    expect(err(() => resolveStation(all, "s3"))?.code).toBe("STATION_NOT_ALLOWED");
+  it("1.2.281: el UUID ya no identifica; por nombre o id vale aunque la estación tenga UUID", () => {
+    expect(resolveStation(all, "PDA1")).toBe(PDA1);
+    expect(resolveStation(all, "s3")).toBe(PDA1);
+    expect(resolveStation(all, "dev-pda-0001")).toBe(CAJA1); // sin coincidencia → la primera caja
   });
   it("estación sin UUID: por nombre o id, como siempre; sin cabecera, la primera caja", () => {
     expect(resolveStation(all, "CAJA2")).toBe(CAJA2);
@@ -53,9 +50,9 @@ describe("identidad del equipo (X-Station-Id)", () => {
 });
 
 describe("bloqueo de PIN por equipo", () => {
-  it("UUID del equipo si lo tiene; si no, la estación", async () => {
+  it("siempre la estación (1.2.281: ya no por UUID)", async () => {
     const { pinLockKey } = await import("../src/stations.js");
-    expect(pinLockKey(PDA1)).toBe("device:dev-pda-0001");
+    expect(pinLockKey(PDA1)).toBe("station:s3");
     expect(pinLockKey(CAJA1)).toBe("station:s1");
   });
 });

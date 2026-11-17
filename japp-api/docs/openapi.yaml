@@ -32519,6 +32519,77 @@ paths:
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
+  /api/v2/cash/counts/{countId}:
+    delete:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Eliminar un corte X o arqueo mal escrito
+      description: '17/11 (API 1.2.281, migración 0039): anula un corte X o arqueo guardado por error. No se borra: queda
+        con voided_at y voided_by_name y deja de salir en los movimientos. Solo del periodo abierto (si no, 409 PERIOD_CLOSED);
+        la base contada al abrir no se elimina (422 VALIDATION). Permiso: funciones.caja. Arqueo que no existe o ya eliminado
+        → 404.'
+      operationId: voidCashCount
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      voided:
+                        type: boolean
+                      by:
+                        type: string
+                      at:
+                        type: string
+              example:
+                title: Eliminar un corte X o arqueo mal escrito
+                type: success
+                status: 200
+                data:
+                  id: …
+                  voided: true
+                  by: Ana
+                  at: '2026-11-17T20:15:00.000Z'
+        '404':
+          description: 'NOT_FOUND: Ese corte no existe o ya está eliminado'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Eliminar un corte X o arqueo mal escrito
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: Ese corte no existe o ya está eliminado
+                  field: null
+                  details:
+                    countId: …
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: countId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Id del corte X o arqueo (POST /cash/counts)
   /api/v2/cash/counts/{countId}/print:
     post:
       tags:

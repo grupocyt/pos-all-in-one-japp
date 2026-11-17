@@ -1,10 +1,10 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0037, consultas de control · 87 pruebas
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0039, consultas de control · 87 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 348 pruebas de dominio + 400 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.280 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.281 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,41 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.281 (17/11/2026): equipos por IP; caja nueva; caja chica con ingresos y foto del ticket
+
+**Con migración (0038 y 0039):** parar la API y ejecutar `actualizar-base.bat` (o `npm run db:migrate` en japp-api). Después, en cada equipo, recargar el TPV.
+
+**Equipos solo por IP (sin UUID)**
+- La API reconoce cada equipo **por su IP**; la caja abierta en el propio servidor (`localhost`) es la caja principal. Vincular un equipo con la clave de un encargado le guarda su IP.
+- Migración 0038: fuera la regla «un UUID, una estación» (el aviso «Ese UUID de equipo ya lo tiene otra estación activa») y se vacían los UUID. En Ajustes › Equipos ya no hay campo UUID.
+- **Importante:** cada estación tiene que tener bien puesta su **IP** en Ajustes › Equipos (la del móvil o la caja que la usa; mejor con la IP reservada en el router).
+
+**Configuración en todos los equipos**
+- El **bloqueo por inactividad** respeta los segundos de cada usuario también en la PDA (manda el valor que da la API al entrar).
+- «Puede cobrar», «Puede eliminar enviados» y «Puede eliminar con precuenta» de cada usuario se leen de la base en todos los equipos (antes se quedaban solo en el equipo donde se guardaron). Probado con dos equipos: lo cambiado en uno lo ve el otro en menos de 20 s y nadie lo pisa.
+
+**Caja**
+- Pestañas en **una línea**: Resumen · Corte X · Traslado a caja fuerte · Caja chica · Cierre de periodo. Fuera «Movimientos» (va debajo del Resumen) e «Ingreso a caja».
+- **Resumen:** propinas aparte («no son venta») y debajo **todos los movimientos** (traslados, cortes, arqueos y caja chica) con botón de **reimprimir**.
+- **Corte X:** una fila igual por **cada forma de pago activa** (efectivo primero; una por datáfono si hay varios) y el total contado. Fuera billetes y monedas, la casilla de propinas y «Arqueo de auditoría». Propinas solo informativas.
+- **Corte X: guardar e imprimir por separado.** «Confirmar corte X» pide confirmación (con lo escrito en cada forma de pago y el total) y **solo guarda**: no imprime ni abre el ticket. Se imprime desde **Resumen › Movimientos**, con el botón «Imprimir» al final de cada fila.
+- **Eliminar un corte X mal escrito:** en Resumen › Movimientos, botón «Eliminar» (pide confirmación). Solo del periodo abierto y no la base del inicio. No se borra: queda anulado (`voided_at`, `voided_by_name`, migración 0039) y deja de salir en los movimientos. API: `DELETE /api/v2/cash/counts/{countId}`.
+- **Cierre de periodo:** fuera los textos «según el servidor», «Efectivo esperado = …» y «Contado … − fondo …».
+- **Tickets de corte X y Z:** llevan el detalle de los **traslados a caja fuerte** y de la **caja chica** (ingresos, gastos y saldo).
+- **Teclado de la caja** más grande, a todo el ancho y debajo del formulario; en los importes, solo números.
+
+**Caja chica** (migración 0039)
+- Ya no es un fondo fijo de 50 €: se **ingresa efectivo** (p. ej. 100 € para el día) y se **apuntan gastos** con descripción. El saldo de antes no cambia: el fondo de 50 € queda como un ingreso «Saldo inicial» (no se borra nada).
+- **PDA › Gestiones › Cargar ticket de caja chica:** foto del ticket, descripción e importe. En la web el gasto se apunta sin foto; en los movimientos sale la miniatura y al tocarla se ve en grande.
+
+**Cobrar**
+- **Formas de pago creadas en el TPV** (por ejemplo «TARJETA GERENTE» o «TO GOOD TO GO»): al cobrar con ellas salía «La API no lo ha aceptado · method: String must contain at most 30 character(s)». El TPV mandaba su identificador interno (36 caracteres) en lugar del código que tiene en la base (`tarjeta-gerente`). Corregido: se manda el código.
+- Con muchas formas de pago, los botones ya no se descuadran en filas: son fichas iguales en rejilla (3 por fila en la caja, 2 en la PDA) y la elegida va en color.
+
+**Además**
+- **Caja:** el nombre de quien marcó cada línea va debajo del precio, en pequeño (en lugar de la etiqueta de color).
+- **PDA:** al tocar el logo de arriba se abren las Gestiones en lista: Facturas, Eliminaciones, Personal · KPI, Mesas en servicio, Venta del día y Cargar ticket de caja chica (cada una con su permiso), adaptadas al móvil.
 
 ## 1.2.280 (17/11/2026): hora en cada línea de la caja; la comanda de la PDA quieta
 
