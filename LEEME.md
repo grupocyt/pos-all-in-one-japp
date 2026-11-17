@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0037, consultas de control · 87 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 348 pruebas de dominio + 400 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.278 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.279 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,12 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.279 (17/11/2026): botones de la mesa en la PDA con los iconos nuevos
+
+Sin migración (la API solo cambia el número de versión). Probado primero en el artefacto «TPV Japp».
+
+- **PDA › mesa:** los cinco botones de arriba son los iconos enviados, tal cual y en este orden: **Guardar** (rojo), **Comanda** (azul, con el número de pendientes), **Precuenta** (impresora, morado), **Cobrar** (verde) y **Opciones** (azul). Sin sombras, bordes ni cambios de color: solo un pequeño hundido al pulsar.
 
 ## 1.2.278 (17/11/2026): la base manda; comanda de la PDA con hora; una mesa por sala
 
