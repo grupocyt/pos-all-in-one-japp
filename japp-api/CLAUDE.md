@@ -206,7 +206,7 @@ Pruebas: `packages/domain/test/anular-cobro.test.ts`, `apps/store-api/test/anula
 
 TPV sin conexión (casos 3 y 4): `fix268b` — no abre mesas, solo ticar / cambiar de cuenta / corregir lo ticado; Guardar no imprime; al volver, lo ticado (`line.offline`) va a `/reconnections` y no a `/lines`; la mesa ya no queda retenida por una incidencia «offline».
 
-`STORE_VERSION` = 1.2.275 (desde el 17/11; 0037; la 1.2.275 solo cambia el TPV: `fix275.js`, pantallas de entrada y letra de base.css). Migraciones 0027 (`print_tip`, bloqueo 7 → 10 s), 0028 (`order_reconnection`, permiso `pedido.reconexiones`) y 0029 (`ticket_formats`), 0030 (cierre de facturación), 0031 (logo), 0032 (notas, permisos de Gestiones y Developer, formatos de cortes) (logo del ticket). Reconexión: **en pausa** (04/11), no añadir nada sin el OK del dueño.
+`STORE_VERSION` = 1.2.277 (desde el 17/11; 0037; la 1.2.275, la 1.2.276 y la 1.2.277 solo cambian el TPV: `fix275.js` pantallas de entrada y letra de base.css; `fix276.js` relectura de configuración y permisos de la API al entrar, sin zoom; `fix277.js` + `p277` «Comandero Japp» bajo el logo, fuera KFC y CasaRES de `TRUST_LOGOS`, vuelve el mundo, y la letra de base.css ya no se aplica a `.tkpaper` ni al texto monoespaciado). Migraciones 0027 (`print_tip`, bloqueo 7 → 10 s), 0028 (`order_reconnection`, permiso `pedido.reconexiones`) y 0029 (`ticket_formats`), 0030 (cierre de facturación), 0031 (logo), 0032 (notas, permisos de Gestiones y Developer, formatos de cortes) (logo del ticket). Reconexión: **en pausa** (04/11), no añadir nada sin el OK del dueño.
 
 ## Hecho el 03/11/2026 (API 1.2.267): el encargo del TPV 1.2.264
 

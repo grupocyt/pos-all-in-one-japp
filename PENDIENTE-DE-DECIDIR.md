@@ -77,7 +77,7 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Order on Table | Encender / apagar | Interruptor en Ajustes › Restaurante, encendido por defecto (16/11) | **Hecho 1.2.270** |
 | Usuarios | Nombre, iniciales y clave | **No se repiten** (16/11) | **Hecho 1.2.270** |
 | PDA | Todo se veía pequeño en el móvil | Se probó ajustarla a la pantalla y **se volvió atrás** (16/11 noche: en el iPhone se salía de la pantalla) | Como en la 1.2.269 · pendiente de otra propuesta |
-| Logo | Cambiar el logo en todas partes (impresos sobre todo) | Pendiente de respuesta (puntos 7–9) | Pendiente |
+| Logo | Cambiar el logo en todas partes (impresos sobre todo) | OK a los puntos 7–9 (17/11) | **Falta saber qué eran los puntos 7–9** (no están en la conversación guardada) |
 | Manager y SIR | SP de facturacionJapp, tablas del SIR | **Lo hacemos luego** (16/11) | En espera |
 | Login | «Clave incorrecta» a veces con la clave buena | **El login pregunta siempre a la base de datos** (16/11 noche); «Cambiar mi clave» en el servidor; las personas llegan a todos los equipos | **Hecho 1.2.272** |
 | Mesas en servicio | Lectura rápida para el Area Manager | **Dos bloques (en servicio y en precuenta), lo más crítico arriba y tarjeta con lo justo** (17/11) | **Hecho 1.2.274** |
@@ -88,7 +88,9 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Caja chica | Fondo del gerente aparte | **Fondo fijo de 50 € aparte del cajón, se repone hasta el límite** (17/11) | **Hecho 1.2.274** (0037) |
 | Abonos en efectivo | Al abonar una factura cobrada en efectivo, la API no resta del efectivo esperado lo devuelto (el TPV sin servidor sí lo resta). Si el dinero sale del cajón, el corte X da «falta» por ese importe | **Por decidir con Julián:** ¿la devolución sale del cajón (restarla) o de la caja fuerte (como ahora)? | Visto en las pruebas de la 1.2.274 (17/11) |
 | Diseño de la PDA | Entrar en la PDA como el diseño enviado (17/11) | **Hecho 1.2.275** (PDA, caja, tipo de equipo, reset, bloqueo y letra de base.css), probado en el artefacto | OK del 17/11 |
-| Login y configuración | Cada login vuelve a leer configuración y permisos del servidor | Propuesto (17/11): leer antes de entrar; permisos de la API; ¿entrar con la copia si el servidor no responde? | **Esperando OK** |
+| Login y configuración | Cada login vuelve a leer configuración y permisos del servidor | OK (17/11): leer antes de entrar; permisos de la API; si el servidor no contesta, copia guardada y aviso | **Hecho 1.2.276** |
+| Zoom en el móvil | El doble toque no debe hacer zoom | OK (17/11) | **Hecho 1.2.276** |
+| Login de la caja | Texto bajo el logo y marcas | **«Comandero Japp» y la rueda; fuera KFC y CasaRES; vuelve el mundo; tickets con su letra de antes** (17/11). El diseño con foto, logo animado y azulejos con marcas se probó y se descartó | **Hecho 1.2.277** |
 | Datáfonos por API | Que el POS mande el importe al datáfono | Mejora futura (17/11) | A futuro · ver con los proveedores |
 | Equipos por IP | Reconocer el equipo por su IP si cambia el UUID | **Por IP** (16/11 noche), con la IP del equipo en la pantalla sin alta | **Hecho 1.2.273** · reservar las IP en el router |
 | Permisos | «Permisos que no existen» al guardar el perfil Cajero | **«Iniciar el día» pasa a la API** (Cajero y Administrador) (16/11 noche) | **Hecho 1.2.271** (0036) |

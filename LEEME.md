@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0037, consultas de control · 87 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 348 pruebas de dominio + 400 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.275 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.277 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,27 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.277 (17/11/2026): «Comandero Japp» bajo el logo; fuera KFC y CasaRES
+
+Sin migración (la API solo cambia el número de versión). Probado primero en el artefacto «TPV Japp» y pasado al código con el OK del 17/11.
+
+- **Entrar en la caja:** bajo el logo pone **«Comandero Japp»** y a su lado la rueda; ya no sale «Japp · Versión …» (en catalán «Comander Japp», en inglés «Japp Waiter Pad»).
+- **Marcas:** quedan Cañas y Tapas, Las Tapas de Juan y Luma; KFC y CasaRES salen de la lista en todas las pantallas.
+- **El mundo** vuelve a salir arriba a la derecha (en la 1.2.276 se había quitado).
+- **Tickets en pantalla:** vuelven a su letra de ancho fijo. La letra de base.css (1.2.275) también se aplicaba a la factura, la comanda y demás tickets y descuadraba las columnas (los importes salían fuera de su sitio); ahora no los toca.
+- Se probó también un login con foto de la barra, logo animado y fondo de azulejos con marcas; se descartó el 17/11 y no va en esta versión.
+
+## 1.2.276 (17/11/2026): cada login relee configuración y permisos; sin zoom en el móvil
+
+Sin migración (la API solo cambia el número de versión).
+
+- **Cada login** (entrar, cambiar de usuario o desbloquear) lee del servidor la configuración antes de abrir la pantalla: precios, carta, preguntas, formas de pago, descuentos, mesas, impresoras, parámetros… Mientras tanto sale «Cargando la configuración…». Si nada ha cambiado, el servidor contesta al momento sin mandarlo todo. Si no contesta en 6 s, se entra con la copia guardada y sale el aviso «No se pudo leer la configuración del servidor: se usa la guardada en este equipo.»
+- **Permisos de la API:** con servidor, lo que puede hacer cada persona sale de la API (su perfil y sus excepciones), no de la copia de los perfiles del equipo. Si se cambia un perfil en otro equipo, a quien está dentro se le aplica en menos de 15 s, sin volver a entrar.
+- **Móvil:** el doble toque ya no hace zoom, ni tocar un campo.
+- **Entrar en la caja:** sin el mapamundi de arriba a la derecha.
+- **Este equipo no está dado de alta:** sin el texto «Ninguna estación tiene…», sin el UUID y sin «¿Qué equipo es este?» (el equipo se reconoce por la IP). «Es la CAJA1 (caja principal)» sigue: con la clave de un administrador entra directo y luego se configura dentro; la ventana de la clave ya no habla del UUID.
+- **actualizar-base.bat:** si Windows bloquea `pg_dump.exe` (Device Guard / AppLocker), la copia de seguridad se hace dentro de PostgreSQL con `psql` (base `japp_copia_FECHA`). Hay que cerrar antes la API, el agente y pgAdmin.
 
 ## 1.2.275 (17/11/2026): pantallas de entrada con el diseño nuevo
 
