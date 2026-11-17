@@ -486,6 +486,16 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       opensDrawer: F("opens_drawer", "b", z.boolean(), "Abre cajón", { default: false }),
       allowsTip: F("allows_tip", "b", z.boolean(), "Admite propina", { default: false }),
       externalId: F("external_id", "s", optStr(60), "Id de integración"),
+      // 0040 · imagen del botón en Cobrar (data:image, 440 × 112 desde el TPV); null o "" = se ve el nombre
+      image: F(
+        "image",
+        "s",
+        z.preprocess(
+          (v) => (v === "" ? null : v),
+          z.string().max(300000).regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, "imagen data:image en base64").nullish(),
+        ),
+        "Imagen del botón",
+      ),
     },
   },
   descuentos: {

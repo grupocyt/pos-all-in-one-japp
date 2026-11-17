@@ -3756,26 +3756,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/cash/counts/{countId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Eliminar un corte X o arqueo mal escrito
-         * @description 17/11 (API 1.2.281, migración 0039): anula un corte X o arqueo guardado por error. No se borra: queda con voided_at y voided_by_name y deja de salir en los movimientos. Solo del periodo abierto (si no, 409 PERIOD_CLOSED); la base contada al abrir no se elimina (422 VALIDATION). Permiso: funciones.caja. Arqueo que no existe o ya eliminado → 404.
-         */
-        delete: operations["voidCashCount"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/cash/counts/{countId}/print": {
         parameters: {
             query?: never;
@@ -4061,6 +4041,26 @@ export interface paths {
          */
         post: operations["store_POST_cash_petty"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/cash/petty/{pettyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Eliminar un apunte de caja chica
+         * @description 17/11 (API 1.2.282, migración 0040): anula un ingreso o gasto de caja chica escrito por error. No se borra: queda con voided_at y voided_by_name, deja de contar en el saldo y de salir en GET /cash/petty y en los tickets de corte X y Z. Si el saldo quedara en negativo (un ingreso que ya se gastó), 422 VALIDATION con details.balance. Permiso: funciones.cajaChica. Apunte que no existe o ya eliminado → 404. Los cortes X y arqueos no se eliminan.
+         */
+        delete: operations["voidPettyCash"];
         options?: never;
         head?: never;
         patch?: never;
@@ -16498,47 +16498,6 @@ export interface operations {
             };
         };
     };
-    voidCashCount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Id del corte X o arqueo (POST /cash/counts) */
-                countId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Correcto */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        type?: "success";
-                        data?: {
-                            id?: string;
-                            voided?: boolean;
-                            by?: string;
-                            at?: string;
-                        };
-                    } & components["schemas"]["Envelope"];
-                };
-            };
-            /** @description NOT_FOUND: Ese corte no existe o ya está eliminado */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     printCashCount: {
         parameters: {
             query?: never;
@@ -17370,6 +17329,48 @@ export interface operations {
             };
             /** @description VALIDATION: Escribe en qué se ha gastado */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    voidPettyCash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id del apunte (GET /cash/petty) */
+                pettyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            id?: string;
+                            voided?: boolean;
+                            balance?: number;
+                            by?: string;
+                            at?: string;
+                        };
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description NOT_FOUND: Ese apunte de caja chica no existe o ya está eliminado */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

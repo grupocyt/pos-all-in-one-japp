@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { schema as s, type Database, type Db, type Tx } from "@japp/db";
 import type { Actor } from "@japp/domain";
 import { DATABASE } from "../Constants/Injection.js";
@@ -81,13 +81,6 @@ export class CashApplication {
   }
 
   /** 0037 · movimientos de caja de un periodo, del más nuevo al más viejo. */
-  /** 1.2.281 · anular un corte X o arqueo (no se borra). */
-  async voidCount(storeId: string, id: string, at: string, by: string) {
-    await this.database.db
-      .update(s.cashMovement)
-      .set({ voidedAt: at, voidedByName: by } as any)
-      .where(and(eq(s.cashMovement.storeId, storeId), eq(s.cashMovement.id, id), eq(s.cashMovement.kind, "count")));
-  }
 
   async movements(storeId: string, periodId: string) {
     return this.database.db
@@ -102,8 +95,15 @@ export class CashApplication {
     return q
       .select()
       .from(s.pettyCashMovement)
-      .where(eq(s.pettyCashMovement.storeId, storeId))
+      .where(and(eq(s.pettyCashMovement.storeId, storeId), isNull(s.pettyCashMovement.voidedAt))) // 0040 · sin los anulados
       .orderBy(desc(s.pettyCashMovement.byAt), desc(s.pettyCashMovement.createdAt));
+  }
+  /** 0040 · anular un apunte de caja chica (no se borra). */
+  async voidPetty(tx: Tx, storeId: string, id: string, at: string, by: string) {
+    await tx
+      .update(s.pettyCashMovement)
+      .set({ voidedAt: at, voidedByName: by } as any)
+      .where(and(eq(s.pettyCashMovement.storeId, storeId), eq(s.pettyCashMovement.id, id)));
   }
   async insertPetty(tx: Tx, r: Record<string, unknown>) {
     await tx.insert(s.pettyCashMovement).values(r as any);

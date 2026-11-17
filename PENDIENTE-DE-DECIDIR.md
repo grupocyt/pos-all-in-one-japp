@@ -93,6 +93,7 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Mesas de ejemplo | 300 mesas que nadie configuró (SALON 100–199, TERRAZA 200–399) | **Una mesa por sala en la base nueva** y script para quitarlas de la actual (17/11) | **Hecho 1.2.278** · ejecutar `limpiar-mesas-ejemplo.sql` en JC01 |
 | Equipos por IP | Quitar el UUID, todo por IP | OK (17/11) | **Hecho 1.2.281** (0038) · revisar la IP de cada estación |
 | Caja y caja chica | Pestañas, corte X por forma de pago, caja chica con ingresos y foto | OK (17/11) | **Hecho 1.2.281** (0039) |
+| Caja por pestañas y teclado | Sin Resumen, teclado siempre abierto y flotante, caja chica eliminable, cortes X no eliminables, imagen de las formas de pago | OK (17/11) | **Hecho 1.2.282** (0040) |
 | Hora en la caja | Hora de cada línea en la cuenta de la mesa | OK (17/11) | **Hecho 1.2.280** |
 | Comanda de la PDA de lado | La hoja se movía a izquierda y derecha | Arreglado (17/11) | **Hecho 1.2.280** |
 | Botones de la PDA | Iconos nuevos en la mesa | OK (17/11) | **Hecho 1.2.279** |

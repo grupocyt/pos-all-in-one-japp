@@ -42997,77 +42997,6 @@ paths:
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
-  /api/v2/cash/counts/{countId}:
-    delete:
-      tags:
-      - API de tienda v2 · Facturas, caja e informes
-      summary: Eliminar un corte X o arqueo mal escrito
-      description: &#x27;17/11 (API 1.2.281, migración 0039): anula un corte X o arqueo guardado por error. No se borra: queda
-        con voided_at y voided_by_name y deja de salir en los movimientos. Solo del periodo abierto (si no, 409 PERIOD_CLOSED);
-        la base contada al abrir no se elimina (422 VALIDATION). Permiso: funciones.caja. Arqueo que no existe o ya eliminado
-        → 404.&#x27;
-      operationId: voidCashCount
-      security:
-      - session: []
-      responses:
-        &#x27;200&#x27;:
-          description: Correcto
-          content:
-            application/json:
-              schema:
-                allOf:
-                - $ref: &#x27;#/components/schemas/Envelope&#x27;
-                properties:
-                  type:
-                    const: success
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      voided:
-                        type: boolean
-                      by:
-                        type: string
-                      at:
-                        type: string
-              example:
-                title: Eliminar un corte X o arqueo mal escrito
-                type: success
-                status: 200
-                data:
-                  id: …
-                  voided: true
-                  by: Ana
-                  at: &#x27;2026-11-17T20:15:00.000Z&#x27;
-        &#x27;404&#x27;:
-          description: &#x27;NOT_FOUND: Ese corte no existe o ya está eliminado&#x27;
-          content:
-            application/json:
-              schema:
-                $ref: &#x27;#/components/schemas/Error&#x27;
-              example:
-                title: Eliminar un corte X o arqueo mal escrito
-                type: error
-                status: 404
-                data: null
-                errors:
-                - code: NOT_FOUND
-                  message: Ese corte no existe o ya está eliminado
-                  field: null
-                  details:
-                    countId: …
-                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
-                author: Api Japp Grupo Cañas y Tapas
-                mode: developer
-      parameters:
-      - name: countId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: Id del corte X o arqueo (POST /cash/counts)
   /api/v2/cash/counts/{countId}/print:
     post:
       tags:
@@ -44663,6 +44592,80 @@ paths:
                   type:
                   - string
                   - &#x27;null&#x27;
+  /api/v2/cash/petty/{pettyId}:
+    delete:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Eliminar un apunte de caja chica
+      description: &#x27;17/11 (API 1.2.282, migración 0040): anula un ingreso o gasto de caja chica escrito por error. No se borra:
+        queda con voided_at y voided_by_name, deja de contar en el saldo y de salir en GET /cash/petty y en los tickets de corte
+        X y Z. Si el saldo quedara en negativo (un ingreso que ya se gastó), 422 VALIDATION con details.balance. Permiso:
+        funciones.cajaChica. Apunte que no existe o ya eliminado → 404. Los cortes X y arqueos no se eliminan.&#x27;
+      operationId: voidPettyCash
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      voided:
+                        type: boolean
+                      balance:
+                        type: number
+                      by:
+                        type: string
+                      at:
+                        type: string
+              example:
+                title: Eliminar un apunte de caja chica
+                type: success
+                status: 200
+                data:
+                  id: …
+                  voided: true
+                  balance: 45
+                  by: Ana
+                  at: &#x27;2026-11-17T20:15:00.000Z&#x27;
+        &#x27;404&#x27;:
+          description: &#x27;NOT_FOUND: Ese apunte de caja chica no existe o ya está eliminado&#x27;
+          content:
+            application/json:
+              schema:
+                $ref: &#x27;#/components/schemas/Error&#x27;
+              example:
+                title: Eliminar un apunte de caja chica
+                type: error
+                status: 404
+                data: null
+                errors:
+                - code: NOT_FOUND
+                  message: Ese apunte de caja chica no existe o ya está eliminado
+                  field: null
+                  details:
+                    pettyId: …
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: pettyId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Id del apunte (GET /cash/petty)
 components:
   securitySchemes:
     session:

@@ -296,28 +296,6 @@ export class CashService {
     };
   }
 
-  /**
-   * 1.2.281 · eliminar un corte X o arqueo mal escrito (Caja › Resumen): solo del periodo abierto, con funciones.caja.
-   * No se borra: queda anulado con quién y cuándo (auditoría) y ya no sale en la lista.
-   */
-  async voidCount(se: Session, countId: string) {
-    await this.auth.require(se, "funciones.caja");
-    const m = await this.cash.countById(se.storeId, countId);
-    if (!m || m.voidedAt) {
-      fail("NOT_FOUND", "Ese corte no existe o ya está eliminado", { countId });
-    }
-    const p = await this.periods.current(null, se.storeId);
-    if (!p || p.id !== m!.periodId) {
-      fail("PERIOD_CLOSED", "Solo se puede eliminar un corte del periodo abierto");
-    }
-    if (m!.countType === "apertura") {
-      fail("VALIDATION", "La base contada al abrir no se elimina");
-    }
-    const a = se.actor(this.clock());
-    await this.cash.voidCount(se.storeId, countId, a.at, a.user);
-    return { id: countId, voided: true, by: a.user, at: a.at };
-  }
-
   /** 0037 · Caja chica: fondo, saldo y los últimos apuntes. */
   async petty(se: Session) {
     await this.auth.require(se, "funciones.cajaChica");
@@ -326,6 +304,7 @@ export class CashService {
       0,
       moves.map((m) => ({ kind: m.kind as "expense" | "deposit", amount: Number(m.amount) })),
     );
+    const run = pettyRunning(moves); // 0040 · el saldo de cada apunte, sin los anulados
     return {
       balance,
       items: moves.slice(0, 100).map((m) => ({
@@ -334,7 +313,7 @@ export class CashService {
         amount: Number(m.amount),
         reason: m.reason,
         photo: m.photo ?? null,
-        balanceAfter: Number(m.balanceAfter),
+        balanceAfter: run.get(m.id) ?? Number(m.balanceAfter),
         by: { user: m.byUserName, device: m.byDevice ?? "", at: new Date(m.byAt).toISOString() },
       })),
     };
@@ -374,6 +353,33 @@ export class CashService {
         byAt: a.at,
       });
       return { id, kind: b.kind, amount: plan.amount, balance: plan.balanceAfter };
+    });
+  }
+
+  /**
+   * 1.2.282 · eliminar un apunte de caja chica (ingreso o gasto) escrito por error: queda anulado con quién y cuándo
+   * y deja de contar en el saldo. No se deja si el saldo quedara en negativo (un ingreso que ya se gastó).
+   */
+  async pettyVoid(se: Session, pettyId: string) {
+    await this.auth.require(se, "funciones.cajaChica");
+    const a = se.actor(this.clock());
+    return this.database.withTx(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"petty:" + se.storeId}))`);
+      const moves = await this.cash.pettyMoves(se.storeId, tx);
+      const m = moves.find((x) => x.id === pettyId);
+      if (!m) {
+        fail("NOT_FOUND", "Ese apunte de caja chica no existe o ya está eliminado", { pettyId });
+      }
+      const rest = moves.filter((x) => x.id !== pettyId);
+      const balance = pettyCashBalance(0, rest.map((x) => ({ kind: x.kind as "expense" | "deposit", amount: Number(x.amount) })));
+      if (balance < 0) {
+        fail("VALIDATION", `No se puede eliminar: el saldo de la caja chica quedaría en ${balance.toFixed(2).replace(".", ",")} €`, {
+          pettyId,
+          balance,
+        });
+      }
+      await this.cash.voidPetty(tx, se.storeId, pettyId, a.at, a.user);
+      return { id: pettyId, voided: true, balance, by: a.user, at: a.at };
     });
   }
 
@@ -481,14 +487,16 @@ export class CashService {
         out.push(L(`${hm(m.byAt)} ${lab}${m.note ? " · " + m.note : ""}`, (m.kind === "withdrawal" ? "-" : "+") + e2(Number(m.amount))));
       }
     }
-    const pc = (await this.cash.pettyMoves(storeId)).filter((m) => m.periodId === periodId).reverse();
+    const allPc = await this.cash.pettyMoves(storeId), run = pettyRunning(allPc);
+    const pc = allPc.filter((m) => m.periodId === periodId).reverse();
     if (pc.length) {
       out.push({ k: "rule", ch: "-" }, { k: "text", text: "CAJA CHICA", bold: true });
       for (const m of pc) {
         const lab = m.kind === "expense" ? m.reason || "Gasto" : "Ingreso caja chica";
         out.push(L(`${hm(m.byAt)} ${lab}`, (m.kind === "expense" ? "-" : "+") + e2(Number(m.amount))));
       }
-      out.push(L("Saldo caja chica", e2(Number(pc[pc.length - 1]!.balanceAfter))));
+      const lastPc = pc[pc.length - 1]!;
+      out.push(L("Saldo caja chica", e2(run.get(lastPc.id) ?? Number(lastPc.balanceAfter))));
     }
     return out;
   }
@@ -637,4 +645,15 @@ export class CashService {
     }
     return out;
   }
+}
+
+/** 0040 · saldo después de cada apunte (de los que siguen vivos), del más viejo al más nuevo. moves llega del más nuevo al más viejo. */
+function pettyRunning(moves: { id: string; kind: string; amount: unknown }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  let b = 0;
+  for (const m of moves.slice().reverse()) {
+    b = Math.round((m.kind === "expense" ? b - Number(m.amount) : b + Number(m.amount)) * 100) / 100;
+    out.set(m.id, b);
+  }
+  return out;
 }

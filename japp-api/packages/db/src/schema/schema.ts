@@ -796,6 +796,7 @@ export const paymentMethod = pgTable("payment_method", {
 	version: integer().default(1).notNull(),
 	externalId: varchar("external_id", { length: 60 }),
 	showInTpv: boolean("show_in_tpv").default(true).notNull(),
+	image: text(),
 }, (table) => [
 	foreignKey({
 			columns: [table.storeId],
@@ -2008,6 +2009,8 @@ export const pettyCashMovement = pgTable("petty_cash_movement", {
 	byAt: timestamp("by_at", { precision: 3, withTimezone: true, mode: 'string' }).notNull(),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	photo: text(),
+	voidedAt: timestamp("voided_at", { precision: 3, withTimezone: true, mode: 'string' }),
+	voidedByName: varchar("voided_by_name", { length: 60 }),
 }, (table) => [
 	index("ix_petty_cash_movement_store_at").using("btree", table.storeId.asc().nullsLast().op("uuid_ops"), table.byAt.desc().nullsFirst().op("timestamptz_ops")),
 	foreignKey({ columns: [table.storeId], foreignColumns: [store.id], name: "petty_cash_movement_store_id_fkey" }),

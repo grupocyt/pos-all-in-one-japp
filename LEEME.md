@@ -1,10 +1,10 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0039, consultas de control · 87 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 348 pruebas de dominio + 400 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0040, consultas de control · 89 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 347 pruebas de dominio + 403 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.281 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.282 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -64,6 +64,25 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
 
+## 1.2.282 (17/11/2026): caja sin Resumen; teclado siempre abierto; caja chica eliminable; imagen en las formas de pago
+
+**Con migración (0040):** parar la API y ejecutar `actualizar-base.bat` (o `npm run db:migrate` en japp-api). Después, en cada equipo, recargar el TPV. Probado primero en el artefacto «TPV Japp».
+
+**Caja**
+- **Sin pestaña «Resumen»:** Corte X · Traslado a caja fuerte · Caja chica · Cierre de periodo. Cada pestaña lleva **sus movimientos debajo**: en Corte X los cortes y arqueos (con «Imprimir»), en Traslado los traslados y en Caja chica sus ingresos y gastos. Al guardar (un traslado, un apunte, un corte) **se queda en la misma pestaña**. Un equipo que no es la caja principal sigue viendo el Resumen (es lo único que tiene).
+- **Corte X:** el cuadro de propinas va encima de «Comentario». **Los cortes X no se eliminan** (se quita el botón y la ruta `DELETE /cash/counts/{id}` de la 1.2.281).
+- **Caja chica más compacta:** el saldo y «Ingresar efectivo | Apuntar gasto» en una línea; el importe (o descripción e importe) y el botón en otra.
+- **Eliminar un apunte de caja chica** (ingreso o gasto), con confirmación (importe, descripción, quién y el saldo que queda). No se borra: queda anulado (migración 0040) y el saldo se recalcula. Si el saldo quedara en negativo (un ingreso que ya se gastó), no se deja. API: `DELETE /api/v2/cash/petty/{id}` (permiso funciones.cajaChica).
+- **Teclado de la caja siempre abierto** en todos los formularios: el **numérico flota a la derecha**, debajo del botón principal (Confirmar, Cerrar periodo…); el de **letras flota abajo**. Los dos se **arrastran** desde la barra de arriba (cada equipo recuerda dónde), con doble toque vuelven a su sitio y con «▾ Plegar» quedan como una pastilla abajo a la derecha (se abren tocando la pastilla o un importe). «Listo» confirma el campo sin esconder el teclado.
+
+**Cobrar**
+- **Formas de pago de 3 en 3**; con más de 6, dos filas y el resto deslizando de lado (el borde se difumina para indicar que hay más).
+- **Imagen del botón** (Ajustes › Formas de pago › Imagen del botón): tamaño **220 × 56** (se guarda a doble resolución, 440 × 112, sin recortar; si la imagen trae un marco de 1–3 px se quita). En Cobrar se ve la imagen en lugar del nombre. Se guarda **en la base** (`payment_method.image`, migración 0040), así la ven todas las cajas y PDAs.
+
+**Además**
+- **Venta del día › Venta por hora:** la escala va por tramos fijos, a la misma altura cada uno: 0 · 100 · 500 · 1000 · 2000 · 4000 € (8000… si hace falta).
+- **Cola de impresión** con el diseño del resto: pestañas como las de la caja, cada trabajo en una tarjeta y botones redondos con icono (Reintentar, Otra impresora y Cancelar en rojo).
+
 ## 1.2.281 (17/11/2026): equipos por IP; caja nueva; caja chica con ingresos y foto del ticket
 
 **Con migración (0038 y 0039):** parar la API y ejecutar `actualizar-base.bat` (o `npm run db:migrate` en japp-api). Después, en cada equipo, recargar el TPV.
@@ -82,7 +101,7 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Resumen:** propinas aparte («no son venta») y debajo **todos los movimientos** (traslados, cortes, arqueos y caja chica) con botón de **reimprimir**.
 - **Corte X:** una fila igual por **cada forma de pago activa** (efectivo primero; una por datáfono si hay varios) y el total contado. Fuera billetes y monedas, la casilla de propinas y «Arqueo de auditoría». Propinas solo informativas.
 - **Corte X: guardar e imprimir por separado.** «Confirmar corte X» pide confirmación (con lo escrito en cada forma de pago y el total) y **solo guarda**: no imprime ni abre el ticket. Se imprime desde **Resumen › Movimientos**, con el botón «Imprimir» al final de cada fila.
-- **Eliminar un corte X mal escrito:** en Resumen › Movimientos, botón «Eliminar» (pide confirmación). Solo del periodo abierto y no la base del inicio. No se borra: queda anulado (`voided_at`, `voided_by_name`, migración 0039) y deja de salir en los movimientos. API: `DELETE /api/v2/cash/counts/{countId}`.
+- ~~**Eliminar un corte X mal escrito**~~ (quitado en la 1.2.282: los cortes X no se eliminan): en Resumen › Movimientos, botón «Eliminar» (pide confirmación). Solo del periodo abierto y no la base del inicio. No se borra: queda anulado (`voided_at`, `voided_by_name`, migración 0039) y deja de salir en los movimientos. API: `DELETE /api/v2/cash/counts/{countId}`.
 - **Cierre de periodo:** fuera los textos «según el servidor», «Efectivo esperado = …» y «Contado … − fondo …».
 - **Tickets de corte X y Z:** llevan el detalle de los **traslados a caja fuerte** y de la **caja chica** (ingresos, gastos y saldo).
 - **Teclado de la caja** más grande, a todo el ancho y debajo del formulario; en los importes, solo números.

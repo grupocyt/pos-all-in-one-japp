@@ -84,12 +84,12 @@ export class CashController {
     return this.cash.countReport(se, countId);
   }
 
-  /** 1.2.281 · eliminar (anular) un corte X o arqueo mal escrito del periodo abierto. */
-  @Delete("cash/counts/:countId")
+  /** 1.2.282 · eliminar (anular) un apunte de caja chica. Los cortes X y arqueos no se eliminan. */
+  @Delete("cash/petty/:pettyId")
   @HttpCode(200)
-  async voidCount(@CurrentSession() se: Session, @Param("countId") countId: string) {
-    parse(PeriodIdModel, countId);
-    return this.cash.voidCount(se, countId);
+  async voidPetty(@CurrentSession() se: Session, @Param("pettyId") pettyId: string) {
+    parse(PeriodIdModel, pettyId);
+    return this.cash.pettyVoid(se, pettyId);
   }
 
   @Get("cash/x-report")

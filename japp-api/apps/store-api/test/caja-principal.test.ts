@@ -290,21 +290,38 @@ describe("arqueo sin cierre (POST /cash/counts)", () => {
     // el arqueo no cambia lo esperado
     expect((await t.call("GET", "/cash/summary", { token: sis2 })).body.expectedCash).toBe(sum.expectedCash);
   });
-  it("1.2.281 · print:false guarda sin imprimir; DELETE /cash/counts/{id} lo anula (no se borra) y deja de salir en los movimientos", async () => {
+  it("1.2.281 · print:false guarda sin imprimir y el corte sale en los movimientos", async () => {
     const sis2 = await t.login(PIN.sistemas, "CAJA1");
-    const r = await t.call("POST", "/cash/counts", { token: sis2, body: { countedCash: 12.34, type: "cortex", print: false, tipsConfirmed: true, note: "Prueba de corte para eliminar" } });
+    const r = await t.call("POST", "/cash/counts", { token: sis2, body: { countedCash: 12.34, type: "cortex", print: false, tipsConfirmed: true, note: "Prueba de corte sin imprimir" } });
     expect(r.status).toBe(201);
     expect(r.body.printed).toBeFalsy(); // no se imprime
-    const ids = async () => ((await t.call("GET", "/cash/movements?scope=ops", { token: sis2 })).body.items as any[]).map((m) => m.id);
-    expect(await ids()).toContain(r.body.id);
-    const d = await t.call("DELETE", `/cash/counts/${r.body.id}`, { token: sis2 });
-    expect([d.status, d.body.voided, d.body.by]).toEqual([200, true, "Sistemas"]);
-    expect(await ids()).not.toContain(r.body.id);
-    const row = (await t.sql.query("SELECT voided_at IS NOT NULL AS v, voided_by_name FROM cash_movement WHERE id = $1", [r.body.id])).rows[0];
+    const ids = ((await t.call("GET", "/cash/movements?scope=ops", { token: sis2 })).body.items as any[]).map((m) => m.id);
+    expect(ids).toContain(r.body.id);
+  });
+  it("1.2.282 · DELETE /cash/petty/{id}: anula un apunte (no se borra), el saldo se recalcula y no se deja si quedara en negativo", async () => {
+    const sis2 = await t.login(PIN.sistemas, "CAJA1");
+    const get = async () => (await t.call("GET", "/cash/petty", { token: sis2 })).body;
+    const mv = async (body: any) => (await t.call("POST", "/cash/petty", { token: sis2, body, headers: { "idempotency-key": crypto.randomUUID() } })).body.id as string;
+    const del = (id: string) => t.call("DELETE", `/cash/petty/${id}`, { token: sis2 });
+    const b0 = (await get()).balance as number;
+    const dep = await mv({ kind: "deposit", amount: 7.5 });
+    const exp = await mv({ kind: "expense", amount: 2.5, reason: "Hielo (prueba 282)" });
+    const d1 = await del(exp);
+    expect([d1.status, d1.body.voided, d1.body.balance, d1.body.by]).toEqual([200, true, Math.round((b0 + 7.5) * 100) / 100, "Sistemas"]);
+    const after = await get();
+    expect(after.balance).toBe(Math.round((b0 + 7.5) * 100) / 100);
+    expect((after.items as any[]).some((x) => x.id === exp)).toBe(false);
+    expect((after.items as any[]).find((x) => x.id === dep).balanceAfter).toBe(Math.round((b0 + 7.5) * 100) / 100);
+    const row = (await t.sql.query("SELECT voided_at IS NOT NULL AS v, voided_by_name FROM petty_cash_movement WHERE id = $1", [exp])).rows[0];
     expect(row).toEqual({ v: true, voided_by_name: "Sistemas" });
-    const again = await t.call("DELETE", `/cash/counts/${r.body.id}`, { token: sis2 });
-    expect([again.status, again.error.code]).toEqual([404, "NOT_FOUND"]);
-    expect((await t.call("DELETE", `/cash/counts/${crypto.randomUUID()}`, { token: sis2 })).status).toBe(404);
+    expect([(await del(exp)).status]).toEqual([404]);
+    // un ingreso que ya se gastó no se puede quitar
+    const all = await mv({ kind: "expense", amount: Math.round((b0 + 7.5) * 100) / 100, reason: "Todo (prueba 282)" });
+    const neg = await del(dep);
+    expect([neg.status, neg.error.code, neg.error.details.balance]).toEqual([422, "VALIDATION", -7.5]);
+    expect((await del(all)).status).toBe(200);
+    expect((await del(dep)).status).toBe(200);
+    expect((await get()).balance).toBe(b0);
   });
   it("422 con datos malos; el Mesero necesita encargado; fuera de la caja principal 403", async () => {
     const sis2 = await t.login(PIN.sistemas, "CAJA1");

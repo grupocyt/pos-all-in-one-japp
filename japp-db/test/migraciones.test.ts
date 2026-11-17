@@ -396,6 +396,15 @@ describe("migraciones", () => {
     await c.query("UPDATE station SET device_uuid = $1, active = TRUE WHERE id IN ($2, $3)", [u, a.id, b.id]); // ya no falla
     expect((await one(c, "SELECT count(*)::int n FROM station WHERE device_uuid = $1", [u])).n).toBe(2);
   }));
+  it("0040: apuntes de caja chica anulables e imagen del botón de cada forma de pago", () => rollback(c, async () => {
+    const cols = (await all(c, "SELECT table_name || '.' || column_name AS k FROM information_schema.columns WHERE (table_name = 'petty_cash_movement' AND column_name LIKE 'voided%') OR (table_name = 'payment_method' AND column_name = 'image') ORDER BY 1")).map((r: any) => r.k);
+    expect(cols).toEqual(["payment_method.image", "petty_cash_movement.voided_at", "petty_cash_movement.voided_by_name"]);
+    const pm = await one(c, "SELECT id FROM payment_method LIMIT 1");
+    await c.query("UPDATE payment_method SET image = 'data:image/png;base64,AAAA' WHERE id = $1", [pm.id]);
+    await c.query("SAVEPOINT s"); let bad = false;
+    try{ await c.query("UPDATE payment_method SET image = 'hola' WHERE id = $1", [pm.id]); }catch(e){ bad = true; }
+    await c.query("ROLLBACK TO SAVEPOINT s"); expect(bad).toBe(true);
+  }));
   it("0039: caja chica con ingresos y foto; cortes anulables (cash_movement.voided_at, voided_by_name)", () => rollback(c, async () => {
     const ck = await one(c, "SELECT pg_get_constraintdef(oid) d FROM pg_constraint WHERE conname = 'petty_cash_movement_kind_check'");
     expect(ck?.d ?? "").toContain("deposit");
