@@ -26220,6 +26220,67 @@ paths:
         description: Periodo (UUID); vacío = el abierto
         schema:
           type: string
+  /api/v2/reports/me:
+    get:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Mis números
+      description: 'Venta, transacciones (tickets facturados) y ticket medio de quien tiene la sesión en el periodo abierto,
+        con la misma regla que Camareros · KPI (por quien abrió la mesa). Sin periodo abierto devuelve ceros.
+
+
+        Permiso: ninguno (son sus propios datos)
+
+
+        Lo llama: PDA (cabecera, junto a Salir)
+
+
+        Tablas: orders, invoice, order_line'
+      operationId: store_GET_reports_me
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      periodId:
+                        type:
+                        - string
+                        - 'null'
+                      user:
+                        type: string
+                      tickets:
+                        type:
+                        - integer
+                        - 'null'
+                      sales:
+                        type: number
+                      avgTicket:
+                        type: number
+              example:
+                title: Mis números
+                type: success
+                status: 200
+                data:
+                  periodId: …
+                  user: Mesero
+                  tickets: 14
+                  sales: 415.44
+                  avgTicket: 29.67
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
   /api/v2/reports/staff:
     get:
       tags:

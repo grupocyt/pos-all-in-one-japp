@@ -95,6 +95,8 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Caja y caja chica | Pestañas, corte X por forma de pago, caja chica con ingresos y foto | OK (17/11) | **Hecho 1.2.281** (0039) |
 | Caja por pestañas y teclado | Sin Resumen, teclado siempre abierto y flotante, caja chica eliminable, cortes X no eliminables, imagen de las formas de pago | OK (17/11) | **Hecho 1.2.282** (0040) |
 | Caja, Gestiones y KPI pulidos en el artefacto (19/11) | Corte X / cierre por forma de pago, datáfonos, KPI en %, mesas en servicio en rejilla, impresiones con el papel | OK (19/11) | **Hecho 1.2.283** (sin migración) |
+| PDA rediseñada en el artefacto (19/11) | Comanda a pantalla completa, separar cuenta, Gestiones al 70 %, cabecera con mis números, cobro 2 por fila | OK (19/11) | **Hecho 1.2.284** (sin migración) |
+| Detalle de una cuenta cobrada en la PDA | ¿Se puede abrir desde el ☰ para ver lo cobrado? | **Por decidir** | Pregunta del 19/11 |
 | Cierre: otras formas de pago | En el cierre se escriben los importes de las formas de pago que no son efectivo ni tarjeta, pero la API del cierre solo guarda efectivo y tarjeta | **Por decidir:** ¿guardarlos en el cierre (migración) o dejarlos solo de referencia en pantalla? | Visto el 19/11 |
 | Caja chica y efectivo del sistema | ¿El dinero de la caja chica sale del mismo cajón? Cambia el «Sistema» de Efectivo en el corte X | **Por decidir** | Pregunta del 19/11 |
 | Hora en la caja | Hora de cada línea en la cuenta de la mesa | OK (17/11) | **Hecho 1.2.280** |

@@ -280,6 +280,22 @@ export class ReportsService {
     };
   }
 
+  /**
+   * Mis números (cabecera de la PDA): venta, transacciones y ticket medio de quien tiene la sesión, en el periodo abierto.
+   * Son sus propios datos, así que no pide permiso (el KPI de todo el equipo sigue pidiendo funciones.kpi).
+   * Misma regla que /reports/staff (staffKpi: por quien abrió la mesa). Sin periodo abierto → ceros.
+   */
+  async me(se: Session) {
+    const pid = await this.closingsData.openPeriodId(se.storeId);
+    const zero = { periodId: pid ?? null, user: se.user.name, tickets: 0, sales: 0, avgTicket: 0 };
+    if (!pid) {
+      return zero;
+    }
+    const rows = await this.closings.staff(se.storeId, pid);
+    const r = rows.find((x) => x.userId === se.user.id) ?? rows.find((x) => x.user === se.user.name);
+    return r ? { periodId: pid, user: se.user.name, tickets: r.tickets, sales: r.sales, avgTicket: r.avgTicket } : zero;
+  }
+
   /** Camareros · KPI: por quien abrió la mesa (regla staffKpi sobre el resumen del periodo). */
   async staff(se: Session, periodId?: string) {
     await this.auth.require(se, "funciones.kpi");

@@ -2892,6 +2892,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/reports/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mis números
+         * @description Venta, transacciones (tickets facturados) y ticket medio de quien tiene la sesión en el periodo abierto, con la misma regla que Camareros · KPI (por quien abrió la mesa). Sin periodo abierto devuelve ceros.
+         *
+         *     Permiso: ninguno (son sus propios datos)
+         *
+         *     Lo llama: PDA (cabecera, junto a Salir)
+         *
+         *     Tablas: orders, invoice, order_line
+         */
+        get: operations["store_GET_reports_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/reports/staff": {
         parameters: {
             query?: never;
@@ -13642,6 +13668,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    store_GET_reports_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Correcto */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: {
+                            periodId?: string | null;
+                            user?: string;
+                            tickets?: number | null;
+                            sales?: number;
+                            avgTicket?: number;
+                        };
+                    } & components["schemas"]["Envelope"];
                 };
             };
         };

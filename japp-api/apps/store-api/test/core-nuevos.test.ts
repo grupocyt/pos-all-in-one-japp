@@ -446,6 +446,13 @@ describe("informes de ventas y camareros", () => {
     expect(barraRow.tables).toBeGreaterThanOrEqual(1);
     expect((await t.call("GET", "/reports/staff?periodId=12", { token: sistemas })).status).toBe(422);
     expect((await t.call("GET", "/reports/staff", { token: mesero })).error.code).toBe("PERMISSION_REQUIRED");
+    // 1.2.284 · /reports/me: mis números (cabecera PDA), sin permiso de KPI y con los mismos datos que mi fila del KPI
+    const mine = await t.call("GET", "/reports/me", { token: sistemas });
+    expect(mine.status).toBe(200);
+    expect(mine.body).toMatchObject({ user: "Sistemas", tickets: me.tickets, sales: me.sales, avgTicket: me.avgTicket });
+    const meMesero = await t.call("GET", "/reports/me", { token: mesero });
+    expect(meMesero.status).toBe(200);
+    expect(meMesero.body.sales).toBeGreaterThanOrEqual(0);
   });
 });
 

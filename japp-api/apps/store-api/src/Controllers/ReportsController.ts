@@ -84,6 +84,12 @@ export class ReportsController {
     return this.reports.sales(se, periodId);
   }
 
+  /** Mis números del periodo abierto: venta, transacciones y ticket medio de quien tiene la sesión (cabecera PDA). */
+  @Get("reports/me")
+  async me(@CurrentSession() se: Session) {
+    return this.reports.me(se);
+  }
+
   /** Camareros · KPI del periodo (el abierto si no viene periodId). */
   @Get("reports/staff")
   async staff(@CurrentSession() se: Session, @Query("periodId") periodId?: string) {

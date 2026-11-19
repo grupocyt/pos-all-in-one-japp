@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0040, consultas de control · 89 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 347 pruebas de dominio + 403 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.283 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.284 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,19 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.284 (19/11/2026): PDA rediseñada (comanda, separar cuenta, Gestiones), cabecera con mis números, cobro sin parpadeo
+
+**Sin migración:** parar la API, copiar la carpeta nueva y arrancar. Después, en cada equipo, recargar el TPV. Todo probado antes en el artefacto «TPV Japp».
+
+- **Comanda en PDA:** pantalla completa (máx. 560 px) con los botones de la mesa arriba (guardar, comanda, precuenta, cobrar y ☰). «Por enviar» con − / + y marca NUEVO; lo enviado con el canal y el tiempo que lleva. Arrastrar una línea por enviar cambia el orden en que se imprime (la API ya lo guardaba con `POST /orders/{id}/lines/reorder`).
+- **Deslizar a la izquierda:** por enviar → comentario; enviado → eliminar (en rojo con letra blanca si ya se imprimió). Se abre en una ventana encima de la comanda. Por enviar, eliminar pide cuántas.
+- **☰ de la mesa:** Separar cuenta, Cambiar mesa y Comensales (sin «Nota»). **Separar cuenta** con una tarjeta por cuenta y − / n / +; «Separar» pide a qué cuenta (solo las que hay) y «Recuperar» vuelve a la mesa en esa cuenta. Al guardar o recuperar, las cuentas vacías se eliminan y su historial pasa al de la mesa. **Cambiar mesa:** «Toda la mesa» con la misma tarjeta y las cuentas cobradas visibles pero desactivadas.
+- **Cabecera PDA:** ☰ de Gestiones antes del logo (colores invertidos), el logo cambia mi clave, y junto a «Salir» «Venta: € 415 · t. 14 · tk: € 29» del camarero que entra (nuevo `GET /reports/me`, sin permiso de KPI).
+- **Gestiones en PDA:** ventanas centradas al 70 % del alto (máx. 560 px de ancho); sin Personal · KPI ni «Cargar ticket de caja chica». Facturas (productos y pagos juntos, Reimprimir/Abonar fijos abajo), Eliminaciones, Venta del día (venta, trans, ticket, proyección y top productos) y Mesas en servicio pensadas para el móvil.
+- **Abonar factura:** sin texto ni botón «Emitir abono»: al elegir el motivo (rojo con letra blanca) se emite.
+- **Clave del camarero (web y PDA):** teclas redondas más grandes, logo de Japp arriba y «Cambiar camarero / Cambiar mi clave» al final. **Login PDA** con los colores configurados; el color elegido es el principal.
+- **Cobrar:** máximo 2 formas de pago por fila (PDA y pantallas estrechas) y sin parpadeo al elegir forma de pago o propina. **Caja:** guardar sin recargar la ventana. **Terraza** sin dorado.
 
 ## 1.2.283 (19/11/2026): caja pulida, Gestiones del mismo tamaño, KPI en %, mesas en servicio en rejilla, impresiones con el papel
 

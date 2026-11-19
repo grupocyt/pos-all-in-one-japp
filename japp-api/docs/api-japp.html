@@ -36698,6 +36698,67 @@ paths:
         description: Periodo (UUID); vacío = el abierto
         schema:
           type: string
+  /api/v2/reports/me:
+    get:
+      tags:
+      - API de tienda v2 · Facturas, caja e informes
+      summary: Mis números
+      description: &#x27;Venta, transacciones (tickets facturados) y ticket medio de quien tiene la sesión en el periodo abierto,
+        con la misma regla que Camareros · KPI (por quien abrió la mesa). Sin periodo abierto devuelve ceros.
+
+
+        Permiso: ninguno (son sus propios datos)
+
+
+        Lo llama: PDA (cabecera, junto a Salir)
+
+
+        Tablas: orders, invoice, order_line&#x27;
+      operationId: store_GET_reports_me
+      security:
+      - session: []
+      responses:
+        &#x27;200&#x27;:
+          description: Correcto
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: &#x27;#/components/schemas/Envelope&#x27;
+                properties:
+                  type:
+                    const: success
+                  data:
+                    type: object
+                    properties:
+                      periodId:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      user:
+                        type: string
+                      tickets:
+                        type:
+                        - integer
+                        - &#x27;null&#x27;
+                      sales:
+                        type: number
+                      avgTicket:
+                        type: number
+              example:
+                title: Mis números
+                type: success
+                status: 200
+                data:
+                  periodId: …
+                  user: Mesero
+                  tickets: 14
+                  sales: 415.44
+                  avgTicket: 29.67
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
   /api/v2/reports/staff:
     get:
       tags:
