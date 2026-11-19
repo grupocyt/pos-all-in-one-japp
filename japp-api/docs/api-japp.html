@@ -25986,6 +25986,22 @@ paths:
                         type: number
                       expectedCard:
                         type: number
+                      byPayment:
+                        type: array
+                        description: &#x27;1.2.283 · cada forma de pago del periodo (código del cobro, tipo cash/card/other, importe, propinas y número de cobros)&#x27;
+                        items:
+                          type: object
+                          properties:
+                            code:
+                              type: string
+                            kind:
+                              type: string
+                            amount:
+                              type: number
+                            tips:
+                              type: number
+                            count:
+                              type: integer
               example:
                 title: Resumen de caja del periodo
                 type: success
@@ -43655,6 +43671,11 @@ paths:
                               - &#x27;null&#x27;
                             lines:
                               type: integer
+                            text:
+                              type:
+                              - string
+                              - &#x27;null&#x27;
+                              description: &#x27;1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones&#x27;
               example:
                 title: Cola de impresión
                 type: success
@@ -43682,6 +43703,7 @@ paths:
                     createdAt: &#x27;2026-11-16T19:00:00.000Z&#x27;
                     printedAt: null
                     lines: 2
+                    text: &quot;COMIDA · LINEA\nMesa 12\n2  Croquetas\n1  Bravas&quot;
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas

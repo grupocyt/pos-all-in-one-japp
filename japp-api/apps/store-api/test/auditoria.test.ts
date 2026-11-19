@@ -354,6 +354,9 @@ describe("8 · comanda: cola de impresión (16/11): enviar no espera a la impres
       expect(again.body.order.version).toBe(after.version);
       const list = await t.call("GET", "/print-jobs?status=printed&limit=5", { token: sis });
       expect(list.body.items[0]).toMatchObject({ id: r.body.printed[0].jobId, status: "printed", attempts: 2, lines: 1 });
+      // 1.2.283 · el papel en texto, para verlo en Gestiones › Impresiones
+      expect(typeof list.body.items[0].text).toBe("string");
+      expect(list.body.items[0].text.length).toBeGreaterThan(0);
     } finally {
       t.printer.print = real;
     }

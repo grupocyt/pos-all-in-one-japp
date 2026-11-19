@@ -66,6 +66,12 @@ describe("Anular un cobro parcial (POST …/payments/{paymentId}/void)", () => {
       body: { method: "cash", amount: 2 },
     });
     const pid = pay.body.payment.id;
+    // 1.2.283 · /cash/summary → byPayment: el cobro en efectivo suma en su forma de pago
+    const mid = (await t.call("GET", "/cash/summary", { token: sis })).body;
+    const cashOf = (b: { byPayment?: { kind: string; amount: number }[] }) =>
+      (b.byPayment ?? []).filter((x) => x.kind === "cash").reduce((a, x) => a + x.amount, 0);
+    expect(Array.isArray(mid.byPayment)).toBe(true);
+    expect(Math.round((cashOf(mid) - cashOf(before)) * 100) / 100).toBe(2);
     // el cajero no tiene sistema.autorizar
     const no = await t.call("POST", `/orders/${m.id}/accounts/${m.acc}/payments/${pid}/void`, {
       token: barra,

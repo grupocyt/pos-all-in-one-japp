@@ -9071,6 +9071,14 @@ export interface operations {
                             nextFloat?: number;
                             cardTips?: number;
                             expectedCard?: number;
+                            /** @description 1.2.283 · cada forma de pago del periodo (código del cobro, tipo cash/card/other, importe, propinas y número de cobros) */
+                            byPayment?: {
+                                code?: string;
+                                kind?: string;
+                                amount?: number;
+                                tips?: number;
+                                count?: number;
+                            }[];
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -16824,6 +16832,8 @@ export interface operations {
                                 createdAt?: string;
                                 printedAt?: string | null;
                                 lines?: number;
+                                /** @description 1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones */
+                                text?: string | null;
                             }[];
                         };
                     } & components["schemas"]["Envelope"];
@@ -16871,6 +16881,8 @@ export interface operations {
                             createdAt?: string;
                             printedAt?: string | null;
                             lines?: number;
+                            /** @description 1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones */
+                            text?: string | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -16943,6 +16955,8 @@ export interface operations {
                             createdAt?: string;
                             printedAt?: string | null;
                             lines?: number;
+                            /** @description 1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones */
+                            text?: string | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };
@@ -17032,6 +17046,8 @@ export interface operations {
                             createdAt?: string;
                             printedAt?: string | null;
                             lines?: number;
+                            /** @description 1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones */
+                            text?: string | null;
                         };
                     } & components["schemas"]["Envelope"];
                 };

@@ -235,9 +235,20 @@ export class PeriodsApplication {
       )[0]!.g;
     }
     const card = r2(sum(pays.filter((p) => paymentKind(p.kind, p.method) === "card").map((p) => p.amount)));
+    // 1.2.283 · por forma de pago (lo que dice el sistema en el corte X y el cierre): importe y propinas de cada una
+    const byPay = new Map<string, { code: string; kind: string; amount: number; tips: number; count: number }>();
+    for (const p of pays) {
+      const kind = paymentKind(p.kind, p.method);
+      const m = byPay.get(p.method) ?? { code: p.method, kind, amount: 0, tips: 0, count: 0 };
+      m.amount = r2(D(m.amount).plus(Number(p.amount)));
+      m.tips = r2(D(m.tips).plus(Number(p.tip ?? 0)));
+      m.count += 1;
+      byPay.set(p.method, m);
+    }
     return {
       ...r,
       card,
+      byPayment: [...byPay.values()].sort((a, b) => b.amount - a.amount),
       other: r2(D(r.card).minus(card)),
       totalSales: r2(sum(inv.map((i) => i.total))),
       tickets: inv.length,

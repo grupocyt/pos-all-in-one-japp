@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { fail } from "@japp/domain";
+import { fail, renderText } from "@japp/domain";
 import { CLOCK, EVENTS, PRINTER, type Clock } from "../Constants/Injection.js";
 import type { PrinterPort, PrintJob } from "../Clases/Printers.js";
 import type { EventsHub } from "../Clases/EventsHub.js";
@@ -236,7 +236,14 @@ export class PrintQueueService {
   // ───────────────────────── Gestiones › Impresiones ─────────────────────────
   private view(j: QueuedJob) {
     const { job: _j, linePrinterIds, storeId: _s, seq: _q, ...rest } = j;
-    return { ...rest, lines: linePrinterIds.length };
+    // 1.2.283 · el texto del papel (Gestiones › Impresiones lo enseña como en Facturas)
+    let text: string | null = null;
+    try {
+      text = j.job?.ticket?.length ? renderText(j.job.ticket) : null;
+    } catch {
+      text = null;
+    }
+    return { ...rest, lines: linePrinterIds.length, text };
   }
 
   /** GET /print-jobs?status=pending,failed: la cola de la tienda (lo pendiente y fallido primero). */

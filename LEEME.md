@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0040, consultas de control · 89 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 347 pruebas de dominio + 403 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.282 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.283 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,27 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.283 (19/11/2026): caja pulida, Gestiones del mismo tamaño, KPI en %, mesas en servicio en rejilla, impresiones con el papel
+
+**Sin migración:** parar la API, copiar la carpeta nueva y arrancar. Después, en cada equipo, recargar el TPV. Todo probado antes en el artefacto «TPV Japp».
+
+- **Corte X:** columnas «Propinas · Sistema · Contado» por forma de pago con su imagen; las de tarjeta van juntas en «Tarjeta» y las que están a 0 no salen (salvo Efectivo); scroll a partir de 4. El botón «Confirmar corte X» sale desactivado si el total es 0 o si la diferencia pasa de 5 € sin comentario. El comentario es una caja de texto y la confirmación enseña solo lo que no es 0, con las imágenes. Los movimientos van debajo del total.
+- **Retiro parcial** (antes «Traslado a caja fuerte»): media pantalla, imagen de Efectivo con lo que hay en el cajón, comentario opcional y movimientos debajo del botón.
+- **Caja chica:** «Apuntar gasto» primero (importe y después la descripción) e «Ingresar efectivo» segundo; los movimientos de cada sección debajo, con descripción y quién lo hizo.
+- **Cierre de periodo:** billetes y monedas más grandes (500, 200, 100, 50, 20, 10, 5, 1 € y 1 cént.); a la derecha las formas de pago como en el corte X (Efectivo sale de lo contado, Tarjeta de los datáfonos, el resto se escribe); la explicación de la diferencia es una caja de texto y, si hay diferencia sin explicación, no se deja poner el fondo ni cerrar.
+- **Datáfonos:** la casilla de Tarjeta se abre con doble toque: Datáfono 1, 2… con «+ Añadir», su teclado y «Listo»; arriba Sistema, Propinas y Diferencia.
+- **Teclado de la caja:** fijo en su sitio en cada pestaña, se arrastra por la barra y se pliega; el de letras, flotante y centrado. Cerrar la sesión lo quita.
+- **Formas de pago:** imágenes siempre de 220 × 56 (botones de Cobrar con esa forma).
+- **Gestiones:** todas las ventanas del mismo tamaño. Fuera «Carta del Manager» y «Enviar ventas al SIR».
+- **Personal · KPI:** marcador (una fila por persona, notas en % con colores) y ficha con una barra frente a la media del equipo, lo mejor, lo que mejorar y «Explicación de nota».
+- **Mesas en servicio:** rejilla de fichas pequeñas (pensada para 50 mesas o más), la más urgente primero; filtros por semáforo, «Todas / En servicio / En precuenta» y zona; al tocar una ficha, el detalle de todos los pasos.
+- **Impresiones:** como Facturas: lista a la izquierda (con buscador) y a la derecha el papel que se imprime, el error y Reintentar / Otra impresora / Cancelar. Cancelar pide confirmación («Volver» / «Sí, cancelar»).
+- **Facturas:** arriba solo fecha, mesa y quién la cobró; en «Pagos», la imagen de cada forma de pago; el buscador con teclado flotante (ya no pierde el foco).
+- **Resumen semana:** sin el texto explicativo; la observación se escribe en una ventana aparte.
+- **Venta del día:** escala por hora 0 · 100 · 500 · 1000 · 3000 €; Top productos ordenado por unidades y con las unidades a la vista.
+- **Ajustes › Estaciones:** sin la columna «Última conexión».
+- **API:** `GET /cash/summary` devuelve `byPayment` (código, tipo, importe, propinas y cobros de cada forma de pago) y `GET /print-jobs` devuelve `text` (el papel en texto).
 
 ## 1.2.282 (17/11/2026): caja sin Resumen; teclado siempre abierto; caja chica eliminable; imagen en las formas de pago
 

@@ -70,6 +70,8 @@ export class CashService {
       tickets: c.tickets,
       cardTerminals: store.cardTerminals,
       nextFloat: r2(c.opening - c.withdrawals + c.deposits),
+      // 1.2.283 · cada forma de pago con su importe y sus propinas (corte X y cierre: «Sistema» y «Propinas» por fila)
+      byPayment: c.byPayment,
     };
   }
 
