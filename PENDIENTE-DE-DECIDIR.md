@@ -98,6 +98,7 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | PDA rediseñada en el artefacto (19/11) | Comanda a pantalla completa, separar cuenta, Gestiones al 70 %, cabecera con mis números, cobro 2 por fila | OK (19/11) | **Hecho 1.2.284** (sin migración) |
 | Pruebas en JC01 (20/11) | PDA (zoom del plano, teclas, Guardar/Precuenta al plano, precuenta deshecha), caja (corte X a ciegas, retiros, monedas), descuentos por equipo y con formulario | OK (20/11) | **Hecho 1.2.285** |
 | Cobrar y pantalla fija (20/11) | Sin «Borrar entregado» ni «Propina», teclado fijo bajo Precuenta; azulejo oscuro alrededor | OK (20/11) | **Hecho 1.2.286** |
+| «Cambiar mi clave» en la PDA (20/11) | La foto ahora abre Gestiones: ¿añadir «Cambiar mi clave» dentro de Gestiones? | **Por decidir** | Pregunta del 20/11 |
 | Datos del formulario del descuento en la factura | ¿Imprimir en la factura lo rellenado (nombre, DNI…)? Hoy queda solo en el historial | **Por decidir** | Pregunta del 20/11 |
 | Detalle de una cuenta cobrada en la PDA | ¿Se puede abrir desde el ☰ para ver lo cobrado? | **Por decidir** | Pregunta del 19/11 |
 | Cierre: otras formas de pago | En el cierre se escriben los importes de las formas de pago que no son efectivo ni tarjeta, pero la API del cierre solo guarda efectivo y tarjeta | **Por decidir:** ¿guardarlos en el cierre (migración) o dejarlos solo de referencia en pantalla? | Visto el 19/11 |

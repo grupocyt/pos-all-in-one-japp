@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0041, consultas de control · 90 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 150 rutas (165 operaciones), todas programadas · 347 pruebas de dominio + 406 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.287 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.288 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,16 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.288 (20/11/2026): bloqueo, abrir el periodo, teclados y cabecera de la PDA
+
+**Sin migración:** parar la API, copiar la carpeta nueva y arrancar; recargar el TPV en cada equipo.
+
+- **Pantalla de bloqueo** (web y PDA): teclas redondas como el login de la PDA.
+- **Contar la base** (abrir el periodo): botón «Abrir el periodo» de ancho normal y centrado; sin el nombre del usuario arriba; el aviso «La base contada no cuadra…» se recalcula al contar (si ya cuadra, desaparece con el motivo); el teclado va al lado de los billetes sin tapar el motivo.
+- **Teclado general:** se cierra solo al cerrar la ventana, al abrir el periodo o al bloquear; nunca encima de «Japp bloqueado».
+- **Caja:** en Retiro parcial y Caja chica el teclado va a la derecha del formulario (Corte X, debajo del botón; Cierre, debajo de las monedas).
+- **PDA:** fuera el botón ☰ de la cabecera; tocar la foto abre Gestiones.
 
 ## 1.2.287 (20/11/2026): teclado de la caja fijo bajo el botón
 
