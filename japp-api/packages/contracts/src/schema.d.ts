@@ -272,6 +272,8 @@ export interface paths {
          *     16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba «Permisos que no existen» al guardar el Cajero desde el TPV).
          *
          *     16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.
+         *
+         *     20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, pasarCuenta, separar, eliminaciones, descuentos, clientes, reabrir, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -330,6 +332,8 @@ export interface paths {
          *     16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba «Permisos que no existen» al guardar el Cajero desde el TPV).
          *
          *     16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.
+         *
+         *     20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, pasarCuenta, separar, eliminaciones, descuentos, clientes, reabrir, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -746,6 +750,8 @@ export interface paths {
          *     Tablas: orders, account, order_line, order_event, sync_outbox
          *
          *     04/11/2026 (API 1.2.268): también con cuentas con descuento o cobro parcial: pasan enteras, con sus cobros, y llegan como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
+         *
+         *     20/11/2026 (API 1.2.289): transferir 1 producto ya enviado a otra mesa. El TPV lo pasa a una cuenta temporal y la transfiere con into = main e intoAccountId = la cuenta de la mesa de destino que eligió quien transfiere (si la mesa tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422 VALIDATION field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId). Sin intoAccountId, la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403 NOT_ALLOWED (details.feature = transferir), ni con la clave de un encargado.
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_transfer"];
         delete?: never;
@@ -6881,12 +6887,18 @@ export interface operations {
                 /** @example {
                  *       "version": 7,
                  *       "toTableId": "b1f0c2d4-0000-4000-8000-0000000000a8",
-                 *       "authorization": null
+                 *       "authorization": null,
+                 *       "into": "main",
+                 *       "intoAccountId": "b1f0c2d4-0000-4000-8000-0000000000c2"
                  *     } */
                 "application/json": {
                     version?: number;
                     toTableId?: string;
                     authorization?: unknown;
+                    /** @enum {string} */
+                    into?: "main" | "new";
+                    /** @description 1.2.289 · con into = main, la cuenta de la mesa de destino que recibe (si no, la principal) */
+                    intoAccountId?: string | null;
                 };
             };
         };

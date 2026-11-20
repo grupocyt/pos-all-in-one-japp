@@ -5,6 +5,7 @@ export * from "./context.js";
 export * from "./totals.js";
 export * from "./pricing.js";
 export * from "./permissions.js";
+export * from "./features.js";
 export * from "./lines.js";
 export * from "./payments.js";
 export * from "./invoice.js";

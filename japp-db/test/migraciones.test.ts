@@ -396,6 +396,16 @@ describe("migraciones", () => {
     await c.query("UPDATE station SET device_uuid = $1, active = TRUE WHERE id IN ($2, $3)", [u, a.id, b.id]); // ya no falla
     expect((await one(c, "SELECT count(*)::int n FROM station WHERE device_uuid = $1", [u])).n).toBe(2);
   }));
+  it("0042: funcionalidades desactivadas para todo el sistema (Ajustes › Funcionalidades)", () => rollback(c, async () => {
+    const col = await one(c, "SELECT data_type FROM information_schema.columns WHERE table_name = 'store_parameters' AND column_name = 'disabled_features'");
+    expect(col?.data_type).toBe("jsonb");
+    const p = await one(c, "SELECT store_id, disabled_features FROM store_parameters LIMIT 1");
+    expect(p.disabled_features).toEqual([]);
+    await c.query(`UPDATE store_parameters SET disabled_features = '["transferir","eliminaciones"]'::jsonb WHERE store_id = $1`, [p.store_id]);
+    await c.query("SAVEPOINT s"); let bad = false;
+    try{ await c.query(`UPDATE store_parameters SET disabled_features = '{"a":1}'::jsonb WHERE store_id = $1`, [p.store_id]); }catch(e){ bad = true; }
+    await c.query("ROLLBACK TO SAVEPOINT s"); expect(bad).toBe(true);
+  }));
   it("0041: formulario de los descuentos y permisos de orden de impresión, mi venta y Sistema en el corte X", () => rollback(c, async () => {
     const col = await one(c, "SELECT data_type, column_default FROM information_schema.columns WHERE table_name = 'discount' AND column_name = 'form'");
     expect(col?.data_type).toBe("jsonb");

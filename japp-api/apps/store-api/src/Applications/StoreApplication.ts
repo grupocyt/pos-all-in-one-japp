@@ -45,6 +45,8 @@ export interface StoreInfo {
   cardTerminals: number;
   /** 0037 · caja chica: fondo fijo del gerente */
   pettyCashLimit: number;
+  /** 0042 · Ajustes › Funcionalidades: funciones desactivadas para todo el sistema */
+  disabledFeatures: string[];
   cashFloat: number;
   cashDiffThreshold: number;
   pinAttempts: number;
@@ -131,6 +133,7 @@ export class StoreApplication {
       ticketLogo: r.p.ticketLogo ?? null,
       cardTerminals: Number((r.p as any).cardTerminals ?? 1) || 1,
       pettyCashLimit: Number((r.p as any).pettyCashLimit ?? 50) || 50,
+      disabledFeatures: Array.isArray((r.p as any).disabledFeatures) ? (r.p as any).disabledFeatures : [],
       cashFloat: Number(r.p.cashFloat),
       cashDiffThreshold: Number(r.p.cashDiffThreshold),
       pinAttempts: r.p.pinAttempts,

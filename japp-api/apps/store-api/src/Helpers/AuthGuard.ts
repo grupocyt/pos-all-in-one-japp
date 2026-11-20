@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { assertActiveSession, assertStationAllowed, can, fail, type Actor } from "@japp/domain";
+import { assertActiveSession, assertStationAllowed, can, fail, featureOff, type Actor } from "@japp/domain";
 import { SessionsApplication } from "../Applications/SessionsApplication.js";
 import { CONFIG } from "../Constants/Injection.js";
 import type { Config } from "../Properties/AppSettings.js";
@@ -96,7 +96,8 @@ export class AuthGuard implements CanActivate {
       role,
       origin,
       jti: c!.jti,
-      can: (perm: string) => can(like, perm, profiles),
+      // 1.2.289 · lo desactivado en Ajustes › Funcionalidades no lo puede usar nadie
+      can: (perm: string) => !featureOff(perm, store.disabledFeatures) && can(like, perm, profiles),
       actor: (at: Date) => ({
         userId: user!.id,
         user: user!.name,

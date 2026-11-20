@@ -167,6 +167,8 @@ export const TransferAccount = z
     toTableId: Uuid,
     authorization: auth,
     into: z.enum(["main", "new"]).default("new"),
+    /** 1.2.289 · con into = "main": a qué cuenta abierta de la mesa de destino va (si no, la principal) */
+    intoAccountId: Uuid.nullish(),
   })
   .strict();
 /** «Guardar y salir». */

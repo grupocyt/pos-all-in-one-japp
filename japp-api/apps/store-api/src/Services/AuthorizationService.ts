@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { can, fail, type Actor, type UserLike } from "@japp/domain";
+import { can, fail, featureOff, type Actor, type UserLike } from "@japp/domain";
 import { CONFIG } from "../Constants/Injection.js";
 import type { Config } from "../Properties/AppSettings.js";
 import { verifyToken, type AuthClaims } from "../Helpers/TokenHelper.js";
@@ -23,7 +23,16 @@ export class AuthorizationService {
     @Inject(StoreApplication) private readonly stores: StoreApplication,
   ) {}
 
+  /** 1.2.289 · Ajustes › Funcionalidades: desactivada = 403 NOT_ALLOWED para todos, ni con la clave de un encargado. */
+  private async assertFeatureOn(perm: string) {
+    const f = featureOff(perm, (await this.stores.store()).disabledFeatures);
+    if (f) {
+      fail("NOT_ALLOWED", "Esta función está desactivada en Ajustes › Funcionalidades", { permission: perm, feature: f });
+    }
+  }
+
   async require(session: Session, perm: string, token?: string | null, now = new Date()): Promise<Granted> {
+    await this.assertFeatureOn(perm);
     if (session.can(perm)) {
       return { authorizer: null, authorizerActor: null };
     }
@@ -40,6 +49,7 @@ export class AuthorizationService {
     token?: string | null,
     now = new Date(),
   ): Promise<Granted> {
+    await this.assertFeatureOn(perm);
     if (!token) {
       fail("PERMISSION_REQUIRED", "Hace falta la clave de un encargado", { permission: perm });
     }

@@ -2483,6 +2483,7 @@ export class OrdersService {
     into: "main" | "new" | undefined,
     run: () => Promise<R>,
     setTo: (r: R, to: any) => R,
+    intoAccountId?: string | null,
   ): Promise<R> {
     if (into !== "main") {
       return run();
@@ -2494,6 +2495,17 @@ export class OrdersService {
         return null;
       }
       const l = await this.repo.load(tx, S, busy.id);
+      // 1.2.289 · la cuenta que eligió quien transfiere (la mesa tiene varias): abierta y sin cobros ni descuento
+      if (intoAccountId) {
+        const a = l.order.accounts.find((x) => x.id === intoAccountId);
+        if (!a) {
+          fail("VALIDATION", "Esa cuenta no es de la mesa de destino", { field: "intoAccountId" });
+        }
+        if (a!.status !== "open" || accountLock(a!)) {
+          fail("VALIDATION", `La ${a!.name} está en cobro: elige otra cuenta`, { field: "intoAccountId" });
+        }
+        return { id: busy.id, ids: new Set(l.order.accounts.map((x) => x.id)), main: a!.id };
+      }
       return {
         id: busy.id,
         ids: new Set(l.order.accounts.map((a) => a.id)),
@@ -2543,7 +2555,13 @@ export class OrdersService {
     session: Session,
     orderId: string,
     accountId: string,
-    b: { toTableId: string; version: number; authorization?: string | null; into?: "main" | "new" },
+    b: {
+      toTableId: string;
+      version: number;
+      authorization?: string | null;
+      into?: "main" | "new";
+      intoAccountId?: string | null;
+    },
   ) {
     return this.withTableNotice(
       session,
@@ -2556,6 +2574,7 @@ export class OrdersService {
           b.into,
           () => this.transferAccount(session, orderId, accountId, b),
           (r, to) => ({ ...r, to }),
+          b.intoAccountId,
         ),
       (r: any) => r?.to,
     );

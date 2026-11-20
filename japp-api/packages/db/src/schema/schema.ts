@@ -1009,6 +1009,8 @@ export const storeParameters = pgTable("store_parameters", {
 	cardTerminals: smallint("card_terminals").default(1).notNull(),
 	// 0037 · caja chica: fondo fijo del gerente
 	pettyCashLimit: numeric("petty_cash_limit", { precision: 10, scale:  2 }).default('50').notNull(),
+	// 0042 · Ajustes › Funcionalidades: funciones desactivadas para todo el sistema
+	disabledFeatures: jsonb("disabled_features").default([]).notNull(),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),

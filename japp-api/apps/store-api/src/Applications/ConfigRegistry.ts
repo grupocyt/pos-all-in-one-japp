@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ConfigModule } from "@japp/domain";
+import { FEATURE_KEYS, type ConfigModule, type FeatureKey } from "@japp/domain";
 
 /**
  * Ajustes: cada módulo dice qué tabla toca y qué campos expone (nombre de API ↔ columna).
@@ -219,6 +219,8 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       cardTerminals: F("card_terminals", "i", z.number().int().min(1).max(9), "Datáfonos", { default: 1 }),
       // 0037 · caja chica: fondo fijo del gerente (aparte del cajón)
       pettyCashLimit: F("petty_cash_limit", "n", z.number().positive().max(10000), "Caja chica (fondo)", { default: 50 }),
+      // 0042 · Ajustes › Funcionalidades: claves de las funciones desactivadas para todo el sistema ([] = todo activo)
+      disabledFeatures: F("disabled_features", "j", z.array(z.enum(FEATURE_KEYS as [FeatureKey, ...FeatureKey[]])).max(30), "Funcionalidades desactivadas", { default: [] }),
     },
   },
   usuarios: {
