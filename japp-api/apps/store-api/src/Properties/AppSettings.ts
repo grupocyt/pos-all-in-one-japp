@@ -21,6 +21,8 @@ export interface Config {
   ootIntegrationKey?: string;
   /** Carpeta de los vídeos e imágenes de la segunda pantalla (MEDIA_DIR). Sin ella, una carpeta temporal (pruebas). */
   mediaDir?: string;
+  /** 1.2.293 · un solo periodo por día (hora de España). ONE_PERIOD_PER_DAY=0 lo apaga (solo para pruebas). */
+  onePeriodPerDay?: boolean;
 }
 export const API_AUTHOR = "Api Japp Grupo Cañas y Tapas";
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -53,5 +55,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     storeKey: env.STORE_KEY?.trim() || undefined,
     ootIntegrationKey: env.OOT_INTEGRATION_KEY?.trim() || undefined,
     mediaDir: env.MEDIA_DIR?.trim() || "./data/media",
+    onePeriodPerDay: env.ONE_PERIOD_PER_DAY !== "0",
   };
 }

@@ -121,7 +121,7 @@ export interface paths {
         put?: never;
         /**
          * Abrir periodo
-         * @description Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un encargado: POST /sessions/authorize con permission funciones.periodo y se reenvía con authorization (un solo uso; no crea ni sustituye la sesión del encargado). Si ya hay uno abierto responde 409 PERIOD_ALREADY_OPEN.
+         * @description 1.2.293 · Un solo periodo por día (fecha de apertura, hora de España): si hoy ya se abrió y se cerró uno → 409 PERIOD_DAY_USED. Al abrir, lo agotado y lo desactivado en la tienda (no lo del Manager) vuelve a estar disponible. Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un encargado: POST /sessions/authorize con permission funciones.periodo y se reenvía con authorization (un solo uso; no crea ni sustituye la sesión del encargado). Si ya hay uno abierto responde 409 PERIOD_ALREADY_OPEN.
          *
          *     Permiso: funciones.periodo
          *
@@ -273,7 +273,7 @@ export interface paths {
          *
          *     16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.
          *
-         *     20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, pasarCuenta, separar, eliminaciones, descuentos, clientes, reabrir, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.
+         *     20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -333,7 +333,7 @@ export interface paths {
          *
          *     16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.
          *
-         *     20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, pasarCuenta, separar, eliminaciones, descuentos, clientes, reabrir, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.
+         *     20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -751,7 +751,7 @@ export interface paths {
          *
          *     04/11/2026 (API 1.2.268): también con cuentas con descuento o cobro parcial: pasan enteras, con sus cobros, y llegan como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
          *
-         *     20/11/2026 (API 1.2.289): transferir 1 producto ya enviado a otra mesa. El TPV lo pasa a una cuenta temporal y la transfiere con into = main e intoAccountId = la cuenta de la mesa de destino que eligió quien transfiere (si la mesa tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422 VALIDATION field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId). Sin intoAccountId, la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403 NOT_ALLOWED (details.feature = transferir), ni con la clave de un encargado.
+         *     20/11/2026 (API 1.2.289): transferir 1 producto ya enviado a otra mesa. El TPV lo pasa a una cuenta temporal y la transfiere con into = main e intoAccountId = la cuenta de la mesa de destino que eligió quien transfiere (si la mesa tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422 VALIDATION field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId). Sin intoAccountId, la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403 NOT_ALLOWED (details.feature = transferir), ni con la clave de un encargado. 1.2.291: el TPV manda item = true al pasar un producto suelto; con «Transferir producto» apagado → 403 NOT_ALLOWED (details.feature = transferirProducto).
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_transfer"];
         delete?: never;
@@ -4657,7 +4657,7 @@ export interface components {
         };
         ErrorItem: {
             /** @enum {string} */
-            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP" | "ACCOUNT_LOCKED" | "RECONNECTION_PENDING" | "RECONNECTION_DECIDED" | "SIMPLIFIED_LIMIT" | "PETTY_CASH_LIMIT";
+            code: "VALIDATION" | "NOT_FOUND" | "BAD_PIN" | "PIN_LOCKED" | "PERMISSION_REQUIRED" | "NOT_ALLOWED" | "VERSION_CONFLICT" | "DUPLICATE_SUSPECTED" | "INCIDENT_RESOLVED" | "ACCOUNT_CLOSED" | "ORDER_CLOSED" | "TABLE_BUSY" | "PERIOD_CLOSED" | "PENDING_NOT_ZERO" | "ORDER_NOT_EMPTY" | "COURSE_PENDING" | "NOTHING_TO_CHARGE" | "PRINTER_OFFLINE" | "IN_USE" | "DUPLICATE" | "STATION_NOT_ALLOWED" | "MAIN_STATION_REQUIRED" | "PERIOD_ALREADY_OPEN" | "TABLE_TAKEN" | "TABLE_CHARGING" | "TOTAL_BELOW_PAID" | "AMOUNT_EXCEEDS_PENDING" | "METHOD_NOT_ALLOWED" | "NOTHING_TO_TRANSFER" | "SESSION_REPLACED" | "IDEMPOTENCY_IN_PROGRESS" | "DEVICE_NOT_REGISTERED" | "DEVICE_TYPE_MISMATCH" | "OOT_NOT_CONFIGURED" | "OOT_TOKEN_INVALID" | "PRODUCT_NOT_OOT" | "REF_NOT_FOUND" | "TOO_LARGE" | "LINE_NOT_SENT" | "QUANTITY_EXCEEDS" | "BUSY_RETRY" | "INVALID_TRANSITION" | "RIDER_REQUIRED" | "DELIVERY_OFF" | "TABLE_OVERLAP" | "ACCOUNT_LOCKED" | "RECONNECTION_PENDING" | "TOTAL_MISMATCH" | "PERIOD_DAY_USED" | "RECONNECTION_DECIDED" | "SIMPLIFIED_LIMIT" | "PETTY_CASH_LIMIT";
             message: string;
             /** @description Campo con el problema, si lo hay */
             field: string | null;
@@ -5037,6 +5037,12 @@ export interface operations {
                  *       "note": null
                  *     } */
                 "application/json": {
+                    /** @description 1.2.292 · lo contado de cada forma de pago dada de alta ({method, name, counted}); se guarda en el cierre (cash_closing.method_detail, con lo que dice el sistema) y sale en el corte Z «Contado por forma de pago». Efectivo y tarjeta cuentan countedCash y countedCard. */
+                    methods?: {
+                        method?: string;
+                        name?: string | null;
+                        counted?: number;
+                    }[] | null;
                     countedCash?: number;
                     countedCard?: number;
                     /** @description Fondo que se queda para mañana; sin él, el de hoy − retiros + ingresos (nunca más de lo contado) */
@@ -6899,6 +6905,8 @@ export interface operations {
                     into?: "main" | "new";
                     /** @description 1.2.289 · con into = main, la cuenta de la mesa de destino que recibe (si no, la principal) */
                     intoAccountId?: string | null;
+                    /** @description 1.2.291 · es un producto suelto que el TPV pasó a una cuenta temporal; con «Transferir producto» apagado en Ajustes › Funcionalidades → 403 NOT_ALLOWED */
+                    item?: boolean;
                 };
             };
         };
@@ -8572,7 +8580,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime) */
+                    expectedTotal?: number | null;
+                };
+            };
+        };
         responses: {
             /** @description Transacción actualizada (en data) */
             200: {
@@ -8876,6 +8891,8 @@ export interface operations {
                  *       "cashGiven": 20
                  *     } */
                 "application/json": {
+                    /** @description 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime ni se cobra) */
+                    expectedTotal?: number | null;
                     id?: string | null;
                     method?: string;
                     amount?: number | null;
@@ -12673,6 +12690,8 @@ export interface operations {
                  *       "authorization": null
                  *     } */
                 "application/json": {
+                    /** @description 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime ni se cobra) */
+                    expectedTotal?: number | null;
                     payments?: {
                         method?: string;
                         amount?: number | null;

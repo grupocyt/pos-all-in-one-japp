@@ -47,6 +47,8 @@ export type ErrorCode =
   | "DELIVERY_OFF"
   | "TABLE_OVERLAP"
   | "RECONNECTION_PENDING"
+  | "TOTAL_MISMATCH"
+  | "PERIOD_DAY_USED"
   | "SIMPLIFIED_LIMIT"
   | "RECONNECTION_DECIDED"
   | "ACCOUNT_LOCKED";
@@ -102,6 +104,8 @@ export const HTTP_STATUS: Record<ErrorCode, number> = {
   // editar sala (28/10): una mesa encima de otra
   TABLE_OVERLAP: 422,
   RECONNECTION_PENDING: 409,
+  TOTAL_MISMATCH: 409,
+  PERIOD_DAY_USED: 409,
   SIMPLIFIED_LIMIT: 422,
   RECONNECTION_DECIDED: 409,
   // cuenta con descuento o cobro parcial (03/11): se libera antes (anular cobros y quitar el descuento)

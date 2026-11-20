@@ -25,7 +25,7 @@ export const SETTINGS_MODULES = [
 
 /** Teclas por módulo tal como aparecen en Ajustes › Perfiles (= PM_TREE del prototipo). */
 export const PERMISSION_TREE = {
-  mesas: ["abrirMesa", "transferir", "moverMesas", "editarPlano", "entrarOcupada", "orderOnTable"],
+  mesas: ["abrirMesa", "transferir", "transferirProducto", "moverMesas", "editarPlano", "entrarOcupada", "orderOnTable"],
   pedido: [
     "enviar",
     "precuenta",
@@ -43,7 +43,8 @@ export const PERMISSION_TREE = {
     "historialDev", // 0032 · Historial › pestaña Developer
     "ordenImpresion", // 0041 · arrastrar lo «Por enviar» para cambiar el orden de impresión
   ],
-  cobro: ["cobrar", "descuentos", "clientes", "reabrir"],
+  // 0043 · sin «reabrir» (una cuenta cobrada no se reabre nunca, regla del 03/11)
+  cobro: ["cobrar", "descuentos", "clientes"],
   // pedidos = tablero de delivery (0025); 0032 · un permiso por botón de Gestiones: semana, eliminaciones, servicio (Mesas en
   // servicio) y sir (Enviar ventas al SIR), que antes iban con informes, kpi y periodo
   funciones: [
@@ -84,6 +85,7 @@ export const BASIC_PERMISSIONS: Record<PermissionCode, boolean> = Object.fromEnt
   [
     "mesas.abrirMesa",
     "mesas.transferir",
+    "mesas.transferirProducto", // 0043 · pasar un producto enviado a otra mesa
     "pedido.enviar",
     "pedido.precuenta",
     "pedido.comentarios",

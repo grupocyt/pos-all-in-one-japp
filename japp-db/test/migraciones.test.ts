@@ -261,9 +261,9 @@ describe("migraciones", () => {
     await c.query("UPDATE delivery_order SET status='delivered', finished_at=now()");
     const perms = (await all(c, "SELECT code FROM permission WHERE code IN ('ajustes.pedidos','funciones.pedidos') ORDER BY 1")).map(r => r.code);
     expect(perms).toEqual(["ajustes.pedidos", "funciones.pedidos"]);
-    // 0030 (04/11): el tablero de pedidos ya solo lo tienen cajero y encargado
+    // 0030 (04/11): el tablero de pedidos ya solo lo tenían cajero y encargado; 0044 (20/11): solo Cajero y Administrador
     const sinTablero = (await all(c, "SELECT p.code FROM user_profile p WHERE NOT EXISTS (SELECT 1 FROM profile_permission x WHERE x.profile_id=p.id AND x.permission_code='funciones.pedidos') ORDER BY 1")).map(r => r.code);
-    expect(sinTablero).toEqual(["MESERO"]);
+    expect(sinTablero).toEqual(["ADMIN_LOCAL", "CAPITAN", "MESERO"]);
   }));
   it("0026: no hay dos personas con el mismo nombre aunque cambien mayúsculas o espacios; búsqueda de clientes por correo", () => rollback(c, async () => {
     const u = await one(c, "SELECT store_id, profile_id FROM app_user WHERE name='Mesero'");
@@ -288,7 +288,7 @@ describe("migraciones", () => {
   }));
   it("0030: cierre de facturación (tablero de delivery, estado de envío, límite de simplificada, F3, tipo de cuenta, propina, nota del cierre)", () => rollback(c, async () => {
     const tab = (await all(c, "SELECT p.code FROM user_profile p JOIN profile_permission x ON x.profile_id=p.id AND x.permission_code='funciones.pedidos' ORDER BY 1")).map(r => r.code);
-    expect(tab).toEqual(["ADMIN", "ADMIN_LOCAL", "CAJERO", "CAPITAN"]);
+    expect(tab).toEqual(["ADMIN", "CAJERO"]); // 0044 (20/11): solo Cajero y Administrador
     expect((await one(c, "SELECT simplified_limit FROM billing_settings LIMIT 1")).simplified_limit).toBe("3000.00");
     expect((await all(c, "SELECT DISTINCT allows_tip FROM payment_method WHERE kind <> 'discount'")).map(r => r.allows_tip)).toEqual([true]);
     expect((await one(c, "SELECT column_default d FROM information_schema.columns WHERE table_name='invoice' AND column_name='email_status'")).d).toMatch(/not_sent/);
@@ -395,6 +395,21 @@ describe("migraciones", () => {
     const u = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
     await c.query("UPDATE station SET device_uuid = $1, active = TRUE WHERE id IN ($2, $3)", [u, a.id, b.id]); // ya no falla
     expect((await one(c, "SELECT count(*)::int n FROM station WHERE device_uuid = $1", [u])).n).toBe(2);
+  }));
+  it("0044: productos desactivados en la tienda (local_off) y tablero de delivery solo para Cajero y Administrador", () => rollback(c, async () => {
+    const col = await one(c, "SELECT data_type, column_default FROM information_schema.columns WHERE table_name = 'product' AND column_name = 'local_off'");
+    expect(col?.data_type).toBe("boolean");
+    const codes = (await all(c, "SELECT DISTINCT p.code FROM profile_permission pp JOIN user_profile p ON p.id = pp.profile_id WHERE pp.permission_code = 'funciones.pedidos' ORDER BY 1")).map((r: any) => r.code);
+    expect(codes.every((x: string) => ["ADMIN", "CAJERO"].includes(x))).toBe(true);
+  }));
+  it("0043: permiso «Transferir producto» (sin «Reabrir»), formas de pago del cierre y formulario del descuento", () => rollback(c, async () => {
+    const codes = (await all(c, "SELECT code FROM permission WHERE code IN ('mesas.transferirProducto','cobro.reabrir')")).map((r: any) => r.code);
+    expect(codes).toEqual(["mesas.transferirProducto"]);
+    const n = async (p: string) => (await one(c, "SELECT count(*)::int n FROM profile_permission WHERE permission_code = $1", [p])).n;
+    expect(await n("mesas.transferirProducto")).toBe(await n("mesas.transferir"));
+    expect(await n("cobro.reabrir")).toBe(0);
+    const cols = (await all(c, "SELECT table_name || '.' || column_name AS k FROM information_schema.columns WHERE (table_name = 'cash_closing' AND column_name = 'method_detail') OR (table_name = 'account_discount' AND column_name = 'form_data') ORDER BY 1")).map((r: any) => r.k);
+    expect(cols).toEqual(["account_discount.form_data", "cash_closing.method_detail"]);
   }));
   it("0042: funcionalidades desactivadas para todo el sistema (Ajustes › Funcionalidades)", () => rollback(c, async () => {
     const col = await one(c, "SELECT data_type FROM information_schema.columns WHERE table_name = 'store_parameters' AND column_name = 'disabled_features'");

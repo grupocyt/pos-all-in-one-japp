@@ -23,6 +23,13 @@ export class AuthorizationService {
     @Inject(StoreApplication) private readonly stores: StoreApplication,
   ) {}
 
+  /** 1.2.291 · una función sin permiso propio (p. ej. transferirProducto): desactivada = 403 NOT_ALLOWED. */
+  async requireFeature(feature: string) {
+    if ((await this.stores.store()).disabledFeatures.includes(feature)) {
+      fail("NOT_ALLOWED", "Esta función está desactivada en Ajustes › Funcionalidades", { feature });
+    }
+  }
+
   /** 1.2.289 · Ajustes › Funcionalidades: desactivada = 403 NOT_ALLOWED para todos, ni con la clave de un encargado. */
   private async assertFeatureOn(perm: string) {
     const f = featureOff(perm, (await this.stores.store()).disabledFeatures);

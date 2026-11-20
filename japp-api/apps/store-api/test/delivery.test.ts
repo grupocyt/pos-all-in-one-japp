@@ -235,6 +235,10 @@ describe("Tablero de pedidos (delivery)", () => {
     });
     expect(c.body).toMatchObject({ status: "cancelled", light: null });
     expect(c.body.events.at(-1)).toMatchObject({ status: "cancelled", by: "Sistemas", note: "No contesta" });
+    // 1.2.293 · se avisa a la plataforma: el aviso queda en la cola hacia el Manager
+    const ob = (await t.sql.query("SELECT payload FROM sync_outbox WHERE entity = 'delivery.cancelled' AND entity_id = $1", [r.body.id])).rows;
+    expect(ob).toHaveLength(1);
+    expect(ob[0].payload).toMatchObject({ platform: expect.any(String), reason: "No contesta" });
     const again = await t.call("POST", `/delivery/orders/${r.body.id}/cancel`, {
       token: admin,
       body: { version: c.body.version },

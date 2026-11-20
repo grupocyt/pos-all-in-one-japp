@@ -284,7 +284,7 @@ describe("POST /orders/{id}/reopen · regla fija 03/11: una mesa cerrada no se r
     expect(r.error.details.charged).toEqual([o.acc]);
   });
 
-  it("abierta → 409 TABLE_BUSY; otro periodo → 409 PERIOD_CLOSED; sin permiso → 403; no existe → 404", async () => {
+  it("abierta → 409 TABLE_BUSY; otro periodo → 409 PERIOD_CLOSED; sin el permiso, el mismo motivo; no existe → 404", async () => {
     const open = await newOrder([]);
     const busy = await t.call("POST", `/orders/${open.id}/reopen`, { token: sis, body: {} });
     expect([busy.status, busy.error.code]).toEqual([409, "TABLE_BUSY"]);
@@ -294,7 +294,8 @@ describe("POST /orders/{id}/reopen · regla fija 03/11: una mesa cerrada no se r
     const per = await t.call("POST", `/orders/${p.id}/reopen`, { token: sis, body: {} });
     expect([per.status, per.error.code]).toEqual([409, "PERIOD_CLOSED"]);
     const no = await t.call("POST", `/orders/${p.id}/reopen`, { token: mesero, body: {} });
-    expect([no.status, no.error.code]).toEqual([403, "PERMISSION_REQUIRED"]);
+    // 1.2.292 (0043) · ya no hay permiso «Reabrir»: a cualquiera se le responde el motivo por el que no se reabre
+    expect(no.status).toBe(409);
     const bad = await t.call("POST", `/orders/${p.id}/reopen`, { token: sis, body: { authorization: 5 } });
     expect([bad.status, bad.error.code]).toEqual([422, "VALIDATION"]);
     const missing = await t.call("POST", `/orders/${crypto.randomUUID()}/reopen`, { token: sis, body: {} });

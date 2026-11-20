@@ -326,6 +326,7 @@ export class OrdersApplication {
               value: num(d.value),
               reason: d.reason ?? "",
               status: d.status as Discount["status"],
+              formData: Array.isArray(d.formData) ? (d.formData as { label: string; value: string }[]) : null,
               appliedBy: d.appliedByUserName
                 ? {
                     user: d.appliedByUserName,
@@ -785,6 +786,7 @@ export class OrdersApplication {
             baseAmount: String(sub),
             amount: amount.toFixed(2),
             reason: d.reason,
+            formData: d.formData?.length ? d.formData : null,
             status: d.status,
             ...actorCols("appliedBy", ctx.actor),
           } as any);

@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0041, consultas de control · 90 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 150 rutas (165 operaciones), todas programadas · 347 pruebas de dominio + 406 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.290 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.293 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,38 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.293 (21/11/2026): cuenta de la mesa como la PDA, un periodo por día, agotado hasta mañana
+
+**Con migración 0044:** parar la API, copiar la carpeta nueva, ejecutar `actualizar-base.bat` (o `npm run db:migrate` en japp-db) y arrancar; recargar el TPV en cada equipo.
+
+- **Caja › cuenta de la mesa** con el diseño del detalle de la comanda de la PDA: tarjetas con raya (dorada por enviar, roja precuenta), «1X NOMBRE», hora y precio a la derecha; las acciones salen **deslizando a la izquierda** (por enviar: +, − y comentario; enviado: transferir y eliminar); lo por enviar se **arrastra** para ordenar; el comentario va en minúsculas y se corta en 2 líneas. Fuera «Sale primero» y el nombre de quien marcó (está en el historial).
+- **¿Por qué se elimina?:** sin el texto de «Eliminados» y sin el botón «Todas».
+- **Agotado y desactivar un producto en la tienda:** valen hasta el día siguiente; al abrir el periodo se reactivan solos (lo desactivado por el Manager no se toca). Suben al Manager con el agente.
+- **Un solo periodo por día:** si hoy ya se abrió y cerró uno → 409 `PERIOD_DAY_USED` (variable `ONE_PERIOD_PER_DAY=0` solo para pruebas).
+- **Tablero de delivery:** por defecto solo Cajero y Administrador (se cambia en Ajustes › Accesos).
+- **Cancelar un delivery** deja el aviso a la plataforma en la cola hacia el Manager (`delivery.cancelled`).
+- **PDA:** en la comanda, el canal sale por su nombre (antes podía salir su id).
+
+## 1.2.292 (20/11/2026): decisiones del dueño (permisos, PDA, factura, cierre, abonos, cobro seguro)
+
+**Con migración 0043:** parar la API, copiar la carpeta nueva, ejecutar `actualizar-base.bat` (o `npm run db:migrate` en japp-db) y arrancar; recargar el TPV en cada equipo.
+
+- **Permisos:** «Transferir un producto a otra mesa» (`mesas.transferirProducto`) va aparte de «Transferir mesa»; lo tiene quien ya podía transferir. Fuera «Reabrir mesa» (`cobro.reabrir`): una cuenta cobrada no se reabre nunca.
+- **PDA:** «Cambiar mi clave» al final de Gestiones (tocar la foto); en el ☰ de la mesa, «Cuentas cobradas · N» con la factura, los productos, el descuento, cómo se cobró y quién cobró (solo consulta).
+- **Factura:** debajo del descuento sale lo rellenado en su formulario (nombre, DNI…); en la precuenta no. Se guarda con el descuento (`account_discount.form_data`).
+- **Cierre de periodo:** salen todas las formas de pago dadas de alta; se guarda lo contado de cada una con lo que dice el sistema (`cash_closing.method_detail`) y el corte Z lleva «Contado por forma de pago».
+- **Abonos en efectivo:** lo devuelto sale del cajón, así que resta del efectivo esperado (corte X, cierre y Z).
+- **Precuenta y cobro:** el TPV manda el total que ve (`expectedTotal`); si el del servidor es otro, 409 `TOTAL_MISMATCH` y no se imprime ni se cobra. Una mesa recién abierta se manda al servidor antes.
+- **Ajustes:** el logo de la cabecera ya no sale borroso.
+
+## 1.2.291 (20/11/2026): Funcionalidades › Transferir producto, Guardar sin contador
+
+**Sin migración** (si vienes de la 1.2.288 o antes, aplica la 0042 de la 1.2.289): parar la API, copiar la carpeta nueva y arrancar; recargar el TPV en cada equipo.
+
+- **Ajustes › Funcionalidades:** «Transferir producto» va aparte de «Transferir mesa» (apagado, no sale el ⇄ en la línea y la API responde 403 al producto suelto: el TPV lo manda con `item = true`). Fuera «Reabrir»: una cuenta cobrada no se reabre nunca (regla del 03/11). La lista tiene scroll y el menú su icono.
+- **Caja:** «Guardar» sin el contador de lo pendiente.
+- **Cambiar mesa:** sin la explicación «La cuenta, sus productos, pagos e historial pasan…».
 
 ## 1.2.290 (20/11/2026): transferir un producto también en la caja web
 

@@ -7,20 +7,20 @@ Las peticiones de las pruebas que cambian funcionalidad se aprueban antes de hac
 
 | # | Pregunta | Origen | Cómo está hoy |
 |---|---|---|---|
-| 1 | ¿Quién puede marcar un producto como «Agotado»: solo Sistemas o también el Gerente? | Catalina, pruebas 22/10/2026 | Lo hace quien tiene el permiso de Ajustes › Productos |
-| 2 | Al marcar «Agotado», ¿el aviso a Marketing es inmediato o va en el envío diario de incidencias? ¿Cómo se hace el seguimiento? | Catalina, pruebas 22/10/2026 | Queda como incidencia y se envía a Marketing al cerrar el periodo |
-| 3 | ¿El «Agotado» dura solo el día y se reactiva solo al día siguiente, o se puede poner fecha y hora de reactivación? | Catalina, pruebas 22/10/2026 | Se quita a mano |
-| 4 | Activar o desactivar un producto: ¿debe ir a Marketing para validarlo antes, en vez de cambiarse directamente? | Catalina, pruebas 22/10/2026 | Se cambia directamente y se avisa en el envío de incidencias |
-| 5 | El módulo de Incidencias, ¿es un registro informativo o un sistema de solicitudes que Marketing aprueba? | Catalina, pruebas 22/10/2026 | Registro informativo |
-| 6 | Numeración de cuentas: Catalina pide reutilizar los números de las cuentas que se quedan vacías. Que lo explique en la reunión | Catalina, pruebas 26/10/2026 | Los números nunca se repiten (decisión del 23/10/2026; 1.2.196) |
+| 1 | ¿Quién puede marcar un producto como «Agotado»: solo Sistemas o también el Gerente? | Catalina, pruebas 22/10/2026 | Lo hace quien tiene el permiso de Ajustes › Productos | **→ Decidido 20/11 (noche), ver abajo (1)**
+| 2 | Al marcar «Agotado», ¿el aviso a Marketing es inmediato o va en el envío diario de incidencias? ¿Cómo se hace el seguimiento? | Catalina, pruebas 22/10/2026 | Queda como incidencia y se envía a Marketing al cerrar el periodo | **→ Decidido 20/11 (noche), ver abajo (1)**
+| 3 | ¿El «Agotado» dura solo el día y se reactiva solo al día siguiente, o se puede poner fecha y hora de reactivación? | Catalina, pruebas 22/10/2026 | Se quita a mano | **→ Decidido 20/11 (noche), ver abajo (1)**
+| 4 | Activar o desactivar un producto: ¿debe ir a Marketing para validarlo antes, en vez de cambiarse directamente? | Catalina, pruebas 22/10/2026 | Se cambia directamente y se avisa en el envío de incidencias | **→ Decidido 20/11 (noche), ver abajo (2)**
+| 5 | El módulo de Incidencias, ¿es un registro informativo o un sistema de solicitudes que Marketing aprueba? | Catalina, pruebas 22/10/2026 | Registro informativo | **→ Decidido 20/11 (noche), ver abajo (3)**
+| 6 | Numeración de cuentas: Catalina pide reutilizar los números de las cuentas que se quedan vacías. Que lo explique en la reunión | Catalina, pruebas 26/10/2026 | Los números nunca se repiten (decisión del 23/10/2026; 1.2.196) | **→ Decidido 20/11 (noche), ver abajo (4)**
 
 ## De las pruebas internas (tienda montada desde el zip, 27/10/2026)
 
 | # | Tema | Cómo está hoy | Qué hay que decidir |
 |---|---|---|---|
-| 7 | Plano de mesas de una tienda nueva (datos iniciales JC01) | En la caja solo se ven 2 de las 100 mesas del salón y 2 de las 200 de terraza: las posiciones de los datos iniciales no encajan con el plano del TPV. En la PDA salen todas en lista | ¿Se dibuja un plano por defecto en los datos iniciales (rejilla) o cada tienda coloca sus mesas con «Editar plano» antes de abrir? |
-| 8 | Canales de impresión de la carta | Los primeros y segundos platos del menú tienen canal BEBIDA (salen por barra) y 70 productos activos no tienen canal (no salen en ninguna comanda) | Revisar la carta en el Manager / Ajustes › Productos (es dato, no programa) |
-| 9 | Calificativos de combinados y bebidas calientes | «CON HIELO», «SIN LIMÓN», «CAMBIO LECHE»… son productos sueltos de 0 €, no opciones del combinado o del café | ¿Pasan a ser preguntas/opciones del producto (como en MaxPoint)? |
+| 7 | Plano de mesas de una tienda nueva (datos iniciales JC01) | En la caja solo se ven 2 de las 100 mesas del salón y 2 de las 200 de terraza: las posiciones de los datos iniciales no encajan con el plano del TPV. En la PDA salen todas en lista | ¿Se dibuja un plano por defecto en los datos iniciales (rejilla) o cada tienda coloca sus mesas con «Editar plano» antes de abrir? | **→ Decidido 20/11 (noche), ver abajo (7)**
+| 8 | Canales de impresión de la carta | Los primeros y segundos platos del menú tienen canal BEBIDA (salen por barra) y 70 productos activos no tienen canal (no salen en ninguna comanda) | Revisar la carta en el Manager / Ajustes › Productos (es dato, no programa) | **→ Decidido 20/11 (noche), ver abajo (carta)**
+| 9 | Calificativos de combinados y bebidas calientes | «CON HIELO», «SIN LIMÓN», «CAMBIO LECHE»… son productos sueltos de 0 €, no opciones del combinado o del café | ¿Pasan a ser preguntas/opciones del producto (como en MaxPoint)? | **→ Decidido 20/11 (noche), ver abajo (5)**
 | 10 | Envío de la factura por email | El email del cliente se guarda y es obligatorio en la factura completa | **Decidido el 04/11:** no se envían correos; queda un estado de envío en «no enviada» (ver «Decidido el 04/11/2026 (tarde)») |
 | 11 | Corte Z | Lleva ventas por forma de pago y el efectivo esperado, pero no lo contado, la diferencia ni el motivo | ¿Se añaden contado, diferencia y motivo al Z impreso? |
 
@@ -28,9 +28,8 @@ Las peticiones de las pruebas que cambian funcionalidad se aprueban antes de hac
 
 | # | Petición | Cómo está hoy | Qué hay que decidir |
 |---|---|---|---|
-| 12 | Nombres de los canales de impresión: los acordados (LINEA, CONTROL, BEBIDA, TICKET/FACTURACIÓN) | Los datos iniciales traen TICKET, BEBIDA y COMIDA | ¿Qué canales y con qué nombre se crean en una tienda nueva? (se cambia en los datos iniciales) |
-| 13 | Editar sala: número de mesa nueva secuencial por zona, sin poder pisar una existente | Se escribe el número a mano y avisa si ya existe (desde la 1.2.277 la base nueva trae una sola mesa por sala; las 300 de ejemplo se quitan con `japp-db/sql/limpiar-mesas-ejemplo.sql`) | ¿Se propone solo el siguiente número libre de la zona? |
-| 14 | «En los canales de impresión no es posible desactivar o mover esta opción» | Un canal con productos no se puede desactivar (avisa «en uso») | Aclarar con Catalina qué opción quiere desactivar o mover |
+| 12 | Nombres de los canales de impresión: los acordados (LINEA, CONTROL, BEBIDA, TICKET/FACTURACIÓN) | Los datos iniciales traen TICKET, BEBIDA y COMIDA | ¿Qué canales y con qué nombre se crean en una tienda nueva? (se cambia en los datos iniciales) | **→ Decidido 20/11 (noche), ver abajo (6)**
+| 13 | Editar sala: número de mesa nueva secuencial por zona, sin poder pisar una existente | Se escribe el número a mano y avisa si ya existe (desde la 1.2.277 la base nueva trae una sola mesa por sala; las 300 de ejemplo se quitan con `japp-db/sql/limpiar-mesas-ejemplo.sql`) | ¿Se propone solo el siguiente número libre de la zona? | **→ Decidido 20/11 (noche), ver abajo (7)**
 
 ## Al diseñar la API de la 1.2.264 (02/11/2026)
 
@@ -38,10 +37,10 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 
 | # | Tema | Cómo queda en el contrato | Qué hay que confirmar |
 |---|---|---|---|
-| 15 | Resumen de la semana (ventas de la semana contra el año anterior) | Lo ve quien puede ver Informes en Gestiones | ¿Basta con eso, o solo lo ve quien entra al Gestor de cierres (gerentes)? |
-| 16 | Tablero de pedidos de delivery (Glovo, Uber…) | Lo puede abrir cualquier persona (todos los perfiles tienen el permiso) | ¿Cualquiera, o solo cajero y encargado? Se cambia en Ajustes › Accesos sin programar |
-| 17 | Cancelar un pedido de delivery | Hace falta la clave de un encargado y escribir el motivo | ¿Está bien así? ¿Hay que avisar a la plataforma (Glovo, Uber) cuando se cancela? |
-| 18 | Nombre, logo y colores en la pantalla de la clave | Se enseñan antes de que nadie entre (no hace falta clave para verlos) | Confirmar que no es un dato reservado: solo nombre, textos, logo y colores |
+| 15 | Resumen de la semana (ventas de la semana contra el año anterior) | Lo ve quien puede ver Informes en Gestiones | ¿Basta con eso, o solo lo ve quien entra al Gestor de cierres (gerentes)? | **→ Decidido 20/11 (noche), ver abajo (8)**
+| 16 | Tablero de pedidos de delivery (Glovo, Uber…) | Lo puede abrir cualquier persona (todos los perfiles tienen el permiso) | ¿Cualquiera, o solo cajero y encargado? Se cambia en Ajustes › Accesos sin programar | **→ Decidido 20/11 (noche), ver abajo (9)**
+| 17 | Cancelar un pedido de delivery | Hace falta la clave de un encargado y escribir el motivo | ¿Está bien así? ¿Hay que avisar a la plataforma (Glovo, Uber) cuando se cancela? | **→ Decidido 20/11 (noche), ver abajo (10)**
+| 18 | Nombre, logo y colores en la pantalla de la clave | Se enseñan antes de que nadie entre (no hace falta clave para verlos) | Confirmar que no es un dato reservado: solo nombre, textos, logo y colores | **→ Decidido 20/11 (noche), ver abajo (11)**
 
 ## Decidido el 04/11/2026 (tarde) con el dueño
 
@@ -49,7 +48,7 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 |---|---|---|---|
 | 11 | Corte Z | Añadir lo contado, la diferencia y el motivo | **Hecho 1.2.268** (0030: `cash_closing.note`) |
 | N7 | Order on Table | Cuenta propia de tipo `order_on_table`, de otro color, que no se bloquea por otra cuenta en cobro | **Hecho 1.2.268** (0030: `account.kind`; si la del cliente se está cobrando, «Order on Table 2»). Queda la prueba de punta a punta (O1–O2) |
-| 16 | Tablero de delivery | Solo cajero y encargado (se cambia en Accesos) | **Hecho 1.2.268** (0030) |
+| 16 | Tablero de delivery | Solo cajero y encargado (se cambia en Accesos) | **Hecho 1.2.268** (0030) | **→ Decidido 20/11 (noche), ver abajo (9)**
 | N3 | Propina | Se admite con **todas** las formas de pago; siempre fuera de la factura y de VeriFactu | **Hecho 1.2.268**: en efectivo lo entregado cubre cuenta + propina y la propina cuenta en el efectivo esperado |
 | 4, 6, 15, 17, 18 | Devolución con abono total, números de cuenta que no se repiten, Resumen semana con Informes, cancelar delivery con clave y motivo, Sistema visible antes de entrar | **Se quedan como están** | Cerrado |
 | F2 | Corregir la forma de pago de algo ya facturado | **Regla fija: nada de lo facturado se edita.** Se hace un abono completo y se vuelve a ticar y cobrar normal | Cerrado (ya funciona así) |
@@ -59,7 +58,7 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | 1–5, 8, 12, 14 | Agotado, activar o desactivar productos, incidencias, canales de impresión de la carta | **Son configuración** (Ajustes › Productos y Canales): no se programa nada | Cerrado |
 | 7, 13 | Plano de una tienda nueva y número de mesa nueva | **Son configuración** (Editar sala: se colocan las mesas y se escribe el número, avisa si ya existe) | Cerrado |
 | 9 (calificativos) | «CON HIELO», «SIN LIMÓN»… como productos de 0 € | **Se pueden ticar productos a 0 €** (calificativos, salen en la comanda); lo que no se cobra ni factura es una cuenta a 0 € (409 NOTHING_TO_CHARGE). Rectificado el 04/11 por la noche (antes se bloqueaban) | **Hecho 1.2.268** · pasar los calificativos a opciones es configuración de la carta |
-| 9 | Servidor de la tienda caído | Correcto como está: sin servidor no se cobra ni se factura (escrito en el LEEME). Lo de recuperarlo sigue en el Plan de contingencia | Cerrado · contingencia pendiente |
+| 9 | Servidor de la tienda caído | Correcto como está: sin servidor no se cobra ni se factura (escrito en el LEEME). Lo de recuperarlo sigue en el Plan de contingencia | Cerrado · contingencia pendiente | **→ Decidido 20/11 (noche), ver abajo (5)**
 | 10 | Factura por email | **No se envían correos.** La factura lleva un estado de envío que queda en «no enviada» y ahí termina el flujo | **Hecho 1.2.268** (0030: `invoice.email_status`) |
 | N9 | Facturar los pedidos de delivery | **A futuro** (escrito en el LEEME) | A futuro |
 | Notas de la mesa | Varias notas, con quién y cuándo | **Varias notas por mesa, con autor, equipo y hora; no se borran** (05/11) | **Hecho 1.2.268** (0032) |
@@ -86,7 +85,7 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Auditoría | Separar sus arqueos de la operativa | **Permiso «Arqueo de auditoría»** y apartado «Movimiento de caja – Auditoría» (17/11) | **Hecho 1.2.274** (0037) |
 | Retiros | Solo traslado a caja fuerte | **Siempre «Traslado a caja fuerte»**, sin motivo (17/11) | **Hecho 1.2.274** |
 | Caja chica | Fondo del gerente aparte | **Fondo fijo de 50 € aparte del cajón, se repone hasta el límite** (17/11) | **Hecho 1.2.274** (0037) |
-| Abonos en efectivo | Al abonar una factura cobrada en efectivo, la API no resta del efectivo esperado lo devuelto (el TPV sin servidor sí lo resta). Si el dinero sale del cajón, el corte X da «falta» por ese importe | **Por decidir con Julián:** ¿la devolución sale del cajón (restarla) o de la caja fuerte (como ahora)? | Visto en las pruebas de la 1.2.274 (17/11) |
+| Abonos en efectivo | Al abonar una factura cobrada en efectivo, ¿lo devuelto sale del cajón? | **Decidido con el dueño 20/11: sale del cajón** (resta del efectivo esperado) | **Hecho 1.2.292** |
 | Diseño de la PDA | Entrar en la PDA como el diseño enviado (17/11) | **Hecho 1.2.275** (PDA, caja, tipo de equipo, reset, bloqueo y letra de base.css), probado en el artefacto | OK del 17/11 |
 | Login y configuración | Cada login vuelve a leer configuración y permisos del servidor | OK (17/11): leer antes de entrar; permisos de la API; si el servidor no contesta, copia guardada y aviso | **Hecho 1.2.276** |
 | Zoom en el móvil | El doble toque no debe hacer zoom | OK (17/11) | **Hecho 1.2.276** |
@@ -99,18 +98,18 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Pruebas en JC01 (20/11) | PDA (zoom del plano, teclas, Guardar/Precuenta al plano, precuenta deshecha), caja (corte X a ciegas, retiros, monedas), descuentos por equipo y con formulario | OK (20/11) | **Hecho 1.2.285** |
 | Cobrar y pantalla fija (20/11) | Sin «Borrar entregado» ni «Propina», teclado fijo bajo Precuenta; azulejo oscuro alrededor | OK (20/11) | **Hecho 1.2.286** |
 | Transferir un producto y Funcionalidades (20/11) | Transferir 1 producto ya enviado a otra mesa (pregunta a qué cuenta); Ajustes › Funcionalidades para activar o desactivar funciones en todo el sistema; «Billete» en Cobrar; papelera en el bloqueo | OK (20/11) | **Hecho 1.2.289** (0042); en la caja web, **1.2.290** |
-| Transferir producto: ¿permiso propio? | Hoy usa el mismo permiso que transferir la mesa o una cuenta (Mesas › Transferir) | **Por decidir:** ¿permiso aparte «Transferir producto»? | Pregunta del 20/11 |
-| Funcionalidades: ¿cuáles más? | Hoy se pueden desactivar 14 (Transferir, Pasar entre cuentas, Separar, Eliminaciones, Descuentos, Datos del cliente, Reabrir, Abonar, Abrir cajón, Caja chica, Pedidos, Editar el plano, Orden de impresión, Mi venta) | **Por decidir:** ¿añadir otras (p. ej. Precuenta, Comentarios, Delivery por canal)? | Pregunta del 20/11 |
-| «Cambiar mi clave» en la PDA (20/11) | La foto ahora abre Gestiones: ¿añadir «Cambiar mi clave» dentro de Gestiones? | **Por decidir** | Pregunta del 20/11 |
-| Datos del formulario del descuento en la factura | ¿Imprimir en la factura lo rellenado (nombre, DNI…)? Hoy queda solo en el historial | **Por decidir** | Pregunta del 20/11 |
-| Detalle de una cuenta cobrada en la PDA | ¿Se puede abrir desde el ☰ para ver lo cobrado? | **Por decidir** | Pregunta del 19/11 |
-| Cierre: otras formas de pago | En el cierre se escriben los importes de las formas de pago que no son efectivo ni tarjeta, pero la API del cierre solo guarda efectivo y tarjeta | **Por decidir:** ¿guardarlos en el cierre (migración) o dejarlos solo de referencia en pantalla? | Visto el 19/11 |
-| Caja chica y efectivo del sistema | ¿El dinero de la caja chica sale del mismo cajón? Cambia el «Sistema» de Efectivo en el corte X | **Por decidir** | Pregunta del 19/11 |
+| Transferir producto: ¿permiso propio? | Hoy usa el mismo permiso que transferir la mesa o una cuenta (Mesas › Transferir); desde la 1.2.291 se puede apagar aparte en Funcionalidades | **Decidido 20/11: sí** | **Hecho 1.2.292** (0043) |
+| Funcionalidades: ¿cuáles más? | Hoy se pueden desactivar 14 (Transferir mesa, Transferir producto, Pasar entre cuentas, Separar, Eliminaciones, Descuentos, Datos del cliente, Abonar, Abrir cajón, Caja chica, Pedidos, Editar el plano, Orden de impresión, Mi venta) | **Decidido 20/11: no** (y fuera «Reabrir») | **Hecho 1.2.292** |
+| «Cambiar mi clave» en la PDA (20/11) | La foto ahora abre Gestiones: ¿añadir «Cambiar mi clave» dentro de Gestiones? | **Decidido 20/11: sí** | **Hecho 1.2.292** |
+| Datos del formulario del descuento en la factura | ¿Imprimir en la factura lo rellenado (nombre, DNI…)? | **Decidido 20/11: se imprime** | **Hecho 1.2.292** (0043) |
+| Detalle de una cuenta cobrada en la PDA | ¿Se puede abrir desde el ☰ para ver lo cobrado? | **Decidido 20/11: sí** | **Hecho 1.2.292** («Cuentas cobradas») |
+| Cierre: otras formas de pago | En el cierre se escriben los importes de las formas de pago que no son efectivo ni tarjeta, pero la API del cierre solo guarda efectivo y tarjeta | **Decidido 20/11: se guardan todas las formas de pago dadas de alta** | **Hecho 1.2.292** (0043) |
+| Caja chica y efectivo del sistema | ¿El dinero de la caja chica sale del mismo cajón? | **Decidido 20/11: no, es de la caja fuerte** (ya era así: no toca el efectivo del cajón) | Sin cambios |
 | Hora en la caja | Hora de cada línea en la cuenta de la mesa | OK (17/11) | **Hecho 1.2.280** |
 | Comanda de la PDA de lado | La hoja se movía a izquierda y derecha | Arreglado (17/11) | **Hecho 1.2.280** |
 | Botones de la PDA | Iconos nuevos en la mesa | OK (17/11) | **Hecho 1.2.279** |
 | Comanda de la PDA | Hora por línea, sin camarero ni «Precuenta», precuenta en rojo, quién imprimió solo para encargados | OK (17/11) | **Hecho 1.2.278** |
-| Todo en la base | Nada solo en la caché del equipo (p. ej. ancho y alto de la pantalla) | 1.2.281: bloqueo, «Puede cobrar» y permisos sueltos ya se leen de la base. Falta: «Guardar» espere a la API (17/11) | **Pendiente del OK** |
+| Todo en la base | Nada solo en la caché del equipo (p. ej. ancho y alto de la pantalla) | 1.2.281: bloqueo, «Puede cobrar» y permisos sueltos ya se leen de la base. Falta: «Guardar» espere a la API (17/11) | **Decidido 20/11:** Guardar sigue como estaba (sin red, lo ticado va a Reconexiones). Precuenta y cobro sí esperan al servidor y comparan el total (N2b) | **Hecho 1.2.292** |
 | Roles y accesos | «Actualiza roles y accesos» (17/11 y 20/11): permisos de lo nuevo | Orden de impresión, Mi venta y Sistema en el corte X; botones nuevos de la PDA con su permiso | **Hecho 1.2.285** (migración 0041) |
 | Login de la caja | Texto bajo el logo y marcas | **«Comandero Japp» y la rueda; fuera KFC y CasaRES; vuelve el mundo; tickets con su letra de antes** (17/11). El diseño con foto, logo animado y azulejos con marcas se probó y se descartó | **Hecho 1.2.277** |
 | Datáfonos por API | Que el POS mande el importe al datáfono | Mejora futura (17/11) | A futuro · ver con los proveedores |
@@ -182,7 +181,6 @@ Pendiente de pruebas (decidido el 04/11/2026). Order on Table es configurable y 
 | # | Tema | Qué hay que decidir |
 |---|---|---|
 | K2 | Japp Manager y API Gateway reales | Dominios finales y cómo llega el Manager a cada tienda (VPN, túnel o relé) |
-| K3 | Convivencia con MaxPoint | Qué datos se espejan y durante cuánto tiempo |
 | K4 | Vista de la orden (`deletedLines`) | El JSON no trae motivo ni autorizador; la API sí los guarda |
 
 ## A futuro
@@ -201,7 +199,7 @@ Se deja para más adelante (decidido el 04/11/2026).
 | N2 | No se cobra si queda un pase del menú por marchar (ya era así: COURSE_PENDING) **ni si hay algo en reconexión** de esa cuenta (409 RECONNECTION_PENDING). «Marchar» sí se puede con la cuenta en cobro (no cambia el importe) | **Hecho 1.2.268** |
 | N5 | Nombre de descuento largo en el ticket | **Hecho 1.2.268**: se parte en varias líneas (antes se recortaba), en el servidor y en el TPV |
 | N1 | Formatos de ticket (camarero, desglose, por persona, pie…) aplicados también por el servidor | **Hecho 1.2.268** (migración 0029, `store_parameters.ticket_formats`): el TPV guarda Ajustes › Formatos en el servidor y la API imprime precuenta, factura y abono con ellos (también «Abrir el cajón»). En la factura el nombre fiscal y el NIF salen siempre |
-| N2b | Revisar a fondo el envío de lo pendiente antes de Precuenta y Cobrar (hoy se manda al servidor y se compara) para que no quede ningún descuadre | Por investigar |
+| N2b | Revisar a fondo el envío de lo pendiente antes de Precuenta y Cobrar | **Hecho 1.2.292**: el TPV manda el total que ve y el servidor no imprime ni cobra si es otro (409 TOTAL_MISMATCH); pruebas de varias cuentas, descuentos y productos movidos |
 
 ## Fidelización
 
@@ -213,3 +211,23 @@ Captar y reconocer a los clientes (nombre, contacto, historial de compras). Secc
 |---|---|---|
 | 33 | Pedir el nombre del cliente antes de cada comanda (fidelización) | ¿Obligatorio u opcional? ¿Sale en la comanda y en el ticket? ¿Se guarda en el fichero de clientes? |
 | 34 | Revisar cómo captan los datos de fidelización Juan Valdez y llaollao | Qué datos (nombre, teléfono, correo), consentimiento (RGPD) y si se conecta con algún programa de puntos |
+
+## Decidido el 20/11/2026 (noche) con el dueño
+
+| # | Tema | Decisión | Estado |
+|---|---|---|---|
+| 1 | «Agotado» | Se reactiva solo al día siguiente. No se avisa a nadie desde la tienda: la información sube al Manager con el agente de sincronización | **Hecho 1.2.293** (0044) |
+| 2 | Activar o desactivar productos | Directo, sin validar con Marketing; también se reactiva solo al día siguiente y sube al Manager con el agente | **Hecho 1.2.293** (0044) |
+| 3 | Incidencias | No es un circuito de aprobación en la tienda: suben al Manager con el agente y allí se gestionan | **Hecho**: ya iban en la cola hacia el Manager; textos del TPV cambiados (1.2.293) |
+| 4 | Números de cuenta | No se reutilizan (por el histórico y para evitar fallos): queda como está | Sin cambios |
+| 5 | Calificativos | No es tarea: es configurable y viene del Manager | Cerrado |
+| 6 | Canales de impresión de una tienda nueva | Cada producto es BEBIDA o COMIDA; dónde imprime cada uno se decide en Ajustes › Áreas de impresión | **Comprobado**: la tienda nueva trae BEBIDA, COMIDA y TICKET |
+| 7 | Plano de mesas de una tienda nueva | Cada tienda coloca sus mesas | Sin cambios |
+| 8 | Resumen de la semana | Configurable en Perfiles y permisos | Sin cambios |
+| 9 | Tablero de delivery | Por defecto solo el Cajero; configurable en Perfiles y permisos | **Hecho 1.2.293** (0044) |
+| 10 | Cancelar un delivery | Sí se avisa a la plataforma (Glovo, Uber…) | **Hecho 1.2.293**: el aviso va en la cola hacia el Manager (`delivery.cancelled`); el envío a cada plataforma lo hace su integración |
+| 11 | Nombre, logo y colores en la pantalla de la clave | Quitado por el dueño: no hace falta | Cerrado |
+| — | Datos de la carta (canales, calificativos) | Vienen del Manager ya configurados | Cerrado |
+| — | Canales: qué opción quería mover Catalina | Quitado | Cerrado |
+| — | Convivencia con MaxPoint | Quitado: MaxPoint ya no está | Cerrado |
+| 12 | Periodos | Solo uno por día: no se abren y cierran varios el mismo día | **Hecho 1.2.293** |

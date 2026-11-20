@@ -1,16 +1,17 @@
 /**
  * 1.2.289 · Ajustes › Funcionalidades: funciones que se pueden desactivar para todo el sistema.
  * Desactivada = nadie la puede usar, ni con su perfil ni con la clave de un encargado (store_parameters.disabled_features, 0042).
- * Cada función apaga los permisos «módulo.tecla» que la abren.
+ * Cada función apaga los permisos «módulo.tecla» que la abren. «Reabrir» no está: una cuenta cobrada no se reabre nunca (03/11).
  */
 export const FEATURES = {
   transferir: ["mesas.transferir"],
+  /** un producto ya enviado a otra mesa (POST …/accounts/{id}/transfer con item = true); permiso propio desde la 0043 */
+  transferirProducto: ["mesas.transferirProducto"],
   pasarCuenta: ["pedido.pasarCuenta"],
   separar: ["pedido.separar"],
   eliminaciones: ["pedido.elimEnviado", "pedido.elimPrecuenta"],
   descuentos: ["cobro.descuentos"],
   clientes: ["cobro.clientes"],
-  reabrir: ["cobro.reabrir"],
   abonar: ["funciones.abonar"],
   abrirCajon: ["funciones.abrirCajon"],
   cajaChica: ["funciones.cajaChica"],

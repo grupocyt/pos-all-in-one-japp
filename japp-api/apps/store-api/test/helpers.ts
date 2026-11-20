@@ -21,6 +21,8 @@ export async function setup(over: Partial<Config> = {}) {
     corsOrigins: [],
     apiMode: "developer",
     apiAuthor: "Api Japp Grupo Cañas y Tapas",
+    // 1.2.293 · las pruebas abren y cierran varios periodos el mismo día; la regla «uno por día» se prueba en pruebas-293
+    onePeriodPerDay: false,
     ...over,
   };
   const clock = { now: new Date() };

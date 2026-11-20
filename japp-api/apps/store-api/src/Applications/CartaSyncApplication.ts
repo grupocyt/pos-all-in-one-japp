@@ -464,7 +464,7 @@ export class CartaSyncApplication {
   async updateProduct(tx: Tx, storeId: string, id: string, v: ProductValues, version: number) {
     await tx
       .update(s.product)
-      .set({ ...v, price: money(v.price), priceTerrace: optMoney(v.priceTerrace), active: true, version })
+      .set({ ...v, price: money(v.price), priceTerrace: optMoney(v.priceTerrace), active: true, localOff: false, version })
       .where(and(eq(s.product.storeId, storeId), eq(s.product.id, id)));
   }
 
@@ -489,6 +489,10 @@ export class CartaSyncApplication {
       .update(t)
       .set({ active: false, version: sql`${t.version} + 1` })
       .where(and(eq(t.storeId, storeId), inArray(t.id, ids)));
+    if (what === "product") {
+      // 0044 · desactivado por el Manager: no se reactiva solo al día siguiente
+      await tx.update(s.product).set({ localOff: false }).where(and(eq(s.product.storeId, storeId), inArray(s.product.id, ids)));
+    }
   }
 
   // ───────────────────────── 16/11 · publicación de Carta ─────────────────────────

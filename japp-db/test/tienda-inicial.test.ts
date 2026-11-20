@@ -33,7 +33,7 @@ describe("datos de la tienda nueva (04)", () => {
     expect(await has("ajustes.devdb", "ADMIN_LOCAL")).toBe(false);
     // 0030 (04/11): el tablero de pedidos solo para cajero y encargado; Ajustes › Pedidos a quien tiene Restaurante (0025)
     expect(await has("funciones.pedidos", "MESERO")).toBe(false);
-    expect(await has("funciones.pedidos", "CAPITAN")).toBe(true);
+    expect(await has("funciones.pedidos", "CAPITAN")).toBe(false); // 0044 (20/11): solo Cajero y Administrador
     expect(await has("funciones.pedidos", "CAJERO")).toBe(true);
     expect(await has("ajustes.pedidos", "ADMIN")).toBe(true);
   }));

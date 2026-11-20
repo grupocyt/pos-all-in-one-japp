@@ -1,7 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database } from "@japp/db";
 import { assertDetailMatches, assertMainStation, cashDifference, fail, r2 } from "@japp/domain";
-import { CLOCK, DATABASE, type Clock } from "../Constants/Injection.js";
+import { sql } from "drizzle-orm";
+import { CLOCK, CONFIG, DATABASE, type Clock } from "../Constants/Injection.js";
+import type { Config } from "../Properties/AppSettings.js";
 import type { Session } from "../Helpers/AuthGuard.js";
 import { AuthorizationService } from "./AuthorizationService.js";
 import { ClosingsService } from "./ClosingsService.js";
@@ -21,6 +23,7 @@ export class PeriodsService {
     @Inject(StoreApplication) private readonly stores: StoreApplication,
     @Inject(AuthorizationService) private readonly auth: AuthorizationService,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(CONFIG) private readonly cfg: Config,
     @Inject(ClosingsService) private readonly closings: ClosingsService,
     @Inject(PeriodsApplication) private readonly periods: PeriodsApplication,
     @Inject(CashApplication) private readonly cash: CashApplication,
@@ -59,6 +62,24 @@ export class PeriodsService {
     return this.database.withTx(async (tx) => {
       if (await this.periods.current(tx, session.storeId)) {
         fail("PERIOD_ALREADY_OPEN", "Ya hay un periodo abierto", { field: "period" });
+      }
+      // 1.2.293 · un solo periodo por día (fecha de apertura, hora de España): hoy ya se abrió y se cerró uno → mañana
+      if (this.cfg.onePeriodPerDay !== false) {
+        const used = (
+          await tx.execute(sql`SELECT 1 FROM sales_period WHERE store_id = ${session.storeId}
+            AND (opened_by_at AT TIME ZONE 'Europe/Madrid')::date = (${now.toISOString()}::timestamptz AT TIME ZONE 'Europe/Madrid')::date LIMIT 1`)
+        ).rows.length;
+        if (used) {
+          fail("PERIOD_DAY_USED", "Solo se puede abrir un periodo por día: el de hoy ya se abrió y se cerró. El siguiente, mañana", { field: "period" });
+        }
+      }
+      // 1.2.293 · lo agotado y lo desactivado en la tienda valía hasta hoy: vuelve a estar disponible (lo del Manager no se toca)
+      const back = (
+        await tx.execute(sql`UPDATE product SET sold_out = FALSE, active = CASE WHEN local_off THEN TRUE ELSE active END, local_off = FALSE,
+            version = version + 1 WHERE store_id = ${session.storeId} AND (sold_out OR local_off) RETURNING id`)
+      ).rows.length;
+      if (back) {
+        await tx.execute(sql`UPDATE store SET config_version = config_version + 1 WHERE id = ${session.storeId}`);
       }
       const id = crypto.randomUUID();
       await this.periods.insert(tx, id, session.storeId, session.station.id, a);
@@ -156,6 +177,13 @@ export class PeriodsService {
       const proposed = r2(c.opening - c.withdrawals + c.deposits);
       const nextFloat = r2(Math.min(b.countedCash, Math.max(0, b.nextFloat ?? proposed)));
       const deposit = r2(Math.max(0, b.countedCash - nextFloat));
+      // 1.2.292 · todas las formas de pago: lo contado de cada una y lo que dice el sistema (efectivo y tarjeta, los de arriba)
+      const sys = new Map((c.byPayment ?? []).map((m) => [m.code, m.amount] as const));
+      const methods = (b.methods ?? []).map((m) => {
+        const counted = m.method === "cash" ? r2(b.countedCash) : m.method === "card" ? r2(countedCard) : r2(m.counted);
+        const expected = m.method === "cash" ? c.expected : m.method === "card" ? r2(c.card) : r2(sys.get(m.method) ?? 0);
+        return { method: m.method, name: (m.name ?? "").trim() || m.method, counted, expected };
+      });
       await this.periods.insertClosing(
         tx,
         session.storeId,
@@ -164,6 +192,7 @@ export class PeriodsService {
           countedCash: b.countedCash,
           countedCard,
           cardDetail: cards.length ? cards : null,
+          methodDetail: methods.length ? methods : null,
           expectedCash: c.expected,
           difference: d.diff,
           nextFloat,

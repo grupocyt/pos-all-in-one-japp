@@ -31,6 +31,20 @@ export const ClosePeriodModel = z.object({
   /** lo que se deposita; sin él (o distinto), lo calcula la API: contado − fondo para mañana */
   deposit: z.number().min(0).nullish(),
   note: z.string().max(300).nullish(),
+  /** 1.2.292 · lo contado de cada forma de pago dada de alta (las que no son efectivo ni tarjeta van aquí; efectivo y
+   *  tarjeta pueden venir también, pero cuentan countedCash y countedCard) */
+  methods: z
+    .array(
+      z
+        .object({
+          method: z.string().trim().min(1).max(30),
+          name: z.string().trim().max(40).nullish(),
+          counted: z.number().min(0).max(1_000_000),
+        })
+        .strict(),
+    )
+    .max(40)
+    .nullish(),
   authorization: z.string().nullish(),
 });
 export type ClosePeriodInput = z.infer<typeof ClosePeriodModel>;

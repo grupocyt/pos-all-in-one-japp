@@ -11,6 +11,23 @@ export type PeriodRow = typeof s.salesPeriod.$inferSelect;
  * Periodos de venta (sales_period), su cierre (cash_closing) y lo que dice la caja del periodo.
  * Lo que lee recibe la transacción, la base o null (= fuera de transacción, con la base inyectada).
  */
+/**
+ * 1.2.292 · Efectivo devuelto en los abonos emitidos durante el periodo (entre su apertura y su cierre): la parte en
+ * efectivo de lo que se cobró en la factura abonada (si se pagó con efectivo y tarjeta, en proporción). Sale del cajón.
+ */
+export async function cashRefunds(q: Tx | Database["db"], storeId: string, periodId: string): Promise<number> {
+  const r = (
+    await q.execute(sql`SELECT abs(i.total)::float8 total,
+        coalesce((SELECT sum(p.amount) FROM payment p LEFT JOIN payment_method pm ON pm.id = p.payment_method_id
+          WHERE p.account_id = o.account_id AND p.status = 'confirmed' AND p.amount > 0 AND (pm.kind = 'cash' OR p.method = 'cash')), 0)::float8 cash,
+        coalesce((SELECT sum(p.amount) FROM payment p WHERE p.account_id = o.account_id AND p.status = 'confirmed' AND p.amount > 0), 0)::float8 paid
+      FROM invoice i JOIN invoice o ON o.id = i.rectified_invoice_id JOIN sales_period sp ON sp.id = ${periodId}
+      WHERE i.store_id = ${storeId} AND i.type LIKE 'R%' AND i.status <> 'cancelled'
+        AND i.issued_at >= sp.opened_by_at AND (sp.closed_by_at IS NULL OR i.issued_at <= sp.closed_by_at)`)
+  ).rows as { total: number; cash: number; paid: number }[];
+  return r2(r.reduce((t, x) => t + (x.paid > 0 ? Math.min(x.total, (x.total * x.cash) / x.paid, x.cash) : 0), 0));
+}
+
 @Injectable()
 export class PeriodsApplication {
   constructor(@Inject(DATABASE) private readonly database: Database) {}
@@ -105,6 +122,8 @@ export class PeriodsApplication {
       note?: string | null;
       /** 0033 · lo que marcó cada datáfono */
       cardDetail?: { name: string; amount: number }[] | null;
+      /** 0043 · lo contado de cada forma de pago */
+      methodDetail?: { method: string; name: string; counted: number; expected: number | null }[] | null;
     },
     a: Actor,
   ) {
@@ -115,6 +134,7 @@ export class PeriodsApplication {
       countedCash: c.countedCash.toFixed(2),
       countedCard: c.countedCard.toFixed(2),
       cardDetail: c.cardDetail ?? null,
+      methodDetail: c.methodDetail ?? null,
       expectedCash: c.expectedCash.toFixed(2),
       difference: c.difference.toFixed(2),
       nextFloat: c.nextFloat.toFixed(2),
@@ -245,8 +265,13 @@ export class PeriodsApplication {
       m.count += 1;
       byPay.set(p.method, m);
     }
+    // 1.2.292 · abonos en efectivo: lo devuelto sale del cajón (decidido el 20/11), así que resta de lo esperado
+    const refunds = await cashRefunds(q, storeId, periodId);
     return {
       ...r,
+      cashSales: r2(D(r.cashSales).minus(refunds)),
+      expected: r2(D(r.expected).minus(refunds)),
+      cashRefunds: refunds,
       card,
       byPayment: [...byPay.values()].sort((a, b) => b.amount - a.amount),
       other: r2(D(r.card).minus(card)),

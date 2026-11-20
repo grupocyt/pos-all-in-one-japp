@@ -11152,7 +11152,7 @@ paths:
       tags:
       - API de tienda v2 · Periodo de venta
       summary: Abrir periodo
-      description: &#x27;Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un
+      description: &#x27;1.2.293 · Un solo periodo por día (fecha de apertura, hora de España): si hoy ya se abrió y se cerró uno → 409 PERIOD_DAY_USED. Al abrir, lo agotado y lo desactivado en la tienda (no lo del Manager) vuelve a estar disponible. Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un
         encargado: POST /sessions/authorize con permission funciones.periodo y se reenvía con authorization (un solo uso;
         no crea ni sustituye la sesión del encargado). Si ya hay uno abierto responde 409 PERIOD_ALREADY_OPEN.
 
@@ -11460,6 +11460,23 @@ paths:
             schema:
               type: object
               properties:
+                methods:
+                  type:
+                  - array
+                  - &#x27;null&#x27;
+                  maxItems: 40
+                  description: 1.2.292 · lo contado de cada forma de pago dada de alta ({method, name, counted}); se guarda en el cierre (cash_closing.method_detail, con lo que dice el sistema) y sale en el corte Z «Contado por forma de pago». Efectivo y tarjeta cuentan countedCash y countedCard.
+                  items:
+                    type: object
+                    properties:
+                      method:
+                        type: string
+                      name:
+                        type:
+                        - string
+                        - &#x27;null&#x27;
+                      counted:
+                        type: number
                 countedCash:
                   type: number
                 countedCard:
@@ -12323,7 +12340,7 @@ paths:
 
 
         20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones
-        desactivadas para todo el sistema (transferir, pasarCuenta, separar, eliminaciones, descuentos, clientes, reabrir,
+        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes,
         abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION).
         Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.&#x27;
       operationId: store_POST_config_module
@@ -12658,7 +12675,7 @@ paths:
 
 
         20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones
-        desactivadas para todo el sistema (transferir, pasarCuenta, separar, eliminaciones, descuentos, clientes, reabrir,
+        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes,
         abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION).
         Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.&#x27;
       operationId: store_PATCH_config_module_id
@@ -16760,7 +16777,8 @@ paths:
         mesa tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422
         VALIDATION field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId).
         Sin intoAccountId, la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403
-        NOT_ALLOWED (details.feature = transferir), ni con la clave de un encargado.&#x27;
+        NOT_ALLOWED (details.feature = transferir), ni con la clave de un encargado. 1.2.291: el TPV manda item = true al pasar un
+        producto suelto; con «Transferir producto» apagado → 403 NOT_ALLOWED (details.feature = transferirProducto).&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_transfer
       security:
       - session: []
@@ -18280,6 +18298,9 @@ paths:
                   - string
                   - &#x27;null&#x27;
                   description: 1.2.289 · con into = main, la cuenta de la mesa de destino que recibe (si no, la principal)
+                item:
+                  type: boolean
+                  description: 1.2.291 · es un producto suelto que el TPV pasó a una cuenta temporal; con «Transferir producto» apagado en Ajustes › Funcionalidades → 403 NOT_ALLOWED
             example:
               version: 7
               toTableId: b1f0c2d4-0000-4000-8000-0000000000a8
@@ -23812,6 +23833,19 @@ paths:
         Cambio TPV 1.2.259 (hecho en la API 1.2.267): La precuenta se imprime cada vez que se pide, aunque no haya cambios,
         tras eliminar o tras separar.&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_prebill
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedTotal:
+                  type:
+                  - number
+                  - &#x27;null&#x27;
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime)
+              additionalProperties: false
       security:
       - session: []
       responses:
@@ -25685,6 +25719,11 @@ paths:
             schema:
               type: object
               properties:
+                expectedTotal:
+                  type:
+                  - number
+                  - &#x27;null&#x27;
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime ni se cobra)
                 id:
                   type:
                   - string
@@ -34374,6 +34413,11 @@ paths:
             schema:
               type: object
               properties:
+                expectedTotal:
+                  type:
+                  - number
+                  - &#x27;null&#x27;
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime ni se cobra)
                 payments:
                   type: array
                   items:
@@ -45978,6 +46022,8 @@ components:
           - TABLE_OVERLAP
           - ACCOUNT_LOCKED
           - RECONNECTION_PENDING
+          - TOTAL_MISMATCH
+          - PERIOD_DAY_USED
           - RECONNECTION_DECIDED
           - SIMPLIFIED_LIMIT
           - PETTY_CASH_LIMIT

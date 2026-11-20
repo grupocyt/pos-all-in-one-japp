@@ -267,7 +267,7 @@ function footBlock(s: StoreHeader, f?: TicketFormat): TicketLine[] {
  * los pases del menú no se listan (decidido tras las pruebas en tienda, 23/10/2026): son desglose interno de cocina y
  * al cliente solo le importa qué paga por cada producto. La comanda (kitchenTicket) sí los sigue mostrando.
  */
-function body(acc: Account, f?: TicketFormat): TicketLine[] {
+function body(acc: Account, f?: TicketFormat, inv = false): TicketLine[] {
   const out: TicketLine[] = [T(lr("Uds.   Producto", "Importe")), R("-")];
   const AMT = 11;
   const NAME = WIDTH - 7 - AMT;
@@ -289,6 +289,12 @@ function body(acc: Account, f?: TicketFormat): TicketLine[] {
     );
     out.push(T(lr(parts[0]!, right)));
     parts.slice(1).forEach((p) => out.push(T(p)));
+    // 1.2.292 · en la factura, lo rellenado en el «Formulario» del descuento (nombre, DNI…); en la precuenta no
+    if (inv && d.formData?.length) {
+      for (const x of d.formData) {
+        wrap(`${x.label}: ${x.value}`, WIDTH - 2).forEach((p, i) => out.push(T((i ? "    " : "  ") + p)));
+      }
+    }
   }
   if (tt.disc) {
     out.push(R("-"));
@@ -368,7 +374,7 @@ export function invoiceTicket(acc: Account, ctx: TicketContext): TicketLine[] {
     }
     out.push(R("="));
   }
-  out.push(...body(acc, f));
+  out.push(...body(acc, f, true));
   const pays = acc.payments.filter((p: Payment) => p.status === "confirmed");
   const cash = pays.filter((p) => p.kind === "cash");
   if (cash.length) {
@@ -652,6 +658,8 @@ export interface CutTicketData {
     /** fondo que se queda y lo que se deposita (cierre) */
     nextFloat?: number | null;
     deposit?: number | null;
+    /** 1.2.292 · cierre: lo contado de cada forma de pago dada de alta y lo que dice el sistema */
+    methods?: { name: string; counted: number; expected: number | null }[] | null;
   } | null;
   /** 11/11 (D2) · resumen impreso después del arqueo: todas las partes y el arqueo (cabecera según el corte X) */
   arqueo?: boolean;
@@ -877,6 +885,14 @@ export function cutTicket(c: CutTicketData): TicketLine[] {
     out.push(T(lr("Diferencia", Math.abs(d) < 0.005 ? "cuadra" : (d > 0 ? "+" : "") + eur(d)), H));
     if ((c.counted.note ?? "").trim()) {
       wrap(`Motivo: ${c.counted.note!.trim()}`, WIDTH).forEach((x) => out.push(T(x)));
+    }
+    if (c.counted.methods?.length) {
+      out.push(R("-"), T("CONTADO POR FORMA DE PAGO", H));
+      for (const m of c.counted.methods) {
+        const d = m.expected == null ? null : r2(m.counted - m.expected);
+        const tail = d == null ? "" : Math.abs(d) < 0.005 ? "  cuadra" : `  ${d > 0 ? "+" : ""}${eur(d)}`;
+        out.push(T(lr(m.name.slice(0, 20), eur(m.counted) + tail)));
+      }
     }
     if (c.counted.nextFloat != null) {
       out.push(R("-"), T(lr("Fondo para el día siguiente", eur(c.counted.nextFloat))));

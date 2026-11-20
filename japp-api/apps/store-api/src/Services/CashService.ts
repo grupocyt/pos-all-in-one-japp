@@ -579,7 +579,7 @@ export class CashService {
         withdrawals: c.withdrawals,
         deposits: c.deposits,
         card: r2(c.card + c.other),
-        creditsCash: extras.creditsCash,
+        creditsCash: c.cashRefunds, // 1.2.292 · lo devuelto en efectivo (ya restado de lo esperado)
       },
       station: se.station.name,
       from: new Date(s.openedAt),
@@ -610,6 +610,9 @@ export class CashService {
               note: closing.note ?? null,
               nextFloat: Number(closing.nextFloat),
               deposit: Number(closing.deposit),
+              methods: Array.isArray(closing.methodDetail)
+                ? (closing.methodDetail as { name: string; counted: number; expected: number | null }[])
+                : null,
             }
           : null,
     });

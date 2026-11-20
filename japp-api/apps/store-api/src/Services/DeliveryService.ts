@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { Inject, Injectable } from "@nestjs/common";
 import type { Database, Tx } from "@japp/db";
 import {
@@ -310,6 +311,14 @@ export class DeliveryService {
         by,
         note: b.note || null,
       });
+      // 1.2.293 · se avisa a la plataforma (Glovo, Uber…): va en la cola hacia el Manager, que se lo manda con su integración
+      const pl = (
+        await tx.execute(sql`SELECT platform, code, external_id FROM delivery_order WHERE id = ${id} AND store_id = ${se.storeId}`)
+      ).rows[0] as { platform?: string; code?: string; external_id?: string } | undefined;
+      await tx.execute(
+        sql`INSERT INTO sync_outbox (store_id, entity, entity_id, operation, payload) VALUES (${se.storeId}, 'delivery.cancelled', ${id}, 'upsert',
+          ${JSON.stringify({ platform: pl?.platform ?? null, code: pl?.code ?? null, externalId: pl?.external_id ?? null, reason: b.note || null, by, at: now.toISOString() })}::jsonb)`,
+      );
       return this.full(se.storeId, id, s, tx);
     });
   }

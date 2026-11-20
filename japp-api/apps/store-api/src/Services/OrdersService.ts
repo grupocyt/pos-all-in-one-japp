@@ -1402,7 +1402,22 @@ export class OrdersService {
     ).transaction;
   }
 
-  async prebill(session: Session, orderId: string, accountId: string) {
+  /** 1.2.292 · N2b: el total que ve el TPV tiene que ser el del servidor; si no, no se imprime ni se cobra. */
+  private assertTotal(acc: Account, expected: number | null | undefined) {
+    if (expected == null) {
+      return;
+    }
+    const total = accountTotals(acc).total;
+    if (Math.abs(total - expected) >= 0.005) {
+      fail(
+        "TOTAL_MISMATCH",
+        `La ${acc.name} suma ${total.toFixed(2).replace(".", ",")} € en el servidor y ${expected.toFixed(2).replace(".", ",")} € en la pantalla: revisa la mesa`,
+        { accountId: acc.id, expectedTotal: expected, total },
+      );
+    }
+  }
+
+  async prebill(session: Session, orderId: string, accountId: string, b: { expectedTotal?: number | null } = {}) {
     await this.auth.require(session, "pedido.precuenta");
     // se guarda y se imprime después del COMMIT (sin bloquear la mesa durante la conexión con la impresora)
     const r = await this.command<{
@@ -1413,6 +1428,7 @@ export class OrdersService {
       };
     }>(session, orderId, null, async (l, ctx, tx) => {
       const acc = this.account(l.order, accountId);
+      this.assertTotal(acc, b.expectedTotal);
       const next = preBill(acc);
       const p = await this.ticketPrinter(tx, session, orderId);
       const ticket = preBillTicket(next, await this.ticketCtx(tx, session, l, ctx.now));
@@ -1464,6 +1480,7 @@ export class OrdersService {
       amount?: number | null;
       tip?: number;
       cashGiven?: number | null;
+      expectedTotal?: number | null;
       authorization?: string | null;
     },
   ) {
@@ -1475,6 +1492,7 @@ export class OrdersService {
       async (l, ctx, tx) => {
         const pm = await this.paymentInput(tx, session, b);
         const acc = this.account(l.order, accountId);
+        this.assertTotal(acc, b.expectedTotal);
         await this.assertNoReconnection(tx, session.storeId, orderId, acc);
         const c = b.id ? { ...ctx, newId: () => b.id! } : ctx;
         const res = registerPayment(acc, pm.input, c);
@@ -1761,6 +1779,7 @@ export class OrdersService {
       payments: { method: string; amount?: number | null; tip?: number; cashGiven?: number | null }[];
       print?: boolean;
       version?: number | null;
+      expectedTotal?: number | null;
       authorization?: string | null;
     },
   ) {
@@ -1772,6 +1791,7 @@ export class OrdersService {
       change: number;
     }>(session, orderId, b.version, async (l, ctx0, tx) => {
       const acc = this.openAccount(l.order, accountId);
+      this.assertTotal(acc, b.expectedTotal);
       await this.assertNoReconnection(tx, session.storeId, orderId, acc);
       const inputs: { input: PaymentInput; name: string }[] = [];
       for (const [i, p] of b.payments.entries()) {
@@ -1971,7 +1991,14 @@ export class OrdersService {
         }
         const acc = this.account(l.order, accountId);
         const next = applyDiscount(acc, d!, ctx);
-        const filled = (b.formData ?? []).filter((x) => String(x.value ?? "").trim());
+        const filled = (b.formData ?? [])
+          .filter((x) => String(x.value ?? "").trim())
+          .map((x) => ({ label: String(x.label).slice(0, 60), value: String(x.value).trim().slice(0, 120) }));
+        // 0043 · lo rellenado se queda en el descuento: sale en la factura
+        const nd = next.discounts[next.discounts.length - 1];
+        if (nd && filled.length) {
+          nd.formData = filled;
+        }
         return {
           next: this.replace(l.order, next),
           events: [
@@ -2118,8 +2145,8 @@ export class OrdersService {
    * Reabrir mesa · REGLA FIJA del 03/11/2026 (1.2.268): una mesa cerrada no se reabre nunca. Se mantiene el endpoint para
    * responder con el motivo (planReopen siempre falla: ORDER_CLOSED, TABLE_BUSY o PERIOD_CLOSED). No cambia nada.
    */
-  async reopen(session: Session, orderId: string, b: { authorization?: string | null }) {
-    await this.auth.require(session, "cobro.reabrir", b.authorization);
+  async reopen(session: Session, orderId: string, _b: { authorization?: string | null }) {
+    // 0043 · ya no hay permiso «Reabrir»: la respuesta es siempre el motivo por el que no se reabre
     const S = session.storeId;
     return this.database.withTx(async (tx) => {
       const period = await this.periods.current(tx, S);
@@ -2561,6 +2588,7 @@ export class OrdersService {
       authorization?: string | null;
       into?: "main" | "new";
       intoAccountId?: string | null;
+      item?: boolean;
     },
   ) {
     return this.withTableNotice(
@@ -2617,9 +2645,10 @@ export class OrdersService {
     session: Session,
     orderId: string,
     accountId: string,
-    b: { toTableId: string; version: number; authorization?: string | null },
+    b: { toTableId: string; version: number; authorization?: string | null; item?: boolean },
   ) {
-    await this.auth.require(session, "mesas.transferir", b.authorization);
+    // 0043 · un producto suelto (item) tiene su propio permiso; la cuenta o la mesa, el de siempre
+    await this.auth.require(session, b.item ? "mesas.transferirProducto" : "mesas.transferir", b.authorization);
     const ctx = this.ctx(session);
     const S = session.storeId;
     const me = {

@@ -107,8 +107,12 @@ export const Pay = z.object({
   amount: z.number().positive().nullish(),
   tip: z.number().min(0).default(0),
   cashGiven: z.number().min(0).nullish(),
+  /** 1.2.292 · total de la cuenta que ve el TPV: si el del servidor es otro → 409 TOTAL_MISMATCH (no se cobra) */
+  expectedTotal: z.number().min(0).nullish(),
   authorization: auth,
 });
+/** 1.2.292 · Precuenta: total que ve el TPV (si el del servidor es otro → 409 TOTAL_MISMATCH, no se imprime) */
+export const PreBillBody = z.object({ expectedTotal: z.number().min(0).nullish() }).strict();
 export const Presence = z.object({
   action: z.enum(PRESENCE_ACTIONS as [PresenceAction, ...PresenceAction[]]),
   /** enter: tomar el control de una mesa que tiene otra persona (mesas.entrarOcupada o clave de encargado). */
@@ -169,13 +173,15 @@ export const TransferAccount = z
     into: z.enum(["main", "new"]).default("new"),
     /** 1.2.289 · con into = "main": a qué cuenta abierta de la mesa de destino va (si no, la principal) */
     intoAccountId: Uuid.nullish(),
+    /** 1.2.291 · es un producto suelto (el TPV lo pasó a una cuenta temporal): lo bloquea Funcionalidades › Transferir producto */
+    item: z.boolean().optional(),
   })
   .strict();
 /** «Guardar y salir». */
 export const SaveOrder = z
   .object({ version: z.number().int().positive().nullish(), closeReason: z.string().max(200).nullish() })
   .strict();
-/** Reabrir mesa (con clave de encargado si falta cobro.reabrir). */
+/** Reabrir mesa: nunca se reabre (regla del 03/11); responde el motivo. */
 export const ReopenOrder = z.object({ authorization: auth }).strict();
 /** Renombrar cuenta: el nombre se limpia y se comprueba (1–40, sin repetir) en @japp/domain → renameAccount. */
 export const RenameAccount = z.object({ name: z.string().max(80), version }).strict();
@@ -197,6 +203,8 @@ export const Checkout = z
       .default([]),
     print: z.boolean().default(true),
     version: z.number().int().positive().nullish(),
+    /** 1.2.292 · total que ve el TPV: si el del servidor es otro → 409 TOTAL_MISMATCH (no se cobra ni se factura) */
+    expectedTotal: z.number().min(0).nullish(),
     authorization: auth,
   })
   .strict();

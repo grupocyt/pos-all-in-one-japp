@@ -5,6 +5,8 @@ import { ALL_PERMISSIONS, FEATURES, FEATURE_KEYS, featureOff } from "../src/inde
 describe("funcionalidades", () => {
   it("cada función apaga permisos que existen", () => {
     expect(FEATURE_KEYS).toHaveLength(14);
+    expect(FEATURE_KEYS).toContain("transferirProducto");
+    expect(FEATURE_KEYS).not.toContain("reabrir");
     for (const k of FEATURE_KEYS) {
       for (const p of FEATURES[k]) {
         expect(ALL_PERMISSIONS).toContain(p);

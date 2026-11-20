@@ -75,6 +75,8 @@ export interface Discount {
   status: "applied" | "removed";
   /** 05/11 · quién lo aplicó y cuándo (lo enseña la ventana de Descuento) */
   appliedBy?: { user: string; role?: string; device?: string; at: string } | null;
+  /** 0043 · lo rellenado en el «Formulario» del descuento (sale en la factura) */
+  formData?: { label: string; value: string }[] | null;
 }
 
 export interface Payment {

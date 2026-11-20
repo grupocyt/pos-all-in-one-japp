@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import bcrypt from "bcryptjs";
+import { sql } from "drizzle-orm";
 import type { Database, Tx } from "@japp/db";
 import {
   assertCanDeactivate,
@@ -280,6 +281,10 @@ export class ConfigService {
         active = patch.active;
       }
       await this.config.update(tx, m, before.id, rec, { keys, pinHash, active, version: next });
+      if (m === "productos" && patch.active !== undefined) {
+        // 0044 · desactivar un producto en la tienda vale hasta el día siguiente (se reactiva al abrir el periodo)
+        await tx.execute(sql`UPDATE product SET local_off = ${patch.active === false} WHERE id = ${before.id} AND store_id = ${se.storeId}`);
+      }
       await this.saveExtra(
         tx,
         se,

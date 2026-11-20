@@ -14,7 +14,7 @@ import {
 import { CurrentSession, type Session } from "../Helpers/AuthGuard.js";
 import { parse } from "../Helpers/ValidationHelper.js";
 import { OrdersService } from "../Services/OrdersService.js";
-import {
+import { PreBillBody,
   Absorb,
   AddLine,
   AuthOnly,
@@ -122,8 +122,9 @@ export class OrdersController {
     @CurrentSession() se: Session,
     @Param("orderId") id: string,
     @Param("accountId") aid: string,
+    @Body() b: unknown,
   ) {
-    return this.svc.prebill(se, parse(uuid, id), parse(uuid, aid));
+    return this.svc.prebill(se, parse(uuid, id), parse(uuid, aid), parse(PreBillBody, b ?? {}));
   }
   @Post(":orderId/accounts/:accountId/payments") @HttpCode(201) pay(
     @CurrentSession() se: Session,

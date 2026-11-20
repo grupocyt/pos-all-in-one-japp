@@ -157,6 +157,8 @@ export const cashClosing = pgTable("cash_closing", {
 	countedCash: numeric("counted_cash", { precision: 10, scale:  2 }).notNull(),
 	countedCard: numeric("counted_card", { precision: 10, scale:  2 }),
 	cardDetail: jsonb("card_detail"),
+	// 0043 · lo contado de cada forma de pago en el cierre
+	methodDetail: jsonb("method_detail"),
 	expectedCash: numeric("expected_cash", { precision: 10, scale:  2 }).notNull(),
 	difference: numeric({ precision: 10, scale:  2 }).notNull(),
 	nextFloat: numeric("next_float", { precision: 10, scale:  2 }).notNull(),
@@ -504,6 +506,8 @@ export const accountDiscount = pgTable("account_discount", {
 	baseAmount: numeric("base_amount", { precision: 10, scale:  2 }).notNull(),
 	amount: numeric({ precision: 10, scale:  2 }).notNull(),
 	reason: varchar({ length: 120 }),
+	// 0043 · lo rellenado en el «Formulario» del descuento (sale en la factura)
+	formData: jsonb("form_data"),
 	status: varchar({ length: 30 }).default('applied').notNull(),
 	appliedByUserId: uuid("applied_by_user_id"),
 	appliedByUserName: varchar("applied_by_user_name", { length: 60 }).notNull(),
@@ -876,6 +880,8 @@ export const product = pgTable("product", {
 	answerOnly: boolean("answer_only").default(false).notNull(),
 	soldOut: boolean("sold_out").default(false).notNull(),
 	active: boolean().default(true).notNull(),
+	// 0044 · desactivado en la tienda (no desde el Manager): se reactiva solo al abrir el periodo siguiente
+	localOff: boolean("local_off").default(false).notNull(),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	version: integer().default(1).notNull(),

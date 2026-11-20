@@ -119,10 +119,6 @@ SELECT p.id, v.code, p.store_id FROM (VALUES
   ('cobro.clientes', 'ADMIN_LOCAL'),
   ('cobro.clientes', 'CAPITAN'),
   ('cobro.clientes', 'CAJERO'),
-  ('cobro.reabrir', 'ADMIN'),
-  ('cobro.reabrir', 'ADMIN_LOCAL'),
-  ('cobro.reabrir', 'CAPITAN'),
-  ('cobro.reabrir', 'CAJERO'),
   ('funciones.facturas', 'ADMIN'),
   ('funciones.facturas', 'ADMIN_LOCAL'),
   ('funciones.facturas', 'CAPITAN'),
@@ -187,6 +183,9 @@ DELETE FROM profile_permission pp WHERE pp.permission_code = 'funciones.pedidos'
 INSERT INTO profile_permission (profile_id, permission_code, store_id)
   SELECT DISTINCT profile_id, 'funciones.pedidos', store_id FROM profile_permission WHERE permission_code IN ('cobro.cobrar', 'funciones.periodo', 'sistema.autorizar')
 ON CONFLICT DO NOTHING;
+-- 0044 · el tablero de delivery, por defecto solo el Cajero (y el Administrador)
+DELETE FROM profile_permission pp USING user_profile p
+ WHERE p.id = pp.profile_id AND pp.permission_code = 'funciones.pedidos' AND p.code NOT IN ('CAJERO', 'ADMIN');
 -- 0030: propina con todas las formas de pago (menos las de descuento)
 UPDATE payment_method SET allows_tip = TRUE WHERE kind <> 'discount';
 -- 0028: «Resolver reconexiones» a quien puede autorizar (igual que la migración)
@@ -279,6 +278,12 @@ INSERT INTO profile_permission (profile_id, permission_code, store_id)
 ON CONFLICT DO NOTHING;
 INSERT INTO profile_permission (profile_id, permission_code, store_id)
   SELECT p.id, 'funciones.miVenta', p.store_id FROM user_profile p
+ON CONFLICT DO NOTHING;
+-- 0043 · transferir un producto: permiso propio (quien ya podía transferir); «Reabrir» ya no existe
+INSERT INTO permission (code, module, name, sort_order) VALUES ('mesas.transferirProducto', 'Mesas', 'Transferir un producto a otra mesa', 3)
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT pp.profile_id, 'mesas.transferirProducto', pp.store_id FROM profile_permission pp WHERE pp.permission_code = 'mesas.transferir'
 ON CONFLICT DO NOTHING;
 
 
