@@ -4,7 +4,7 @@
 japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0041, consultas de control · 90 pruebas
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 150 rutas (165 operaciones), todas programadas · 347 pruebas de dominio + 406 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.289 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.290 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,12 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.290 (20/11/2026): transferir un producto también en la caja web
+
+**Sin migración** (si vienes de la 1.2.288 o antes, aplica la 0042 de la 1.2.289): parar la API, copiar la carpeta nueva y arrancar; recargar el TPV en cada equipo.
+
+- **Caja (web):** al tocar un producto enviado, el botón azul «⇄ Transferir a otra mesa» sale al lado de «Eliminar». Mismo flujo que en la PDA: cantidad, mesa y, si la mesa tiene varias cuentas, a cuál. Lo ve quien tiene el permiso Mesas › Transferir (Ajustes › Accesos › Perfiles) y desaparece si «Transferir» está apagado en Ajustes › Funcionalidades.
 
 ## 1.2.289 (20/11/2026): transferir un producto, Ajustes › Funcionalidades
 
