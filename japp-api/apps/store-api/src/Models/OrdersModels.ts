@@ -69,6 +69,11 @@ export const Discount = z.object({
   value: z.number().positive().optional(),
   reason: z.string().max(120).nullish(),
   authorization: auth,
+  // 0041 · lo que se rellenó en el «Formulario» del descuento (queda en el historial de la cuenta)
+  formData: z
+    .array(z.object({ label: z.string().trim().min(1).max(40), value: z.string().trim().max(120) }).strict())
+    .max(10)
+    .nullish(),
 });
 export const Customer = z.object({
   type: z.enum(["person", "company"]),

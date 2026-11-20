@@ -111,6 +111,13 @@ export class OrdersController {
   ) {
     return this.svc.send(se, parse(uuid, id), parse(Send, b));
   }
+  @Post(":orderId/accounts/:accountId/prebill/undo") @HttpCode(200) undoPrebill(
+    @CurrentSession() se: Session,
+    @Param("orderId") id: string,
+    @Param("accountId") aid: string,
+  ) {
+    return this.svc.undoPrebill(se, parse(uuid, id), parse(uuid, aid));
+  }
   @Post(":orderId/accounts/:accountId/prebill") @HttpCode(200) prebill(
     @CurrentSession() se: Session,
     @Param("orderId") id: string,

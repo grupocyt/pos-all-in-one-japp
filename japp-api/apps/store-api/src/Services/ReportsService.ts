@@ -286,6 +286,7 @@ export class ReportsService {
    * Misma regla que /reports/staff (staffKpi: por quien abrió la mesa). Sin periodo abierto → ceros.
    */
   async me(se: Session) {
+    await this.auth.require(se, "funciones.miVenta");
     const pid = await this.closingsData.openPeriodId(se.storeId);
     const zero = { periodId: pid ?? null, user: se.user.name, tickets: 0, sales: 0, avgTicket: 0 };
     if (!pid) {

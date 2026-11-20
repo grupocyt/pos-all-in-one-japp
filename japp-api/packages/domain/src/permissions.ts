@@ -41,6 +41,7 @@ export const PERMISSION_TREE = {
     "transaccion",
     "reconexiones", // 0028 · resolver lo ticado sin conexión
     "historialDev", // 0032 · Historial › pestaña Developer
+    "ordenImpresion", // 0041 · arrastrar lo «Por enviar» para cambiar el orden de impresión
   ],
   cobro: ["cobrar", "descuentos", "clientes", "reabrir"],
   // pedidos = tablero de delivery (0025); 0032 · un permiso por botón de Gestiones: semana, eliminaciones, servicio (Mesas en
@@ -62,6 +63,8 @@ export const PERMISSION_TREE = {
     "iniciarDia", // 0036 · abrir el periodo (como en el TPV; funciones.periodo también abre y además cierra)
     "arqueoAuditoria", // 0037 · arqueos de auditoría (Movimiento de caja › Auditoría)
     "cajaChica", // 0037 · caja chica (fondo del gerente, aparte del cajón)
+    "miVenta", // 0041 · «Venta · t. · tk» del camarero en la cabecera de la PDA
+    "corteVerSistema", // 0041 · ver Sistema y Propinas en el corte X (por defecto nadie: va a ciegas)
   ],
   ajustes: ["acceso", ...SETTINGS_MODULES],
   sistema: ["autorizar"],
@@ -90,6 +93,8 @@ export const BASIC_PERMISSIONS: Record<PermissionCode, boolean> = Object.fromEnt
     "pedido.pasarCuenta",
     "pedido.historial",
     "pedido.transaccion",
+    "pedido.ordenImpresion",
+    "funciones.miVenta",
   ].map((k) => [k, true]),
 );
 

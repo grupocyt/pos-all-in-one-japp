@@ -1373,6 +1373,35 @@ export class OrdersService {
     ).transaction;
   }
 
+  /**
+   * 1.2.285 · Precuenta deshecha: alguien entra y sale de una mesa en precuenta (rojo) sin cobrar → sus líneas vuelven a
+   * «enviadas» y la mesa a «en uso» (naranja). Queda en el historial. Sin líneas en precuenta, no hace nada.
+   */
+  async undoPrebill(session: Session, orderId: string, accountId: string) {
+    await this.auth.require(session, "pedido.precuenta");
+    return (
+      await this.command(session, orderId, null, async (l, ctx) => {
+        const acc = this.account(l.order, accountId);
+        const n = acc.lines.filter((x) => x.status === "preBill").length;
+        if (!n) {
+          return { next: l.order, events: [] };
+        }
+        const next = { ...acc, lines: acc.lines.map((x) => (x.status === "preBill" ? { ...x, status: "printed" as const } : x)) };
+        return {
+          next: this.replace(l.order, next),
+          events: [
+            this.ev(
+              "preBillUndone",
+              `${session.user.name} entra y sale de la mesa después de la precuenta de la ${acc.name}: vuelve a «en uso»`,
+              ctx,
+              acc.id,
+            ),
+          ],
+        };
+      })
+    ).transaction;
+  }
+
   async prebill(session: Session, orderId: string, accountId: string) {
     await this.auth.require(session, "pedido.precuenta");
     // se guarda y se imprime después del COMMIT (sin bloquear la mesa durante la conexión con la impresora)
@@ -1900,6 +1929,7 @@ export class OrdersService {
       value?: number;
       reason?: string | null;
       authorization?: string | null;
+      formData?: { label: string; value: string }[] | null;
     },
   ) {
     if (session.origin === "pda") {
@@ -1917,6 +1947,13 @@ export class OrdersService {
           }
           d = { type: "percentage", value: Number(row!.percent), reason: row!.name };
           needsAuth = row!.needsAuthorization;
+          // 0041 · «Formulario»: los campos obligatorios del descuento tienen que venir rellenos
+          const form = Array.isArray(row!.form) ? (row!.form as { label: string; req?: boolean }[]) : [];
+          const got = new Map((b.formData ?? []).map((x) => [x.label, x.value]));
+          const miss = form.find((f) => f.req && !String(got.get(f.label) ?? "").trim());
+          if (miss) {
+            fail("VALIDATION", `Falta «${miss.label}» para aplicar este descuento`, { field: "formData", label: miss.label });
+          }
           // 0033 · A3: perfiles que lo pueden aplicar ([] = todos); otro perfil, solo con la clave de quien sí pueda
           const allowed = Array.isArray(row!.profiles) ? (row!.profiles as string[]) : [];
           profileOk = !allowed.length || allowed.includes(session.user.profileCode ?? "");
@@ -1934,6 +1971,7 @@ export class OrdersService {
         }
         const acc = this.account(l.order, accountId);
         const next = applyDiscount(acc, d!, ctx);
+        const filled = (b.formData ?? []).filter((x) => String(x.value ?? "").trim());
         return {
           next: this.replace(l.order, next),
           events: [
@@ -1943,6 +1981,17 @@ export class OrdersService {
               ctx,
               acc.id,
             ),
+            // 0041 · los datos del «Formulario» quedan en el historial de la cuenta
+            ...(filled.length
+              ? [
+                  this.ev(
+                    "discountForm",
+                    `Datos del descuento ${d!.reason}: ${filled.map((x) => `${x.label}: ${x.value}`).join(" · ")}`.slice(0, 400),
+                    ctx,
+                    acc.id,
+                  ),
+                ]
+              : []),
           ],
         };
       })
@@ -2214,6 +2263,7 @@ export class OrdersService {
     orderId: string,
     b: { accountId?: string | null; lineIds: string[]; version?: number | null },
   ) {
+    await this.auth.require(session, "pedido.ordenImpresion"); // 0041
     return (
       await this.command(session, orderId, b.version, (l, ctx) => {
         const acc = this.account(l.order, b.accountId);

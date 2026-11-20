@@ -96,6 +96,9 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Caja por pestañas y teclado | Sin Resumen, teclado siempre abierto y flotante, caja chica eliminable, cortes X no eliminables, imagen de las formas de pago | OK (17/11) | **Hecho 1.2.282** (0040) |
 | Caja, Gestiones y KPI pulidos en el artefacto (19/11) | Corte X / cierre por forma de pago, datáfonos, KPI en %, mesas en servicio en rejilla, impresiones con el papel | OK (19/11) | **Hecho 1.2.283** (sin migración) |
 | PDA rediseñada en el artefacto (19/11) | Comanda a pantalla completa, separar cuenta, Gestiones al 70 %, cabecera con mis números, cobro 2 por fila | OK (19/11) | **Hecho 1.2.284** (sin migración) |
+| Pruebas en JC01 (20/11) | PDA (zoom del plano, teclas, Guardar/Precuenta al plano, precuenta deshecha), caja (corte X a ciegas, retiros, monedas), descuentos por equipo y con formulario | OK (20/11) | **Hecho 1.2.285** |
+| Cobrar y pantalla fija (20/11) | Sin «Borrar entregado» ni «Propina», teclado fijo bajo Precuenta; azulejo oscuro alrededor | OK (20/11) | **Hecho 1.2.286** |
+| Datos del formulario del descuento en la factura | ¿Imprimir en la factura lo rellenado (nombre, DNI…)? Hoy queda solo en el historial | **Por decidir** | Pregunta del 20/11 |
 | Detalle de una cuenta cobrada en la PDA | ¿Se puede abrir desde el ☰ para ver lo cobrado? | **Por decidir** | Pregunta del 19/11 |
 | Cierre: otras formas de pago | En el cierre se escriben los importes de las formas de pago que no son efectivo ni tarjeta, pero la API del cierre solo guarda efectivo y tarjeta | **Por decidir:** ¿guardarlos en el cierre (migración) o dejarlos solo de referencia en pantalla? | Visto el 19/11 |
 | Caja chica y efectivo del sistema | ¿El dinero de la caja chica sale del mismo cajón? Cambia el «Sistema» de Efectivo en el corte X | **Por decidir** | Pregunta del 19/11 |
@@ -104,7 +107,7 @@ Decisiones tomadas para poder dejar el contrato y las tablas listos. **Ya están
 | Botones de la PDA | Iconos nuevos en la mesa | OK (17/11) | **Hecho 1.2.279** |
 | Comanda de la PDA | Hora por línea, sin camarero ni «Precuenta», precuenta en rojo, quién imprimió solo para encargados | OK (17/11) | **Hecho 1.2.278** |
 | Todo en la base | Nada solo en la caché del equipo (p. ej. ancho y alto de la pantalla) | 1.2.281: bloqueo, «Puede cobrar» y permisos sueltos ya se leen de la base. Falta: «Guardar» espere a la API (17/11) | **Pendiente del OK** |
-| Roles y accesos | «Actualiza roles y accesos» (17/11) | ¿Datos iniciales con los perfiles de JC01, o la tabla de permisos en el LEEME/PDF? | **Por aclarar** |
+| Roles y accesos | «Actualiza roles y accesos» (17/11 y 20/11): permisos de lo nuevo | Orden de impresión, Mi venta y Sistema en el corte X; botones nuevos de la PDA con su permiso | **Hecho 1.2.285** (migración 0041) |
 | Login de la caja | Texto bajo el logo y marcas | **«Comandero Japp» y la rueda; fuera KFC y CasaRES; vuelve el mundo; tickets con su letra de antes** (17/11). El diseño con foto, logo animado y azulejos con marcas se probó y se descartó | **Hecho 1.2.277** |
 | Datáfonos por API | Que el POS mande el importe al datáfono | Mejora futura (17/11) | A futuro · ver con los proveedores |
 | Equipos por IP | Reconocer el equipo por su IP si cambia el UUID | **Por IP** (16/11 noche), con la IP del equipo en la pantalla sin alta | **Hecho 1.2.273** · reservar las IP en el router |

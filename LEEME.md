@@ -1,10 +1,10 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0040, consultas de control · 89 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 147 rutas (162 operaciones), todas programadas · 347 pruebas de dominio + 403 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0041, consultas de control · 90 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 150 rutas (165 operaciones), todas programadas · 347 pruebas de dominio + 406 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.284 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.286 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,30 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.286 (20/11/2026): Cobrar con más sitio y teclado fijo · azulejo oscuro en «Tamaño fijo»
+
+**Sin migración** (si vienes de la 1.2.284 o antes, la 0041 de la 1.2.285 se aplica sola): parar la API, copiar la carpeta nueva y arrancar. Después, en cada equipo, recargar el TPV.
+
+- **Cobrar (caja):** fuera «Borrar entregado» y el título «Propina» (los botones de propina se quedan). El teclado queda fijo en la columna izquierda, debajo de «Precuenta», sin «Plegar» ni arrastre.
+- **Cierre de periodo:** el teclado queda fijo debajo de las monedas (sin arrastre) y desaparece el aviso «Diferencia … explica la diferencia…» (el botón sigue sin dejar cerrar sin explicarla).
+- **Nunca dos teclados a la vez:** si se abría el numérico y el de letras juntos, ahora se queda solo el del campo que tiene el foco.
+- **Pantalla de «Tamaño fijo»** (Ajustes › Equipos): alrededor del TPV se ve el azulejo en oscuro en vez de blanco.
+
+## 1.2.285 (20/11/2026): pruebas en la caja y la PDA de JC01 · roles y accesos de lo nuevo
+
+**Con migración 0041** (formulario de los descuentos y 3 permisos nuevos): parar la API, copiar la carpeta nueva y arrancar; las migraciones se aplican solas. Después, en cada equipo, recargar el TPV. Todo probado antes en el artefacto «TPV Japp».
+
+- **PDA · plano:** a tamaño real (como en la web), con scroll horizontal y zoom (pellizcar o − ⤢ +; ⤢ = ver todo). El zoom se recuerda por zona.
+- **PDA · pedido:** teclas de producto más anchas y bajas; el detalle de la comanda solo con Guardar (rojo) y Precuenta (morado); la línea que se arrastra se pinta de azul. **Todos los Guardar** (pedido, detalle de la comanda y Separar cuenta) vuelven al plano; **Precuenta** imprime y vuelve al plano. Separar / Recuperar con margen dentro de la tarjeta. Cobrar sin salto de tamaño al elegir.
+- **Mesa en precuenta (rojo):** si alguien entra y sale sin cobrar, o marca algo, vuelve a «en uso» (naranja); queda en el historial. En la API: `POST /orders/{id}/accounts/{aid}/prebill/undo`.
+- **Caja:** corte X **a ciegas** (sin Propinas ni Sistema; solo Contado) y, si hubo retiros parciales, una línea con lo ya retirado; billetes y monedas compactos (vuelven todas las monedas; fuera el billete de 500 €); teclados sin «Plegar» y quietos donde los dejaste al guardar; Datáfonos solo con «Sistema» y sin «N datáfonos».
+- **Cobrar (web/caja):** las formas de pago con o sin imagen, todas iguales y con borde.
+- **Sin zoom de pantalla** en todo el TPV (pellizco, doble toque, Ctrl+rueda), salvo el zoom del plano de la PDA.
+- **Descuentos:** al cobrar solo salen los **activos en ese equipo** (Ajustes › Equipos); si no tiene ninguno, no sale el botón. Arreglado: el TPV no leía del servidor los descuentos de cada equipo. **«Formulario»** en cada descuento (Ajustes › Facturación › Descuentos): campos a pedir (Texto, Número, Fecha, Teléfono o Email; obligatorio o no). Al aplicarlo se piden; lo rellenado queda en el historial de la cuenta.
+- **Roles y accesos** (Ajustes › Perfiles): nuevos «Cambiar el orden de impresión» (Pedido; por defecto quien envía), «Ver mi venta» (Funciones; todos) y «Ver Sistema y Propinas en el corte X» (Funciones; nadie). Los botones nuevos de la PDA (☰ de la mesa, Guardar y Precuenta del detalle, Separar / Recuperar / nueva cuenta) piden su permiso como los de siempre. La API exige `pedido.ordenImpresion` en `…/lines/reorder` y `funciones.miVenta` en `/reports/me`.
+
+**Antes de producción:** marcar en cada equipo los descuentos que deba tener (sin ninguno marcado, ese equipo no ofrece descuentos).
 
 ## 1.2.284 (19/11/2026): PDA rediseñada (comanda, separar cuenta, Gestiones), cabecera con mis números, cobro sin parpadeo
 

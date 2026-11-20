@@ -268,6 +268,18 @@ ON CONFLICT DO NOTHING;
 INSERT INTO profile_permission (profile_id, permission_code, store_id)
   SELECT p.id, 'funciones.cajaChica', p.store_id FROM user_profile p WHERE p.code IN ('ADMIN', 'ADMIN_LOCAL')
 ON CONFLICT DO NOTHING;
+-- 0041 · roles de lo nuevo: orden de impresión (quien envía), mi venta (todos), Sistema en el corte X (nadie)
+INSERT INTO permission (code, module, name, sort_order) VALUES
+  ('pedido.ordenImpresion', 'Pedido', 'Cambiar el orden de impresión', 19),
+  ('funciones.miVenta', 'Funciones', 'Ver mi venta (cabecera de la PDA)', 37),
+  ('funciones.corteVerSistema', 'Funciones', 'Ver Sistema y Propinas en el corte X', 38)
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT pp.profile_id, 'pedido.ordenImpresion', pp.store_id FROM profile_permission pp WHERE pp.permission_code = 'pedido.enviar'
+ON CONFLICT DO NOTHING;
+INSERT INTO profile_permission (profile_id, permission_code, store_id)
+  SELECT p.id, 'funciones.miVenta', p.store_id FROM user_profile p
+ON CONFLICT DO NOTHING;
 
 
 -- Impresoras y canales: BARRA pasa a llamarse BEBIDA y se crea COMIDA (impresora LINEA)

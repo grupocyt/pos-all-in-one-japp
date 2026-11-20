@@ -16,9 +16,9 @@ describe("datos de arranque", () => {
     expect(n((await one(c, "SELECT count(*) FROM product")).count)).toBe(487);
     expect(n((await one(c, "SELECT count(*) FROM product WHERE tax_id IS NULL OR price < 0")).count)).toBe(0);
   });
-  it("63 permisos «módulo.tecla» (47 de arranque + 2 de la 0005 + 1 de la 0008 + 1 de la 0012 + 2 de la 0025 + 1 de la 0028 + 5 de la 0032 + 1 de la 0033 + 1 de la 0036 + 2 de la 0037), iguales a los del dominio", async () => {
+  it("66 permisos «módulo.tecla» (47 de arranque + 2 de la 0005 + 1 de la 0008 + 1 de la 0012 + 2 de la 0025 + 1 de la 0028 + 5 de la 0032 + 1 de la 0033 + 1 de la 0036 + 2 de la 0037 + 3 de la 0041), iguales a los del dominio", async () => {
     const codes = (await all(c, "SELECT code FROM permission ORDER BY sort_order")).map(r => r.code);
-    expect(codes).toHaveLength(63);
+    expect(codes).toHaveLength(66);
     expect(codes).toContain("funciones.iniciarDia");
     expect(codes).toContain("funciones.semanaEditar");
     expect(codes).toContain("pedido.reconexiones");
@@ -29,9 +29,9 @@ describe("datos de arranque", () => {
     expect(codes).toContain("ajustes.devtx");
     expect(codes).not.toContain("sistema.developer");
   });
-  it("el administrador tiene todos los permisos", async () => {
+  it("el administrador tiene todos los permisos menos «Ver Sistema en el corte X» (0041: nadie)", async () => {
     const r = await one(c, `SELECT count(*) FROM profile_permission pp JOIN user_profile p ON p.id=pp.profile_id WHERE p.code='ADMIN'`);
-    expect(n(r.count)).toBe(63);
+    expect(n(r.count)).toBe(65);
   });
   it("usuarios con PIN cifrado en bcrypt (nunca en claro); Jeison entra con su PIN de pruebas", async () => {
     const u = await all(c, "SELECT name, pin_hash FROM app_user");

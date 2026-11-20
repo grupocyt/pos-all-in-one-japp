@@ -642,6 +642,7 @@ export const discount = pgTable("discount", {
 	validTo: date("valid_to"),
 	needsAuthorization: boolean("needs_authorization").default(false).notNull(),
 	profiles: jsonb().default([]).notNull(),
+	form: jsonb().default([]).notNull(),
 	active: boolean().default(true).notNull(),
 	createdAt: timestamp("created_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, withTimezone: true, mode: 'string' }).defaultNow().notNull(),

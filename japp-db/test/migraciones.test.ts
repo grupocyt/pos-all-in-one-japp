@@ -396,6 +396,23 @@ describe("migraciones", () => {
     await c.query("UPDATE station SET device_uuid = $1, active = TRUE WHERE id IN ($2, $3)", [u, a.id, b.id]); // ya no falla
     expect((await one(c, "SELECT count(*)::int n FROM station WHERE device_uuid = $1", [u])).n).toBe(2);
   }));
+  it("0041: formulario de los descuentos y permisos de orden de impresión, mi venta y Sistema en el corte X", () => rollback(c, async () => {
+    const col = await one(c, "SELECT data_type, column_default FROM information_schema.columns WHERE table_name = 'discount' AND column_name = 'form'");
+    expect(col?.data_type).toBe("jsonb");
+    const d = await one(c, "SELECT id, form FROM discount LIMIT 1");
+    if (d) {
+      expect(d.form).toEqual([]);
+      await c.query(`UPDATE discount SET form = '[{"label":"DNI","type":"text","req":true}]'::jsonb WHERE id = $1`, [d.id]);
+      await c.query("SAVEPOINT s"); let bad = false;
+      try{ await c.query(`UPDATE discount SET form = '{"a":1}'::jsonb WHERE id = $1`, [d.id]); }catch(e){ bad = true; }
+      await c.query("ROLLBACK TO SAVEPOINT s"); expect(bad).toBe(true);
+    }
+    const codes = (await all(c, "SELECT code FROM permission WHERE code IN ('pedido.ordenImpresion','funciones.miVenta','funciones.corteVerSistema') ORDER BY code")).map((r: any) => r.code);
+    expect(codes).toEqual(["funciones.corteVerSistema", "funciones.miVenta", "pedido.ordenImpresion"]);
+    const env = (await one(c, "SELECT count(*)::int n FROM profile_permission WHERE permission_code = 'pedido.enviar'")).n;
+    expect((await one(c, "SELECT count(*)::int n FROM profile_permission WHERE permission_code = 'pedido.ordenImpresion'")).n).toBeGreaterThanOrEqual(env);
+    expect((await one(c, "SELECT count(*)::int n FROM profile_permission WHERE permission_code = 'funciones.corteVerSistema'")).n).toBe(0);
+  }));
   it("0040: apuntes de caja chica anulables e imagen del botón de cada forma de pago", () => rollback(c, async () => {
     const cols = (await all(c, "SELECT table_name || '.' || column_name AS k FROM information_schema.columns WHERE (table_name = 'petty_cash_movement' AND column_name LIKE 'voided%') OR (table_name = 'payment_method' AND column_name = 'image') ORDER BY 1")).map((r: any) => r.k);
     expect(cols).toEqual(["payment_method.image", "petty_cash_movement.voided_at", "petty_cash_movement.voided_by_name"]);

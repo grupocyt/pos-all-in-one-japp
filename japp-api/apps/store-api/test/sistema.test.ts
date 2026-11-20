@@ -39,7 +39,7 @@ describe("sistema y sesiones", () => {
     expect(r.body.permissions).not.toContain("cobro.cobrar");
     expect(r.body.overrides.canCharge).toBe(false);
     const j = await t.call("POST", "/sessions", { body: { pin: PIN.jeison } });
-    expect(j.body.permissions).toHaveLength(63); // = ALL_PERMISSIONS (incluye mesas.entrarOcupada, funciones.semanaEditar y funciones.iniciarDia)
+    expect(j.body.permissions).toHaveLength(65); // 1.2.285: +ordenImpresion y miVenta (corteVerSistema no lo trae nadie) · = ALL_PERMISSIONS (incluye mesas.entrarOcupada, funciones.semanaEditar y funciones.iniciarDia)
   });
   it("PIN mal formado → 422 VALIDATION; incorrecto → 401 BAD_PIN", async () => {
     expect((await t.call("POST", "/sessions", { body: { pin: "12" } })).error.code).toBe("VALIDATION");

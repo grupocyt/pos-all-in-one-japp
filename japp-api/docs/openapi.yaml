@@ -11807,6 +11807,9 @@ paths:
         orden se guarda en order_line.sort_order.
 
 
+        Permiso: pedido.ordenImpresion (1.2.285, migración 0041; por defecto quien puede enviar)
+
+
         Lo llama: TPV, PDA
 
 
@@ -13602,6 +13605,327 @@ paths:
         required: true
         schema:
           type: string
+  /api/v2/orders/{orderId}/accounts/{accountId}/prebill/undo:
+    post:
+      tags:
+      - API de tienda v2 · Productos de la cuenta
+      summary: Deshacer la precuenta
+      description: 'Alguien entra y sale de una mesa en precuenta (rojo) sin cobrar: las líneas en precuenta vuelven a «enviadas»
+        y la mesa a «en uso» (naranja). Queda en el historial (preBillUndone). Sin líneas en precuenta no hace nada.
+
+
+        Permiso: pedido.precuenta
+
+
+        Lo llama: TPV, PDA (al sincronizar la cuenta)
+
+
+        Tablas: order_line, order_event
+
+
+        1.2.285 (20/11/2026).'
+      operationId: store_POST_orders_orderId_accounts_accountId_prebill_undo
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Transacción actualizada (en data)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Envelope'
+                properties:
+                  type:
+                    const: success
+                  data:
+                    $ref: '#/components/schemas/Transaction'
+              example:
+                title: Deshacer la precuenta
+                type: success
+                status: 200
+                data:
+                  _id: 103abf8f-b3a5-44fa-9371-74a9a4a8d96b
+                  storeId: 62201d95-4be7-5b16-b482-5a17c533054d
+                  status: open
+                  version: 7
+                  tableData:
+                    tableId: m1
+                    name: '1'
+                    zone: barra
+                    guests: 2
+                    openedBy:
+                      user: Sistemas
+                      device: CAJA1
+                      at: '2026-10-13T16:38:39.777Z'
+                    lastEntry:
+                      user: Sistemas
+                      device: CAJA1
+                      at: '2026-10-13T16:38:39.779Z'
+                    lastExit: null
+                    note: null
+                  events:
+                  - type: tableOpened
+                    at: '2026-10-13T16:38:39.777Z'
+                    description: Se abre la mesa con 2 comensales
+                    user: Sistemas
+                    device: CAJA1
+                    role: waiter
+                  - type: userEntered
+                    at: '2026-10-13T16:38:39.779Z'
+                    description: Sistemas entra a la mesa
+                    user: Sistemas
+                    device: CAJA1
+                    role: manager
+                  accounts:
+                  - id: w792o2hr
+                    name: Cuenta 1
+                    status: open
+                    openedBy:
+                      user: Sistemas
+                      role: waiter
+                      device: CAJA1
+                      at: '2026-10-13T16:38:39.777Z'
+                    closedBy: null
+                    lastEntry:
+                      user: Sistemas
+                      role: manager
+                      device: CAJA1
+                      at: '2026-10-13T16:38:40.149Z'
+                    note: null
+                    lines:
+                    - id: 8a8ila4s
+                      productId: 1420
+                      name: CHAPATA Y PICOS
+                      comment: Sin hielo
+                      quantity: 1
+                      unitPrice: 2.25
+                      iva: 0.2
+                      netoProce: 2.05
+                      printed: true
+                      status: printed
+                      printers:
+                      - area: BARRA
+                        printer: BARRA
+                        printed: true
+                        interface: tcp://10.221.11.32
+                        at: '2026-10-13T16:38:40.171Z'
+                      createdBy:
+                        user: Sistemas
+                        role: manager
+                        origin: tpv
+                        device: CAJA1
+                        at: '2026-10-13T16:38:40.103Z'
+                      modifiers: []
+                    - id: z98p456n
+                      productId: 1564
+                      name: Extra Huevo
+                      comment: null
+                      quantity: 1
+                      unitPrice: 1.5
+                      iva: 0.14
+                      netoProce: 1.36
+                      printed: true
+                      status: printed
+                      printers:
+                      - area: BARRA
+                        printer: BARRA
+                        printed: true
+                        interface: tcp://10.221.11.32
+                        at: '2026-10-13T16:38:40.171Z'
+                      createdBy:
+                        user: Sistemas
+                        role: manager
+                        origin: tpv
+                        device: CAJA1
+                        at: '2026-10-13T16:38:40.126Z'
+                      modifiers: []
+                    deletedLines:
+                    - id: vilvpovp
+                      productId: 1650
+                      name: KASPIRINHA 0.0 NARANJA
+                      comment: null
+                      quantity: 1
+                      unitPrice: 6.5
+                      iva: 0.59
+                      netoProce: 5.91
+                      printed: true
+                      status: deleted
+                      printers:
+                      - area: BARRA
+                        printer: BARRA
+                        printed: true
+                        interface: tcp://10.221.11.32
+                        at: '2026-10-13T16:38:40.171Z'
+                      createdBy:
+                        user: Sistemas
+                        role: manager
+                        origin: tpv
+                        device: CAJA1
+                        at: '2026-10-13T16:38:40.149Z'
+                      modifiers: []
+                    discounts:
+                    - id: p70qjsu4
+                      source: manual
+                      couponId: null
+                      couponCode: null
+                      type: percentage
+                      value: 10
+                      baseAmount: 10
+                      amount: 1
+                      reason: DESC
+                      status: applied
+                      appliedBy:
+                        user: Sistemas
+                        role: manager
+                        device: CAJA1
+                        at: '2026-10-13T16:38:40.174Z'
+                      authorizedBy: null
+                      removedBy: null
+                    payments:
+                    - id: 0ensozwa
+                      method: card
+                      amount: 2
+                      tip: 0
+                      cashGiven: null
+                      change: null
+                      cashDetail: null
+                      status: confirmed
+                      collectedBy:
+                        user: Sistemas
+                        role: manager
+                        device: CAJA1
+                        at: '2026-10-13T16:38:40.174Z'
+                      bankData:
+                        provider: redsys
+                        merchantId: null
+                        terminalId: null
+                        transactionId: null
+                        authorizationCode: null
+                        responseCode: null
+                        responseMessage: null
+                        cardBrand: null
+                        maskedPan: '****1234'
+                        maskedPhone: null
+                        entryMode: null
+                        amount: 2
+                        currency: EUR
+                        processedAt: null
+                    totals:
+                      subtotal: 3.75
+                      discount: 0.38
+                      total: 3.37
+                      paid: 2
+                      pending: 1.37
+                      tips: 0
+                      taxes:
+                      - rate: 10
+                        base: 3.06
+                        tax: 0.31
+                    customerData:
+                      customerId: null
+                      type: company
+                      taxId: B1
+                      name: X
+                      email: null
+                      phone: null
+                      address:
+                        street: null
+                        postalCode: null
+                        city: null
+                        province: null
+                        country: ES
+                    invoice: null
+                    events:
+                    - type: accountOpened
+                      at: '2026-10-13T16:38:39.779Z'
+                      description: Se abre la Cuenta 1
+                      user: Sistemas
+                      device: CAJA1
+                      role: manager
+                    - type: lineAdded
+                      at: '2026-10-13T16:38:40.103Z'
+                      description: Se añade CHAPATA Y PICOS x1
+                      user: Sistemas
+                      device: CAJA1
+                      role: manager
+                    - type: lineAdded
+                      at: '2026-10-13T16:38:40.126Z'
+                      description: Se añade Extra Huevo x1
+                      user: Sistemas
+                      device: CAJA1
+                      role: manager
+                    - type: lineAdded
+                      at: '2026-10-13T16:38:40.149Z'
+                      description: Se añade KASPIRINHA 0.0 NARANJA x1
+                      user: Sistemas
+                      device: CAJA1
+                      role: manager
+                    - type: linePrinted
+                      at: '2026-10-13T16:38:40.171Z'
+                      description: 'Comanda impresa: CHAPATA Y PICOS x1, Extra Huevo x1, KASPIRINHA 0.0 NARANJA x1'
+                      user: Sistemas
+                      device: CAJA1
+                      role: manager
+                errors: []
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '409':
+          description: 'ACCOUNT_EMPTY: ACCOUNT_EMPTY · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura
+            y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder:
+            userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Imprimir precuenta
+                type: error
+                status: 409
+                data: null
+                errors:
+                - code: ACCOUNT_EMPTY
+                  message: ACCOUNT_EMPTY
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+        '503':
+          description: 'PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo
+            que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta:
+            repetir la llamada la vuelve a imprimir.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                title: Imprimir precuenta
+                type: error
+                status: 503
+                data: null
+                errors:
+                - code: PRINTER_OFFLINE
+                  message: 'Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió
+                    queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir
+                    la llamada la vuelve a imprimir.'
+                  field: null
+                  details: {}
+                traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
+                author: Api Japp Grupo Cañas y Tapas
+                mode: developer
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
   /api/v2/orders/{orderId}/accounts/{accountId}/discounts:
     post:
       tags:
@@ -13652,7 +13976,11 @@ paths:
 
 
         11/11 (API 1.2.269, migración 0033): si el descuento tiene perfiles (Ajustes › Descuentos) y el de quien pulsa no
-        está, hace falta la autorización de quien tenga cobro.descuentos (403 PERMISSION_REQUIRED sin ella).'
+        está, hace falta la autorización de quien tenga cobro.descuentos (403 PERMISSION_REQUIRED sin ella).
+
+
+        20/11 (API 1.2.285, migración 0041): si el descuento tiene «Formulario» (discount.form), formData trae lo rellenado;
+        sin un campo obligatorio → 422 VALIDATION (details.label). Lo rellenado queda en el historial (discountForm).'
       operationId: store_POST_orders_orderId_accounts_accountId_discounts
       security:
       - session: []
@@ -13969,9 +14297,28 @@ paths:
                 discountId:
                   type: string
                 authorization: {}
+                formData:
+                  type:
+                  - array
+                  - 'null'
+                  maxItems: 10
+                  description: 1.2.285 · lo rellenado en el «Formulario» del descuento (los campos obligatorios tienen que venir);
+                    queda en el historial de la cuenta (discountForm)
+                  items:
+                    type: object
+                    properties:
+                      label:
+                        type: string
+                        maxLength: 40
+                      value:
+                        type: string
+                        maxLength: 120
             example:
               discountId: emp
               authorization: null
+              formData:
+              - label: DNI
+                value: 12345678Z
   /api/v2/orders/{orderId}/accounts/{accountId}/discounts/{discountId}:
     delete:
       tags:
@@ -26229,7 +26576,7 @@ paths:
         con la misma regla que Camareros · KPI (por quien abrió la mesa). Sin periodo abierto devuelve ceros.
 
 
-        Permiso: ninguno (son sus propios datos)
+        Permiso: funciones.miVenta (1.2.285; por defecto lo tienen todos los perfiles)
 
 
         Lo llama: PDA (cabecera, junto a Salir)

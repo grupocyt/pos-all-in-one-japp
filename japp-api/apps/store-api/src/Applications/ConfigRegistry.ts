@@ -542,6 +542,24 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
         "Perfiles que lo aplican",
         { default: [] },
       ),
+      // 0041 · «Formulario»: datos que se piden al aplicar el descuento al cobrar ([] = ninguno)
+      form: F(
+        "form",
+        "j",
+        z
+          .array(
+            z
+              .object({
+                label: z.string().trim().min(1).max(40),
+                type: z.enum(["text", "number", "date", "tel", "email"]).default("text"),
+                req: z.boolean().default(false),
+              })
+              .strict(),
+          )
+          .max(10),
+        "Formulario",
+        { default: [] },
+      ),
     },
   },
   motivos: {

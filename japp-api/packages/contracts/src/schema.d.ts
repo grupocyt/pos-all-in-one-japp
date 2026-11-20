@@ -1043,6 +1043,8 @@ export interface paths {
          * Ordenar lo por enviar
          * @description Cambia el orden de las líneas «Por enviar» de una cuenta: así salen en la comanda (p. ej. las patatas primero). lineIds lleva TODAS las líneas por enviar de la cuenta en el orden nuevo; lo ya enviado no se mueve. El orden se guarda en order_line.sort_order.
          *
+         *     Permiso: pedido.ordenImpresion (1.2.285, migración 0041; por defecto quien puede enviar)
+         *
          *     Lo llama: TPV, PDA
          *
          *     Tablas: order_line, order_event
@@ -1138,6 +1140,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/orders/{orderId}/accounts/{accountId}/prebill/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deshacer la precuenta
+         * @description Alguien entra y sale de una mesa en precuenta (rojo) sin cobrar: las líneas en precuenta vuelven a «enviadas» y la mesa a «en uso» (naranja). Queda en el historial (preBillUndone). Sin líneas en precuenta no hace nada.
+         *
+         *     Permiso: pedido.precuenta
+         *
+         *     Lo llama: TPV, PDA (al sincronizar la cuenta)
+         *
+         *     Tablas: order_line, order_event
+         *
+         *     1.2.285 (20/11/2026).
+         */
+        post: operations["store_POST_orders_orderId_accounts_accountId_prebill_undo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/orders/{orderId}/accounts/{accountId}/discounts": {
         parameters: {
             query?: never;
@@ -1174,6 +1204,8 @@ export interface paths {
          *     Un descuento no puede dejar la cuenta a 0,00 € (100 % o importe ≥ total) → 422 VALIDATION field value: para invitar, eliminar con motivo «Invitación» (1.2.268).
          *
          *     11/11 (API 1.2.269, migración 0033): si el descuento tiene perfiles (Ajustes › Descuentos) y el de quien pulsa no está, hace falta la autorización de quien tenga cobro.descuentos (403 PERMISSION_REQUIRED sin ella).
+         *
+         *     20/11 (API 1.2.285, migración 0041): si el descuento tiene «Formulario» (discount.form), formData trae lo rellenado; sin un campo obligatorio → 422 VALIDATION (details.label). Lo rellenado queda en el historial (discountForm).
          */
         post: operations["store_POST_orders_orderId_accounts_accountId_discounts"];
         delete?: never;
@@ -2903,7 +2935,7 @@ export interface paths {
          * Mis números
          * @description Venta, transacciones (tickets facturados) y ticket medio de quien tiene la sesión en el periodo abierto, con la misma regla que Camareros · KPI (por quien abrió la mesa). Sin periodo abierto devuelve ceros.
          *
-         *     Permiso: ninguno (son sus propios datos)
+         *     Permiso: funciones.miVenta (1.2.285; por defecto lo tienen todos los perfiles)
          *
          *     Lo llama: PDA (cabecera, junto a Salir)
          *
@@ -8563,6 +8595,51 @@ export interface operations {
             };
         };
     };
+    store_POST_orders_orderId_accounts_accountId_prebill_undo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transacción actualizada (en data) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        type?: "success";
+                        data?: components["schemas"]["Transaction"];
+                    } & components["schemas"]["Envelope"];
+                };
+            };
+            /** @description ACCOUNT_EMPTY: ACCOUNT_EMPTY · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     store_POST_orders_orderId_accounts_accountId_discounts: {
         parameters: {
             query?: never;
@@ -8580,11 +8657,22 @@ export interface operations {
             content: {
                 /** @example {
                  *       "discountId": "emp",
-                 *       "authorization": null
+                 *       "authorization": null,
+                 *       "formData": [
+                 *         {
+                 *           "label": "DNI",
+                 *           "value": "12345678Z"
+                 *         }
+                 *       ]
                  *     } */
                 "application/json": {
                     discountId?: string;
                     authorization?: unknown;
+                    /** @description 1.2.285 · lo rellenado en el «Formulario» del descuento (los campos obligatorios tienen que venir); queda en el historial de la cuenta (discountForm) */
+                    formData?: {
+                        label?: string;
+                        value?: string;
+                    }[] | null;
                 };
             };
         };
