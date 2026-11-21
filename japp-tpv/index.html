@@ -14496,10 +14496,11 @@ function dtfOpen(k, name){
   draw(0);
 }
 { let last = { t: 0, el: null };
-  const hit = el => { const k = el.dataset.dtfpick; dtfOpen(k, el.dataset.dtfname || t("mCard")); };
+  const hit = el => { const k = el.dataset.dtfpick; window.dtfOpenedAt = Date.now(); dtfOpen(k, el.dataset.dtfname || t("mCard")); };
+  document.addEventListener("click", e => { if(Date.now() - (window.dtfOpenedAt || 0) < 600 && e.target.closest?.("#dtfask") && !e.target.closest(".dtf-card")){ e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   document.addEventListener("dblclick", e => { const el = e.target.closest?.("[data-dtfpick]"); if(el){ e.preventDefault(); hit(el); } });
   document.addEventListener("pointerup", e => { const el = e.target.closest?.("[data-dtfpick]"); if(!el || e.pointerType === "mouse") return;
-    const now = Date.now(); if(last.el === el && now - last.t < 380){ last = { t: 0, el: null }; hit(el); } else last = { t: now, el }; }); }
+    const now = Date.now(); if(last.el === el && now - last.t < 500){ last = { t: 0, el: null }; hit(el); } else last = { t: now, el }; }); }
 Object.assign(I18N.es, { dtfTitle: "Datáfonos", dtfTap2: "Toca 2 veces", dtfAdd: "Añadir datáfono", dtfDel: "Quitar datáfono", dtfSave: "Guardar", dtfCount: "{n} datáfonos" });
 Object.assign(I18N.ca, { dtfTitle: "Datàfons", dtfTap2: "Toca 2 cops", dtfAdd: "Afegir datàfon", dtfDel: "Treure datàfon", dtfSave: "Desar", dtfCount: "{n} datàfons" });
 Object.assign(I18N.en, { dtfTitle: "Card terminals", dtfTap2: "Tap twice", dtfAdd: "Add terminal", dtfDel: "Remove terminal", dtfSave: "Save", dtfCount: "{n} terminals" });
@@ -17046,6 +17047,22 @@ Object.assign(I18N.en, { clFondoRow: "Cash float", clFondoRef: "Float the period
 .cjsheet #cjfs[readonly]{background:var(--key-soft);pointer-events:none}`; document.head.appendChild(css); }
 /* 21/11 · Cierre: fuera el recuadro «Fondo que se queda para el siguiente día» (el fondo se escribe en la fila «Fondo de caja»; el campo sigue oculto para guardarlo) */
 { const css = document.createElement("style"); css.textContent = `.cjsheet .cj-fondo{display:none!important}`; document.head.appendChild(css); }
+/* 21/11 · Cierre: el fondo de caja no se suma en Efectivo. Efectivo = solo lo de las ventas:
+   Sistema = efectivo esperado − fondo con el que empezó el periodo; Contado = billetes y monedas − ese mismo fondo.
+   «Fondo de caja» va aparte (el fondo inicial de referencia y el que se deja para mañana) y no suma en el Total. */
+clRefresh = function(){
+  const box = document.querySelector(".cjsheet .cl-tab"); if(!box) return; let E = {}; try{ E = cxExpected(); }catch(e){}
+  let f0 = 0; try{ f0 = r2(+cajaTeorico().fondo || 0); }catch(e){}
+  const cash = r2(DENOMS.reduce((a, d) => a + d * (+cajaCnt[d] || 0), 0)), card = typeof dtfSum === "function" ? dtfSum() : 0;
+  const val = k => k === "cash" ? r2(cash - f0) : k === "card" ? card : r2(parseFloat(String(clVals[k] ?? "").replace(",", ".")) || 0);
+  const sys = k => k === "cash" ? (E.cash == null ? null : r2(E.cash - f0)) : E[k];
+  const dif = (el, d) => { el.className = "cl-dif " + (Math.abs(d) < 0.005 ? "ok" : d > 0 ? "over" : "short"); el.textContent = Math.abs(d) < 0.005 ? t("cjOk") : d > 0 ? `+${eur(d)} ${t("cjOver")}` : `−${eur(-d)} ${t("cjShort")}`; };
+  let sS = 0, sC = 0;
+  box.querySelectorAll(".cl-scroll .cl-row").forEach(r => { const k = r.dataset.k, v = val(k), s = sys(k); sC += v; if(s != null) sS += s;
+    if(k === "cash"){ r.querySelector(".cl-cnt").textContent = eur(v); const ref = r.querySelector(".cx-ref"); if(ref) ref.textContent = s == null ? "—" : eur(s); }
+    if(k === "card"){ const i = r.querySelector("#cjcard"); if(i) i.value = v ? v.toFixed(2).replace(".", ",") : ""; }
+    const d = r.querySelector(".cl-dif"); if(s == null){ d.textContent = "—"; d.className = "cl-dif"; } else dif(d, r2(v - s)); });
+  sS = r2(sS); sC = r2(sC); box.querySelector("#cltS").textContent = eur(sS); box.querySelector("#cltC").textContent = eur(sC); dif(box.querySelector("#cltD"), r2(sC - sS)); };
 
 /* v261 · Editar sala: una mesa no puede quedar encima de otra (decisión del 28/10). Rectángulos en % del plano. */
 function mesaRects(plan, except){ const r=plan.getBoundingClientRect();
