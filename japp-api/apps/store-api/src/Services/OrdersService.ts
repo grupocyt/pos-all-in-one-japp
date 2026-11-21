@@ -2619,6 +2619,13 @@ export class OrdersService {
       authorization?: string | null;
     },
   ) {
+    // auditoría 21/11 · a la misma mesa: el motivo claro (antes decía «La mesa de destino está ocupada»)
+    const cur = (
+      await this.database.db.execute(sql`SELECT table_id::text t FROM orders WHERE id = ${orderId} AND store_id = ${session.storeId}`)
+    ).rows[0] as { t?: string } | undefined;
+    if (cur?.t && cur.t === b.toTableId) {
+      fail("VALIDATION", "Es la misma mesa: elige otra", { field: "toTableId" });
+    }
     if (b.scope === "table") {
       return this.transfer(session, orderId, b);
     }

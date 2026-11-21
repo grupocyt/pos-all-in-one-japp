@@ -86,7 +86,7 @@ const DOCS = (
 .swagger-ui .highlight-code>.microlight,.swagger-ui textarea{font-size:11.5px}
 .swagger-ui section.models{margin:8px 0}.swagger-ui section.models h4{font-size:13px}
 </style></head><body>
-<div class="jbar"><b>Japp · API de tienda</b><label>PIN <input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></label>
+<div class="jbar"><b>Japp · API de tienda</b><label>PIN <input id="pin" type="password" inputmode="numeric" maxlength="8" placeholder="••••"></label>
 <button id="go">Entrar</button><span id="who">Sin sesión: entra con un PIN.</span></div>
 <div id="ui"></div>
 <script src="${assets}/swagger-ui-bundle.js"></script><script>

@@ -209,10 +209,11 @@ function storeBlock(s: StoreHeader, f?: TicketFormat, invoice = false): TicketLi
   if (s.chain || s.local) {
     const chain = s.chain && fmtOn(f, "cadena") ? s.chain : "";
     let local = s.local && fmtOn(f, "local") ? s.local : "";
-    if (chain && local) {
-      // «Cañas y Tapas · Plaza Norte» (sin repetir la cadena si el nombre del local ya empieza por ella)
+    if (s.chain && local) {
+      // «Cañas y Tapas · Plaza Norte» (sin repetir la cadena si el nombre del local ya empieza por ella).
+      // 21/11 · con «Cadena» apagada también se quita del nombre del local: si no, salía igual (como en la vista previa del TPV)
       local = local.replace(
-        new RegExp("^" + chain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[·\\-–]?\\s*", "i"),
+        new RegExp("^" + s.chain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[·\\-–]?\\s*", "i"),
         "",
       );
     }
@@ -1084,6 +1085,8 @@ export interface CutXCountData {
   tips: { cash: number; card: number; confirmed: boolean };
   note?: string | null;
   threshold?: number;
+  /** 21/11 · Ajustes › Formatos › Corte X: cabecera, «Formas de pago» (tarjetas), «Propinas» y «Caja» (detalle del efectivo) */
+  format?: TicketFormat;
 }
 export function cutXCountTicket(c: CutXCountData): TicketLine[] {
   const at = madridParts(c.at);
@@ -1092,7 +1095,11 @@ export function cutXCountTicket(c: CutXCountData): TicketLine[] {
   const title =
     c.type === "auditoria" ? "ARQUEO DE AUDITORÍA" : c.type === "apertura" ? "APERTURA · BASE CONTADA" : "CORTE X · ARQUEO";
   const out: TicketLine[] = [];
-  out.push(...storeBlock({ ...c.store, logo: c.store.logo ?? true }, { razon: false, nif: false, direccion: false, telefono: false }).filter((l) => l.k !== "feed"));
+  // 21/11 · solo sale lo que está activo en Ajustes › Formatos › Corte X (la cabecera como en el resto de tickets)
+  const f = c.format;
+  const on = (k: keyof TicketFormat) => fmtOn(f, k);
+  const hf: TicketFormat = { razon: false, nif: false, direccion: false, telefono: false, ...(f ?? {}) };
+  out.push(...storeBlock({ ...c.store, logo: c.store.logo ?? true }, hf).filter((l) => l.k !== "feed"));
   out.push(
     R("="),
     T(title, { align: "center", bold: true }),
@@ -1101,15 +1108,17 @@ export function cutXCountTicket(c: CutXCountData): TicketLine[] {
     R("="),
   );
   out.push(T("EFECTIVO", H), R("-"), T(lr("Contado", eur(c.cash.counted)), H), T(lr("Esperado", eur(c.cash.expected))));
-  out.push(T(lr("  Base", eur(c.float))));
-  if (c.withdrawals) {
-    out.push(T(lr("  Traslados a caja fuerte", eur(-c.withdrawals))));
-  }
-  if (c.deposits) {
-    out.push(T(lr("  Ingresos a caja", eur(c.deposits))));
+  if (on("caja")) {
+    out.push(T(lr("  Base", eur(c.float))));
+    if (c.withdrawals) {
+      out.push(T(lr("  Traslados a caja fuerte", eur(-c.withdrawals))));
+    }
+    if (c.deposits) {
+      out.push(T(lr("  Ingresos a caja", eur(c.deposits))));
+    }
   }
   out.push(T(lr("Diferencia", st(c.cash.difference)), H));
-  if (c.type !== "apertura") {
+  if (c.type !== "apertura" && on("formasPago")) {
     out.push({ k: "feed" }, T("TARJETAS (DATÁFONOS)", H), R("-"));
     for (const x of c.cards) {
       out.push(T(lr(x.name, eur(x.amount))));
@@ -1118,6 +1127,10 @@ export function cutXCountTicket(c: CutXCountData): TicketLine[] {
       T(lr("Total contado", c.card.counted == null ? "—" : eur(c.card.counted)), H),
       T(lr("Esperado (ventas + propinas)", eur(c.card.expected))),
       T(lr("Diferencia", st(c.card.difference)), H),
+    );
+  }
+  if (c.type !== "apertura" && on("propinas")) {
+    out.push(
       { k: "feed" },
       T("PROPINAS", H),
       R("-"),

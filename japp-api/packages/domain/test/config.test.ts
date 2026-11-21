@@ -30,7 +30,7 @@ describe("Ajustes · módulos y permisos", () => {
 });
 
 describe("Ajustes · reglas por registro", () => {
-  it("usuarios: PIN de 4 números obligatorio al dar de alta; bloqueo 0–3600", () => {
+  it("usuarios: PIN de 4 a 8 números obligatorio al dar de alta; bloqueo 0–3600", () => {
     expect(code(() => checkConfigRecord("usuarios", { name: "Ana" }, { isNew: true }))).toEqual([
       "VALIDATION",
       "pin",
@@ -39,6 +39,10 @@ describe("Ajustes · reglas por registro", () => {
       "VALIDATION",
       "pin",
     ]);
+    // 1.2.296 · de 4 a 8 cifras
+    expect(code(() => checkConfigRecord("usuarios", { pin: "12345678" }, { isNew: false }))).toBeNull();
+    expect(code(() => checkConfigRecord("usuarios", { pin: "123" }, { isNew: false }))).toEqual(["VALIDATION", "pin"]);
+    expect(code(() => checkConfigRecord("usuarios", { pin: "123456789" }, { isNew: false }))).toEqual(["VALIDATION", "pin"]);
     expect(
       code(() => checkConfigRecord("usuarios", { pin: "1234", lockSeconds: 4000 }, { isNew: true })),
     ).toEqual(["VALIDATION", "lockSeconds"]);

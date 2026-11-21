@@ -23,7 +23,7 @@ import { ConfigHistoryApplication } from "../Applications/ConfigHistoryApplicati
 const COLOR: Record<string, string> = { red: "red", amber: "amber", green: "green" };
 
 /**
- * Clave de 4 cifras: sesión del equipo y autorización de encargado.
+ * Clave de 4 a 8 cifras: sesión del equipo y autorización de encargado.
  * Bloqueo tras N fallos (Parámetros), guardado en pin_attempt (migración 0009; sobrevive a reinicios). Basta una clave bloqueada:
  * - al entrar: por equipo (UUID del equipo si la estación lo tiene; si no, la estación — pinLockKey). Nunca por IP:
  *   detrás de un proxy todas llegan con la misma y se bloquearía toda la tienda;

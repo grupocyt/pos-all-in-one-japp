@@ -90,6 +90,17 @@ export class CashService {
       reasonId = r?.id ?? null;
       note = note ?? r?.name ?? b.reasonId;
     }
+    // 1.2.293 (auditoría 21/11) · no se puede retirar más efectivo del que hay en la caja según el sistema
+    if (b.kind === "withdrawal") {
+      const store = await this.stores.store();
+      const c = await this.periods.cashState(null, se.storeId, p!.id, store.cashFloat);
+      if (b.amount > c.expected + 0.005) {
+        fail("VALIDATION", `En la caja hay ${c.expected.toFixed(2).replace(".", ",")} € de efectivo: el retiro no puede pasar de ahí`, {
+          field: "amount",
+          expectedCash: c.expected,
+        });
+      }
+    }
     // 0037 (auditoría) · el retiro es siempre un traslado de efectivo a la caja fuerte: sigue en la venta y en el arqueo
     if (b.kind === "withdrawal" && !note?.trim()) {
       note = "Traslado a caja fuerte";
@@ -219,6 +230,7 @@ export class CashService {
         card: { counted: countedCard, expected: expectedCard, difference: cardDiff },
         tips: { cash: c.cashTips, card: c.cardTips, confirmed: b.tipsConfirmed === true },
         note: b.note ?? null,
+        format: type === "apertura" ? undefined : store.ticketFormats.cutx, // 21/11 · solo lo activo en Ajustes › Formatos › Corte X
       });
       // 1.2.281 · con print:false solo se guarda (se imprime luego desde Caja › Resumen)
       if (b.print === false) {

@@ -115,7 +115,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 <div><h4>Fechas e ids</h4><p>ISO 8601 en UTC (<code>2026-10-13T16:40:00.000Z</code>); la pantalla las muestra en hora de Madrid. Ids UUID.</p></div>
 </div></section>
 <section class="card"><h2>Una mesa de principio a fin</h2><ol class="flow"><li><span>Abrir mesa</span><code>POST /orders</code></li><li><span>Entrar y avisar a los demás equipos</span><code>POST /orders/{orderId}/presence</code></li><li><span>Marcar productos (precio según el área)</span><code>POST /orders/{orderId}/lines</code></li><li><span>Enviar a cocina o barra</span><code>POST /orders/{orderId}/send</code></li><li><span>Precuenta</span><code>POST /orders/{orderId}/accounts/{accountId}/prebill</code></li><li><span>Separar si hace falta</span><code>POST /orders/{orderId}/lines/move</code></li><li><span>Cobrar (uno o varios pagos)</span><code>POST /orders/{orderId}/accounts/{accountId}/payments</code></li><li><span>Emitir la factura VeriFactu y cerrar la mesa</span><code>POST /orders/{orderId}/accounts/{accountId}/invoice</code></li><li><span>El agente envía la transacción, la factura y el registro VeriFactu al Manager</span><code>POST /stores/{storeId}/outbox</code></li></ol></section>
-<nav class="toc"><a href="#sec-ajustes">1 · Ajustes</a><a href="#sec-tx">2 · Transaccional</a><a href="#sec-rep">3 · Reportes y sincronización</a><a href="#sec-264">4 · Nuevo 1.2.264</a><a href="#api-manager">Manager</a><a href="#api-gateway">Gateway</a><a href="#errores">Errores</a><a href="#openapi">OpenAPI</a></nav>
+<nav class="toc"><a href="#sec-ajustes">1 · Ajustes</a><a href="#sec-tx">2 · Transaccional</a><a href="#sec-rep">3 · Reportes y sincronización</a><a href="#sec-264">4 · Nuevo 1.2.264</a><a href="#sec-296">5 · Al día 1.2.296</a><a href="#api-manager">Manager</a><a href="#api-gateway">Gateway</a><a href="#errores">Errores</a><a href="#openapi">OpenAPI</a></nav>
 <section class="api" id="sec-ajustes"><header class="ah"><h2>1 · Ajustes</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Con el mismo nombre y orden que el menú Ajustes del TPV. API de tienda: 113 de 113 endpoints hechos.</p></header><nav class="toc sub"><a href="#aj-negocio">Negocio</a><a href="#aj-personal">Personal</a><a href="#aj-sala">Sala</a><a href="#aj-carta">Carta</a><a href="#aj-equipos">Equipos</a><a href="#aj-operacin">Operación</a><a href="#aj-developer">Developer</a></nav><section class="grp"><h3>Cómo funcionan todos los módulos</h3><p class="gd">Un mismo patrón para todos: <code>/config/{módulo}</code> lista y crea, <code>/config/{módulo}/{id}</code> ve y cambia (con <code>version</code>), <code>…/deactivate</code> desactiva (nada se borra). Cada cambio sube la versión de configuración, queda en el historial y en la cola hacia el Manager. Restaurante, Empresa, Facturación y Parámetros tienen un solo registro: <code>id = current</code>.</p><details class="ep" id="get-config-gen">
 <summary><span class="m get">GET</span><code class="p">/config</code><span class="s">Paquete de configuración</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
 <div class="eb">
@@ -9746,7 +9746,1275 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 <h5>Errores</h5><ul class="pl"><li><code>INVALID_TRANSITION</code> <span class="pin">409</span> Ya está entregado o cancelado</li><li><code>VERSION_CONFLICT</code> <span class="pin">409</span> Otro equipo lo movió antes</li><li><code>PERMISSION_REQUIRED</code> <span class="pin">403</span> Cancelar pide autorización de encargado (sistema.autorizar)</li></ul>
 </div></details></section><section class="grp"><h3>Módulos nuevos de Ajustes (<code>/config/{módulo}</code>)</h3><p class="gd">Con el mismo patrón que los demás módulos.</p><ul class="pl"><li><code>/config/pedidos</code> (id <code>current</code>) · Pedidos · Delivery · tabla <code>delivery_settings</code> · permiso <code>ajustes.pedidos</code>: <code>active</code> Delivery en este local; apagado = no sale el botón Pedidos y POST /delivery/orders da DELIVERY_OFF; <code>integration · provider · platforms[]</code> Recibir de las plataformas, integrador y plataformas {id, name, active}; <code>autoAccept · askRider · sound</code> Aceptar solos · pedir motorizado al asignar · aviso sonoro; <code>prepMinutes · amberMinutes · redMinutes</code> Preparación y semáforo; rojo &gt; ámbar (VALIDATION)</li><li><code>/config/motorizados</code> · Motorizados · tabla <code>delivery_rider</code> · permiso <code>ajustes.pedidos</code>: <code>name</code> Obligatorio; sin repetir entre los activos (sin contar mayúsculas ni espacios: DUPLICATE); <code>phone</code> ; <code>sortOrder</code> Orden en la lista</li></ul></section><section class="grp"><h3>Reglas nuevas en endpoints que ya existen</h3><p class="gd">Pruebas y decisiones del 28/10 (TPV 1.2.259–1.2.261).</p><ul class="pl"><li><b>GET /customers</b> <span class="pin">TPV 1.2.260</span> q busca también por correo (además de NIF y nombre). Los datos del cliente escritos al cobrar con factura completa se guardan en customer_ref (antes no aparecían al buscarlos). Índice ix_customer_ref_store_id_email (0026).</li><li><b>POST /config/{module}</b> <span class="pin">TPV 1.2.260 · 1.2.233</span> usuarios: no puede haber dos personas con el mismo nombre aunque cambien mayúsculas o espacios → 409 DUPLICATE, field name (índice uq_app_user_store_id_name_ci, 0026). parametros/usuarios: el bloqueo por inactividad es 0 (nunca) o de 10 a 3600 s; de 1 a 9 → 422 VALIDATION. Módulos nuevos: pedidos (un solo registro, id current; permiso ajustes.pedidos) y motorizados (permiso ajustes.pedidos).</li><li><b>PATCH /config/{module}/{id}</b> <span class="pin">TPV 1.2.260</span> Las mismas reglas que el alta: nombre de persona sin repetir (DUPLICATE) y bloqueo 0 o ≥ 10 s.</li><li><b>PUT /config/areas/{areaId}/layout</b> <span class="pin">TPV 1.2.261</span> Una mesa no puede quedar ni crearse encima de otra: si dos rectángulos (x, y, ancho y alto, en las mismas unidades del plano; sin tamaño cuenta 10) se solapan; se miran las mesas que se mueven contra las demás del área → 422 TABLE_OVERLAP con details {a, b} (números de mesa).</li><li><b>POST /orders/{orderId}/accounts/{accountId}/checkout</b> <span class="pin">TPV 1.2.261</span> No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING (también en payments). Sin conexión el TPV ya no deja cobrar.</li><li><b>POST /orders/{orderId}/accounts/{accountId}/payments</b> <span class="pin">TPV 1.2.261</span> No se cobra una cuenta con un menú con pases por elegir o sin marchar → 409 COURSE_PENDING.</li><li><b>POST /orders/{orderId}/accounts/{accountId}/prebill</b> <span class="pin">TPV 1.2.259</span> La precuenta se imprime cada vez que se pide, aunque no haya cambios, tras eliminar o tras separar.</li><li><b>POST /orders/{orderId}/save</b> <span class="pin">TPV 1.2.259</span> La cuenta que se queda sin productos porque se eliminó todo desaparece al guardar; una mesa nueva sin nada se cierra al guardar.</li></ul></section></section>
-<section class="api sub" id="api-manager"><header class="ah"><h2>Japp Manager · sincronización</h2><code class="base">https://{manager}/api/manager/v1</code><p>En la nube. La llama el agente de cada tienda: latido, cambios de configuración y envío de lo que pasa en la tienda. La conexión siempre sale de la tienda.</p></header><section class="grp"><h3>Sincronización tienda ↔ Manager</h3><p class="gd">El agente de la tienda llama al Manager; el Manager nunca entra en la tienda.</p><details class="ep" id="post-stores-storeid-heartbeat">
+<section class="api" id="sec-296"><header class="ah"><h2>5 · Al día con la API 1.2.296 (21/11/2026)</h2><code class="base">https://{servidor-tienda}/api/v2</code><p>Lo que ha cambiado desde la 1.2.268: 30 endpoints que no tenían ficha en esta página y 44 endpoints con reglas nuevas. Tablas en las migraciones 0027–0044 de japp-db. El contrato completo, al final (OpenAPI).</p></header><section class="grp"><h3>Productos de la cuenta</h3><p class="gd">API de tienda v2 · Productos de la cuenta</p><details class="ep" id="n296_post_api_v2_orders_orderid_accounts_accountid_prebill_undo">
+<summary><span class="m post">POST</span><code class="p">/orders/{orderId}/accounts/{accountId}/prebill/undo</code><span class="s">Deshacer la precuenta</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA (al sincronizar la cuenta)</i></span></summary>
+<div class="eb">
+<p>Alguien entra y sale de una mesa en precuenta (rojo) sin cobrar: las líneas en precuenta vuelven a «enviadas» y la mesa a «en uso» (naranja). Queda en el historial (preBillUndone). Sin líneas en precuenta no hace nada.</p><p>1.2.285 (20/11/2026).</p><dl class="meta"><dt>Permiso</dt><dd>pedido.precuenta</dd><dt>Tablas</dt><dd>order_line, order_event</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Deshacer la precuenta&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;_id&quot;: &quot;103abf8f-b3a5-44fa-9371-74a9a4a8d96b&quot;,
+    &quot;storeId&quot;: &quot;62201d95-4be7-5b16-b482-5a17c533054d&quot;,
+    &quot;status&quot;: &quot;open&quot;,
+    &quot;version&quot;: 7,
+    &quot;tableData&quot;: {
+      &quot;tableId&quot;: &quot;m1&quot;,
+      &quot;name&quot;: &quot;1&quot;,
+      &quot;zone&quot;: &quot;barra&quot;,
+      &quot;guests&quot;: 2,
+      &quot;openedBy&quot;: {
+        &quot;user&quot;: &quot;Sistemas&quot;,
+        &quot;device&quot;: &quot;CAJA1&quot;,
+        &quot;at&quot;: &quot;2026-10-13T16:38:39.777Z&quot;
+      },
+      &quot;lastEntry&quot;: {
+        &quot;user&quot;: &quot;Sistemas&quot;,
+        &quot;device&quot;: &quot;CAJA1&quot;,
+        &quot;at&quot;: &quot;2026-10-13T16:38:39.779Z&quot;
+      },
+      &quot;lastExit&quot;: null,
+      &quot;note&quot;: null
+    },
+    &quot;events&quot;: [
+      {
+        &quot;type&quot;: &quot;tableOpened&quot;,
+        &quot;at&quot;: &quot;2026-10-13T16:38:39.777Z&quot;,
+        &quot;description&quot;: &quot;Se abre la mesa con 2 comensales&quot;,
+        &quot;user&quot;: &quot;Sistemas&quot;,
+        &quot;device&quot;: &quot;CAJA1&quot;,
+        &quot;role&quot;: &quot;waiter&quot;
+      },
+      {
+        &quot;type&quot;: &quot;userEntered&quot;,
+        &quot;at&quot;: &quot;2026-10-13T16:38:39.779Z&quot;,
+        &quot;description&quot;: &quot;Sistemas entra a la mesa&quot;,
+        &quot;user&quot;: &quot;Sistemas&quot;,
+        &quot;device&quot;: &quot;CAJA1&quot;,
+        &quot;role&quot;: &quot;manager&quot;
+      }
+    ],
+    &quot;accounts&quot;: [
+      {
+        &quot;id&quot;: &quot;w792o2hr&quot;,
+        &quot;name&quot;: &quot;Cuenta 1&quot;,
+        &quot;status&quot;: &quot;open&quot;,
+        &quot;openedBy&quot;: {
+          &quot;user&quot;: &quot;Sistemas&quot;,
+          &quot;role&quot;: &quot;waiter&quot;,
+          &quot;device&quot;: &quot;CAJA1&quot;,
+          &quot;at&quot;: &quot;2026-10-13T16:38:39.777Z&quot;
+        },
+        &quot;closedBy&quot;: null,
+        &quot;lastEntry&quot;: {
+          &quot;user&quot;: &quot;Sistemas&quot;,
+          &quot;role&quot;: &quot;manager&quot;,
+          &quot;device&quot;: &quot;CAJA1&quot;,
+          &quot;at&quot;: &quot;2026-10-13T16:38:40.149Z&quot;
+        },
+        &quot;note&quot;: null,
+        &quot;lines&quot;: [
+          {
+            &quot;id&quot;: &quot;8a8ila4s&quot;,
+            &quot;productId&quot;: 1420,
+            &quot;name&quot;: &quot;CHAPATA Y PICOS&quot;,
+            &quot;comment&quot;: &quot;Sin hielo&quot;,
+            &quot;quantity&quot;: 1,
+            &quot;unitPrice&quot;: 2.25,
+            &quot;iva&quot;: 0.2,
+            &quot;netoProce&quot;: 2.05,
+            &quot;printed&quot;: true,
+            &quot;status&quot;: &quot;printed&quot;,
+            &quot;printers&quot;: [
+              {
+                &quot;area&quot;: &quot;BARRA&quot;,
+                &quot;printer&quot;: &quot;BARRA&quot;,
+                &quot;printed&quot;: true,
+                &quot;interface&quot;: &quot;tcp://10.221.11.32&quot;,
+                &quot;at&quot;: &quot;2026-10-13T16:38:40.171Z&quot;
+              }
+            ],
+            &quot;createdBy&quot;: {
+              &quot;user&quot;: &quot;Sistemas&quot;,
+              &quot;role&quot;: &quot;manager&quot;,
+              &quot;origin&quot;: &quot;tpv&quot;,
+              &quot;device&quot;: &quot;CAJA1&quot;,
+              &quot;at&quot;: &quot;2026-10-13T16:38:40.103Z&quot;
+            },
+            &quot;modifiers&quot;: []
+          },
+          {
+            &quot;id&quot;: &quot;z98p456n&quot;,
+            &quot;productId&quot;: 1564,
+            &quot;name&quot;: &quot;Extra Huevo&quot;,
+            &quot;comment&quot;: null,
+            &quot;quantity&quot;: 1,
+            &quot;unitPrice&quot;: 1.5,
+            &quot;iva&quot;: 0.14,
+            &quot;netoProce&quot;: 1.36,
+            &quot;printed&quot;: true,
+            &quot;status&quot;: &quot;printed&quot;,
+            &quot;printers&quot;: [
+              {
+                &quot;area&quot;: &quot;BARRA&quot;,
+                &quot;printer&quot;: &quot;BARRA&quot;,
+                &quot;printed&quot;: true,
+                &quot;interface&quot;: &quot;tcp://10.221.11.32&quot;,
+                &quot;at&quot;: &quot;2026-10-13T16:38:40.171Z&quot;
+              }
+            ],
+            &quot;createdBy&quot;: {
+              &quot;user&quot;: &quot;Sistemas&quot;,
+              &quot;role&quot;: &quot;manager&quot;,
+              &quot;origin&quot;: &quot;tpv&quot;,
+              &quot;device&quot;: &quot;CAJA1&quot;,
+              &quot;at&quot;: &quot;2026-10-13T16:38:40.126Z&quot;
+            },
+            &quot;modifiers&quot;: []
+          }
+        ],
+        &quot;deletedLines&quot;: [
+          {
+            &quot;id&quot;: &quot;vilvpovp&quot;,
+            &quot;productId&quot;: 1650,
+            &quot;name&quot;: &quot;KASPIRINHA 0.0 NARANJA&quot;,
+            &quot;comment&quot;: null,
+            &quot;quantity&quot;: 1,
+            &quot;unitPrice&quot;: 6.5,
+            &quot;iva&quot;: 0.59,
+            &quot;netoProce&quot;: 5.91,
+            &quot;printed&quot;: true,
+            &quot;status&quot;: &quot;deleted&quot;,
+            &quot;printers&quot;: [
+              {
+                &quot;area&quot;: &quot;BARRA&quot;,
+                &quot;printer&quot;: &quot;BARRA&quot;,
+                &quot;printed&quot;: true,
+                &quot;interface&quot;: &quot;tcp://10.221.11.32&quot;,
+                &quot;at&quot;: &quot;2026-10-13T16:38:40.171Z&quot;
+              }
+            ],
+            &quot;createdBy&quot;: {
+              &quot;user&quot;: &quot;Sistemas&quot;,
+              &quot;role&quot;: &quot;manager&quot;,
+              &quot;origin&quot;: &quot;tpv&quot;,
+              &quot;device&quot;: &quot;CAJA1&quot;,
+              &quot;at&quot;: &quot;2026-10-13T16:38:40.149Z&quot;
+            },
+            &quot;modifiers&quot;: []
+          }
+        ],
+        &quot;discounts&quot;: [
+          {
+            &quot;id&quot;: &quot;p70qjsu4&quot;,
+            &quot;source&quot;: &quot;manual&quot;,
+            &quot;couponId&quot;: null,
+            &quot;couponCode&quot;: null,
+            &quot;type&quot;: &quot;percentage&quot;,
+            &quot;value&quot;: 10,
+            &quot;baseAmount&quot;: 10,
+            &quot;amount&quot;: 1,
+            &quot;reason&quot;: &quot;DESC&quot;,
+            &quot;status&quot;: &quot;applied&quot;,
+            &quot;appliedBy&quot;: {
+              &quot;user&quot;: &quot;Sistemas&quot;,
+              &quot;role&quot;: &quot;manager&quot;,
+              &quot;device&quot;: &quot;CAJA1&quot;,
+              &quot;at&quot;: &quot;2026-10-13T16:38:40.174Z&quot;
+            },
+            &quot;authorizedBy&quot;: null,
+            &quot;removedBy&quot;: null
+          }
+        ],
+        &quot;payments&quot;: [
+          {
+            &quot;id&quot;: &quot;0ensozwa&quot;,
+            &quot;method&quot;: &quot;card&quot;,
+            &quot;amount&quot;: 2,
+            &quot;tip&quot;: 0,
+            &quot;cashGiven&quot;: null,
+            &quot;change&quot;: null,
+            &quot;cashDetail&quot;: null,
+            &quot;status&quot;: &quot;confirmed&quot;,
+            &quot;collectedBy&quot;: {
+              &quot;user&quot;: &quot;Sistemas&quot;,
+              &quot;role&quot;: &quot;manager&quot;,
+              &quot;device&quot;: &quot;CAJA1&quot;,
+              &quot;at&quot;: &quot;2026-10-13T16:38:40.174Z&quot;
+            },
+            &quot;bankData&quot;: {
+              &quot;provider&quot;: &quot;redsys&quot;,
+              &quot;merchantId&quot;: null,
+              &quot;terminalId&quot;: null,
+              &quot;transactionId&quot;: null,
+              &quot;authorizationCode&quot;: null,
+              &quot;responseCode&quot;: null,
+              &quot;responseMessage&quot;: null,
+              &quot;cardBrand&quot;: null,
+              &quot;maskedPan&quot;: &quot;****1234&quot;,
+              &quot;maskedPhone&quot;: null,
+              &quot;entryMode&quot;: null,
+              &quot;amount&quot;: 2,
+              &quot;currency&quot;: &quot;EUR&quot;,
+              &quot;processedAt&quot;: null
+            }
+          }
+        ],
+        &quot;totals&quot;: {
+          &quot;subtotal&quot;: 3.75,
+          &quot;discount&quot;: 0.38,
+          &quot;total&quot;: 3.37,
+          &quot;paid&quot;: 2,
+          &quot;pending&quot;: 1.37,
+          &quot;tips&quot;: 0,
+          &quot;taxes&quot;: [
+            {
+              &quot;rate&quot;: 10,
+              &quot;base&quot;: 3.06,
+              &quot;tax&quot;: 0.31
+            }
+          ]
+        },
+        &quot;customerData&quot;: {
+          &quot;customerId&quot;: null,
+          &quot;type&quot;: &quot;company&quot;,
+          &quot;taxId&quot;: &quot;B1&quot;,
+          &quot;name&quot;: &quot;X&quot;,
+          &quot;email&quot;: null,
+          &quot;phone&quot;: null,
+          &quot;address&quot;: {
+            &quot;street&quot;: null,
+            &quot;postalCode&quot;: null,
+            &quot;city&quot;: null,
+            &quot;province&quot;: null,
+            &quot;country&quot;: &quot;ES&quot;
+          }
+        },
+        &quot;invoice&quot;: null,
+        &quot;events&quot;: [
+          {
+            &quot;type&quot;: &quot;accountOpened&quot;,
+            &quot;at&quot;: &quot;2026-10-13T16:38:39.779Z&quot;,
+            &quot;description&quot;: &quot;Se abre la Cuenta 1&quot;,
+            &quot;user&quot;: &quot;Sistemas&quot;,
+            &quot;device&quot;: &quot;CAJA1&quot;,
+            &quot;role&quot;: &quot;manager&quot;
+          },
+          {
+            &quot;type&quot;: &quot;lineAdded&quot;,
+            &quot;at&quot;: &quot;2026-10-13T16:38:40.103Z&quot;,
+            &quot;description&quot;: &quot;Se añade CHAPATA Y PICOS x1&quot;,
+            &quot;user&quot;: &quot;Sistemas&quot;,
+            &quot;device&quot;: &quot;CAJA1&quot;,
+            &quot;role&quot;: &quot;manager&quot;
+          },
+          {
+            &quot;type&quot;: &quot;lineAdded&quot;,
+            &quot;at&quot;: &quot;2026-10-13T16:38:40.126Z&quot;,
+            &quot;description&quot;: &quot;Se añade Extra Huevo x1&quot;,
+            &quot;user&quot;: &quot;Sistemas&quot;,
+            &quot;device&quot;: &quot;CAJA1&quot;,
+            &quot;role&quot;: &quot;manager&quot;
+          },
+          {
+            &quot;type&quot;: &quot;lineAdded&quot;,
+            &quot;at&quot;: &quot;2026-10-13T16:38:40.149Z&quot;,
+            &quot;description&quot;: &quot;Se añade KASPIRINHA 0.0 NARANJA x1&quot;,
+            &quot;user&quot;: &quot;Sistemas&quot;,
+            &quot;device&quot;: &quot;CAJA1&quot;,
+            &quot;role&quot;: &quot;manager&quot;
+          },
+          {
+            &quot;type&quot;: &quot;linePrinted&quot;,
+            &quot;at&quot;: &quot;2026-10-13T16:38:40.171Z&quot;,
+            &quot;description&quot;: &quot;Comanda impresa: CHAPATA Y PICOS x1, Extra Huevo x1, KASPIRINHA 0.0 NARANJA x1&quot;,
+            &quot;user&quot;: &quot;Sistemas&quot;,
+            &quot;device&quot;: &quot;CAJA1&quot;,
+            &quot;role&quot;: &quot;manager&quot;
+          }
+        ]
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>409</code> ACCOUNT_EMPTY: ACCOUNT_EMPTY · NOTHING_TO_CHARGE: La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta. · TABLE_TAKEN: Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</li><li><code>503</code> PRINTER_OFFLINE: Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir.</li></ul>
+</div></details></section><section class="grp"><h3>Facturas, caja e informes</h3><p class="gd">API de tienda v2 · Facturas, caja e informes</p><details class="ep" id="n296_get_api_v2_cash_movements">
+<summary><span class="m get">GET</span><code class="p">/cash/movements</code><span class="s">Movimiento de caja</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.274, migración 0037): los apuntes de caja del periodo abierto (o periodId): scope=ops la operativa (fondo, base contada, traslados a caja fuerte, ingresos, arqueos y cortes X) y scope=audit los arqueos de auditoría (permiso funciones.arqueoAuditoria). Cada conteo lleva lo contado (efectivo, datáfonos y desglose), lo esperado, la diferencia y las propinas; printable = se puede imprimir su ticket detallado con POST /cash/counts/{id}/print.</p><dl class="meta"><dt>Tablas</dt><dd>cash_movement</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Movimiento de caja&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;periodId&quot;: &quot;…&quot;,
+    &quot;scope&quot;: &quot;ops&quot;,
+    &quot;items&quot;: []
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Sin permiso</li><li><code>409</code> PERIOD_CLOSED: No hay periodo abierto</li></ul>
+</div></details><details class="ep" id="n296_get_api_v2_reports_me">
+<summary><span class="m get">GET</span><code class="p">/reports/me</code><span class="s">Mis números</span><span class="st ok">Hecho</span><span class="who"><i>PDA (cabecera</i><i>junto a Salir)</i></span></summary>
+<div class="eb">
+<p>Venta, transacciones (tickets facturados) y ticket medio de quien tiene la sesión en el periodo abierto, con la misma regla que Camareros · KPI (por quien abrió la mesa). Sin periodo abierto devuelve ceros.</p><dl class="meta"><dt>Permiso</dt><dd>funciones.miVenta (1.2.285; por defecto lo tienen todos los perfiles)</dd><dt>Tablas</dt><dd>orders, invoice, order_line</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Mis números&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;periodId&quot;: &quot;…&quot;,
+    &quot;user&quot;: &quot;Mesero&quot;,
+    &quot;tickets&quot;: 14,
+    &quot;sales&quot;: 415.44,
+    &quot;avgTicket&quot;: 29.67
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"></ul>
+</div></details><details class="ep" id="n296_post_api_v2_invoices_invoiceid_full">
+<summary><span class="m post">POST</span><code class="p">/invoices/{invoiceId}/full</code><span class="s">Factura completa que sustituye a una simplificada</span><span class="st ok">Hecho</span><span class="who"><i>TPV (Gestiones › Facturas)</i></span></summary>
+<div class="eb">
+<p>F1 (decidido el 04/11/2026, API 1.2.268): el cliente pide la factura con sus datos cuando ya se le hizo la simplificada. Nada de lo facturado se edita: la simplificada queda status = substituted y se emite una factura completa nueva (tipo F3, serie de facturas completas) con los datos del cliente, las mismas líneas, importes e IVA y su registro VeriFactu. No mueve dinero. Solo una F2 emitida, sin abonos y no sustituida (si no → 409 INVALID_TRANSITION). NIF con las reglas de siempre (422). La simplificada sustituida no cuenta en las ventas (cuenta la F3). Imprime la F3 sin abrir el cajón (print = false para no imprimir).</p><dl class="meta"><dt>Permiso</dt><dd>funciones.facturas y cobro.clientes</dd><dt>Tablas</dt><dd>invoice, invoice_tax, verifactu_record</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>customer</code> * · object</li><li><code>print</code> · boolean/null</li></ul><div class="io"><div><h5>Responde 201</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Factura completa que sustituye a una simplificada&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 201,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;type&quot;: &quot;F3&quot;,
+    &quot;invoiceNumber&quot;: &quot;F2026-000041&quot;,
+    &quot;substitutes&quot;: &quot;T2026-000318&quot;,
+    &quot;issuedAt&quot;: &quot;2026-11-04T21:10:00.000Z&quot;,
+    &quot;total&quot;: 48.5,
+    &quot;taxes&quot;: [
+      {
+        &quot;rate&quot;: 10,
+        &quot;base&quot;: 44.09,
+        &quot;tax&quot;: 4.41
+      }
+    ],
+    &quot;customer&quot;: {
+      &quot;name&quot;: &quot;Eventos Madrid SL&quot;,
+      &quot;taxId&quot;: &quot;B12345674&quot;
+    },
+    &quot;verifactuQr&quot;: &quot;https://…&quot;,
+    &quot;printed&quot;: true
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Hace falta funciones.facturas y cobro.clientes</li><li><code>404</code> NOT_FOUND: La factura no existe</li><li><code>409</code> INVALID_TRANSITION: Solo una factura simplificada emitida, sin abonos y no sustituida</li><li><code>422</code> VALIDATION: NIF u otros datos del cliente no válidos</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_cash_counts_countid_print">
+<summary><span class="m post">POST</span><code class="p">/cash/counts/{countId}/print</code><span class="s">Imprimir el resumen de un arqueo</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>11/11 (API 1.2.269, migración 0033): el resumen de un arqueo guardado («ARQUEO · RESUMEN DE CAJA»): el corte X con todas sus partes y lo contado (efectivo, cada datáfono y la diferencia de tarjeta). Permiso: funciones.caja. Arqueo que no existe → 404.</p><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Imprimir el resumen de un arqueo&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;kind&quot;: &quot;X&quot;,
+    &quot;periodId&quot;: &quot;…&quot;,
+    &quot;sales&quot;: 631.7,
+    &quot;tickets&quot;: 15,
+    &quot;expectedCash&quot;: 258.92,
+    &quot;printed&quot;: true,
+    &quot;printer&quot;: &quot;TICKETS&quot;,
+    &quot;error&quot;: null,
+    &quot;ticket&quot;: [
+      {
+        &quot;k&quot;: &quot;text&quot;,
+        &quot;text&quot;: &quot;CORTE X&quot;,
+        &quot;align&quot;: &quot;center&quot;,
+        &quot;size&quot;: &quot;wh&quot;,
+        &quot;bold&quot;: true
+      },
+      {
+        &quot;k&quot;: &quot;rule&quot;,
+        &quot;ch&quot;: &quot;=&quot;
+      },
+      {
+        &quot;k&quot;: &quot;cut&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>409</code> PERIOD_CLOSED: No hay periodo abierto.</li><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li><li><code>404</code> NOT_FOUND: Ese arqueo no existe</li></ul>
+</div></details><details class="ep" id="n296_get_api_v2_cash_petty">
+<summary><span class="m get">GET</span><code class="p">/cash/petty</code><span class="s">Caja chica</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.274, migración 0037): fondo fijo del gerente (Parámetros › Caja chica, 50 € por defecto), aparte del cajón (no entra en el arqueo): fondo, saldo, gastado y los últimos apuntes. Permiso funciones.cajaChica.</p><dl class="meta"><dt>Tablas</dt><dd>petty_cash_movement, store_parameters</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Caja chica&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;limit&quot;: 50,
+    &quot;balance&quot;: 37.5,
+    &quot;spent&quot;: 12.5,
+    &quot;items&quot;: []
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Sin permiso</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_cash_petty">
+<summary><span class="m post">POST</span><code class="p">/cash/petty</code><span class="s">Gasto o reposición de la caja chica</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.274, migración 0037): kind expense (importe y motivo; no puede pasar del saldo → 422 PETTY_CASH_LIMIT) o replenish (sin importe repone hasta el fondo; nunca por encima → 422 PETTY_CASH_LIMIT). Queda quién, desde qué equipo y el saldo después.</p><dl class="meta"><dt>Tablas</dt><dd>petty_cash_movement</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>kind</code> * · string (expense, replenish)</li><li><code>amount</code> · number/null</li><li><code>reason</code> · string/null</li><li><code>authorization</code> · string/null</li></ul><div class="io"><div><h5>Responde 201</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Gasto o reposición de la caja chica&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 201,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;kind&quot;: &quot;expense&quot;,
+    &quot;amount&quot;: 12.5,
+    &quot;balance&quot;: 37.5,
+    &quot;limit&quot;: 50
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Sin permiso</li><li><code>422</code> VALIDATION: Escribe en qué se ha gastado</li></ul>
+</div></details><details class="ep" id="n296_delete_api_v2_cash_petty_pettyid">
+<summary><span class="m delete">DELETE</span><code class="p">/cash/petty/{pettyId}</code><span class="s">Eliminar un apunte de caja chica</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>17/11 (API 1.2.282, migración 0040): anula un ingreso o gasto de caja chica escrito por error. No se borra: queda con voided_at y voided_by_name, deja de contar en el saldo y de salir en GET /cash/petty y en los tickets de corte X y Z. Si el saldo quedara en negativo (un ingreso que ya se gastó), 422 VALIDATION con details.balance. Permiso: funciones.cajaChica. Apunte que no existe o ya eliminado → 404. Los cortes X y arqueos no se eliminan.</p><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Eliminar un apunte de caja chica&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;voided&quot;: true,
+    &quot;balance&quot;: 45,
+    &quot;by&quot;: &quot;Ana&quot;,
+    &quot;at&quot;: &quot;2026-11-17T20:15:00.000Z&quot;
+  }
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>404</code> NOT_FOUND: Ese apunte de caja chica no existe o ya está eliminado</li></ul>
+</div></details></section><section class="grp"><h3>Sincronización tienda ↔ Manager</h3><p class="gd">Japp Manager · sincronización · Sincronización tienda ↔ Manager</p><details class="ep" id="n296_get_api_v2_config_carta">
+<summary><span class="m get">GET</span><code class="p">/config/carta</code><span class="s">Carta completa (categorías, productos y preguntas)</span><span class="st ok">Hecho</span><span class="who"><i>Manager</i><i>TPV</i></span></summary>
+<div class="eb">
+<p>Lo mismo que se manda en los sync, con id y externalId de cada registro (también los desactivados con active=all), para comparar antes de cargar.</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.categorias · ajustes.productos · ajustes.preguntas</dd><dt>Tablas</dt><dd>category, product, category_product, product_question, question, question_answer</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Carta completa (categorías, productos y preguntas)&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;categories&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;externalId&quot;: null,
+        &quot;name&quot;: &quot;BEBIDAS&quot;,
+        &quot;bgColor&quot;: null,
+        &quot;fgColor&quot;: null,
+        &quot;sortOrder&quot;: 1,
+        &quot;hidden&quot;: false,
+        &quot;orderOnTable&quot;: true,
+        &quot;active&quot;: true
+      }
+    ],
+    &quot;products&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;externalId&quot;: null,
+        &quot;plu&quot;: 1042,
+        &quot;name&quot;: &quot;Caña&quot;,
+        &quot;ticketName&quot;: null,
+        &quot;buttonLabel&quot;: null,
+        &quot;description&quot;: null,
+        &quot;categoryId&quot;: null,
+        &quot;categoryExternalId&quot;: null,
+        &quot;price&quot;: 2.8,
+        &quot;priceTerrace&quot;: null,
+        &quot;taxRate&quot;: 10,
+        &quot;questionIds&quot;: [
+          &quot;…&quot;
+        ],
+        &quot;questionExternalIds&quot;: [
+          &quot;…&quot;
+        ],
+        &quot;bgColor&quot;: null,
+        &quot;fgColor&quot;: null,
+        &quot;answerOnly&quot;: false,
+        &quot;orderOnTable&quot;: true,
+        &quot;soldOut&quot;: false,
+        &quot;active&quot;: true
+      }
+    ],
+    &quot;questions&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;externalId&quot;: null,
+        &quot;name&quot;: &quot;Primer plato&quot;,
+        &quot;minAnswers&quot;: 1,
+        &quot;maxAnswers&quot;: 1,
+        &quot;course&quot;: null,
+        &quot;active&quot;: true,
+        &quot;answers&quot;: [
+          {
+            &quot;productId&quot;: &quot;…&quot;,
+            &quot;productExternalId&quot;: null,
+            &quot;plu&quot;: 9201,
+            &quot;label&quot;: null,
+            &quot;extraPrice&quot;: 0.0,
+            &quot;bgColor&quot;: null,
+            &quot;fgColor&quot;: null
+          }
+        ]
+      }
+    ],
+    &quot;configVersion&quot;: 203
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_config_carta_sync">
+<summary><span class="m post">POST</span><code class="p">/config/carta/sync</code><span class="s">Reemplazar la carta completa</span><span class="st ok">Hecho</span><span class="who"><i>Manager</i></span></summary>
+<div class="eb">
+<p>Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Categorías + productos + preguntas juntos: los productos nombran categorías y preguntas por externalId, y las respuestas de las preguntas nombran productos (productExternalId o plu). Lo que no viene se quita en cascada, sin IN_USE. Productos: el PLU nunca cambia y manda sobre el externalId (si el Manager cambia el id, es el mismo producto con su id, sus canales de impresión y su historial). Tres nombres: name = nombre del PLU, buttonLabel = nombre en el TPV (tecla) y ticketName = nombre a imprimir (comanda, precuenta y factura); vacíos = el del PLU, y si no vienen se conservan. Canales de impresión y agotado son de la tienda: se conservan. Máximo 500 categorías, 5.000 productos y 1.000 preguntas (413 TOO_LARGE). Las mesas abiertas no cambian (cada línea guarda su nombre y precio).</p><p>16/11 (API 1.2.270, migración 0035) · **Publicación de Carta** (JSON «Campos del JSON · Publicación de Carta al TPV»): si el cuerpo trae
+`release`, es una carga de Carta con cinco bloques `{release, categories, products, questions, keys}`:
+- `release.kind`: **full** = carta entera (lo que no viene se desactiva; las teclas `keys` sustituyen a las de la tienda),
+  **prices** = solo `price`/`priceTerrace` de productos que ya existen (por externalId o plu; uno que no existe → 422 REF_NOT_FOUND),
+  **names** = solo `name`, `ticketName`, `buttonLabel` y `translations`, **withdraw** = retirar la carta (queda «confirm»
+  hasta que un encargado la confirme: POST /config/carta/releases/{id}/confirm).
+- `release.store` tiene que ser el código de esta tienda (422 field release.store).
+- `publicationId + releaseVersion + store` = una carga: repetida igual → la misma respuesta (`repeated: true`); con otro
+  contenido → 409 VERSION_CONFLICT; una versión menor que la última de esa publicación → 409 VERSION_CONFLICT.
+- `effectiveAt` futura → se comprueba entera y queda «pending»: la API la aplica sola a esa hora (estado en GET /config/carta/releases).
+- Productos: `printChannels` solo **COMIDA** y/o **BEBIDA** (sin mayúsculas; otro → 422 products[i].printChannels[j]);
+  `qualifier` = calificativo. Categorías: `description`, `translations` y `qualifiers` [{productExternalId, plu, sortOrder}]
+  (productos de la carga con qualifier; [] = ninguno). Preguntas: `plu`, `description`, `required`, `answerType`
+  (unica | multiple), `courseName`, `translations`; respuestas con `sortOrder`, colores y `translations`.
+- Teclas `keys`: categoryExternalId + productExternalId/plu, `label` (&quot;&quot; = el buttonLabel del producto), colores, `posX`, `posY`
+  (la misma casilla o el mismo producto dos veces en una categoría → 409 DUPLICATE keys[i]).
+Sin `release` sigue siendo el sync completo de siempre.</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.categorias · ajustes.productos · ajustes.preguntas</dd><dt>Tablas</dt><dd>category, product, category_product, product_question, question, question_answer, config_change_log, sync_outbox</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>categories</code> · array</li><li><code>products</code> · array</li><li><code>questions</code> · array</li><li><code>release</code> · object</li><li><code>keys</code> · array</li><li><code>note</code> · string/null</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Reemplazar la carta completa&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;categories&quot;: {
+      &quot;created&quot;: 1,
+      &quot;updated&quot;: 2,
+      &quot;deactivated&quot;: 1,
+      &quot;unchanged&quot;: 0
+    },
+    &quot;products&quot;: {
+      &quot;created&quot;: 1,
+      &quot;updated&quot;: 2,
+      &quot;deactivated&quot;: 1,
+      &quot;unchanged&quot;: 0
+    },
+    &quot;questions&quot;: {
+      &quot;created&quot;: 1,
+      &quot;updated&quot;: 2,
+      &quot;deactivated&quot;: 1,
+      &quot;unchanged&quot;: 0
+    },
+    &quot;configVersion&quot;: 203,
+    &quot;ids&quot;: {
+      &quot;MGR-CAT-01&quot;: &quot;…&quot;
+    }
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>422</code> VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · REF_NOT_FOUND: Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</li><li><code>409</code> DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IN_USE: No se puede desactivar: está en uso. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</li><li><code>413</code> TOO_LARGE: Demasiadas filas en una carga (details.max).</li><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_config_categorias_sync">
+<summary><span class="m post">POST</span><code class="p">/config/categorias/sync</code><span class="s">Reemplazar todas las categorías</span><span class="st ok">Hecho</span><span class="who"><i>Manager</i></span></summary>
+<div class="eb">
+<p>Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el nombre. Una categoría que hay que quitar con productos activos → 409 IN_USE (details.items). Máximo 500.</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.categorias</dd><dt>Tablas</dt><dd>category, config_change_log, sync_outbox</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>items</code> · array</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Reemplazar todas las categorías&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;created&quot;: 1,
+    &quot;updated&quot;: 2,
+    &quot;deactivated&quot;: 1,
+    &quot;unchanged&quot;: 0,
+    &quot;configVersion&quot;: 184,
+    &quot;items&quot;: [
+      {
+        &quot;externalId&quot;: null,
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;name&quot;: &quot;BEBIDAS&quot;,
+        &quot;plu&quot;: null,
+        &quot;action&quot;: &quot;updated&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>422</code> VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · REF_NOT_FOUND: Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</li><li><code>409</code> DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IN_USE: No se puede desactivar: está en uso. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</li><li><code>413</code> TOO_LARGE: Demasiadas filas en una carga (details.max).</li><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_config_productos_sync">
+<summary><span class="m post">POST</span><code class="p">/config/productos/sync</code><span class="s">Reemplazar todos los productos</span><span class="st ok">Hecho</span><span class="who"><i>Manager</i></span></summary>
+<div class="eb">
+<p>Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el PLU, que manda sobre el externalId (un producto nuevo sin plu recibe el siguiente libre). Tres nombres: name (nombre del PLU), buttonLabel (nombre en el TPV) y ticketName (nombre a imprimir); vacíos = el del PLU. Categoría por categoryExternalId (o categoryId), preguntas por questionExternalIds (o questionIds) en orden, IVA por taxRate: si no existen → 422 REF_NOT_FOUND (sincroniza antes categorías y preguntas). channels se ignora y soldOut, si no viene, se conserva. Un producto que hay que quitar en una mesa abierta → 409 IN_USE. Máximo 2.000.</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.productos</dd><dt>Tablas</dt><dd>product, category_product, product_question, config_change_log, sync_outbox</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>items</code> · array</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Reemplazar todos los productos&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;created&quot;: 1,
+    &quot;updated&quot;: 2,
+    &quot;deactivated&quot;: 1,
+    &quot;unchanged&quot;: 0,
+    &quot;configVersion&quot;: 191,
+    &quot;items&quot;: [
+      {
+        &quot;externalId&quot;: null,
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;name&quot;: &quot;BEBIDAS&quot;,
+        &quot;plu&quot;: null,
+        &quot;action&quot;: &quot;updated&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>422</code> VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · REF_NOT_FOUND: Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</li><li><code>409</code> DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IN_USE: No se puede desactivar: está en uso. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</li><li><code>413</code> TOO_LARGE: Demasiadas filas en una carga (details.max).</li><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_config_preguntas_sync">
+<summary><span class="m post">POST</span><code class="p">/config/preguntas/sync</code><span class="s">Reemplazar todas las preguntas</span><span class="st ok">Hecho</span><span class="who"><i>Manager</i></span></summary>
+<div class="eb">
+<p>Todo o nada en una sola transacción. Cada registro se reconoce por externalId (id del App Manager) y, si no viene, por su clave natural; lo que existe se actualiza, lo que no se crea y un externalId que vuelve reactiva el registro con su mismo id. Lo que no viene se desactiva (nunca se borra). Sube la versión de configuración, queda en el historial de Ajustes y avisa a los equipos (config.changed). Clave natural: el texto (name). Las respuestas son productos (productExternalId o plu) que tienen que existir (422 REF_NOT_FOUND) y sustituyen a las que tenía, en el orden de la lista. Una pregunta que hay que quitar y la usa un producto activo → 409 IN_USE. Máximo 500 preguntas y 100 respuestas por pregunta.</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.preguntas</dd><dt>Tablas</dt><dd>question, question_answer, config_change_log, sync_outbox</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>items</code> · array</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Reemplazar todas las preguntas&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;created&quot;: 1,
+    &quot;updated&quot;: 2,
+    &quot;deactivated&quot;: 1,
+    &quot;unchanged&quot;: 0,
+    &quot;configVersion&quot;: 195,
+    &quot;items&quot;: [
+      {
+        &quot;externalId&quot;: null,
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;name&quot;: &quot;BEBIDAS&quot;,
+        &quot;plu&quot;: null,
+        &quot;action&quot;: &quot;updated&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>422</code> VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo. · REF_NOT_FOUND: Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</li><li><code>409</code> DUPLICATE: Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó). · IN_USE: No se puede desactivar: está en uso. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</li><li><code>413</code> TOO_LARGE: Demasiadas filas en una carga (details.max).</li><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</li></ul>
+</div></details><details class="ep" id="n296_get_api_v2_config_carta_preview">
+<summary><span class="m get">GET</span><code class="p">/config/carta/preview</code><span class="s">Carta en JSON (TPV u Order on Table)</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>Manager</i></span></summary>
+<div class="eb">
+<p>La carta tal como la ve el TPV (mode=tpv: categorías visibles con sus productos) o el cliente en Order on Table (mode=oot: solo categorías y productos con orderOnTable, sin agotados ni modificadores).</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.productos</dd><dt>Tablas</dt><dd>category, product, category_product</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Carta en JSON (TPV u Order on Table)&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;mode&quot;: &quot;oot&quot;,
+    &quot;categories&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;name&quot;: &quot;BEBIDAS&quot;,
+        &quot;bgColor&quot;: null,
+        &quot;fgColor&quot;: null,
+        &quot;orderOnTable&quot;: true,
+        &quot;products&quot;: [
+          {
+            &quot;id&quot;: &quot;…&quot;,
+            &quot;plu&quot;: 1042,
+            &quot;name&quot;: &quot;Caña&quot;,
+            &quot;description&quot;: null,
+            &quot;price&quot;: 2.8,
+            &quot;priceTerrace&quot;: null,
+            &quot;soldOut&quot;: false,
+            &quot;orderOnTable&quot;: true,
+            &quot;questions&quot;: [
+              &quot;…&quot;
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>422</code> VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.</li></ul>
+</div></details><details class="ep" id="n296_get_api_v2_config_carta_releases">
+<summary><span class="m get">GET</span><code class="p">/config/carta/releases</code><span class="s">Cargas de la carta (publicaciones de Carta)</span><span class="st ok">Hecho</span><span class="who"><i>TPV (Ajustes › Developer)</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.270, migración 0035): las últimas cargas del Manager (más nuevas primero) con su estado: pending (espera su hora), confirm (retirar: espera a un encargado), applied, unchanged, failed (con error), superseded (llegó otra más nueva) o cancelled.</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.categorias · ajustes.productos · ajustes.preguntas</dd><dt>Tablas</dt><dd>catalog_release</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Cargas de la carta (publicaciones de Carta)&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;kind&quot;: &quot;full&quot;,
+        &quot;publicationId&quot;: &quot;pub_ejemplo_completa&quot;,
+        &quot;publicationType&quot;: &quot;completa&quot;,
+        &quot;releaseVersion&quot;: 3,
+        &quot;effectiveAt&quot;: &quot;2026-11-17T06:00:00.000Z&quot;,
+        &quot;status&quot;: &quot;pending&quot;,
+        &quot;menu&quot;: &quot;m_ejemplo&quot;,
+        &quot;priceLine&quot;: &quot;GENERAL CYT&quot;,
+        &quot;store&quot;: &quot;CT03&quot;,
+        &quot;note&quot;: null,
+        &quot;receivedAt&quot;: &quot;2026-11-16T19:00:00.000Z&quot;,
+        &quot;appliedAt&quot;: null,
+        &quot;error&quot;: null,
+        &quot;decidedBy&quot;: null
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_config_carta_releases_id_confirm">
+<summary><span class="m post">POST</span><code class="p">/config/carta/releases/{id}/confirm</code><span class="s">Confirmar una carga de la carta</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.270, migración 0035): Un encargado confirma «retirar la carta» (withdraw) o aplica ya una carga programada. Se aplica en una transacción (todo o nada).</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.categorias · ajustes.productos · ajustes.preguntas</dd><dt>Tablas</dt><dd>catalog_release, category, product, question</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Confirmar una carga de la carta&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;release&quot;: {
+      &quot;id&quot;: &quot;…&quot;,
+      &quot;kind&quot;: &quot;full&quot;,
+      &quot;publicationId&quot;: &quot;pub_ejemplo_completa&quot;,
+      &quot;publicationType&quot;: &quot;completa&quot;,
+      &quot;releaseVersion&quot;: 3,
+      &quot;effectiveAt&quot;: &quot;2026-11-17T06:00:00.000Z&quot;,
+      &quot;status&quot;: &quot;applied&quot;,
+      &quot;menu&quot;: &quot;m_ejemplo&quot;,
+      &quot;priceLine&quot;: &quot;GENERAL CYT&quot;,
+      &quot;store&quot;: &quot;CT03&quot;,
+      &quot;note&quot;: null,
+      &quot;receivedAt&quot;: &quot;2026-11-16T19:00:00.000Z&quot;,
+      &quot;appliedAt&quot;: null,
+      &quot;error&quot;: null,
+      &quot;decidedBy&quot;: null
+    },
+    &quot;result&quot;: null
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso</li><li><code>404</code> NOT_FOUND: Esa carga no existe</li><li><code>409</code> INVALID_TRANSITION: Esa carga ya no está pendiente</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_config_carta_releases_id_cancel">
+<summary><span class="m post">POST</span><code class="p">/config/carta/releases/{id}/cancel</code><span class="s">Cancelar una carga de la carta</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.270, migración 0035): No se aplica (retirar o programada). Body opcional {reason}.</p><dl class="meta"><dt>Permiso</dt><dd>ajustes.categorias · ajustes.productos · ajustes.preguntas</dd><dt>Tablas</dt><dd>catalog_release, category, product, question</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>reason</code> · string/null</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Cancelar una carga de la carta&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;release&quot;: {
+      &quot;id&quot;: &quot;…&quot;,
+      &quot;kind&quot;: &quot;full&quot;,
+      &quot;publicationId&quot;: &quot;pub_ejemplo_completa&quot;,
+      &quot;publicationType&quot;: &quot;completa&quot;,
+      &quot;releaseVersion&quot;: 3,
+      &quot;effectiveAt&quot;: &quot;2026-11-17T06:00:00.000Z&quot;,
+      &quot;status&quot;: &quot;cancelled&quot;,
+      &quot;menu&quot;: &quot;m_ejemplo&quot;,
+      &quot;priceLine&quot;: &quot;GENERAL CYT&quot;,
+      &quot;store&quot;: &quot;CT03&quot;,
+      &quot;note&quot;: null,
+      &quot;receivedAt&quot;: &quot;2026-11-16T19:00:00.000Z&quot;,
+      &quot;appliedAt&quot;: null,
+      &quot;error&quot;: null,
+      &quot;decidedBy&quot;: null
+    },
+    &quot;result&quot;: null
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso</li><li><code>404</code> NOT_FOUND: Esa carga no existe</li><li><code>409</code> INVALID_TRANSITION: Esa carga ya no está pendiente</li></ul>
+</div></details></section><section class="grp"><h3>Order on Table (sistema externo)</h3><p class="gd">API de tienda v2 · Order on Table (sistema externo)</p><details class="ep" id="n296_get_api_v2_oot_token">
+<summary><span class="m get">GET</span><code class="p">/oot/{token}</code><span class="s">Mesa y carta del token</span><span class="st ok">Hecho</span><span class="who"><i>Order on Table</i></span></summary>
+<div class="eb">
+<p>La mesa del QR y la carta de Order on Table (las mismas reglas que GET /config/carta/preview?mode=oot, con PVP según el área). Token caducado, anulado o de una mesa cerrada → 404 OOT_TOKEN_INVALID. Clave de integración que falta o no coincide → 403 NOT_ALLOWED.</p><dl class="meta"><dt>Tablas</dt><dd>oot_token, orders, category, product</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Mesa y carta del token&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;store&quot;: {
+      &quot;code&quot;: &quot;CT 03&quot;,
+      &quot;name&quot;: &quot;Sucursal Pruebas&quot;
+    },
+    &quot;table&quot;: &quot;101&quot;,
+    &quot;area&quot;: &quot;TERRAZA&quot;,
+    &quot;orderId&quot;: &quot;…&quot;,
+    &quot;open&quot;: true,
+    &quot;menu&quot;: {
+      &quot;categories&quot;: [
+        {
+          &quot;id&quot;: &quot;…&quot;,
+          &quot;name&quot;: &quot;BEBIDAS&quot;,
+          &quot;products&quot;: [
+            {
+              &quot;plu&quot;: 1042,
+              &quot;name&quot;: &quot;Caña&quot;,
+              &quot;description&quot;: null,
+              &quot;price&quot;: 3.0,
+              &quot;questions&quot;: [
+                {
+                  &quot;id&quot;: &quot;…&quot;,
+                  &quot;name&quot;: &quot;Tamaño&quot;,
+                  &quot;minAnswers&quot;: 1,
+                  &quot;maxAnswers&quot;: 1,
+                  &quot;answers&quot;: [
+                    {
+                      &quot;plu&quot;: 9001,
+                      &quot;label&quot;: &quot;Tercio&quot;,
+                      &quot;extraPrice&quot;: 0.0
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>404</code> OOT_TOKEN_INVALID: Token de Order on Table caducado, anulado o de una mesa cerrada.</li><li><code>403</code> NOT_ALLOWED: La clave es correcta pero esa persona tampoco tiene el permiso.</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_oot_token_lines">
+<summary><span class="m post">POST</span><code class="p">/oot/{token}/lines</code><span class="s">Pedido del cliente</span><span class="st ok">Hecho</span><span class="who"><i>Order on Table</i></span></summary>
+<div class="eb">
+<p>Se envía solo: las líneas entran en la cuenta «Order on Table» de la mesa (se crea si no existe) como si el camarero las marcara y pulsara Enviar, y salen por la impresora de cada canal después del COMMIT. Precio según el área. Solo productos con orderOnTable cuya categoría también lo tenga, sin agotados (422 PRODUCT_NOT_OOT con field items[n].plu); preguntas obligatorias como en POST …/lines (422 VALIDATION). Si una impresora falla el pedido queda guardado y pendiente de imprimir (printed dice qué salió). requestId (o Idempotency-Key) evita duplicar el pedido si el otro sistema reintenta.</p><p>Regla del 03/11 (API 1.2.268): con descuento o un cobro parcial en la cuenta se entiende que ya se está cobrando y la cuenta queda congelada: los pedidos del cliente van a su propia cuenta. Se aplica por cuenta (las demás cuentas de la mesa siguen libres). Para seguir: anular los cobros (POST …/payments/{paymentId}/void) y quitar el descuento.</p><p>N7 (04/11, API 1.2.268): los pedidos del cliente van a su propia cuenta (kind = order_on_table, «Order on Table»). Si esa cuenta ya se está cobrando (descuento o cobro parcial) o está cobrada, se abre otra («Order on Table 2»…): el pedido nunca se rechaza por otra cuenta en cobro. Las cuentas de la transacción llevan kind (normal u order_on_table).</p><p>16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).</p><dl class="meta"><dt>Tablas</dt><dd>oot_token, orders, account, order_line, order_line_printer, order_event, sync_outbox</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>items</code> · array</li><li><code>requestId</code> · objeto</li></ul><div class="io"><div><h5>Responde 201</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Pedido del cliente&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 201,
+  &quot;data&quot;: {
+    &quot;accepted&quot;: 2,
+    &quot;accountId&quot;: &quot;…&quot;,
+    &quot;version&quot;: 12,
+    &quot;printed&quot;: [
+      {
+        &quot;channel&quot;: &quot;BARRA&quot;,
+        &quot;printer&quot;: &quot;BARRA&quot;,
+        &quot;lines&quot;: 1,
+        &quot;ok&quot;: true
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>404</code> OOT_TOKEN_INVALID: Token de Order on Table caducado, anulado o de una mesa cerrada.</li><li><code>422</code> PRODUCT_NOT_OOT: Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu). · VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.</li><li><code>409</code> COURSE_PENDING: Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar. · IDEMPOTENCY_IN_PROGRESS: Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos. · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial: para seguir, anular sus cobros (POST …/payments/{paymentId}/void) y quitar el descuento (details: accountId, accountName, action, payments, discount)</li><li><code>403</code> NOT_ALLOWED: La clave es correcta pero esa persona tampoco tiene el permiso.</li></ul>
+</div></details></section><section class="grp"><h3>Cobro y factura</h3><p class="gd">API de tienda v2 · Cobro y factura</p><details class="ep" id="n296_post_api_v2_orders_orderid_accounts_accountid_payments_paymentid_void">
+<summary><span class="m post">POST</span><code class="p">/orders/{orderId}/accounts/{accountId}/payments/{paymentId}/void</code><span class="s">Anular un cobro</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
+<div class="eb">
+<p>Anula un cobro hecho (parcial o no) mientras la cuenta NO está facturada; ya facturada se devuelve con un abono (POST /invoices/{invoiceId}/credit).</p><p>El cobro no se borra: queda status cancelled y deja de contar en lo pagado, en lo pendiente y en la caja (que solo suma cobros confirmed). En el historial de la mesa queda paymentVoided con quién, quién autorizó y el motivo.</p><p>refund dice cómo se devuelve el dinero: cash (el cajero lo entrega), card-terminal (devolución en el datáfono: la API no toca la tarjeta) u other.</p><p>Después, la cuenta se cobra de nuevo con la forma correcta. Mientras queden cobros, no se cambia ni se quita el descuento (422 VALIDATION): primero se anulan.</p><p>Decisión 19 (PENDIENTE-DE-DECIDIR.md), hecho en la API 1.2.268</p><dl class="meta"><dt>Permiso</dt><dd>sistema.autorizar (o authorization de POST /sessions/authorize con la clave de un encargado)</dd><dt>Tablas</dt><dd>payment, account, order_event</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>reason</code> * · string</li><li><code>version</code> · integer/null</li><li><code>authorization</code> · string/null</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Anular un cobro&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;payment&quot;: {
+      &quot;id&quot;: &quot;5b7c0f0e-3f7e-4c43-9b8a-1e0c2a6d4f11&quot;,
+      &quot;method&quot;: &quot;cash&quot;,
+      &quot;amount&quot;: 5.0,
+      &quot;kind&quot;: &quot;cash&quot;,
+      &quot;status&quot;: &quot;cancelled&quot;
+    },
+    &quot;refund&quot;: &quot;cash&quot;,
+    &quot;totals&quot;: {
+      &quot;total&quot;: 16.95,
+      &quot;paid&quot;: 0.0,
+      &quot;pending&quot;: 16.95
+    },
+    &quot;order&quot;: {
+      &quot;_id&quot;: &quot;…&quot;,
+      &quot;version&quot;: 12
+    }
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>409</code> ACCOUNT_CLOSED: La cuenta ya está facturada: para devolver dinero haz un abono (ORDER_CLOSED si la mesa ya se cerró) · INVALID_TRANSITION: el cobro ya está anulado o rechazado · VERSION_CONFLICT</li><li><code>422</code> VALIDATION: Falta el motivo (3–200 caracteres)</li><li><code>404</code> NOT_FOUND: La mesa, la cuenta o el cobro no existen</li><li><code>403</code> PERMISSION_REQUIRED: Hace falta la clave de un encargado (details.permission = sistema.autorizar)</li></ul>
+</div></details></section><section class="grp"><h3>Órdenes y cuentas</h3><p class="gd">API de tienda v2 · Órdenes y cuentas</p><details class="ep" id="n296_post_api_v2_orders_orderid_reconnections">
+<summary><span class="m post">POST</span><code class="p">/orders/{orderId}/reconnections</code><span class="s">Guardar lo ticado sin conexión</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
+<div class="eb">
+<p>Regla del 04/11 (API 1.2.268): lo que un equipo ticó sin conexión con el servidor (sin wifi o servidor caído) nunca entra directo en la cuenta; queda pendiente aquí hasta que alguien con «Resolver reconexiones» (pedido.reconexiones, configurable en Ajustes › Accesos; sin él, con la clave de un encargado) lo valida o lo descarta con motivo. Con algo pendiente, esa cuenta no se cobra (409 RECONNECTION_PENDING). El equipo lo manda al volver la conexión: items con clientId propio (repetir no duplica), plu, nombre, cantidad, precio que vio, comentario y respuestas; accountId de la cuenta donde se ticó (sin cuenta = cuenta para todas); offlineReason = lo que vio el equipo (sin red, servidor sin respuesta). Quién y en qué equipo sale de la sesión. No imprime nada: la comanda sale al validar.</p><dl class="meta"><dt>Tablas</dt><dd>order_reconnection</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>accountId</code> · string/null</li><li><code>offlineReason</code> · string/null</li><li><code>items</code> * · array</li></ul><div class="io"><div><h5>Responde 201</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Guardar lo ticado sin conexión&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 201,
+  &quot;data&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;clientId&quot;: &quot;pda1-1730730000000-1&quot;,
+        &quot;orderId&quot;: &quot;…&quot;,
+        &quot;tableName&quot;: &quot;12&quot;,
+        &quot;accountId&quot;: &quot;…&quot;,
+        &quot;accountName&quot;: &quot;Cuenta 1&quot;,
+        &quot;plu&quot;: 101,
+        &quot;name&quot;: &quot;Caña&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 2.2,
+        &quot;comment&quot;: null,
+        &quot;modifiers&quot;: [],
+        &quot;status&quot;: &quot;pending&quot;,
+        &quot;offlineReason&quot;: &quot;Sin red (wifi)&quot;,
+        &quot;markedBy&quot;: {
+          &quot;user&quot;: &quot;Pedro&quot;,
+          &quot;device&quot;: &quot;PDA1&quot;,
+          &quot;at&quot;: &quot;2026-11-04T20:10:00.000Z&quot;
+        },
+        &quot;decidedBy&quot;: null
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>404</code> NOT_FOUND: No existe esa mesa o esa reconexión</li><li><code>422</code> VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.</li></ul>
+</div></details><details class="ep" id="n296_get_api_v2_reconnections">
+<summary><span class="m get">GET</span><code class="p">/reconnections</code><span class="s">Reconexiones</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i><i>Manager</i></span></summary>
+<div class="eb">
+<p>Regla del 04/11 (API 1.2.268): lo que un equipo ticó sin conexión con el servidor (sin wifi o servidor caído) nunca entra directo en la cuenta; queda pendiente aquí hasta que alguien con «Resolver reconexiones» (pedido.reconexiones, configurable en Ajustes › Accesos; sin él, con la clave de un encargado) lo valida o lo descarta con motivo. Con algo pendiente, esa cuenta no se cobra (409 RECONNECTION_PENDING). status = pending (por defecto) o all; orderId para las de una mesa. La más antigua primero, hasta 500. Es la lista de Gestiones › Reconexiones y la de cada cuenta.</p><dl class="meta"><dt>Tablas</dt><dd>order_reconnection</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Reconexiones&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;clientId&quot;: &quot;pda1-1730730000000-1&quot;,
+        &quot;orderId&quot;: &quot;…&quot;,
+        &quot;tableName&quot;: &quot;12&quot;,
+        &quot;accountId&quot;: &quot;…&quot;,
+        &quot;accountName&quot;: &quot;Cuenta 1&quot;,
+        &quot;plu&quot;: 101,
+        &quot;name&quot;: &quot;Caña&quot;,
+        &quot;quantity&quot;: 2,
+        &quot;unitPrice&quot;: 2.2,
+        &quot;comment&quot;: null,
+        &quot;modifiers&quot;: [],
+        &quot;status&quot;: &quot;pending&quot;,
+        &quot;offlineReason&quot;: &quot;Sin red (wifi)&quot;,
+        &quot;markedBy&quot;: {
+          &quot;user&quot;: &quot;Pedro&quot;,
+          &quot;device&quot;: &quot;PDA1&quot;,
+          &quot;at&quot;: &quot;2026-11-04T20:10:00.000Z&quot;
+        },
+        &quot;decidedBy&quot;: null
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>422</code> VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_reconnections_reconnectionid_accept">
+<summary><span class="m post">POST</span><code class="p">/reconnections/{reconnectionId}/accept</code><span class="s">Validar una reconexión</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
+<div class="eb">
+<p>Regla del 04/11 (API 1.2.268): lo que un equipo ticó sin conexión con el servidor (sin wifi o servidor caído) nunca entra directo en la cuenta; queda pendiente aquí hasta que alguien con «Resolver reconexiones» (pedido.reconexiones, configurable en Ajustes › Accesos; sin él, con la clave de un encargado) lo valida o lo descarta con motivo. Con algo pendiente, esa cuenta no se cobra (409 RECONNECTION_PENDING). Validar = la línea pasa a su cuenta (o a la primera abierta si se marcó sin cuenta) y se envía: sale la comanda, como POST …/lines + POST …/send, en una transacción. Las reglas de siempre: mesa cerrada → 409 ORDER_CLOSED, cuenta cobrada → 409 ACCOUNT_CLOSED, cuenta en cobro (descuento o cobro parcial) → 409 ACCOUNT_LOCKED; en esos casos sigue pendiente y se puede descartar. Repetir sobre una ya aceptada la devuelve igual; sobre una descartada → 409 RECONNECTION_DECIDED. Queda en el historial de la mesa quién la ticó, en qué equipo y quién la validó.</p><p>16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).</p><dl class="meta"><dt>Tablas</dt><dd>order_reconnection, order_line, order_event</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>authorization</code> · string/null</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Validar una reconexión&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;reconnection&quot;: {
+      &quot;id&quot;: &quot;…&quot;,
+      &quot;clientId&quot;: &quot;pda1-1730730000000-1&quot;,
+      &quot;orderId&quot;: &quot;…&quot;,
+      &quot;tableName&quot;: &quot;12&quot;,
+      &quot;accountId&quot;: &quot;…&quot;,
+      &quot;accountName&quot;: &quot;Cuenta 1&quot;,
+      &quot;plu&quot;: 101,
+      &quot;name&quot;: &quot;Caña&quot;,
+      &quot;quantity&quot;: 2,
+      &quot;unitPrice&quot;: 2.2,
+      &quot;comment&quot;: null,
+      &quot;modifiers&quot;: [],
+      &quot;status&quot;: &quot;accepted&quot;,
+      &quot;offlineReason&quot;: &quot;Sin red (wifi)&quot;,
+      &quot;markedBy&quot;: {
+        &quot;user&quot;: &quot;Pedro&quot;,
+        &quot;device&quot;: &quot;PDA1&quot;,
+        &quot;at&quot;: &quot;2026-11-04T20:10:00.000Z&quot;
+      },
+      &quot;decidedBy&quot;: {
+        &quot;user&quot;: &quot;Ana&quot;,
+        &quot;authorizedBy&quot;: null,
+        &quot;at&quot;: &quot;2026-11-04T20:14:00.000Z&quot;,
+        &quot;reason&quot;: null
+      }
+    },
+    &quot;printed&quot;: []
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Hace falta «Resolver reconexiones» (pedido.reconexiones) o la clave de un encargado</li><li><code>404</code> NOT_FOUND: No existe esa mesa o esa reconexión</li><li><code>409</code> RECONNECTION_DECIDED: Esa reconexión ya se decidió de otra forma (aceptada no se puede descartar ni al revés) · ORDER_CLOSED: La mesa ya está cerrada: no entra; se puede descartar · ACCOUNT_CLOSED: La cuenta ya está cobrada · ACCOUNT_LOCKED: La cuenta tiene descuento o un cobro parcial</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_reconnections_reconnectionid_discard">
+<summary><span class="m post">POST</span><code class="p">/reconnections/{reconnectionId}/discard</code><span class="s">Descartar una reconexión</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i><i>PDA</i></span></summary>
+<div class="eb">
+<p>Regla del 04/11 (API 1.2.268): lo que un equipo ticó sin conexión con el servidor (sin wifi o servidor caído) nunca entra directo en la cuenta; queda pendiente aquí hasta que alguien con «Resolver reconexiones» (pedido.reconexiones, configurable en Ajustes › Accesos; sin él, con la clave de un encargado) lo valida o lo descarta con motivo. Con algo pendiente, esa cuenta no se cobra (409 RECONNECTION_PENDING). Descartar = no entra en la cuenta ni sale comanda; reason es obligatorio (3–200). Repetir no hace nada; sobre una ya validada → 409 RECONNECTION_DECIDED.</p><dl class="meta"><dt>Tablas</dt><dd>order_reconnection</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>reason</code> * · string</li><li><code>authorization</code> · string/null</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Descartar una reconexión&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;reconnection&quot;: {
+      &quot;id&quot;: &quot;…&quot;,
+      &quot;clientId&quot;: &quot;pda1-1730730000000-1&quot;,
+      &quot;orderId&quot;: &quot;…&quot;,
+      &quot;tableName&quot;: &quot;12&quot;,
+      &quot;accountId&quot;: &quot;…&quot;,
+      &quot;accountName&quot;: &quot;Cuenta 1&quot;,
+      &quot;plu&quot;: 101,
+      &quot;name&quot;: &quot;Caña&quot;,
+      &quot;quantity&quot;: 2,
+      &quot;unitPrice&quot;: 2.2,
+      &quot;comment&quot;: null,
+      &quot;modifiers&quot;: [],
+      &quot;status&quot;: &quot;discarded&quot;,
+      &quot;offlineReason&quot;: &quot;Sin red (wifi)&quot;,
+      &quot;markedBy&quot;: {
+        &quot;user&quot;: &quot;Pedro&quot;,
+        &quot;device&quot;: &quot;PDA1&quot;,
+        &quot;at&quot;: &quot;2026-11-04T20:10:00.000Z&quot;
+      },
+      &quot;decidedBy&quot;: {
+        &quot;user&quot;: &quot;Ana&quot;,
+        &quot;authorizedBy&quot;: null,
+        &quot;at&quot;: &quot;2026-11-04T20:14:00.000Z&quot;,
+        &quot;reason&quot;: &quot;Ya se había servido&quot;
+      }
+    }
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>403</code> PERMISSION_REQUIRED: Hace falta «Resolver reconexiones» (pedido.reconexiones) o la clave de un encargado</li><li><code>404</code> NOT_FOUND: No existe esa mesa o esa reconexión</li><li><code>409</code> RECONNECTION_DECIDED: Esa reconexión ya se decidió de otra forma (aceptada no se puede descartar ni al revés)</li><li><code>422</code> VALIDATION: Faltan datos o tienen un formato incorrecto. details dice qué campo.</li></ul>
+</div></details></section><section class="grp"><h3>Prueba de impresoras</h3><p class="gd">API de tienda v2 · Prueba de impresoras</p><details class="ep" id="n296_get_api_v2_print_jobs">
+<summary><span class="m get">GET</span><code class="p">/print-jobs</code><span class="s">Cola de impresión</span><span class="st ok">Hecho</span><span class="who"><i>TPV (Gestiones › Impresiones)</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».</p><p>Lo pendiente y lo fallido primero. counts = {pending, printing, failed}.</p><dl class="meta"><dt>Tablas</dt><dd>print_job</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Cola de impresión&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;counts&quot;: {
+      &quot;pending&quot;: 1
+    },
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: &quot;…&quot;,
+        &quot;kind&quot;: &quot;kitchen&quot;,
+        &quot;title&quot;: &quot;Mesa 12&quot;,
+        &quot;orderId&quot;: &quot;…&quot;,
+        &quot;accountId&quot;: null,
+        &quot;stationId&quot;: &quot;…&quot;,
+        &quot;channel&quot;: &quot;COMIDA&quot;,
+        &quot;printerName&quot;: &quot;LINEA&quot;,
+        &quot;connection&quot;: &quot;tcp://10.221.17.35&quot;,
+        &quot;status&quot;: &quot;pending&quot;,
+        &quot;attempts&quot;: 1,
+        &quot;lastError&quot;: &quot;Sin respuesta de LINEA&quot;,
+        &quot;nextTryAt&quot;: &quot;2026-11-16T19:00:02.000Z&quot;,
+        &quot;createdBy&quot;: &quot;Sistemas&quot;,
+        &quot;createdDevice&quot;: &quot;CAJA1&quot;,
+        &quot;createdAt&quot;: &quot;2026-11-16T19:00:00.000Z&quot;,
+        &quot;printedAt&quot;: null,
+        &quot;lines&quot;: 2,
+        &quot;text&quot;: &quot;COMIDA · LINEA\nMesa 12\n2  Croquetas\n1  Bravas&quot;
+      }
+    ]
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"></ul>
+</div></details><details class="ep" id="n296_post_api_v2_print_jobs_id_retry">
+<summary><span class="m post">POST</span><code class="p">/print-jobs/{id}/retry</code><span class="s">Reintentar un papel ya</span><span class="st ok">Hecho</span><span class="who"><i>TPV (Gestiones › Impresiones)</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».</p><p>Vuelve a la cola ahora (fallido o reintentando). Uno ya impreso → 409 INVALID_TRANSITION.</p><dl class="meta"><dt>Tablas</dt><dd>print_job</dd></dl><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Reintentar un papel ya&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;kind&quot;: &quot;kitchen&quot;,
+    &quot;title&quot;: &quot;Mesa 12&quot;,
+    &quot;orderId&quot;: &quot;…&quot;,
+    &quot;accountId&quot;: null,
+    &quot;stationId&quot;: &quot;…&quot;,
+    &quot;channel&quot;: &quot;COMIDA&quot;,
+    &quot;printerName&quot;: &quot;LINEA&quot;,
+    &quot;connection&quot;: &quot;tcp://10.221.17.35&quot;,
+    &quot;status&quot;: &quot;pending&quot;,
+    &quot;attempts&quot;: 1,
+    &quot;lastError&quot;: &quot;Sin respuesta de LINEA&quot;,
+    &quot;nextTryAt&quot;: &quot;2026-11-16T19:00:02.000Z&quot;,
+    &quot;createdBy&quot;: &quot;Sistemas&quot;,
+    &quot;createdDevice&quot;: &quot;CAJA1&quot;,
+    &quot;createdAt&quot;: &quot;2026-11-16T19:00:00.000Z&quot;,
+    &quot;printedAt&quot;: null,
+    &quot;lines&quot;: 2,
+    &quot;text&quot;: &quot;COMIDA · LINEA\nMesa 12\n2  Croquetas\n1  Bravas&quot;
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>404</code> NOT_FOUND: Ese papel no está en la cola</li><li><code>409</code> INVALID_TRANSITION: Ese papel ya no está pendiente</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_print_jobs_id_reassign">
+<summary><span class="m post">POST</span><code class="p">/print-jobs/{id}/reassign</code><span class="s">Mandar un papel a otra impresora</span><span class="st ok">Hecho</span><span class="who"><i>TPV (Gestiones › Impresiones)</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».</p><p>Por otra impresora activa (permiso ajustes.impresoras o authorization).</p><dl class="meta"><dt>Tablas</dt><dd>print_job</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>printerId</code> · string</li><li><code>authorization</code> · string/null</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Mandar un papel a otra impresora&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;kind&quot;: &quot;kitchen&quot;,
+    &quot;title&quot;: &quot;Mesa 12&quot;,
+    &quot;orderId&quot;: &quot;…&quot;,
+    &quot;accountId&quot;: null,
+    &quot;stationId&quot;: &quot;…&quot;,
+    &quot;channel&quot;: &quot;COMIDA&quot;,
+    &quot;printerName&quot;: &quot;LINEA&quot;,
+    &quot;connection&quot;: &quot;tcp://10.221.17.35&quot;,
+    &quot;status&quot;: &quot;pending&quot;,
+    &quot;attempts&quot;: 1,
+    &quot;lastError&quot;: &quot;Sin respuesta de LINEA&quot;,
+    &quot;nextTryAt&quot;: &quot;2026-11-16T19:00:02.000Z&quot;,
+    &quot;createdBy&quot;: &quot;Sistemas&quot;,
+    &quot;createdDevice&quot;: &quot;CAJA1&quot;,
+    &quot;createdAt&quot;: &quot;2026-11-16T19:00:00.000Z&quot;,
+    &quot;printedAt&quot;: null,
+    &quot;lines&quot;: 2,
+    &quot;text&quot;: &quot;COMIDA · LINEA\nMesa 12\n2  Croquetas\n1  Bravas&quot;
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>404</code> NOT_FOUND: Ese papel no está en la cola</li><li><code>409</code> INVALID_TRANSITION: Ese papel ya no está pendiente</li><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso</li><li><code>422</code> VALIDATION: Datos no válidos</li></ul>
+</div></details><details class="ep" id="n296_post_api_v2_print_jobs_id_cancel">
+<summary><span class="m post">POST</span><code class="p">/print-jobs/{id}/cancel</code><span class="s">Cancelar un papel</span><span class="st ok">Hecho</span><span class="who"><i>TPV (Gestiones › Impresiones)</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».</p><p>Ya no se imprime (permiso ajustes.impresoras o authorization). Queda quién y el motivo en lastError.</p><dl class="meta"><dt>Tablas</dt><dd>print_job</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>reason</code> · string/null</li><li><code>authorization</code> · string/null</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Cancelar un papel&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;…&quot;,
+    &quot;kind&quot;: &quot;kitchen&quot;,
+    &quot;title&quot;: &quot;Mesa 12&quot;,
+    &quot;orderId&quot;: &quot;…&quot;,
+    &quot;accountId&quot;: null,
+    &quot;stationId&quot;: &quot;…&quot;,
+    &quot;channel&quot;: &quot;COMIDA&quot;,
+    &quot;printerName&quot;: &quot;LINEA&quot;,
+    &quot;connection&quot;: &quot;tcp://10.221.17.35&quot;,
+    &quot;status&quot;: &quot;pending&quot;,
+    &quot;attempts&quot;: 1,
+    &quot;lastError&quot;: &quot;Sin respuesta de LINEA&quot;,
+    &quot;nextTryAt&quot;: &quot;2026-11-16T19:00:02.000Z&quot;,
+    &quot;createdBy&quot;: &quot;Sistemas&quot;,
+    &quot;createdDevice&quot;: &quot;CAJA1&quot;,
+    &quot;createdAt&quot;: &quot;2026-11-16T19:00:00.000Z&quot;,
+    &quot;printedAt&quot;: null,
+    &quot;lines&quot;: 2,
+    &quot;text&quot;: &quot;COMIDA · LINEA\nMesa 12\n2  Croquetas\n1  Bravas&quot;
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>404</code> NOT_FOUND: Ese papel no está en la cola</li><li><code>409</code> INVALID_TRANSITION: Ese papel ya no está pendiente</li><li><code>403</code> PERMISSION_REQUIRED: Falta un permiso</li><li><code>422</code> VALIDATION: Datos no válidos</li></ul>
+</div></details></section><section class="grp"><h3>Equipo y sesión</h3><p class="gd">API de tienda v2 · Equipo y sesión</p><details class="ep" id="n296_post_api_v2_devices_claim">
+<summary><span class="m post">POST</span><code class="p">/devices/claim</code><span class="s">Vincular este equipo a su estación</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.271, migración 0036): el equipo se vincula a una estación desde el propio equipo, con la clave de quien tenga ajustes.estaciones (sin sesión). Para cuando su UUID cambió (navegador borrado, otra dirección…) y la estación ya tenía otro. Sin stationId solo comprueba la clave y devuelve las estaciones activas de su tipo (móvil = PDA; la principal primero) con hasDevice, thisDevice y lastSeenAt: no cambia nada. Con stationId pone el UUID en esa estación (el equipo viejo deja de serlo) y lo quita de cualquier otra que lo tuviera; queda en el historial de Ajustes y sube la versión de configuración. Clave incorrecta o sin el permiso → 401 BAD_PIN; cuenta para el bloqueo del equipo y para uno fijo de la tienda (claim); bloqueado → 423 PIN_LOCKED. Otro tipo → 409 DEVICE_TYPE_MISMATCH.</p><dl class="meta"><dt>Tablas</dt><dd>station, config_change_log, sync_outbox</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>deviceUuid</code> * · string</li><li><code>type</code> * · string (desktop, mobile)</li><li><code>pin</code> * · string</li><li><code>stationId</code> · string/null</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Vincular este equipo a su estación&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;stationId&quot;: &quot;…&quot;,
+    &quot;name&quot;: &quot;PDA1&quot;,
+    &quot;kind&quot;: &quot;pda&quot;,
+    &quot;main&quot;: false,
+    &quot;ip&quot;: null,
+    &quot;previousUuid&quot;: &quot;…&quot;,
+    &quot;store&quot;: {
+      &quot;code&quot;: &quot;JC01&quot;,
+      &quot;name&quot;: &quot;Nueva Sucursal Japp&quot;
+    },
+    &quot;configVersion&quot;: 216
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>401</code> BAD_PIN: Clave incorrecta. Tras varios intentos, PIN_LOCKED.</li><li><code>423</code> PIN_LOCKED: Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).</li><li><code>404</code> NOT_FOUND: Esa estación no existe o está desactivada</li><li><code>409</code> DEVICE_TYPE_MISMATCH: PDA1 es móvil (PDA): este equipo es escritorio</li><li><code>422</code> VALIDATION: La clave es de 4 a 8 números</li></ul>
+</div></details><details class="ep" id="n296_put_api_v2_sessions_current_pin">
+<summary><span class="m put">PUT</span><code class="p">/sessions/current/pin</code><span class="s">Cambiar mi clave</span><span class="st ok">Hecho</span><span class="who"><i>TPV</i></span></summary>
+<div class="eb">
+<p>16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, de 4 a 8 cifras), sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API seguía la vieja. La actual cuenta para el bloqueo por intentos (401 BAD_PIN, 423 PIN_LOCKED). La nueva igual que la actual → 422; la de otra persona (también desactivada) → 409 DUPLICATE. Queda en el historial de Ajustes sin la clave.</p><dl class="meta"><dt>Tablas</dt><dd>app_user, config_change_log</dd></dl><h5>Cuerpo</h5><ul class="pl"><li><code>currentPin</code> * · string</li><li><code>newPin</code> * · string</li></ul><div class="io"><div><h5>Responde 200</h5><pre class="ex"><code>{
+  &quot;title&quot;: &quot;Cambiar mi clave&quot;,
+  &quot;type&quot;: &quot;success&quot;,
+  &quot;status&quot;: 200,
+  &quot;data&quot;: {
+    &quot;changed&quot;: true,
+    &quot;configVersion&quot;: 217
+  },
+  &quot;errors&quot;: [],
+  &quot;traceId&quot;: &quot;8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f&quot;,
+  &quot;author&quot;: &quot;Api Japp Grupo Cañas y Tapas&quot;,
+  &quot;mode&quot;: &quot;developer&quot;
+}</code></pre></div></div><h5>Errores</h5><ul class="pl"><li><code>401</code> BAD_PIN: Clave incorrecta</li><li><code>423</code> PIN_LOCKED: Teclado bloqueado unos segundos</li><li><code>409</code> DUPLICATE: Esa clave ya la usa otra persona: elige otra</li><li><code>422</code> VALIDATION: La clave nueva es igual que la actual</li></ul>
+</div></details></section><section class="grp"><h3>Reglas nuevas en endpoints que ya estaban</h3><p class="gd">Cada nota lleva la fecha y la versión de la API en que entró.</p><div class="tw"><table><thead><tr><th>Endpoint</th><th>Qué cambia</th></tr></thead><tbody><tr><td><span class="m post">POST</span> <code>/sessions</code><br><small>Entrar con clave</small></td><td><p>16/11 (API 1.2.272): el TPV ya no comprueba la clave en el equipo cuando tiene servidor: la manda siempre aquí y la decide la API.</p><p>21/11 (API 1.2.296): la clave es de 4 a 8 cifras (cada persona la suya); antes, siempre 4. En el TPV se entra con «✓ Entrar» o sola al llegar a 8.</p></td></tr><tr><td><span class="m post">POST</span> <code>/periods</code><br><small>Abrir periodo</small></td><td><p>11/11 (API 1.2.269, migración 0033): el fondo del periodo nuevo es el «fondo para mañana» del último cierre; sin cierres, el de Parámetros (cashFloat).</p><p>16/11 (API 1.2.271, migración 0036): abre quien tenga funciones.iniciarDia («Iniciar el día», el Cajero) o funciones.periodo (que además cierra); sin ninguno, con la clave de quien lo tenga (PERMISSION_REQUIRED nombra funciones.periodo).</p><p>16/11 (API 1.2.274, migración 0037): countedFloat (+ detail por billetes y monedas, que tiene que sumar lo contado) = la base contada al abrir (auditoría). Se compara con el fondo del cierre anterior: por encima del umbral sin note → 422 field note (details expectedFloat, countedFloat, difference, threshold). Queda como conteo «apertura» en Movimiento de caja y la respuesta lleva opening {expected, counted, difference}.</p></td></tr><tr><td><span class="m post">POST</span> <code>/periods/{periodId}/close</code><br><small>Cerrar periodo con arqueo</small></td><td><p>11/11 (API 1.2.269, migración 0033): a depositar = efectivo contado − fondo para mañana, siempre calculado por la API (closing.deposit), y el fondo es el que se manda o, sin él, el de hoy − retiros + ingresos. El periodo siguiente abre con ese fondo (antes, el de Parámetros). cards = lo de cada datáfono (cash_closing.card_detail). El corte Z dice el fondo que se queda y lo que se deposita.</p></td></tr><tr><td><span class="m get">GET</span> <code>/config</code><br><small>Paquete de configuración</small></td><td><p>16/11 (API 1.2.272): users = las personas activas SIN clave (id, nombre, iniciales, color, perfil por id y por código, ajustes por persona): cada equipo tiene también las que se crearon en otro. La clave nunca sale de la API: la comprueba POST /sessions.</p></td></tr><tr><td><span class="m get">GET</span> <code>/config/{module}</code><br><small>Listar un módulo de Ajustes</small></td><td><p>21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.</p></td></tr><tr><td><span class="m post">POST</span> <code>/config/{module}</code><br><small>Crear en un módulo de Ajustes</small></td><td><p>11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.</p><p>16/11 (API 1.2.270, migración 0035): canales → los de comanda son solo COMIDA y BEBIDA (code, los manda el Manager): no se crean otros, no hay copias, no se renombran ni se desactivan (422); su impresora sí se cambia. Aquí solo se crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations. productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).</p><p>16/11 (API 1.2.271, migración 0036): estaciones.lastSeenAt = última vez que el equipo se identificó; solo lectura (si se manda, no se guarda).</p><p>16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba «Permisos que no existen» al guardar el Cajero desde el TPV).</p><p>16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.</p><p>20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.</p><p>21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.</p></td></tr><tr><td><span class="m get">GET</span> <code>/config/{module}/{id}</code><br><small>Ver un registro de Ajustes</small></td><td><p>11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.</p><p>21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.</p></td></tr><tr><td><span class="m patch">PATCH</span> <code>/config/{module}/{id}</code><br><small>Cambiar un registro de Ajustes</small></td><td><p>11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.</p><p>16/11 (API 1.2.270, migración 0035): canales → los de comanda son solo COMIDA y BEBIDA (code, los manda el Manager): no se crean otros, no hay copias, no se renombran ni se desactivan (422); su impresora sí se cambia. Aquí solo se crean canales de ticket. preguntas: required, answerType (unica | multiple), description, courseName, plu, translations. productos: qualifier, translations. categorias: description, translations. restaurante: ootEnabled (Order on Table encendido o apagado; apagado → los endpoints /oot responden 409 OOT_NOT_CONFIGURED). usuarios: el nombre, las iniciales y la clave no se repiten (409 DUPLICATE con el campo; también entre los desactivados).</p><p>16/11 (API 1.2.271, migración 0036): estaciones.lastSeenAt = última vez que el equipo se identificó; solo lectura (si se manda, no se guarda).</p><p>16/11 (API 1.2.271, migración 0036): perfiles.permissions admite funciones.iniciarDia (Iniciar el día; antes daba «Permisos que no existen» al guardar el Cajero desde el TPV).</p><p>16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.</p><p>20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.</p><p>21/11 (API 1.2.293, migración 0044): productos › active desde el TPV (activar o desactivar en la tienda) marca product.local_off; al abrir el periodo del día siguiente vuelve a estar disponible (igual que sold_out). Lo que desactiva el Manager (sync de la carta) no se reactiva y limpia local_off.</p><p>21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.</p></td></tr><tr><td><span class="m put">PUT</span> <code>/reports/week/notes/{date}</code><br><small>Observación de un día</small></td><td><p>11/11 (API 1.2.269, migración 0033): la observación de un día anterior a hoy pide funciones.semanaEditar (Resumen semana › editar días anteriores; por defecto Administrador y Administrador local) o la autorización de quien lo tenga; sin ella → 403 PERMISSION_REQUIRED.</p></td></tr><tr><td><span class="m get">GET</span> <code>/transactions/day</code><br><small>Transacciones del día</small></td><td><p>21/11 (API 1.2.296): cada descuento lleva formData = lo que se pidió en su formulario (Ajustes › Descuentos › Formulario), [{label, value}]; [] si el descuento no tiene formulario. Lo mismo llega al Manager (POST …/transactions).</p></td></tr><tr><td><span class="m patch">PATCH</span> <code>/orders/{orderId}</code><br><small>Comensales o añadir una nota a la mesa</small></td><td><p>11/11 (API 1.2.269, migración 0033): customerName pone el nombre del cliente (fast food). Sale grande debajo de la mesa en la comanda y como «Cliente: …» en la precuenta y la factura; evento customerNamed.</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/accounts/{accountId}/transfer</code><br><small>Pasar una cuenta a otra mesa</small></td><td><p>20/11/2026 (API 1.2.289): transferir 1 producto ya enviado a otra mesa. El TPV lo pasa a una cuenta temporal y la transfiere con into = main e intoAccountId = la cuenta de la mesa de destino que eligió quien transfiere (si la mesa tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422 VALIDATION field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId). Sin intoAccountId, la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403 NOT_ALLOWED (details.feature = transferir), ni con la clave de un encargado. 1.2.291: el TPV manda item = true al pasar un producto suelto; con «Transferir producto» apagado → 403 NOT_ALLOWED (details.feature = transferirProducto).</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/close</code><br><small>Cerrar mesa sin venta</small></td><td><p>11/11 (API 1.2.269, migración 0033): si la mesa se cierra sin cobrar nada y tenía cosas enviadas a cocina o barra (o en precuenta) que se eliminaron (con importe), hace falta closeReason; sin él → 422 VALIDATION field closeReason con amount y lines. Queda en tableData.voidClose y en GET /reports/deletions › tables. Una mesa abierta por error (nada enviado) se cierra como siempre.</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/lines/{lineId}/fire</code><br><small>Marchar un pase</small></td><td><p>16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/send</code><br><small>Enviar comanda</small></td><td><p>16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/accounts/{accountId}/discounts</code><br><small>Aplicar descuento</small></td><td><p>11/11 (API 1.2.269, migración 0033): si el descuento tiene perfiles (Ajustes › Descuentos) y el de quien pulsa no está, hace falta la autorización de quien tenga cobro.descuentos (403 PERMISSION_REQUIRED sin ella).</p><p>20/11 (API 1.2.285, migración 0041): si el descuento tiene «Formulario» (discount.form), formData trae lo rellenado; sin un campo obligatorio → 422 VALIDATION (details.label). Lo rellenado queda en el historial (discountForm).</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/accounts/{accountId}/payments</code><br><small>Registrar un pago</small></td><td><p>11/11 (API 1.2.269, migración 0033) (D1): las formas de pago de tipo descuento (p. ej. «Influ», solo para el SIR) también cobran: cierran la cuenta sin dinero (sin propina ni cajón). Las de «no mostrar en el TPV» → 409 METHOD_NOT_ALLOWED.</p></td></tr><tr><td><span class="m get">GET</span> <code>/cash/summary</code><br><small>Resumen de caja del periodo</small></td><td><p>11/11 (API 1.2.269, migración 0033): deposits, cashTips, otherSales, cardTerminals y nextFloat (fondo propuesto para el día siguiente).</p><p>16/11 (API 1.2.274, migración 0037): cardTips = propinas con tarjeta (las marca el datáfono, no son venta); expectedCard = lo que deberían marcar los datáfonos (ventas con tarjeta + propinas con tarjeta).</p></td></tr><tr><td><span class="m post">POST</span> <code>/cash/movements</code><br><small>Retiro, fondo o depósito</small></td><td><p>11/11 (API 1.2.269, migración 0033): kind deposit = ingreso a la caja chica (p. ej. +5 € desde la caja fuerte): suma a lo esperado y al fondo del día siguiente; sin nota, «Ingreso a caja».</p><p>16/11 (API 1.2.274, migración 0037): el retiro es siempre un traslado de efectivo a la caja fuerte (sin motivo: «Traslado a caja fuerte»); sigue dentro de la venta y del arqueo. deposit = ingreso a caja.</p><p>21/11 (API 1.2.294): un retiro no puede ser mayor que el efectivo esperado en el cajón → 422 VALIDATION field amount (details con lo esperado).</p></td></tr><tr><td><span class="m get">GET</span> <code>/cash/movements</code><br><small>Movimiento de caja</small></td><td><p>16/11 (API 1.2.274, migración 0037): los apuntes de caja del periodo abierto (o periodId): scope=ops la operativa (fondo, base contada, traslados a caja fuerte, ingresos, arqueos y cortes X) y scope=audit los arqueos de auditoría (permiso funciones.arqueoAuditoria). Cada conteo lleva lo contado (efectivo, datáfonos y desglose), lo esperado, la diferencia y las propinas; printable = se puede imprimir su ticket detallado con POST /cash/counts/{id}/print.</p></td></tr><tr><td><span class="m post">POST</span> <code>/cash/counts</code><br><small>Arqueo</small></td><td><p>11/11 (API 1.2.269, migración 0033): cards = lo de cada datáfono (se guarda en cash_movement.card_detail); la respuesta compara con la tarjeta del sistema (cardSales, cardDifference). print = true imprime el resumen del arqueo: todas las partes del corte (ventas, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja) y el arqueo; se reimprime con POST /cash/counts/{countId}/print.</p><p>16/11 (API 1.2.274, migración 0037): type = arqueo (como antes), cortex (corte X contado en pantalla) o auditoria (arqueo de auditoría, permiso funciones.arqueoAuditoria; va a Movimiento de caja › Auditoría). cortex pide tipsConfirmed = true (el encargado ha visto las propinas: 422 field tipsConfirmed). En cortex y auditoria: tarjeta esperada = ventas + propinas con tarjeta; si el efectivo o la tarjeta descuadran por encima del umbral sin note → 422 field note con lo esperado; el ticket corto (contado, cada datáfono, esperado, diferencia, retiros a caja fuerte y propinas confirmadas) sale solo; el detallado, con POST /cash/counts/{id}/print. Cada conteo guarda lo esperado, las propinas y la diferencia (0037).</p><p>21/11 (API 1.2.296): el ticket corto del corte X contado (y del arqueo de auditoría) sigue Ajustes › Formatos › Corte X (parametros.ticketFormats.cutx): cabecera (logo, cadena, local, razon, nif, direccion, telefono), formasPago = bloque TARJETAS (DATÁFONOS), propinas = bloque PROPINAS y caja = detalle del efectivo (base, traslados a caja fuerte, ingresos). Lo contado, lo esperado y la diferencia salen siempre. La apertura (base contada) no usa el formato.</p></td></tr><tr><td><span class="m get">GET</span> <code>/reports/deletions</code><br><small>Eliminaciones</small></td><td><p>11/11 (API 1.2.269, migración 0033): «tables» = Mesas enteras (cerradas sin cobrar nada tras eliminar lo enviado) con el motivo, el importe, las líneas y quién.</p></td></tr><tr><td><span class="m post">POST</span> <code>/api/manager/v1/stores/{storeId}/transactions</code><br><small>Recibir las transacciones del día</small></td><td><p>21/11 (API 1.2.296): discounts[].formData con los datos del formulario del descuento ([{label, value}]).</p></td></tr><tr><td><span class="m post">POST</span> <code>/config/carta/sync</code><br><small>Reemplazar la carta completa</small></td><td><p>16/11 (API 1.2.270, migración 0035) · **Publicación de Carta** (JSON «Campos del JSON · Publicación de Carta al TPV»): si el cuerpo trae
+`release`, es una carga de Carta con cinco bloques `{release, categories, products, questions, keys}`:
+- `release.kind`: **full** = carta entera (lo que no viene se desactiva; las teclas `keys` sustituyen a las de la tienda),
+  **prices** = solo `price`/`priceTerrace` de productos que ya existen (por externalId o plu; uno que no existe → 422 REF_NOT_FOUND),
+  **names** = solo `name`, `ticketName`, `buttonLabel` y `translations`, **withdraw** = retirar la carta (queda «confirm»
+  hasta que un encargado la confirme: POST /config/carta/releases/{id}/confirm).
+- `release.store` tiene que ser el código de esta tienda (422 field release.store).
+- `publicationId + releaseVersion + store` = una carga: repetida igual → la misma respuesta (`repeated: true`); con otro
+  contenido → 409 VERSION_CONFLICT; una versión menor que la última de esa publicación → 409 VERSION_CONFLICT.
+- `effectiveAt` futura → se comprueba entera y queda «pending»: la API la aplica sola a esa hora (estado en GET /config/carta/releases).
+- Productos: `printChannels` solo **COMIDA** y/o **BEBIDA** (sin mayúsculas; otro → 422 products[i].printChannels[j]);
+  `qualifier` = calificativo. Categorías: `description`, `translations` y `qualifiers` [{productExternalId, plu, sortOrder}]
+  (productos de la carga con qualifier; [] = ninguno). Preguntas: `plu`, `description`, `required`, `answerType`
+  (unica | multiple), `courseName`, `translations`; respuestas con `sortOrder`, colores y `translations`.
+- Teclas `keys`: categoryExternalId + productExternalId/plu, `label` (&quot;&quot; = el buttonLabel del producto), colores, `posX`, `posY`
+  (la misma casilla o el mismo producto dos veces en una categoría → 409 DUPLICATE keys[i]).
+Sin `release` sigue siendo el sync completo de siempre.</p></td></tr><tr><td><span class="m post">POST</span> <code>/devices/identify</code><br><small>Reconocer el equipo por su UUID</small></td><td><p>16/11 (API 1.2.271, migración 0036): cada identificación guarda la hora en station.last_seen_at (Ajustes › Equipos › Última conexión). Si el UUID no está dado de alta (404 DEVICE_NOT_REGISTERED), el equipo se vincula con POST /devices/claim. POST /devices/register ya no existe: ningún equipo se queda una estación libre por su cuenta.</p><p>16/11 (API 1.2.273): si el UUID no está dado de alta, la API mira la IP desde la que llega el equipo: si es la de UNA sola estación activa de su tipo (Ajustes › Equipos › IP; móvil = PDA), es esa estación: se le guarda el UUID nuevo (y se quita de otra que lo tuviera) y queda en el historial «Reconocido por su IP …» (matchedBy = ip). Con ninguna o con varias → 404 DEVICE_NOT_REGISTERED con details.clientIp (la IP del equipo, para ponerla en Ajustes). Las IP van reservadas en el router; la API ve la IP de la conexión (sin proxy).</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/transfer</code><br><small>Cambiar de mesa (mesa entera o una cuenta)</small></td><td><p>21/11 (API 1.2.294): la mesa de destino no puede ser la misma → 422 VALIDATION field toTableId «Es la misma mesa: elige otra».</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/save</code><br><small>Guardar y salir</small></td><td><p>11/11 (API 1.2.269, migración 0033): si la mesa se cierra sin cobrar nada y tenía cosas enviadas a cocina o barra (o en precuenta) que se eliminaron (con importe), hace falta closeReason; sin él → 422 VALIDATION field closeReason con amount y lines. Queda en tableData.voidClose y en GET /reports/deletions › tables. Una mesa abierta por error (nada enviado) se cierra como siempre.</p><p>16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).</p></td></tr><tr><td><span class="m post">POST</span> <code>/orders/{orderId}/accounts/{accountId}/checkout</code><br><small>Cobrar y facturar</small></td><td><p>11/11 (API 1.2.269, migración 0033) (D1): las formas de pago de tipo descuento (p. ej. «Influ», solo para el SIR) también cobran: cierran la cuenta sin dinero (sin propina ni cajón). Las de «no mostrar en el TPV» → 409 METHOD_NOT_ALLOWED.</p></td></tr><tr><td><span class="m post">POST</span> <code>/delivery/orders/{deliveryOrderId}/cancel</code><br><small>Cancelar pedido</small></td><td><p>21/11 (API 1.2.293): además deja en sync_outbox la entidad «delivery.cancelled» (id del pedido, plataforma, externalId y motivo): el agente la sube al Manager, que avisa a la plataforma (Glovo, Uber Eats…).</p></td></tr><tr><td><span class="m post">POST</span> <code>/oot/{token}/lines</code><br><small>Pedido del cliente</small></td><td><p>16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).</p></td></tr><tr><td><span class="m post">POST</span> <code>/reconnections/{reconnectionId}/accept</code><br><small>Validar una reconexión</small></td><td><p>16/11 (API 1.2.270, migración 0035): la comanda va a la cola de impresión: la respuesta no espera a la impresora (como mucho un instante). Una impresora que no responde ya no da 503 PRINTER_OFFLINE: printed[] trae ok=false, queued=true y jobId, se reintenta sola y los equipos reciben print.failed (Gestiones › Impresiones).</p></td></tr><tr><td><span class="m post">POST</span> <code>/cash/counts/{countId}/print</code><br><small>Imprimir el resumen de un arqueo</small></td><td><p>11/11 (API 1.2.269, migración 0033): el resumen de un arqueo guardado («ARQUEO · RESUMEN DE CAJA»): el corte X con todas sus partes y lo contado (efectivo, cada datáfono y la diferencia de tarjeta). Permiso: funciones.caja. Arqueo que no existe → 404.</p></td></tr><tr><td><span class="m get">GET</span> <code>/config/carta/releases</code><br><small>Cargas de la carta (publicaciones de Carta)</small></td><td><p>16/11 (API 1.2.270, migración 0035): las últimas cargas del Manager (más nuevas primero) con su estado: pending (espera su hora), confirm (retirar: espera a un encargado), applied, unchanged, failed (con error), superseded (llegó otra más nueva) o cancelled.</p></td></tr><tr><td><span class="m post">POST</span> <code>/config/carta/releases/{id}/confirm</code><br><small>Confirmar una carga de la carta</small></td><td><p>16/11 (API 1.2.270, migración 0035): Un encargado confirma «retirar la carta» (withdraw) o aplica ya una carga programada. Se aplica en una transacción (todo o nada).</p></td></tr><tr><td><span class="m post">POST</span> <code>/config/carta/releases/{id}/cancel</code><br><small>Cancelar una carga de la carta</small></td><td><p>16/11 (API 1.2.270, migración 0035): No se aplica (retirar o programada). Body opcional {reason}.</p></td></tr><tr><td><span class="m get">GET</span> <code>/print-jobs</code><br><small>Cola de impresión</small></td><td><p>16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».</p></td></tr><tr><td><span class="m post">POST</span> <code>/print-jobs/{id}/retry</code><br><small>Reintentar un papel ya</small></td><td><p>16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».</p></td></tr><tr><td><span class="m post">POST</span> <code>/print-jobs/{id}/reassign</code><br><small>Mandar un papel a otra impresora</small></td><td><p>16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».</p></td></tr><tr><td><span class="m post">POST</span> <code>/print-jobs/{id}/cancel</code><br><small>Cancelar un papel</small></td><td><p>16/11 (API 1.2.270, migración 0035) · Cola de impresión: las comandas, anulaciones y avisos de cambio de mesa ya no se imprimen dentro de la petición: se guardan en print_job y la API los imprime en segundo plano (todas las impresoras a la vez, cada una en orden). Si una impresora no responde se reintenta a los 2, 5, 15 y 30 s y después cada minuto; los equipos reciben el evento print.failed (y print.recovered al salir). A los 5 minutos queda «failed».</p></td></tr><tr><td><span class="m post">POST</span> <code>/devices/claim</code><br><small>Vincular este equipo a su estación</small></td><td><p>16/11 (API 1.2.271, migración 0036): el equipo se vincula a una estación desde el propio equipo, con la clave de quien tenga ajustes.estaciones (sin sesión). Para cuando su UUID cambió (navegador borrado, otra dirección…) y la estación ya tenía otro. Sin stationId solo comprueba la clave y devuelve las estaciones activas de su tipo (móvil = PDA; la principal primero) con hasDevice, thisDevice y lastSeenAt: no cambia nada. Con stationId pone el UUID en esa estación (el equipo viejo deja de serlo) y lo quita de cualquier otra que lo tuviera; queda en el historial de Ajustes y sube la versión de configuración. Clave incorrecta o sin el permiso → 401 BAD_PIN; cuenta para el bloqueo del equipo y para uno fijo de la tienda (claim); bloqueado → 423 PIN_LOCKED. Otro tipo → 409 DEVICE_TYPE_MISMATCH.</p></td></tr><tr><td><span class="m put">PUT</span> <code>/sessions/current/pin</code><br><small>Cambiar mi clave</small></td><td><p>16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, de 4 a 8 cifras), sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API seguía la vieja. La actual cuenta para el bloqueo por intentos (401 BAD_PIN, 423 PIN_LOCKED). La nueva igual que la actual → 422; la de otra persona (también desactivada) → 409 DUPLICATE. Queda en el historial de Ajustes sin la clave.</p></td></tr><tr><td><span class="m get">GET</span> <code>/cash/petty</code><br><small>Caja chica</small></td><td><p>16/11 (API 1.2.274, migración 0037): fondo fijo del gerente (Parámetros › Caja chica, 50 € por defecto), aparte del cajón (no entra en el arqueo): fondo, saldo, gastado y los últimos apuntes. Permiso funciones.cajaChica.</p></td></tr><tr><td><span class="m post">POST</span> <code>/cash/petty</code><br><small>Gasto o reposición de la caja chica</small></td><td><p>16/11 (API 1.2.274, migración 0037): kind expense (importe y motivo; no puede pasar del saldo → 422 PETTY_CASH_LIMIT) o replenish (sin importe repone hasta el fondo; nunca por encima → 422 PETTY_CASH_LIMIT). Queda quién, desde qué equipo y el saldo después.</p></td></tr><tr><td><span class="m del">DELETE</span> <code>/cash/petty/{pettyId}</code><br><small>Eliminar un apunte de caja chica</small></td><td><p>17/11 (API 1.2.282, migración 0040): anula un ingreso o gasto de caja chica escrito por error. No se borra: queda con voided_at y voided_by_name, deja de contar en el saldo y de salir en GET /cash/petty y en los tickets de corte X y Z. Si el saldo quedara en negativo (un ingreso que ya se gastó), 422 VALIDATION con details.balance. Permiso: funciones.cajaChica. Apunte que no existe o ya eliminado → 404. Los cortes X y arqueos no se eliminan.</p></td></tr></tbody></table></div></section></section><!--/sec-296--><section class="api sub" id="api-manager"><header class="ah"><h2>Japp Manager · sincronización</h2><code class="base">https://{manager}/api/manager/v1</code><p>En la nube. La llama el agente de cada tienda: latido, cambios de configuración y envío de lo que pasa en la tienda. La conexión siempre sale de la tienda.</p></header><section class="grp"><h3>Sincronización tienda ↔ Manager</h3><p class="gd">El agente de la tienda llama al Manager; el Manager nunca entra en la tienda.</p><details class="ep" id="post-stores-storeid-heartbeat">
 <summary><span class="m post">POST</span><code class="p">/stores/{storeId}/heartbeat</code><span class="s">Latido</span><span class="who"><i>Agente</i></span></summary>
 <div class="eb">
 <p>Cada 5 segundos. Si falta más de 5 minutos, el Manager avisa por correo.</p>
@@ -10474,7 +11742,7 @@ footer{color:var(--muted);font-size:13px;text-align:center}
 }</code></pre></div></div>
 
 </div></details></section></section></section>
-<section class="card" id="errores"><h2>Códigos de error</h2><p class="muted">Las respuestas de error usan el mismo formato con <code>"type": "error"</code>, <code>"data": null</code> y <code>"errors": [{"code", "message", "field", "details"}]</code>. Con <code>VALIDATION</code> hay un elemento por campo.</p><div class="tw"><table><thead><tr><th>Código</th><th>HTTP</th><th>Qué pasa y qué hace el equipo</th></tr></thead><tbody><tr><td><code>VALIDATION</code></td><td>422</td><td>Faltan datos o tienen un formato incorrecto. details dice qué campo.</td></tr><tr><td><code>NOT_FOUND</code></td><td>404</td><td>No existe o no es de esta tienda.</td></tr><tr><td><code>BAD_PIN</code></td><td>401</td><td>Clave incorrecta. Tras varios intentos, PIN_LOCKED.</td></tr><tr><td><code>PIN_LOCKED</code></td><td>423</td><td>Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).</td></tr><tr><td><code>PERMISSION_REQUIRED</code></td><td>403</td><td>Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</td></tr><tr><td><code>NOT_ALLOWED</code></td><td>403</td><td>La clave es correcta pero esa persona tampoco tiene el permiso.</td></tr><tr><td><code>VERSION_CONFLICT</code></td><td>409</td><td>Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</td></tr><tr><td><code>DUPLICATE_SUSPECTED</code></td><td>409</td><td>Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.</td></tr><tr><td><code>INCIDENT_RESOLVED</code></td><td>409</td><td>La incidencia de mesa ya está resuelta de otra forma.</td></tr><tr><td><code>ACCOUNT_CLOSED</code></td><td>409</td><td>La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</td></tr><tr><td><code>ORDER_CLOSED</code></td><td>409</td><td>La mesa se cerró desde otro equipo.</td></tr><tr><td><code>TABLE_BUSY</code></td><td>409</td><td>La mesa de destino está ocupada.</td></tr><tr><td><code>PERIOD_CLOSED</code></td><td>409</td><td>No hay periodo abierto.</td></tr><tr><td><code>PENDING_NOT_ZERO</code></td><td>409</td><td>No se puede facturar con importe pendiente.</td></tr><tr><td><code>ORDER_NOT_EMPTY</code></td><td>409</td><td>La mesa aún tiene productos o cobros: no se puede cerrar sin venta.</td></tr><tr><td><code>COURSE_PENDING</code></td><td>409</td><td>Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar.</td></tr><tr><td><code>NOTHING_TO_CHARGE</code></td><td>409</td><td>La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta.</td></tr><tr><td><code>PRINTER_OFFLINE</code></td><td>503</td><td>Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir.</td></tr><tr><td><code>IN_USE</code></td><td>409</td><td>No se puede desactivar: está en uso.</td></tr><tr><td><code>DUPLICATE</code></td><td>409</td><td>Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</td></tr><tr><td><code>STATION_NOT_ALLOWED</code></td><td>403</td><td>Este perfil solo puede entrar en la caja principal (details.allowed = main, details.station), o este equipo no es esa estación (la estación tiene UUID de equipo y X-Station-Id no lo trae).</td></tr><tr><td><code>MAIN_STATION_REQUIRED</code></td><td>403</td><td>Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo.</td></tr><tr><td><code>PERIOD_ALREADY_OPEN</code></td><td>409</td><td>Ya hay un periodo abierto en la tienda.</td></tr><tr><td><code>TABLE_TAKEN</code></td><td>409</td><td>Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</td></tr><tr><td><code>TABLE_CHARGING</code></td><td>409</td><td>Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador).</td></tr><tr><td><code>TOTAL_BELOW_PAID</code></td><td>409</td><td>Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).</td></tr><tr><td><code>AMOUNT_EXCEEDS_PENDING</code></td><td>409</td><td>El importe supera lo pendiente (details.pending). Nunca se recorta.</td></tr><tr><td><code>METHOD_NOT_ALLOWED</code></td><td>409</td><td>Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta).</td></tr><tr><td><code>NOTHING_TO_TRANSFER</code></td><td>422</td><td>La cuenta está facturada o no tiene productos: no hay nada que pasar a otra mesa.</td></tr><tr><td><code>SESSION_REPLACED</code></td><td>401</td><td>Tu clave se ha abierto en otro equipo (o has vuelto a entrar): este token ya no vale. details.station = dónde está ahora la sesión. Vuelve a entrar con la clave.</td></tr><tr><td><code>IDEMPOTENCY_IN_PROGRESS</code></td><td>409</td><td>Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</td></tr><tr><td><code>DEVICE_NOT_REGISTERED</code></td><td>404</td><td>Ninguna estación activa tiene el UUID de este equipo: darlo de alta en Ajustes › Estaciones.</td></tr><tr><td><code>DEVICE_TYPE_MISMATCH</code></td><td>409</td><td>El UUID está dado de alta con el otro tipo (PDA o escritorio): details.actual dice cuál.</td></tr><tr><td><code>OOT_NOT_CONFIGURED</code></td><td>409</td><td>Falta la URL de Order on Table en Ajustes › Restaurante.</td></tr><tr><td><code>OOT_TOKEN_INVALID</code></td><td>404</td><td>Token de Order on Table caducado, anulado o de una mesa cerrada.</td></tr><tr><td><code>PRODUCT_NOT_OOT</code></td><td>422</td><td>Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu).</td></tr><tr><td><code>REF_NOT_FOUND</code></td><td>422</td><td>Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</td></tr><tr><td><code>TOO_LARGE</code></td><td>413</td><td>Demasiadas filas en una carga (details.max).</td></tr><tr><td><code>LINE_NOT_SENT</code></td><td>409</td><td>Una línea pendiente de imprimir no se puede pasar a otra cuenta.</td></tr><tr><td><code>QUANTITY_EXCEEDS</code></td><td>422</td><td>Se piden más unidades de las que quedan (details.left).</td></tr><tr><td><code>BUSY_RETRY</code></td><td>409</td><td>Otro equipo está cambiando lo mismo a la vez (la base ha deshecho esta petición): vuelve a intentarlo.</td></tr><tr><td><code>INVALID_TRANSITION</code></td><td>409</td><td>El pedido de delivery ya está terminado (entregado o cancelado); details.status dice en cuál. <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>RIDER_REQUIRED</code></td><td>422</td><td>Al asignar un pedido de delivery hay que decir quién lo lleva (riderId o riderName). <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>DELIVERY_OFF</code></td><td>409</td><td>Delivery apagado en este local (Ajustes › Pedidos). <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>TABLE_OVERLAP</code></td><td>422</td><td>En Editar sala dos mesas quedan una encima de otra; details {a, b}. <em>(nuevo 1.2.264)</em></td></tr></tbody></table></div></section>
+<section class="card" id="errores"><h2>Códigos de error</h2><p class="muted">Las respuestas de error usan el mismo formato con <code>"type": "error"</code>, <code>"data": null</code> y <code>"errors": [{"code", "message", "field", "details"}]</code>. Con <code>VALIDATION</code> hay un elemento por campo.</p><div class="tw"><table><thead><tr><th>Código</th><th>HTTP</th><th>Qué pasa y qué hace el equipo</th></tr></thead><tbody><tr><td><code>VALIDATION</code></td><td>422</td><td>Faltan datos o tienen un formato incorrecto. details dice qué campo.</td></tr><tr><td><code>NOT_FOUND</code></td><td>404</td><td>No existe o no es de esta tienda.</td></tr><tr><td><code>BAD_PIN</code></td><td>401</td><td>Clave incorrecta. Tras varios intentos, PIN_LOCKED.</td></tr><tr><td><code>PIN_LOCKED</code></td><td>423</td><td>Teclado bloqueado unos segundos (Parámetros › intentos y bloqueo).</td></tr><tr><td><code>PERMISSION_REQUIRED</code></td><td>403</td><td>Falta un permiso. details.permission dice cuál; el equipo pide la clave de un encargado (POST /sessions/authorize) y reenvía con authorization.</td></tr><tr><td><code>NOT_ALLOWED</code></td><td>403</td><td>La clave es correcta pero esa persona tampoco tiene el permiso.</td></tr><tr><td><code>VERSION_CONFLICT</code></td><td>409</td><td>Otro equipo cambió la orden antes. La respuesta trae la transacción actual; el equipo la pinta y reintenta.</td></tr><tr><td><code>DUPLICATE_SUSPECTED</code></td><td>409</td><td>Mismo producto marcado desde otro equipo hace menos de 3 minutos (en el mismo equipo no se avisa). Reenviar con force = true si es otro.</td></tr><tr><td><code>INCIDENT_RESOLVED</code></td><td>409</td><td>La incidencia de mesa ya está resuelta de otra forma.</td></tr><tr><td><code>ACCOUNT_CLOSED</code></td><td>409</td><td>La cuenta ya está cobrada o facturada: elegir otra o crear una nueva.</td></tr><tr><td><code>ORDER_CLOSED</code></td><td>409</td><td>La mesa se cerró desde otro equipo.</td></tr><tr><td><code>TABLE_BUSY</code></td><td>409</td><td>La mesa de destino está ocupada.</td></tr><tr><td><code>PERIOD_CLOSED</code></td><td>409</td><td>No hay periodo abierto.</td></tr><tr><td><code>PENDING_NOT_ZERO</code></td><td>409</td><td>No se puede facturar con importe pendiente.</td></tr><tr><td><code>ORDER_NOT_EMPTY</code></td><td>409</td><td>La mesa aún tiene productos o cobros: no se puede cerrar sin venta.</td></tr><tr><td><code>COURSE_PENDING</code></td><td>409</td><td>Al menú le falta elegir un pase (1.º, 2.º…): no se cobra ni se factura, y un pase por elegir no se puede marchar.</td></tr><tr><td><code>NOTHING_TO_CHARGE</code></td><td>409</td><td>La cuenta está a 0,00 €: no se cobra, no se factura y no se imprime precuenta. El TPV desactiva Cobrar y Precuenta.</td></tr><tr><td><code>PRINTER_OFFLINE</code></td><td>503</td><td>Una impresora no responde (details.printed dice qué salió y qué no). Comanda: lo que no salió queda pendiente de imprimir en esa impresora y «Enviar» otra vez lo imprime solo ahí. Precuenta: repetir la llamada la vuelve a imprimir.</td></tr><tr><td><code>IN_USE</code></td><td>409</td><td>No se puede desactivar: está en uso.</td></tr><tr><td><code>DUPLICATE</code></td><td>409</td><td>Ya existe un registro con ese nombre, código o PIN (o ese id ya se usó).</td></tr><tr><td><code>STATION_NOT_ALLOWED</code></td><td>403</td><td>Este perfil solo puede entrar en la caja principal (details.allowed = main, details.station), o este equipo no es esa estación (la estación tiene UUID de equipo y X-Station-Id no lo trae).</td></tr><tr><td><code>MAIN_STATION_REQUIRED</code></td><td>403</td><td>Solo desde la caja principal: arqueo, retiros, fondo y cierre de periodo.</td></tr><tr><td><code>PERIOD_ALREADY_OPEN</code></td><td>409</td><td>Ya hay un periodo abierto en la tienda.</td></tr><tr><td><code>TABLE_TAKEN</code></td><td>409</td><td>Mesa ocupada por otra persona (details.holder: userName, stationName, until). Sin el permiso mesas.entrarOcupada solo se puede Guardar (añadir y enviar).</td></tr><tr><td><code>TABLE_CHARGING</code></td><td>409</td><td>Se está cobrando esta mesa: nadie más entra hasta que termine el cobro (tampoco un administrador).</td></tr><tr><td><code>TOTAL_BELOW_PAID</code></td><td>409</td><td>Ya se ha cobrado parte de la cuenta: no se puede dejar por debajo de lo cobrado (no hay devoluciones).</td></tr><tr><td><code>AMOUNT_EXCEEDS_PENDING</code></td><td>409</td><td>El importe supera lo pendiente (details.pending). Nunca se recorta.</td></tr><tr><td><code>METHOD_NOT_ALLOWED</code></td><td>409</td><td>Esa forma de pago no está activa, no está en esta estación o la PDA no la admite (solo tarjeta).</td></tr><tr><td><code>NOTHING_TO_TRANSFER</code></td><td>422</td><td>La cuenta está facturada o no tiene productos: no hay nada que pasar a otra mesa.</td></tr><tr><td><code>SESSION_REPLACED</code></td><td>401</td><td>Tu clave se ha abierto en otro equipo (o has vuelto a entrar): este token ya no vale. details.station = dónde está ahora la sesión. Vuelve a entrar con la clave.</td></tr><tr><td><code>IDEMPOTENCY_IN_PROGRESS</code></td><td>409</td><td>Otra petición con la misma Idempotency-Key sigue en curso: reintentar en unos segundos.</td></tr><tr><td><code>DEVICE_NOT_REGISTERED</code></td><td>404</td><td>Ninguna estación activa tiene el UUID de este equipo: darlo de alta en Ajustes › Estaciones.</td></tr><tr><td><code>DEVICE_TYPE_MISMATCH</code></td><td>409</td><td>El UUID está dado de alta con el otro tipo (PDA o escritorio): details.actual dice cuál.</td></tr><tr><td><code>OOT_NOT_CONFIGURED</code></td><td>409</td><td>Falta la URL de Order on Table en Ajustes › Restaurante.</td></tr><tr><td><code>OOT_TOKEN_INVALID</code></td><td>404</td><td>Token de Order on Table caducado, anulado o de una mesa cerrada.</td></tr><tr><td><code>PRODUCT_NOT_OOT</code></td><td>422</td><td>Ese producto (o su categoría) no está en Order on Table, o está agotado (field = items[n].plu).</td></tr><tr><td><code>REF_NOT_FOUND</code></td><td>422</td><td>Un externalId (o id, PLU, IVA) que no viene en la llamada ni existe en la tienda; field dice dónde.</td></tr><tr><td><code>TOO_LARGE</code></td><td>413</td><td>Demasiadas filas en una carga (details.max).</td></tr><tr><td><code>LINE_NOT_SENT</code></td><td>409</td><td>Una línea pendiente de imprimir no se puede pasar a otra cuenta.</td></tr><tr><td><code>QUANTITY_EXCEEDS</code></td><td>422</td><td>Se piden más unidades de las que quedan (details.left).</td></tr><tr><td><code>BUSY_RETRY</code></td><td>409</td><td>Otro equipo está cambiando lo mismo a la vez (la base ha deshecho esta petición): vuelve a intentarlo.</td></tr><tr><td><code>INVALID_TRANSITION</code></td><td>409</td><td>El pedido de delivery ya está terminado (entregado o cancelado); details.status dice en cuál. <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>RIDER_REQUIRED</code></td><td>422</td><td>Al asignar un pedido de delivery hay que decir quién lo lleva (riderId o riderName). <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>DELIVERY_OFF</code></td><td>409</td><td>Delivery apagado en este local (Ajustes › Pedidos). <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>TABLE_OVERLAP</code></td><td>422</td><td>En Editar sala dos mesas quedan una encima de otra; details {a, b}. <em>(nuevo 1.2.264)</em></td></tr><tr><td><code>ACCOUNT_LOCKED</code></td><td>409</td><td>La cuenta tiene cobros o un descuento: no se puede separar, pasar ni cambiar así. Para seguir, anula antes sus cobros y quita el descuento.</td></tr><tr><td><code>RECONNECTION_PENDING</code></td><td>409</td><td>La cuenta tiene cosas ticadas sin conexión pendientes de validar (Reconexiones): primero se validan o se descartan.</td></tr><tr><td><code>RECONNECTION_DECIDED</code></td><td>409</td><td>Esa reconexión ya se decidió (validada o descartada): no se puede hacer lo contrario.</td></tr><tr><td><code>TOTAL_MISMATCH</code></td><td>409</td><td>El total que ve el TPV (expectedTotal) no es el del servidor: no se imprime la precuenta ni se cobra. El equipo recarga la cuenta y vuelve a intentarlo (1.2.292).</td></tr><tr><td><code>PERIOD_DAY_USED</code></td><td>409</td><td>Solo un periodo por día: el de hoy ya se abrió y se cerró. El siguiente, mañana (1.2.293).</td></tr><tr><td><code>SIMPLIFIED_LIMIT</code></td><td>422</td><td>La cuenta pasa del límite de la factura simplificada (Ajustes › Facturación): hace falta factura completa con los datos del cliente.</td></tr><tr><td><code>PETTY_CASH_LIMIT</code></td><td>422</td><td>La caja chica no tiene saldo para ese gasto, o la reposición pasaría del fondo (0037).</td></tr></tbody></table></div></section>
 <section class="card" id="openapi"><h2>Contrato OpenAPI 3.1</h2><p class="muted">El mismo contenido en formato máquina, validado con openapi-spec-validator. Sirve para generar el cliente de TypeScript y probar la API.</p>
 <div class="bar"><button type="button" id="cp">Copiar openapi.yaml</button><span id="cpm" role="status"></span></div><pre class="yaml" id="yaml" tabindex="0">openapi: 3.1.0
 info:
@@ -10482,7 +11750,10 @@ info:
   version: 0.1.0
   description: &#x27;Contrato de los endpoints que conectan el TPV de caja, las PDA, el servidor de cada tienda, Japp Manager y
     el backoffice. Estructura de la transacción: la acordada en vista-orden. Importes con 2 decimales, fechas ISO 8601 en
-    UTC.&#x27;
+    UTC.
+
+
+    Al día con la API 1.2.296 (21/11/2026).&#x27;
 servers:
 - url: https://{servidor-tienda}
   description: API de tienda v2
@@ -10491,7 +11762,7 @@ servers:
       default: tienda.local
 tags:
 - name: API de tienda v2 · Equipo y sesión
-  description: Primer arranque del equipo, entrada con clave de 4 cifras y autorización de encargado.
+  description: Primer arranque del equipo, entrada con clave de 4 a 8 cifras y autorización de encargado.
 - name: API de tienda v2 · Periodo de venta
   description: Un solo periodo abierto por tienda.
 - name: API de tienda v2 · Configuración y Ajustes
@@ -10542,10 +11813,10 @@ paths:
       tags:
       - API de tienda v2 · Equipo y sesión
       summary: Entrar con clave
-      description: &#x27;Valida la clave de 4 cifras (bcrypt) y devuelve el usuario con su perfil, color y permisos efectivos (perfil
-        + permisos propios del usuario). lockSeconds = segundos sin tocar la pantalla hasta volver a pedir la clave: el propio
-        del usuario o, si no tiene, el de Parámetros (7 s en TPV, 10 s en móvil); 0 = nunca. Caja principal: un perfil con
-        allowedStations = main (Cajero) solo entra en la estación con isMain = true; en otra responde 403 STATION_NOT_ALLOWED
+      description: &#x27;Valida la clave de 4 a 8 cifras (bcrypt) y devuelve el usuario con su perfil, color y permisos efectivos
+        (perfil + permisos propios del usuario). lockSeconds = segundos sin tocar la pantalla hasta volver a pedir la clave:
+        el propio del usuario o, si no tiene, el de Parámetros (7 s en TPV, 10 s en móvil); 0 = nunca. Caja principal: un
+        perfil con allowedStations = main (Cajero) solo entra en la estación con isMain = true; en otra responde 403 STATION_NOT_ALLOWED
         («Este perfil solo puede entrar en la caja principal», details {allowed: main, station}). La estación es la de X-Station-Id:
         si la estación tiene UUID de equipo (POST /devices/register), la cabecera tiene que ser ese UUID; por nombre o id
         responde 403 STATION_NOT_ALLOWED («Este equipo no es esa estación»). El bloqueo de PIN cuenta los fallos por equipo
@@ -10565,7 +11836,11 @@ paths:
 
 
         16/11 (API 1.2.272): el TPV ya no comprueba la clave en el equipo cuando tiene servidor: la manda siempre aquí y la
-        decide la API.&#x27;
+        decide la API.
+
+
+        21/11 (API 1.2.296): la clave es de 4 a 8 cifras (cada persona la suya); antes, siempre 4. En el TPV se entra con
+        «✓ Entrar» o sola al llegar a 8.&#x27;
       operationId: store_POST_sessions
       security: []
       responses:
@@ -10767,6 +12042,8 @@ paths:
               properties:
                 pin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
             example:
               pin: &#x27;1012&#x27;
   /api/v2/sessions/authorize:
@@ -10879,6 +12156,8 @@ paths:
               properties:
                 pin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
                 permission:
                   type: string
             example:
@@ -11152,9 +12431,11 @@ paths:
       tags:
       - API de tienda v2 · Periodo de venta
       summary: Abrir periodo
-      description: &#x27;1.2.293 · Un solo periodo por día (fecha de apertura, hora de España): si hoy ya se abrió y se cerró uno → 409 PERIOD_DAY_USED. Al abrir, lo agotado y lo desactivado en la tienda (no lo del Manager) vuelve a estar disponible. Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un
-        encargado: POST /sessions/authorize con permission funciones.periodo y se reenvía con authorization (un solo uso;
-        no crea ni sustituye la sesión del encargado). Si ya hay uno abierto responde 409 PERIOD_ALREADY_OPEN.
+      description: &#x27;1.2.293 · Un solo periodo por día (fecha de apertura, hora de España): si hoy ya se abrió y se cerró uno
+        → 409 PERIOD_DAY_USED. Al abrir, lo agotado y lo desactivado en la tienda (no lo del Manager) vuelve a estar disponible.
+        Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un encargado:
+        POST /sessions/authorize con permission funciones.periodo y se reenvía con authorization (un solo uso; no crea ni
+        sustituye la sesión del encargado). Si ya hay uno abierto responde 409 PERIOD_ALREADY_OPEN.
 
 
         Permiso: funciones.periodo
@@ -11465,7 +12746,9 @@ paths:
                   - array
                   - &#x27;null&#x27;
                   maxItems: 40
-                  description: 1.2.292 · lo contado de cada forma de pago dada de alta ({method, name, counted}); se guarda en el cierre (cash_closing.method_detail, con lo que dice el sistema) y sale en el corte Z «Contado por forma de pago». Efectivo y tarjeta cuentan countedCash y countedCard.
+                  description: 1.2.292 · lo contado de cada forma de pago dada de alta ({method, name, counted}); se guarda
+                    en el cierre (cash_closing.method_detail, con lo que dice el sistema) y sale en el corte Z «Contado por
+                    forma de pago». Efectivo y tarjeta cuentan countedCash y countedCard.
                   items:
                     type: object
                     properties:
@@ -12164,7 +13447,11 @@ paths:
 
 
         facturacion.simplifiedLimit (0030, 04/11): importe máximo de una factura simplificada (IVA incl.); 0 = sin límite;
-        por defecto 3.000 € (hostelería).&#x27;
+        por defecto 3.000 € (hostelería).
+
+
+        21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece
+        por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.&#x27;
       operationId: store_GET_config_module
       security:
       - session: []
@@ -12289,9 +13576,9 @@ paths:
       - API de tienda v2 · Configuración y Ajustes
       summary: Crear en un módulo de Ajustes
       description: &#x27;Crea el registro, sube la versión de configuración, lo apunta en el historial y en la cola hacia el Manager.
-        Un producto crea además una incidencia para Marketing. Usuarios: pin (4 números, no repetido) se guarda cifrado y
-        nunca se devuelve. Productos: plu opcional (siguiente libre), IVA por taxId o taxRate, canales por id o nombre. Preguntas:
-        answers por productId o plu.
+        Un producto crea además una incidencia para Marketing. Usuarios: pin (de 4 a 8 números, no repetido) se guarda cifrado
+        y nunca se devuelve. Productos: plu opcional (siguiente libre), IVA por taxId o taxRate, canales por id o nombre.
+        Preguntas: answers por productId o plu.
 
 
         Permiso: ajustes.{module}
@@ -12340,9 +13627,14 @@ paths:
 
 
         20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones
-        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes,
-        abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION).
-        Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.&#x27;
+        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos,
+        clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave
+        → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature),
+        ni con la clave de un encargado.
+
+
+        21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece
+        por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.&#x27;
       operationId: store_POST_config_module
       security:
       - session: []
@@ -12515,7 +13807,11 @@ paths:
         11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo
         discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos;
         otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals
-        = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.&#x27;
+        = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.
+
+
+        21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece
+        por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.&#x27;
       operationId: store_GET_config_module_id
       security:
       - session: []
@@ -12675,9 +13971,19 @@ paths:
 
 
         20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones
-        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes,
-        abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION).
-        Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.&#x27;
+        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos,
+        clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave
+        → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature),
+        ni con la clave de un encargado.
+
+
+        21/11 (API 1.2.293, migración 0044): productos › active desde el TPV (activar o desactivar en la tienda) marca product.local_off;
+        al abrir el periodo del día siguiente vuelve a estar disponible (igual que sold_out). Lo que desactiva el Manager
+        (sync de la carta) no se reactiva y limpia local_off.
+
+
+        21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece
+        por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.&#x27;
       operationId: store_PATCH_config_module_id
       security:
       - session: []
@@ -14508,7 +15814,11 @@ paths:
 
 
         Tablas: sales_period, orders, account, order_line, order_line_modifier, account_discount, payment, invoice, invoice_tax,
-        order_event&#x27;
+        order_event
+
+
+        21/11 (API 1.2.296): cada descuento lleva formData = lo que se pidió en su formulario (Ajustes › Descuentos › Formulario),
+        [{label, value}]; [] si el descuento no tiene formulario. Lo mismo llega al Manager (POST …/transactions).&#x27;
       operationId: store_GET_transactions_day
       security:
       - session: []
@@ -16772,13 +18082,13 @@ paths:
         como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
 
 
-        20/11/2026 (API 1.2.289): transferir 1 producto ya enviado a otra mesa. El TPV lo pasa a una cuenta temporal y
-        la transfiere con into = main e intoAccountId = la cuenta de la mesa de destino que eligió quien transfiere (si la
-        mesa tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422
-        VALIDATION field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId).
-        Sin intoAccountId, la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403
-        NOT_ALLOWED (details.feature = transferir), ni con la clave de un encargado. 1.2.291: el TPV manda item = true al pasar un
-        producto suelto; con «Transferir producto» apagado → 403 NOT_ALLOWED (details.feature = transferirProducto).&#x27;
+        20/11/2026 (API 1.2.289): transferir 1 producto ya enviado a otra mesa. El TPV lo pasa a una cuenta temporal y la
+        transfiere con into = main e intoAccountId = la cuenta de la mesa de destino que eligió quien transfiere (si la mesa
+        tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422 VALIDATION
+        field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId). Sin intoAccountId,
+        la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403 NOT_ALLOWED (details.feature
+        = transferir), ni con la clave de un encargado. 1.2.291: el TPV manda item = true al pasar un producto suelto; con
+        «Transferir producto» apagado → 403 NOT_ALLOWED (details.feature = transferirProducto).&#x27;
       operationId: store_POST_orders_orderId_accounts_accountId_transfer
       security:
       - session: []
@@ -18292,7 +19602,9 @@ paths:
                 authorization: {}
                 into:
                   type: string
-                  enum: [main, new]
+                  enum:
+                  - main
+                  - new
                 intoAccountId:
                   type:
                   - string
@@ -18300,7 +19612,8 @@ paths:
                   description: 1.2.289 · con into = main, la cuenta de la mesa de destino que recibe (si no, la principal)
                 item:
                   type: boolean
-                  description: 1.2.291 · es un producto suelto que el TPV pasó a una cuenta temporal; con «Transferir producto» apagado en Ajustes › Funcionalidades → 403 NOT_ALLOWED
+                  description: 1.2.291 · es un producto suelto que el TPV pasó a una cuenta temporal; con «Transferir producto»
+                    apagado en Ajustes › Funcionalidades → 403 NOT_ALLOWED
             example:
               version: 7
               toTableId: b1f0c2d4-0000-4000-8000-0000000000a8
@@ -23844,7 +25157,8 @@ paths:
                   type:
                   - number
                   - &#x27;null&#x27;
-                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime)
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH
+                    (no se imprime)
               additionalProperties: false
       security:
       - session: []
@@ -24844,8 +26158,8 @@ paths:
                   - array
                   - &#x27;null&#x27;
                   maxItems: 10
-                  description: 1.2.285 · lo rellenado en el «Formulario» del descuento (los campos obligatorios tienen que venir);
-                    queda en el historial de la cuenta (discountForm)
+                  description: 1.2.285 · lo rellenado en el «Formulario» del descuento (los campos obligatorios tienen que
+                    venir); queda en el historial de la cuenta (discountForm)
                   items:
                     type: object
                     properties:
@@ -25723,7 +27037,8 @@ paths:
                   type:
                   - number
                   - &#x27;null&#x27;
-                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime ni se cobra)
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH
+                    (no se imprime ni se cobra)
                 id:
                   type:
                   - string
@@ -26404,7 +27719,8 @@ paths:
                         type: number
                       byPayment:
                         type: array
-                        description: &#x27;1.2.283 · cada forma de pago del periodo (código del cobro, tipo cash/card/other, importe, propinas y número de cobros)&#x27;
+                        description: 1.2.283 · cada forma de pago del periodo (código del cobro, tipo cash/card/other, importe,
+                          propinas y número de cobros)
                         items:
                           type: object
                           properties:
@@ -26456,7 +27772,11 @@ paths:
 
 
         16/11 (API 1.2.274, migración 0037): el retiro es siempre un traslado de efectivo a la caja fuerte (sin motivo: «Traslado
-        a caja fuerte»); sigue dentro de la venta y del arqueo. deposit = ingreso a caja.&#x27;
+        a caja fuerte»); sigue dentro de la venta y del arqueo. deposit = ingreso a caja.
+
+
+        21/11 (API 1.2.294): un retiro no puede ser mayor que el efectivo esperado en el cajón → 422 VALIDATION field amount
+        (details con lo esperado).&#x27;
       operationId: store_POST_cash_movements
       security:
       - session: []
@@ -26742,7 +28062,13 @@ paths:
         + propinas con tarjeta; si el efectivo o la tarjeta descuadran por encima del umbral sin note → 422 field note con
         lo esperado; el ticket corto (contado, cada datáfono, esperado, diferencia, retiros a caja fuerte y propinas confirmadas)
         sale solo; el detallado, con POST /cash/counts/{id}/print. Cada conteo guarda lo esperado, las propinas y la diferencia
-        (0037).&#x27;
+        (0037).
+
+
+        21/11 (API 1.2.296): el ticket corto del corte X contado (y del arqueo de auditoría) sigue Ajustes › Formatos › Corte
+        X (parametros.ticketFormats.cutx): cabecera (logo, cadena, local, razon, nif, direccion, telefono), formasPago = bloque
+        TARJETAS (DATÁFONOS), propinas = bloque PROPINAS y caja = detalle del efectivo (base, traslados a caja fuerte, ingresos).
+        Lo contado, lo esperado y la diferencia salen siempre. La apertura (base contada) no usa el formato.&#x27;
       operationId: store_POST_cash_counts
       security:
       - session: []
@@ -28196,7 +29522,10 @@ paths:
         cada transacción se guarda por su id.
 
 
-        Lo llama: Agente&#x27;
+        Lo llama: Agente
+
+
+        21/11 (API 1.2.296): discounts[].formData con los datos del formulario del descuento ([{label, value}]).&#x27;
       operationId: manager_POST_stores_storeId_transactions
       security:
       - storeKey: []
@@ -32178,6 +33507,8 @@ paths:
                   - &#x27;null&#x27;
                 pin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
             example:
               deviceUuid: 2a6c930e-b2a3-4f71-9281-e06f4d425746
               pin: 0186
@@ -32577,7 +33908,11 @@ paths:
 
 
         04/11/2026 (API 1.2.268): también con cuentas con descuento o cobro parcial: pasan enteras, con sus cobros, y llegan
-        como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).&#x27;
+        como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
+
+
+        21/11 (API 1.2.294): la mesa de destino no puede ser la misma → 422 VALIDATION field toTableId «Es la misma mesa:
+        elige otra».&#x27;
       operationId: store_POST_orders_orderId_transfer
       security:
       - session: []
@@ -34417,7 +35752,8 @@ paths:
                   type:
                   - number
                   - &#x27;null&#x27;
-                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime ni se cobra)
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH
+                    (no se imprime ni se cobra)
                 payments:
                   type: array
                   items:
@@ -35964,7 +37300,11 @@ paths:
         Tablas: delivery_order, delivery_order_event
 
 
-        WebSocket: delivery.changed&#x27;
+        WebSocket: delivery.changed
+
+
+        21/11 (API 1.2.293): además deja en sync_outbox la entidad «delivery.cancelled» (id del pedido, plataforma, externalId
+        y motivo): el agente la sube al Manager, que avisa a la plataforma (Glovo, Uber Eats…).&#x27;
       operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_cancel
       security:
       - session: []
@@ -44157,7 +45497,7 @@ paths:
                               type:
                               - string
                               - &#x27;null&#x27;
-                              description: &#x27;1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones&#x27;
+                              description: 1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones
               example:
                 title: Cola de impresión
                 type: success
@@ -44185,7 +45525,13 @@ paths:
                     createdAt: &#x27;2026-11-16T19:00:00.000Z&#x27;
                     printedAt: null
                     lines: 2
-                    text: &quot;COMIDA · LINEA\nMesa 12\n2  Croquetas\n1  Bravas&quot;
+                    text: &#x27;COMIDA · LINEA
+
+                      Mesa 12
+
+                      2  Croquetas
+
+                      1  Bravas&#x27;
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -44727,7 +46073,7 @@ paths:
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
         &#x27;422&#x27;:
-          description: &#x27;VALIDATION: La clave son 4 números&#x27;
+          description: &#x27;VALIDATION: La clave es de 4 a 8 números&#x27;
           content:
             application/json:
               schema:
@@ -44739,7 +46085,7 @@ paths:
                 data: null
                 errors:
                 - code: VALIDATION
-                  message: La clave son 4 números
+                  message: La clave es de 4 a 8 números
                   field: pin
                   details: {}
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
@@ -44765,6 +46111,8 @@ paths:
                   - mobile
                 pin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
                 stationId:
                   type:
                   - string
@@ -44773,7 +46121,7 @@ paths:
     put:
       tags: *id016
       summary: Cambiar mi clave
-      description: &#x27;16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, 4 cifras),
+      description: &#x27;16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, de 4 a 8 cifras),
         sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API
         seguía la vieja. La actual cuenta para el bloqueo por intentos (401 BAD_PIN, 423 PIN_LOCKED). La nueva igual que la
         actual → 422; la de otra persona (también desactivada) → 409 DUPLICATE. Queda en el historial de Ajustes sin la clave.
@@ -44905,8 +46253,12 @@ paths:
               properties:
                 currentPin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
                 newPin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
   /api/v2/cash/petty:
     get:
       tags: *id001
@@ -45102,8 +46454,8 @@ paths:
       - API de tienda v2 · Facturas, caja e informes
       summary: Eliminar un apunte de caja chica
       description: &#x27;17/11 (API 1.2.282, migración 0040): anula un ingreso o gasto de caja chica escrito por error. No se borra:
-        queda con voided_at y voided_by_name, deja de contar en el saldo y de salir en GET /cash/petty y en los tickets de corte
-        X y Z. Si el saldo quedara en negativo (un ingreso que ya se gastó), 422 VALIDATION con details.balance. Permiso:
+        queda con voided_at y voided_by_name, deja de contar en el saldo y de salir en GET /cash/petty y en los tickets de
+        corte X y Z. Si el saldo quedara en negativo (un ingreso que ya se gastó), 422 VALIDATION con details.balance. Permiso:
         funciones.cajaChica. Apunte que no existe o ya eliminado → 404. Los cortes X y arqueos no se eliminan.&#x27;
       operationId: voidPettyCash
       security:

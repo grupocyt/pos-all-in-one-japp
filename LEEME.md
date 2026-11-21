@@ -1,10 +1,10 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0041, consultas de control · 90 pruebas
-japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 150 rutas (165 operaciones), todas programadas · 347 pruebas de dominio + 406 de integración
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0044, consultas de control · 94 pruebas
+japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 150 rutas (165 operaciones), todas programadas · 349 pruebas de dominio + 427 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
-japp-tpv/         el TPV (PWA) 1.2.293 (con modo ?mock). La API lo sirve en http://localhost:8080/
+japp-tpv/         el TPV (PWA) 1.2.296 (con modo ?mock). La API lo sirve en http://localhost:8080/
 japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API: /api/v2/printers/*)
 ```
 
@@ -63,6 +63,42 @@ Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` pa
 - **Mesa con varias cuentas:** al entrar, primero «¿En qué cuenta continúas?» (ventana grande y fija, con scroll si hay muchas). «¿Qué cambias de mesa?» tiene el mismo diseño de tarjetas.
 - **Corte X, corte Z y comanda de anulación** configurables en Ajustes › Formatos, como la precuenta. El corte impreso lleva el **logo del local** y es línea a línea la vista previa (ventas, comensales, ticket medio, venta bruta, IVA y neta, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, el arqueo).
 - **Gestiones: un permiso por botón** (Ajustes › Perfiles › Gestiones). Reparto inicial: Administrador todo; Encargado (Administrador local) todo menos «Enviar ventas al SIR»; Cajero Facturas, Mesas en servicio, Abrir cajón, Arqueo de caja y Cerrar periodo; Mesero nada. Los perfiles que no son estos cuatro (p. ej. Capitán) siguen viendo lo mismo que antes.
+
+## 1.2.296 (21/11/2026): claves de 4 a 8 cifras, datos base de LG01, impresión solo de lo activo
+
+**Sin migración** (si vienes de la 1.2.292 o antes, aplica la 0044): parar la API, copiar la carpeta nueva y arrancar; recargar el TPV en cada equipo.
+**Datos base:** una base nueva con `SEED=1` (`actualizar-base.bat` / `reiniciar-base.bat`) se crea como **Luma Gelateria Italiana · Plaza Mayor (LG01)**
+(`japp-db/sql/04_datos_tienda_inicial.sql`, del formulario `Public/configuracion-sistema/index.html`): GASTORIANA SERVICES, S.L. (B75298851), fast food,
+series T-LG01 / F-LG01 / R-LG01, simplificada hasta 1.000 €, fondo 200 €, caja chica 200 €, 2 datáfonos, Efectivo (55) y Tarjetas (56), perfiles
+Administrador Sistemas, Manager, Jefe de Rango, Cajero y Mesero, usuarios Sistemas, Barra, Mesero y J, 3 descuentos e impresora única BARRA (10.221.9.33).
+**Cambia todos los PIN antes de producción.**
+
+- **Claves de 4 a 8 cifras** (cada persona la suya): los teclados de clave llevan «✓ Entrar» (con 8 cifras entra solo; Intro también vale). La API acepta de 4 a 8.
+- **Impresión: solo lo activo.** El corte X contado sigue Ajustes › Formatos › Corte X (cabecera, tarjetas, propinas, detalle de caja); «Cadena» apagada ya no sale aunque el nombre del local empiece por ella.
+- **Caja › Contar la base:** teclado fijo a la izquierda, más sitio para los importes y el teclado de letras encima de los billetes para el motivo.
+- **Descuentos:** se guardan (los perfiles salen marcados), los avisos de la ventana se ven, la ventana de cobro a la mitad y el formulario con ejemplos («Alison»).
+- **Fast food:** cada transacción empieza pidiendo el nombre del cliente (ejemplo «Alison», sin el texto de ayuda).
+- **Datos del cliente:** NIF / CIF o **Pasaporte** (extranjeros; de 5 a 20 letras o números) y ejemplos en cada campo.
+- **Ajustes:** «Tipo de servicio» a la derecha del logo; «Añadir regla» del SLA como botón; Usuarios con ejemplos (Alison, AC) y **color propio** además de la paleta.
+- **Teclado en pantalla:** la ventana de detrás sube sola hasta el campo en el que se escribe.
+- **Transacciones del día:** cada descuento lleva `formData` (lo pedido en su formulario).
+- **Documentación al día:** `api-japp.html` (sección «5 · Al día 1.2.296», 7 errores nuevos), `openapi.yaml`, `base-de-datos-japp.html` (75 tablas, hasta la 0044) y `sincronizacion-manager.html`.
+- **Public:** `logos/`, `formas-de-pago/` y `configuracion-sistema/index.html` (formulario de configuración del restaurante, descarga un JSON).
+
+## 1.2.295 (21/11/2026): sin la leyenda «en este equipo · guardado»
+
+**Sin migración** (si vienes de la 1.2.292 o antes, aplica la 0044): parar la API, copiar la carpeta nueva y arrancar; recargar el TPV en cada equipo.
+
+- **Caja › cuenta de la mesa:** fuera la leyenda «en este equipo · guardado» del grupo «Por enviar».
+
+## 1.2.294 (21/11/2026): auditoría de flujos antes de cerrar versión
+
+**Sin migración** (si vienes de la 1.2.292 o antes, aplica la 0044): parar la API, copiar la carpeta nueva y arrancar; recargar el TPV en cada equipo.
+
+Se probaron 99 casos límite de la API (mesa, líneas, cuentas, descuentos, cliente, cobro, precuenta, transferir, abono, caja, caja chica, cierre, ajustes, sesiones y delivery) y se recorrieron todas las pantallas de la caja y de la PDA sin errores. Dos arreglos:
+
+- **Retiro de caja:** la API ya no deja retirar más efectivo del que hay según el sistema (422, `field: amount`). El TPV ya lo comprobaba.
+- **Cambiar de mesa a la misma mesa:** el mensaje es «Es la misma mesa: elige otra» (antes decía «La mesa de destino está ocupada»).
 
 ## 1.2.293 (21/11/2026): cuenta de la mesa como la PDA, un periodo por día, agotado hasta mañana
 

@@ -231,3 +231,11 @@ Captar y reconocer a los clientes (nombre, contacto, historial de compras). Secc
 | — | Canales: qué opción quería mover Catalina | Quitado | Cerrado |
 | — | Convivencia con MaxPoint | Quitado: MaxPoint ya no está | Cerrado |
 | 12 | Periodos | Solo uno por día: no se abren y cierran varios el mismo día | **Hecho 1.2.293** |
+
+## Pendiente tras la 1.2.296 (21/11/2026)
+
+| # | Tema | Cómo está hoy | Qué falta |
+|---|---|---|---|
+| 35 | Pasaporte en la factura | El TPV lo deja poner (clientes extranjeros) y marca `docType: passport` | La API y VeriFactu lo envían como un NIF: falta guardarlo como documento extranjero (IDOtro, tipo 03 pasaporte) |
+| 36 | Cola hacia el Manager | El agente envía órdenes, conciliación y latido | Enviar también `period.closed`, `config`, `incident_request` y `delivery.cancelled` por `POST …/outbox` |
+| 37 | Datos de la cadena y del local | El formulario recoge web, email, teléfono y código de la cadena, email y código postal del local | La base no tiene dónde guardarlos: ¿se añaden columnas? |

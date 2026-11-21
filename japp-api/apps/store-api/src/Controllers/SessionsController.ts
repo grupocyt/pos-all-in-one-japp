@@ -4,7 +4,7 @@ import { parse } from "../Helpers/ValidationHelper.js";
 import { AuthorizeModel, ChangePinModel, LoginModel } from "../Models/SessionsModels.js";
 import { SessionsService } from "../Services/SessionsService.js";
 
-/** Sesión del equipo (clave de 4 cifras) y autorización de encargado. */
+/** Sesión del equipo (clave de 4 a 8 cifras) y autorización de encargado. */
 @Controller("sessions")
 export class SessionsController {
   constructor(@Inject(SessionsService) private readonly sessions: SessionsService) {}

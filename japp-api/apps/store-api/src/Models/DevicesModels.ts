@@ -18,7 +18,7 @@ export type IdentifyDeviceInput = z.infer<typeof IdentifyDeviceModel>;
 /** POST /devices/claim-main: configurar este equipo como caja principal con la clave de un administrador. */
 export const ClaimMainModel = z.object({
   deviceUuid: deviceUuid.optional(),
-  pin: z.string().regex(/^\d{4}$/, "La clave son 4 números"),
+  pin: z.string().regex(/^\d{4,8}$/, "La clave es de 4 a 8 números"),
 });
 export type ClaimMainInput = z.infer<typeof ClaimMainModel>;
 
@@ -29,7 +29,7 @@ export type ClaimMainInput = z.infer<typeof ClaimMainModel>;
 export const ClaimStationModel = z.object({
   deviceUuid: deviceUuid.optional(),
   type: z.enum(["desktop", "mobile"]),
-  pin: z.string().regex(/^\d{4}$/, "La clave son 4 números"),
+  pin: z.string().regex(/^\d{4,8}$/, "La clave es de 4 a 8 números"),
   stationId: z.string().uuid().nullish(),
 });
 export type ClaimStationInput = z.infer<typeof ClaimStationModel>;

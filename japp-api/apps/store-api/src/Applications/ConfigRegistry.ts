@@ -247,7 +247,7 @@ export const MODULES: Record<ConfigModule, ModuleDef> = {
       canDeletePrebill: F("can_delete_prebill", "b", z.boolean().nullish(), "Elimina en precuenta"),
       lockSeconds: F("lock_seconds", "i", z.number().int().nullish(), "Bloqueo de sesión"),
     },
-    extra: { pin: { z: z.string().regex(/^\d{4}$/, "4 números"), label: "PIN" } },
+    extra: { pin: { z: z.string().regex(/^\d{4,8}$/, "De 4 a 8 números"), label: "PIN" } },
   },
   perfiles: {
     table: "user_profile",

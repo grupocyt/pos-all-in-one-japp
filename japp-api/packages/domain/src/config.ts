@@ -93,8 +93,8 @@ export function checkConfigRecord(
       if (opts.isNew && r.pin == null) {
         bad("pin", "El PIN es obligatorio");
       }
-      if (r.pin != null && !/^\d{4}$/.test(String(r.pin))) {
-        bad("pin", "El PIN son 4 números");
+      if (r.pin != null && !/^\d{4,8}$/.test(String(r.pin))) {
+        bad("pin", "El PIN es de 4 a 8 números");
       }
       if (r.lockSeconds != null && !isLockSeconds(r.lockSeconds)) {
         bad("lockSeconds", "El bloqueo es 0 (nunca) o de 10 a 3600 segundos");

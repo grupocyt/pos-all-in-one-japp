@@ -15,13 +15,15 @@ export interface paths {
         put?: never;
         /**
          * Entrar con clave
-         * @description Valida la clave de 4 cifras (bcrypt) y devuelve el usuario con su perfil, color y permisos efectivos (perfil + permisos propios del usuario). lockSeconds = segundos sin tocar la pantalla hasta volver a pedir la clave: el propio del usuario o, si no tiene, el de Parámetros (7 s en TPV, 10 s en móvil); 0 = nunca. Caja principal: un perfil con allowedStations = main (Cajero) solo entra en la estación con isMain = true; en otra responde 403 STATION_NOT_ALLOWED («Este perfil solo puede entrar en la caja principal», details {allowed: main, station}). La estación es la de X-Station-Id: si la estación tiene UUID de equipo (POST /devices/register), la cabecera tiene que ser ese UUID; por nombre o id responde 403 STATION_NOT_ALLOWED («Este equipo no es esa estación»). El bloqueo de PIN cuenta los fallos por equipo (su UUID si la estación lo tiene; si no, la estación), nunca por IP, y en la clave de encargado también por usuario; se guarda en la base y sobrevive a reinicios. Una sesión activa por usuario, guardada en la base (también tras reiniciar la API): entrar sustituye la sesión anterior de ese usuario (en otro equipo o en el mismo, p. ej. al desbloquear); con el token anterior cualquier petición responde 401 SESSION_REPLACED «Tu clave se ha abierto en {estación}: vuelve a entrar» (details.station). Si la anterior era en otro equipo, las mesas que tenía desde allí quedan libres (evento «{usuario} ha entrado en {estación}; sale de la mesa»). La clave de encargado (POST /sessions/authorize) no sustituye la sesión del encargado.
+         * @description Valida la clave de 4 a 8 cifras (bcrypt) y devuelve el usuario con su perfil, color y permisos efectivos (perfil + permisos propios del usuario). lockSeconds = segundos sin tocar la pantalla hasta volver a pedir la clave: el propio del usuario o, si no tiene, el de Parámetros (7 s en TPV, 10 s en móvil); 0 = nunca. Caja principal: un perfil con allowedStations = main (Cajero) solo entra en la estación con isMain = true; en otra responde 403 STATION_NOT_ALLOWED («Este perfil solo puede entrar en la caja principal», details {allowed: main, station}). La estación es la de X-Station-Id: si la estación tiene UUID de equipo (POST /devices/register), la cabecera tiene que ser ese UUID; por nombre o id responde 403 STATION_NOT_ALLOWED («Este equipo no es esa estación»). El bloqueo de PIN cuenta los fallos por equipo (su UUID si la estación lo tiene; si no, la estación), nunca por IP, y en la clave de encargado también por usuario; se guarda en la base y sobrevive a reinicios. Una sesión activa por usuario, guardada en la base (también tras reiniciar la API): entrar sustituye la sesión anterior de ese usuario (en otro equipo o en el mismo, p. ej. al desbloquear); con el token anterior cualquier petición responde 401 SESSION_REPLACED «Tu clave se ha abierto en {estación}: vuelve a entrar» (details.station). Si la anterior era en otro equipo, las mesas que tenía desde allí quedan libres (evento «{usuario} ha entrado en {estación}; sale de la mesa»). La clave de encargado (POST /sessions/authorize) no sustituye la sesión del encargado.
          *
          *     Lo llama: TPV, PDA
          *
          *     Tablas: app_user, user_profile, profile_permission
          *
          *     16/11 (API 1.2.272): el TPV ya no comprueba la clave en el equipo cuando tiene servidor: la manda siempre aquí y la decide la API.
+         *
+         *     21/11 (API 1.2.296): la clave es de 4 a 8 cifras (cada persona la suya); antes, siempre 4. En el TPV se entra con «✓ Entrar» o sola al llegar a 8.
          */
         post: operations["store_POST_sessions"];
         delete?: never;
@@ -246,12 +248,14 @@ export interface paths {
          *     parametros.ticketFormats (0029, N1 · 04/11): formatos de precuenta y factura de Ajustes › Formatos de ticket, {prebill:{…}, invoice:{…}} con logo, cadena, local, razon, nif, direccion, telefono, mesero, desglose, porPersona, pie, despedida, despTxt, qrResenas, qrTxt, qrTrib, cajon y propina (cada uno opcional; lo que falta, sale). La API los aplica al imprimir; en la factura el nombre fiscal y el NIF salen siempre.
          *
          *     facturacion.simplifiedLimit (0030, 04/11): importe máximo de una factura simplificada (IVA incl.); 0 = sin límite; por defecto 3.000 € (hostelería).
+         *
+         *     21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.
          */
         get: operations["store_GET_config_module"];
         put?: never;
         /**
          * Crear en un módulo de Ajustes
-         * @description Crea el registro, sube la versión de configuración, lo apunta en el historial y en la cola hacia el Manager. Un producto crea además una incidencia para Marketing. Usuarios: pin (4 números, no repetido) se guarda cifrado y nunca se devuelve. Productos: plu opcional (siguiente libre), IVA por taxId o taxRate, canales por id o nombre. Preguntas: answers por productId o plu.
+         * @description Crea el registro, sube la versión de configuración, lo apunta en el historial y en la cola hacia el Manager. Un producto crea además una incidencia para Marketing. Usuarios: pin (de 4 a 8 números, no repetido) se guarda cifrado y nunca se devuelve. Productos: plu opcional (siguiente libre), IVA por taxId o taxRate, canales por id o nombre. Preguntas: answers por productId o plu.
          *
          *     Permiso: ajustes.{module}
          *
@@ -274,6 +278,8 @@ export interface paths {
          *     16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.
          *
          *     20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.
+         *
+         *     21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.
          */
         post: operations["store_POST_config_module"];
         delete?: never;
@@ -300,6 +306,8 @@ export interface paths {
          *     parametros.ticketFormats (05/11, API 1.2.268): además de prebill e invoice, cutx y cutz (corte X y Z: logo, cadena, local, razon, nif, direccion, telefono, comensales, ticketMedio, iva, formasPago, areas, camareros, descuentos, eliminaciones, abonos, propinas, caja y, en el Z, contado) y void (comanda de anulación: dibujo, camarero, hora, momento, motivo, autoriza, grande, noPreparar). Lo que no viene, sale.
          *
          *     11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos; otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.
+         *
+         *     21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.
          */
         get: operations["store_GET_config_module_id"];
         put?: never;
@@ -334,6 +342,10 @@ export interface paths {
          *     16/11 (API 1.2.274, migración 0037): parametros.pettyCashLimit = fondo de la caja chica (50 € por defecto); permisos nuevos funciones.arqueoAuditoria y funciones.cajaChica.
          *
          *     20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.
+         *
+         *     21/11 (API 1.2.293, migración 0044): productos › active desde el TPV (activar o desactivar en la tienda) marca product.local_off; al abrir el periodo del día siguiente vuelve a estar disponible (igual que sold_out). Lo que desactiva el Manager (sync de la carta) no se reactiva y limpia local_off.
+         *
+         *     21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.
          */
         patch: operations["store_PATCH_config_module_id"];
         trace?: never;
@@ -578,6 +590,8 @@ export interface paths {
          *     Lo llama: TPV, Agente, Manager
          *
          *     Tablas: sales_period, orders, account, order_line, order_line_modifier, account_discount, payment, invoice, invoice_tax, order_event
+         *
+         *     21/11 (API 1.2.296): cada descuento lleva formData = lo que se pidió en su formulario (Ajustes › Descuentos › Formulario), [{label, value}]; [] si el descuento no tiene formulario. Lo mismo llega al Manager (POST …/transactions).
          */
         get: operations["store_GET_transactions_day"];
         put?: never;
@@ -1480,6 +1494,8 @@ export interface paths {
          *     11/11 (API 1.2.269, migración 0033): kind deposit = ingreso a la caja chica (p. ej. +5 € desde la caja fuerte): suma a lo esperado y al fondo del día siguiente; sin nota, «Ingreso a caja».
          *
          *     16/11 (API 1.2.274, migración 0037): el retiro es siempre un traslado de efectivo a la caja fuerte (sin motivo: «Traslado a caja fuerte»); sigue dentro de la venta y del arqueo. deposit = ingreso a caja.
+         *
+         *     21/11 (API 1.2.294): un retiro no puede ser mayor que el efectivo esperado en el cajón → 422 VALIDATION field amount (details con lo esperado).
          */
         post: operations["store_POST_cash_movements"];
         delete?: never;
@@ -1510,6 +1526,8 @@ export interface paths {
          *     11/11 (API 1.2.269, migración 0033): cards = lo de cada datáfono (se guarda en cash_movement.card_detail); la respuesta compara con la tarjeta del sistema (cardSales, cardDifference). print = true imprime el resumen del arqueo: todas las partes del corte (ventas, formas de pago, áreas, camareros, descuentos, eliminaciones, abonos, propinas, caja) y el arqueo; se reimprime con POST /cash/counts/{countId}/print.
          *
          *     16/11 (API 1.2.274, migración 0037): type = arqueo (como antes), cortex (corte X contado en pantalla) o auditoria (arqueo de auditoría, permiso funciones.arqueoAuditoria; va a Movimiento de caja › Auditoría). cortex pide tipsConfirmed = true (el encargado ha visto las propinas: 422 field tipsConfirmed). En cortex y auditoria: tarjeta esperada = ventas + propinas con tarjeta; si el efectivo o la tarjeta descuadran por encima del umbral sin note → 422 field note con lo esperado; el ticket corto (contado, cada datáfono, esperado, diferencia, retiros a caja fuerte y propinas confirmadas) sale solo; el detallado, con POST /cash/counts/{id}/print. Cada conteo guarda lo esperado, las propinas y la diferencia (0037).
+         *
+         *     21/11 (API 1.2.296): el ticket corto del corte X contado (y del arqueo de auditoría) sigue Ajustes › Formatos › Corte X (parametros.ticketFormats.cutx): cabecera (logo, cadena, local, razon, nif, direccion, telefono), formasPago = bloque TARJETAS (DATÁFONOS), propinas = bloque PROPINAS y caja = detalle del efectivo (base, traslados a caja fuerte, ingresos). Lo contado, lo esperado y la diferencia salen siempre. La apertura (base contada) no usa el formato.
          */
         post: operations["store_POST_cash_counts"];
         delete?: never;
@@ -1842,6 +1860,8 @@ export interface paths {
          * @description La tienda manda el día completo (mismo formato que GET /api/v2/transactions/day). Idempotente por Idempotency-Key; cada transacción se guarda por su id.
          *
          *     Lo llama: Agente
+         *
+         *     21/11 (API 1.2.296): discounts[].formData con los datos del formulario del descuento ([{label, value}]).
          */
         post: operations["manager_POST_stores_storeId_transactions"];
         delete?: never;
@@ -2526,6 +2546,8 @@ export interface paths {
          *     Tablas: orders, account, order_line, order_event, sync_outbox
          *
          *     04/11/2026 (API 1.2.268): también con cuentas con descuento o cobro parcial: pasan enteras, con sus cobros, y llegan como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
+         *
+         *     21/11 (API 1.2.294): la mesa de destino no puede ser la misma → 422 VALIDATION field toTableId «Es la misma mesa: elige otra».
          */
         post: operations["store_POST_orders_orderId_transfer"];
         delete?: never;
@@ -2790,6 +2812,8 @@ export interface paths {
          *     Tablas: delivery_order, delivery_order_event
          *
          *     WebSocket: delivery.changed
+         *
+         *     21/11 (API 1.2.293): además deja en sync_outbox la entidad «delivery.cancelled» (id del pedido, plataforma, externalId y motivo): el agente la sube al Manager, que avisa a la plataforma (Glovo, Uber Eats…).
          */
         post: operations["store_POST_api_v2_delivery_orders_deliveryOrderId_cancel"];
         delete?: never;
@@ -4058,7 +4082,7 @@ export interface paths {
         get?: never;
         /**
          * Cambiar mi clave
-         * @description 16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, 4 cifras), sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API seguía la vieja. La actual cuenta para el bloqueo por intentos (401 BAD_PIN, 423 PIN_LOCKED). La nueva igual que la actual → 422; la de otra persona (también desactivada) → 409 DUPLICATE. Queda en el historial de Ajustes sin la clave.
+         * @description 16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, de 4 a 8 cifras), sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API seguía la vieja. La actual cuenta para el bloqueo por intentos (401 BAD_PIN, 423 PIN_LOCKED). La nueva igual que la actual → 422; la de otra persona (también desactivada) → 409 DUPLICATE. Queda en el historial de Ajustes sin la clave.
          *
          *
          *     Lo llama: TPV
@@ -4691,6 +4715,7 @@ export interface operations {
                  *       "pin": "1012"
                  *     } */
                 "application/json": {
+                    /** @description Clave de 4 a 8 cifras (1.2.296) */
                     pin?: string;
                 };
             };
@@ -4785,6 +4810,7 @@ export interface operations {
                  *       "permission": "pedido.elimEnviado"
                  *     } */
                 "application/json": {
+                    /** @description Clave de 4 a 8 cifras (1.2.296) */
                     pin?: string;
                     permission?: string;
                 };
@@ -11964,6 +11990,7 @@ export interface operations {
                  *     } */
                 "application/json": {
                     deviceUuid?: string | null;
+                    /** @description Clave de 4 a 8 cifras (1.2.296) */
                     pin?: string;
                 };
             };
@@ -17278,6 +17305,7 @@ export interface operations {
                     deviceUuid: string;
                     /** @enum {string} */
                     type: "desktop" | "mobile";
+                    /** @description Clave de 4 a 8 cifras (1.2.296) */
                     pin: string;
                     stationId?: string | null;
                 };
@@ -17343,7 +17371,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description VALIDATION: La clave son 4 números */
+            /** @description VALIDATION: La clave es de 4 a 8 números */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -17373,7 +17401,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description Clave de 4 a 8 cifras (1.2.296) */
                     currentPin: string;
+                    /** @description Clave de 4 a 8 cifras (1.2.296) */
                     newPin: string;
                 };
             };

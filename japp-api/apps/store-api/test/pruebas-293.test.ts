@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { setup, ensurePeriod, PIN, type T } from "./helpers.js";
+import { setup, ensurePeriod, freeTable, PIN, PLU, type T } from "./helpers.js";
 
 /**
  * 1.2.293 (20/11/2026, noche) · decisiones del dueño:
@@ -66,5 +66,24 @@ describe("tablero de delivery", () => {
       "SELECT p.code FROM profile_permission pp JOIN user_profile p ON p.id = pp.profile_id WHERE pp.permission_code = 'funciones.pedidos' ORDER BY 1",
     )).rows.map((x: any) => x.code);
     expect(r).toEqual(["ADMIN", "CAJERO"]);
+  });
+});
+
+describe("auditoría 21/11", () => {
+  it("retirar más efectivo del que hay en la caja → 422 field amount", async () => {
+    await ensurePeriod(t, sis);
+    const sum = (await t.call("GET", "/cash/summary", { token: sis })).body;
+    const r = await t.call("POST", "/cash/movements", { token: sis, body: { kind: "withdrawal", amount: Math.round((sum.expectedCash + 100) * 100) / 100 } });
+    expect(r.status).toBe(422);
+    expect(r.error.field).toBe("amount");
+    expect((await t.call("POST", "/cash/movements", { token: sis, body: { kind: "withdrawal", amount: 1 } })).status).toBe(201);
+  });
+  it("cambiar de mesa a la misma mesa → 422 «Es la misma mesa»", async () => {
+    const o = await t.call("POST", "/orders", { token: sis, body: { tableId: await freeTable(t, "BARRA"), guests: 2 } });
+    await t.call("POST", `/orders/${o.body._id}/lines`, { token: sis, body: { plu: PLU.tosta, force: true } });
+    const g = (await t.call("GET", `/orders/${o.body._id}`, { token: sis })).body;
+    const r = await t.call("POST", `/orders/${o.body._id}/transfer`, { token: sis, body: { toTableId: g.tableData.tableId, version: g.version } });
+    expect(r.status).toBe(422);
+    expect(r.error.field).toBe("toTableId");
   });
 });

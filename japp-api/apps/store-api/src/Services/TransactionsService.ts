@@ -229,6 +229,8 @@ export class TransactionsService {
             appliedBy: who(x, "applied_by"),
             authorizedBy: who(x, "authorized_by"),
             removedBy: who(x, "removed_by"),
+            // 1.2.296 · lo que se pidió en el formulario del descuento (Ajustes › Descuentos › Formulario): [{label, value}]
+            formData: Array.isArray(x.form_data) ? x.form_data : [],
           })),
         payments: pays
           .filter((x) => x.account_id === acc.id)

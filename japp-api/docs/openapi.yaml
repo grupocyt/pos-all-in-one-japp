@@ -4,7 +4,10 @@ info:
   version: 0.1.0
   description: 'Contrato de los endpoints que conectan el TPV de caja, las PDA, el servidor de cada tienda, Japp Manager y
     el backoffice. Estructura de la transacción: la acordada en vista-orden. Importes con 2 decimales, fechas ISO 8601 en
-    UTC.'
+    UTC.
+
+
+    Al día con la API 1.2.296 (21/11/2026).'
 servers:
 - url: https://{servidor-tienda}
   description: API de tienda v2
@@ -13,7 +16,7 @@ servers:
       default: tienda.local
 tags:
 - name: API de tienda v2 · Equipo y sesión
-  description: Primer arranque del equipo, entrada con clave de 4 cifras y autorización de encargado.
+  description: Primer arranque del equipo, entrada con clave de 4 a 8 cifras y autorización de encargado.
 - name: API de tienda v2 · Periodo de venta
   description: Un solo periodo abierto por tienda.
 - name: API de tienda v2 · Configuración y Ajustes
@@ -64,10 +67,10 @@ paths:
       tags:
       - API de tienda v2 · Equipo y sesión
       summary: Entrar con clave
-      description: 'Valida la clave de 4 cifras (bcrypt) y devuelve el usuario con su perfil, color y permisos efectivos (perfil
-        + permisos propios del usuario). lockSeconds = segundos sin tocar la pantalla hasta volver a pedir la clave: el propio
-        del usuario o, si no tiene, el de Parámetros (7 s en TPV, 10 s en móvil); 0 = nunca. Caja principal: un perfil con
-        allowedStations = main (Cajero) solo entra en la estación con isMain = true; en otra responde 403 STATION_NOT_ALLOWED
+      description: 'Valida la clave de 4 a 8 cifras (bcrypt) y devuelve el usuario con su perfil, color y permisos efectivos
+        (perfil + permisos propios del usuario). lockSeconds = segundos sin tocar la pantalla hasta volver a pedir la clave:
+        el propio del usuario o, si no tiene, el de Parámetros (7 s en TPV, 10 s en móvil); 0 = nunca. Caja principal: un
+        perfil con allowedStations = main (Cajero) solo entra en la estación con isMain = true; en otra responde 403 STATION_NOT_ALLOWED
         («Este perfil solo puede entrar en la caja principal», details {allowed: main, station}). La estación es la de X-Station-Id:
         si la estación tiene UUID de equipo (POST /devices/register), la cabecera tiene que ser ese UUID; por nombre o id
         responde 403 STATION_NOT_ALLOWED («Este equipo no es esa estación»). El bloqueo de PIN cuenta los fallos por equipo
@@ -87,7 +90,11 @@ paths:
 
 
         16/11 (API 1.2.272): el TPV ya no comprueba la clave en el equipo cuando tiene servidor: la manda siempre aquí y la
-        decide la API.'
+        decide la API.
+
+
+        21/11 (API 1.2.296): la clave es de 4 a 8 cifras (cada persona la suya); antes, siempre 4. En el TPV se entra con
+        «✓ Entrar» o sola al llegar a 8.'
       operationId: store_POST_sessions
       security: []
       responses:
@@ -289,6 +296,8 @@ paths:
               properties:
                 pin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
             example:
               pin: '1012'
   /api/v2/sessions/authorize:
@@ -401,6 +410,8 @@ paths:
               properties:
                 pin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
                 permission:
                   type: string
             example:
@@ -674,9 +685,11 @@ paths:
       tags:
       - API de tienda v2 · Periodo de venta
       summary: Abrir periodo
-      description: '1.2.293 · Un solo periodo por día (fecha de apertura, hora de España): si hoy ya se abrió y se cerró uno → 409 PERIOD_DAY_USED. Al abrir, lo agotado y lo desactivado en la tienda (no lo del Manager) vuelve a estar disponible. Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un
-        encargado: POST /sessions/authorize con permission funciones.periodo y se reenvía con authorization (un solo uso;
-        no crea ni sustituye la sesión del encargado). Si ya hay uno abierto responde 409 PERIOD_ALREADY_OPEN.
+      description: '1.2.293 · Un solo periodo por día (fecha de apertura, hora de España): si hoy ya se abrió y se cerró uno
+        → 409 PERIOD_DAY_USED. Al abrir, lo agotado y lo desactivado en la tienda (no lo del Manager) vuelve a estar disponible.
+        Desde cualquier estación. Quien no tiene funciones.periodo (Mesero, Cajero…) lo abre con la clave de un encargado:
+        POST /sessions/authorize con permission funciones.periodo y se reenvía con authorization (un solo uso; no crea ni
+        sustituye la sesión del encargado). Si ya hay uno abierto responde 409 PERIOD_ALREADY_OPEN.
 
 
         Permiso: funciones.periodo
@@ -987,7 +1000,9 @@ paths:
                   - array
                   - 'null'
                   maxItems: 40
-                  description: 1.2.292 · lo contado de cada forma de pago dada de alta ({method, name, counted}); se guarda en el cierre (cash_closing.method_detail, con lo que dice el sistema) y sale en el corte Z «Contado por forma de pago». Efectivo y tarjeta cuentan countedCash y countedCard.
+                  description: 1.2.292 · lo contado de cada forma de pago dada de alta ({method, name, counted}); se guarda
+                    en el cierre (cash_closing.method_detail, con lo que dice el sistema) y sale en el corte Z «Contado por
+                    forma de pago». Efectivo y tarjeta cuentan countedCash y countedCard.
                   items:
                     type: object
                     properties:
@@ -1686,7 +1701,11 @@ paths:
 
 
         facturacion.simplifiedLimit (0030, 04/11): importe máximo de una factura simplificada (IVA incl.); 0 = sin límite;
-        por defecto 3.000 € (hostelería).'
+        por defecto 3.000 € (hostelería).
+
+
+        21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece
+        por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.'
       operationId: store_GET_config_module
       security:
       - session: []
@@ -1811,9 +1830,9 @@ paths:
       - API de tienda v2 · Configuración y Ajustes
       summary: Crear en un módulo de Ajustes
       description: 'Crea el registro, sube la versión de configuración, lo apunta en el historial y en la cola hacia el Manager.
-        Un producto crea además una incidencia para Marketing. Usuarios: pin (4 números, no repetido) se guarda cifrado y
-        nunca se devuelve. Productos: plu opcional (siguiente libre), IVA por taxId o taxRate, canales por id o nombre. Preguntas:
-        answers por productId o plu.
+        Un producto crea además una incidencia para Marketing. Usuarios: pin (de 4 a 8 números, no repetido) se guarda cifrado
+        y nunca se devuelve. Productos: plu opcional (siguiente libre), IVA por taxId o taxRate, canales por id o nombre.
+        Preguntas: answers por productId o plu.
 
 
         Permiso: ajustes.{module}
@@ -1862,9 +1881,14 @@ paths:
 
 
         20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones
-        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes,
-        abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION).
-        Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.'
+        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos,
+        clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave
+        → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature),
+        ni con la clave de un encargado.
+
+
+        21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece
+        por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.'
       operationId: store_POST_config_module
       security:
       - session: []
@@ -2037,7 +2061,11 @@ paths:
         11/11 (API 1.2.269, migración 0033): formas-pago.code se pasa a minúsculas (como mucho 20 caracteres); las de tipo
         discount salen en Cobrar si showInTpv. descuentos.profiles = códigos de perfil que lo pueden aplicar ([] = todos;
         otro perfil, con la clave de quien pueda). categorias.qualifiers = PLU de sus calificativos ([] = todos). parametros.cardTerminals
-        = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.'
+        = datáfonos del local (1–9). ticketFormats.kitchen.local = línea con el local en la comanda.
+
+
+        21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece
+        por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.'
       operationId: store_GET_config_module_id
       security:
       - session: []
@@ -2197,9 +2225,19 @@ paths:
 
 
         20/11 (API 1.2.289, migración 0042): parametros.disabledFeatures = Ajustes › Funcionalidades, claves de las funciones
-        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos, clientes,
-        abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave → 422 VALIDATION).
-        Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature), ni con la clave de un encargado.'
+        desactivadas para todo el sistema (transferir, transferirProducto, pasarCuenta, separar, eliminaciones, descuentos,
+        clientes, abonar, abrirCajon, cajaChica, pedidos, editarPlano, ordenImpresion, miVenta; [] = todo activo; otra clave
+        → 422 VALIDATION). Lo desactivado no lo puede usar nadie: sus permisos responden 403 NOT_ALLOWED (details.feature),
+        ni con la clave de un encargado.
+
+
+        21/11 (API 1.2.293, migración 0044): productos › active desde el TPV (activar o desactivar en la tienda) marca product.local_off;
+        al abrir el periodo del día siguiente vuelve a estar disponible (igual que sold_out). Lo que desactiva el Manager
+        (sync de la carta) no se reactiva y limpia local_off.
+
+
+        21/11 (API 1.2.296): en todos los tickets, con «cadena» en false no sale la cadena aunque el nombre del local empiece
+        por ella («Cañas y Tapas · Sucursal» → «Sucursal»), igual que la vista previa del TPV.'
       operationId: store_PATCH_config_module_id
       security:
       - session: []
@@ -4030,7 +4068,11 @@ paths:
 
 
         Tablas: sales_period, orders, account, order_line, order_line_modifier, account_discount, payment, invoice, invoice_tax,
-        order_event'
+        order_event
+
+
+        21/11 (API 1.2.296): cada descuento lleva formData = lo que se pidió en su formulario (Ajustes › Descuentos › Formulario),
+        [{label, value}]; [] si el descuento no tiene formulario. Lo mismo llega al Manager (POST …/transactions).'
       operationId: store_GET_transactions_day
       security:
       - session: []
@@ -6294,13 +6336,13 @@ paths:
         como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
 
 
-        20/11/2026 (API 1.2.289): transferir 1 producto ya enviado a otra mesa. El TPV lo pasa a una cuenta temporal y
-        la transfiere con into = main e intoAccountId = la cuenta de la mesa de destino que eligió quien transfiere (si la
-        mesa tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422
-        VALIDATION field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId).
-        Sin intoAccountId, la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403
-        NOT_ALLOWED (details.feature = transferir), ni con la clave de un encargado. 1.2.291: el TPV manda item = true al pasar un
-        producto suelto; con «Transferir producto» apagado → 403 NOT_ALLOWED (details.feature = transferirProducto).'
+        20/11/2026 (API 1.2.289): transferir 1 producto ya enviado a otra mesa. El TPV lo pasa a una cuenta temporal y la
+        transfiere con into = main e intoAccountId = la cuenta de la mesa de destino que eligió quien transfiere (si la mesa
+        tiene varias, el TPV pregunta «¿A qué cuenta…?»). intoAccountId tiene que ser de la mesa de destino (si no, 422 VALIDATION
+        field intoAccountId) y estar abierta y sin cobros ni descuento (si no, 422 VALIDATION field intoAccountId). Sin intoAccountId,
+        la principal como siempre. Si «Transferir» está desactivado en Ajustes › Funcionalidades → 403 NOT_ALLOWED (details.feature
+        = transferir), ni con la clave de un encargado. 1.2.291: el TPV manda item = true al pasar un producto suelto; con
+        «Transferir producto» apagado → 403 NOT_ALLOWED (details.feature = transferirProducto).'
       operationId: store_POST_orders_orderId_accounts_accountId_transfer
       security:
       - session: []
@@ -7814,7 +7856,9 @@ paths:
                 authorization: {}
                 into:
                   type: string
-                  enum: [main, new]
+                  enum:
+                  - main
+                  - new
                 intoAccountId:
                   type:
                   - string
@@ -7822,7 +7866,8 @@ paths:
                   description: 1.2.289 · con into = main, la cuenta de la mesa de destino que recibe (si no, la principal)
                 item:
                   type: boolean
-                  description: 1.2.291 · es un producto suelto que el TPV pasó a una cuenta temporal; con «Transferir producto» apagado en Ajustes › Funcionalidades → 403 NOT_ALLOWED
+                  description: 1.2.291 · es un producto suelto que el TPV pasó a una cuenta temporal; con «Transferir producto»
+                    apagado en Ajustes › Funcionalidades → 403 NOT_ALLOWED
             example:
               version: 7
               toTableId: b1f0c2d4-0000-4000-8000-0000000000a8
@@ -13366,7 +13411,8 @@ paths:
                   type:
                   - number
                   - 'null'
-                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime)
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH
+                    (no se imprime)
               additionalProperties: false
       security:
       - session: []
@@ -14366,8 +14412,8 @@ paths:
                   - array
                   - 'null'
                   maxItems: 10
-                  description: 1.2.285 · lo rellenado en el «Formulario» del descuento (los campos obligatorios tienen que venir);
-                    queda en el historial de la cuenta (discountForm)
+                  description: 1.2.285 · lo rellenado en el «Formulario» del descuento (los campos obligatorios tienen que
+                    venir); queda en el historial de la cuenta (discountForm)
                   items:
                     type: object
                     properties:
@@ -15245,7 +15291,8 @@ paths:
                   type:
                   - number
                   - 'null'
-                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime ni se cobra)
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH
+                    (no se imprime ni se cobra)
                 id:
                   type:
                   - string
@@ -15926,7 +15973,8 @@ paths:
                         type: number
                       byPayment:
                         type: array
-                        description: '1.2.283 · cada forma de pago del periodo (código del cobro, tipo cash/card/other, importe, propinas y número de cobros)'
+                        description: 1.2.283 · cada forma de pago del periodo (código del cobro, tipo cash/card/other, importe,
+                          propinas y número de cobros)
                         items:
                           type: object
                           properties:
@@ -15978,7 +16026,11 @@ paths:
 
 
         16/11 (API 1.2.274, migración 0037): el retiro es siempre un traslado de efectivo a la caja fuerte (sin motivo: «Traslado
-        a caja fuerte»); sigue dentro de la venta y del arqueo. deposit = ingreso a caja.'
+        a caja fuerte»); sigue dentro de la venta y del arqueo. deposit = ingreso a caja.
+
+
+        21/11 (API 1.2.294): un retiro no puede ser mayor que el efectivo esperado en el cajón → 422 VALIDATION field amount
+        (details con lo esperado).'
       operationId: store_POST_cash_movements
       security:
       - session: []
@@ -16264,7 +16316,13 @@ paths:
         + propinas con tarjeta; si el efectivo o la tarjeta descuadran por encima del umbral sin note → 422 field note con
         lo esperado; el ticket corto (contado, cada datáfono, esperado, diferencia, retiros a caja fuerte y propinas confirmadas)
         sale solo; el detallado, con POST /cash/counts/{id}/print. Cada conteo guarda lo esperado, las propinas y la diferencia
-        (0037).'
+        (0037).
+
+
+        21/11 (API 1.2.296): el ticket corto del corte X contado (y del arqueo de auditoría) sigue Ajustes › Formatos › Corte
+        X (parametros.ticketFormats.cutx): cabecera (logo, cadena, local, razon, nif, direccion, telefono), formasPago = bloque
+        TARJETAS (DATÁFONOS), propinas = bloque PROPINAS y caja = detalle del efectivo (base, traslados a caja fuerte, ingresos).
+        Lo contado, lo esperado y la diferencia salen siempre. La apertura (base contada) no usa el formato.'
       operationId: store_POST_cash_counts
       security:
       - session: []
@@ -17718,7 +17776,10 @@ paths:
         cada transacción se guarda por su id.
 
 
-        Lo llama: Agente'
+        Lo llama: Agente
+
+
+        21/11 (API 1.2.296): discounts[].formData con los datos del formulario del descuento ([{label, value}]).'
       operationId: manager_POST_stores_storeId_transactions
       security:
       - storeKey: []
@@ -21700,6 +21761,8 @@ paths:
                   - 'null'
                 pin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
             example:
               deviceUuid: 2a6c930e-b2a3-4f71-9281-e06f4d425746
               pin: 0186
@@ -22099,7 +22162,11 @@ paths:
 
 
         04/11/2026 (API 1.2.268): también con cuentas con descuento o cobro parcial: pasan enteras, con sus cobros, y llegan
-        como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).'
+        como cuenta aparte (con into = main nunca se unen a la principal, y la principal nunca es una cuenta en cobro).
+
+
+        21/11 (API 1.2.294): la mesa de destino no puede ser la misma → 422 VALIDATION field toTableId «Es la misma mesa:
+        elige otra».'
       operationId: store_POST_orders_orderId_transfer
       security:
       - session: []
@@ -23939,7 +24006,8 @@ paths:
                   type:
                   - number
                   - 'null'
-                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH (no se imprime ni se cobra)
+                  description: 1.2.292 · total de la cuenta que ve el TPV; si el del servidor es otro → 409 TOTAL_MISMATCH
+                    (no se imprime ni se cobra)
                 payments:
                   type: array
                   items:
@@ -25486,7 +25554,11 @@ paths:
         Tablas: delivery_order, delivery_order_event
 
 
-        WebSocket: delivery.changed'
+        WebSocket: delivery.changed
+
+
+        21/11 (API 1.2.293): además deja en sync_outbox la entidad «delivery.cancelled» (id del pedido, plataforma, externalId
+        y motivo): el agente la sube al Manager, que avisa a la plataforma (Glovo, Uber Eats…).'
       operationId: store_POST_api_v2_delivery_orders_deliveryOrderId_cancel
       security:
       - session: []
@@ -33679,7 +33751,7 @@ paths:
                               type:
                               - string
                               - 'null'
-                              description: '1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones'
+                              description: 1.2.283 · el papel en texto (lo que se imprime), para verlo en Gestiones › Impresiones
               example:
                 title: Cola de impresión
                 type: success
@@ -33707,7 +33779,13 @@ paths:
                     createdAt: '2026-11-16T19:00:00.000Z'
                     printedAt: null
                     lines: 2
-                    text: "COMIDA · LINEA\nMesa 12\n2  Croquetas\n1  Bravas"
+                    text: 'COMIDA · LINEA
+
+                      Mesa 12
+
+                      2  Croquetas
+
+                      1  Bravas'
                 errors: []
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
                 author: Api Japp Grupo Cañas y Tapas
@@ -34249,7 +34327,7 @@ paths:
                 author: Api Japp Grupo Cañas y Tapas
                 mode: developer
         '422':
-          description: 'VALIDATION: La clave son 4 números'
+          description: 'VALIDATION: La clave es de 4 a 8 números'
           content:
             application/json:
               schema:
@@ -34261,7 +34339,7 @@ paths:
                 data: null
                 errors:
                 - code: VALIDATION
-                  message: La clave son 4 números
+                  message: La clave es de 4 a 8 números
                   field: pin
                   details: {}
                 traceId: 8f14e45f-ceea-467f-a0e6-1a2b3c4d5e6f
@@ -34287,6 +34365,8 @@ paths:
                   - mobile
                 pin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
                 stationId:
                   type:
                   - string
@@ -34295,7 +34375,7 @@ paths:
     put:
       tags: *id016
       summary: Cambiar mi clave
-      description: '16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, 4 cifras),
+      description: '16/11 (API 1.2.272): la persona de la sesión cambia su propia clave (la actual y la nueva, de 4 a 8 cifras),
         sin permiso de Ajustes. Antes «Cambiar mi clave» del TPV solo la guardaba en ese equipo y en los demás y en la API
         seguía la vieja. La actual cuenta para el bloqueo por intentos (401 BAD_PIN, 423 PIN_LOCKED). La nueva igual que la
         actual → 422; la de otra persona (también desactivada) → 409 DUPLICATE. Queda en el historial de Ajustes sin la clave.
@@ -34427,8 +34507,12 @@ paths:
               properties:
                 currentPin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
                 newPin:
                   type: string
+                  pattern: ^\d{4,8}$
+                  description: Clave de 4 a 8 cifras (1.2.296)
   /api/v2/cash/petty:
     get:
       tags: *id001
@@ -34624,8 +34708,8 @@ paths:
       - API de tienda v2 · Facturas, caja e informes
       summary: Eliminar un apunte de caja chica
       description: '17/11 (API 1.2.282, migración 0040): anula un ingreso o gasto de caja chica escrito por error. No se borra:
-        queda con voided_at y voided_by_name, deja de contar en el saldo y de salir en GET /cash/petty y en los tickets de corte
-        X y Z. Si el saldo quedara en negativo (un ingreso que ya se gastó), 422 VALIDATION con details.balance. Permiso:
+        queda con voided_at y voided_by_name, deja de contar en el saldo y de salir en GET /cash/petty y en los tickets de
+        corte X y Z. Si el saldo quedara en negativo (un ingreso que ya se gastó), 422 VALIDATION con details.balance. Permiso:
         funciones.cajaChica. Apunte que no existe o ya eliminado → 404. Los cortes X y arqueos no se eliminan.'
       operationId: voidPettyCash
       security:

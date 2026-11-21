@@ -2,7 +2,7 @@
 //   1) si está vacía, aplica la línea base (01_esquema) y, con SEED=1, los datos de arranque de la Sucursal Pruebas (02);
 //   2) aplica las migraciones pendientes.
 //   3) solo si la base se acaba de crear con SEED=1: los datos de la tienda nueva (sql/04_datos_tienda_inicial.sql), después de las migraciones.
-// STORE_CODE=CT05 (opcional, al crear con SEED=1): la tienda se crea con ese código en vez del de 04 (JC01).
+// STORE_CODE=CT05 (opcional, al crear con SEED=1): la tienda se crea con ese código en vez del de 04 (LG01).
 // Es lo que ejecuta el contenedor de la API al arrancar. Seguro de repetir.
 import pg from "pg";
 import { loadEnv } from "./env.mjs";
