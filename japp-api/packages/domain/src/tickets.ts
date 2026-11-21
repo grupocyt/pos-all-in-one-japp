@@ -536,8 +536,14 @@ export function kitchenTicket(
   const out: TicketLine[] = [
     T(`${ctx.guests} ${ctx.guests === 1 ? "Comensal" : "Comensales"}`, { align: "center" }),
     T(`${ctx.channel.toUpperCase()}/ ${ctx.waiter}`, { align: "center" }),
-    T(madridParts(ctx.at).hms, { align: "center", size: "h" }),
-    T(`Mesa ${ctx.table.name} ${ctx.table.area}`, { align: "center", size: "wh" }),
+    T(madridParts(ctx.at).hms, { align: "center", size: "wh" }), // 1.2.296 · la hora, grande
+    // 1.2.296 · en fast food no hay mesa: «Fast food · CAJA1» en letra normal; lo grande es el nombre del cliente
+    /^ff-/i.test(ctx.table.name) || /^fast ?food$/i.test(ctx.table.area)
+      ? T(
+          /^fast ?food$/i.test(ctx.table.name.replace(/^ff-/i, "")) ? "Fast food" : `Fast food · ${ctx.table.name.replace(/^ff-/i, "")}`,
+          { align: "center" },
+        )
+      : T(`Mesa ${ctx.table.name} ${ctx.table.area}`, { align: "center", size: "wh" }),
   ];
   if (ctx.customer?.trim()) {
     out.push(T(ctx.customer.trim().toUpperCase(), { align: "center", size: "wh", bold: true }));

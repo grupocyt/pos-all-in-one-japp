@@ -117,6 +117,15 @@ describe("11/11 · comanda con el local (A8) y nombre del cliente en fast food (
     expect(renderText(kitchenTicket(lines, { ...kctx, store: "JC01 · Cañas", format: { local: false } }))).not.toContain("JC01");
     expect(renderText(kitchenTicket(lines, kctx))).not.toContain("JC01");
   });
+  it("1.2.296 · en fast food no sale «Mesa FF-CAJA1 FASTFOOD» en grande: «Fast food · CAJA1» en letra normal", () => {
+    const L = kitchenTicket(lines, { ...kctx, table: { name: "FF-CAJA1", area: "FASTFOOD" }, customer: "Jei" });
+    const x = renderText(L);
+    expect(x).not.toContain("Mesa");
+    expect(L.find((l: any) => l.k === "text" && l.text === "Fast food · CAJA1")).not.toHaveProperty("size");
+    expect(L.find((l: any) => l.k === "text" && /^\d\d:\d\d:\d\d$/.test(l.text))).toMatchObject({ size: "wh" }); // la hora, grande
+    expect(L.find((l: any) => l.k === "text" && l.text === "JEI")).toMatchObject({ size: "wh" });
+    expect(renderText(kitchenTicket(lines, { ...kctx, table: { name: "12", area: "TERRAZA" } }))).toContain("Mesa 12 TERRAZA");
+  });
   it("con nombre del cliente, sale grande debajo de la mesa y en la precuenta", () => {
     const x = renderText(kitchenTicket(lines, { ...kctx, customer: "Lucía" }));
     expect(x).toContain("LUCÍA");

@@ -186,7 +186,7 @@ describe("comanda", () => {
     expect(renderText(k).split("\n").slice(0, 5)).toEqual([
       "                  2 Comensales",
       "               BEBIDA/ miclandeta",
-      "                    15:05:04",
+      "        15:05:04",
       "     Mesa 19 Barra",
       "------------------------------------------------",
     ]);

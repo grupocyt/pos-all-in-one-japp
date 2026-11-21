@@ -94,7 +94,7 @@ paths:
 
 
         21/11 (API 1.2.296): la clave es de 4 a 8 cifras (cada persona la suya); antes, siempre 4. En el TPV se entra con
-        «✓ Entrar» o sola al llegar a 8.'
+        «Entrar» o sola al llegar a 8.'
       operationId: store_POST_sessions
       security: []
       responses:

@@ -73,7 +73,7 @@ series T-LG01 / F-LG01 / R-LG01, simplificada hasta 1.000 €, fondo 200 €, ca
 Administrador Sistemas, Manager, Jefe de Rango, Cajero y Mesero, usuarios Sistemas, Barra, Mesero y J, 3 descuentos e impresora única BARRA (10.221.9.33).
 **Cambia todos los PIN antes de producción.**
 
-- **Claves de 4 a 8 cifras** (cada persona la suya): los teclados de clave llevan «✓ Entrar» (con 8 cifras entra solo; Intro también vale). La API acepta de 4 a 8.
+- **Claves de 4 a 8 cifras** (cada persona la suya): los teclados de clave llevan «Entrar» (con 8 cifras entra solo; Intro también vale). La API acepta de 4 a 8.
 - **Impresión: solo lo activo.** El corte X contado sigue Ajustes › Formatos › Corte X (cabecera, tarjetas, propinas, detalle de caja); «Cadena» apagada ya no sale aunque el nombre del local empiece por ella.
 - **Caja › Contar la base:** teclado fijo a la izquierda, más sitio para los importes y el teclado de letras encima de los billetes para el motivo.
 - **Descuentos:** se guardan (los perfiles salen marcados), los avisos de la ventana se ven, la ventana de cobro a la mitad y el formulario con ejemplos («Alison»).

@@ -42,12 +42,20 @@ export function kitchenVoidTicket(
     out.push(T(`${ctx.channel.toUpperCase()}/ ${ctx.waiter}`, { align: "center" }));
   }
   if (on("hora")) {
-    out.push(T(madridParts(ctx.at).hms, { align: "center", size: "h" }));
+    out.push(T(madridParts(ctx.at).hms, { align: "center", size: "wh" }));
   }
   if (ctx.store?.trim() && on("local")) {
     out.push(T(ctx.store.trim(), { align: "center" }));
   }
-  out.push(T(`Mesa ${area}${ctx.table.name}`, { align: "center", size: "w" }), R("="));
+  // 1.2.296 · en fast food no hay mesa: «Fast food · CAJA1» en letra normal
+  const ffName = ctx.table.name.replace(/^ff-/i, "");
+  const ff = /^ff-/i.test(ctx.table.name) || /^fast ?food$/i.test(ffName);
+  out.push(
+    ff
+      ? T(/^fast ?food$/i.test(ffName) ? "Fast food" : `Fast food · ${ffName}`, { align: "center" })
+      : T(`Mesa ${area}${ctx.table.name}`, { align: "center", size: "w" }),
+    R("="),
+  );
   if (on("momento")) {
     out.push(
       T(ctx.stage === "preBill" ? "ELIMINADO TRAS LA PRECUENTA" : "ELIMINADO TRAS ENVIAR A COCINA", {
@@ -111,7 +119,7 @@ export function tableChangeTicket(ctx: TableChangeContext): TicketLine[] {
     { k: "feed" },
     T("CAMBIO DE MESA", { align: "center", size: "wh", bold: true }),
     T(`${ctx.channel.toUpperCase()}/ ${ctx.waiter}`, { align: "center" }),
-    T(madridParts(ctx.at).hms, { align: "center", size: "h" }),
+    T(madridParts(ctx.at).hms, { align: "center", size: "wh" }),
     R("="),
     T(`DE: ${m(ctx.from)}`, { align: "center", size: "w" }),
     T(`A: ${m(ctx.to)}`, { align: "center", size: "wh", bold: true }),

@@ -23,7 +23,7 @@ export interface paths {
          *
          *     16/11 (API 1.2.272): el TPV ya no comprueba la clave en el equipo cuando tiene servidor: la manda siempre aquí y la decide la API.
          *
-         *     21/11 (API 1.2.296): la clave es de 4 a 8 cifras (cada persona la suya); antes, siempre 4. En el TPV se entra con «✓ Entrar» o sola al llegar a 8.
+         *     21/11 (API 1.2.296): la clave es de 4 a 8 cifras (cada persona la suya); antes, siempre 4. En el TPV se entra con «Entrar» o sola al llegar a 8.
          */
         post: operations["store_POST_sessions"];
         delete?: never;
