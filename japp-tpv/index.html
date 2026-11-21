@@ -4657,17 +4657,17 @@ function cajaView(tab){
   // cierre
   $("#cjfxretry")?.addEventListener("click",()=>{ const b=$("#cjfxretry"); b.disabled=true; b.textContent=t("fxSending");
     setTimeout(()=>{ const r=fxPump(true); toast(r.failed?t("cjFxStill",{n:r.failed}):t("cjFxAllSent",{n:r.sent})); cajaView("close"); },900); });
-  $("#cjclose")?.addEventListener("click",()=>{ const fondoSig=Math.max(0,cajaFondo??0), deposit=r2(counted-fondoSig); if(fxUnsent().length){ toast(t("cjFxUnsent",{n:fxUnsent().length})); return; } if(needNote()){ $("#cjnote").focus(); toast(t("cjNeedNote")); return; }
+  $("#cjclose")?.addEventListener("click",()=>{ const fondoSig=Math.max(0,cajaFondo??0), cntB=r2(DENOMS.reduce((a,d)=>a+d*(+cajaCnt[d]||0),0)), countedAll=r2(cntB+fondoSig), deposit=cntB, dTot=r2(countedAll+cardC-(T.cashExp+T.card)); if(fxUnsent().length){ toast(t("cjFxUnsent",{n:fxUnsent().length})); return; } if((Math.abs(dTot)>=PARAM.umbral||!!cajaApi)&&!cajaNote.trim()){ $("#cjnote").focus(); toast(t("cjNeedNote")); return; }
     closeModal(); needManager(async auth=>{
       let apiZ=null, apiReq=null;
-      if(JAPI.apiFirst()){ const r=await JAPI.closePeriod({countedCash:counted,countedCard:cardC,cards:dtfList(),nextFloat:fondoSig,deposit:Math.max(0,deposit),note:cajaNote.trim()||null}); if(r.ok===false){
+      if(JAPI.apiFirst()){ const r=await JAPI.closePeriod({countedCash:countedAll,countedCard:cardC,cards:dtfList(),nextFloat:fondoSig,deposit:Math.max(0,deposit),note:cajaNote.trim()||null}); if(r.ok===false){
           // la API pide el motivo (descuadre por encima del umbral): se vuelve al cierre con el campo Motivo obligatorio y sus datos
           const er=r.err||{}; if(er.code==="VALIDATION"&&(er.field==="note"||(r.errors||[]).some(x=>x.field==="note"))){ cajaApi={msg:er.message,d:er.details||{}}; cajaShow=true; cajaView("close"); setTimeout(()=>{ $("#cjnote")?.focus(); },30); return; }
           JAPI.errModal(r.msg,()=>cajaView("close")); return; } apiZ=r.data?.zReport||null; apiReq=r.data?.incidentRequest||null; incSrv=null; }
       cajaApi=null; dropEmptyFF(); // el pedido fast food vacío se cierra «sin venta»
-      const zLines=apiZ?.ticket?.length?apiZ.ticket:cutZCounted(cutXTicket(true),{contado:counted,tarjeta:cardC,esperado:T.cashExp,dif:dTot,nota:cajaNote}); if(apiZ) setTimeout(()=>toast(apiZ.printed?t("cutPrinted",{k:"Z",p:apiZ.printer||""}):t("cutNotPrinted",{k:"Z",e:apiZ.error||""})),2600); // corte Z (v182: el del servidor, ya impreso): el mismo resumen, montado antes de cerrar el periodo
-      pushMov({tipo:"arqueo", cierre:true, contado:counted, tarjeta:cardC, esperado:T.cashExp, dif:dTot, nota:cajaNote, autoriza:auth?auth.user:null});
-      st.cierres=st.cierres||[]; st.cierres.unshift({fecha:new Date().toISOString(), periodo:st.periodo, contado:counted, tarjeta:cardC, esperado:T.cashExp, dif:dTot, fondoSig, deposito:deposit, ventas:T.bruto, pax:T.pax, por:user().nombre, autoriza:auth?auth.user:null, movs:c.movs});
+      const zLines=apiZ?.ticket?.length?apiZ.ticket:cutZCounted(cutXTicket(true),{contado:countedAll,tarjeta:cardC,esperado:T.cashExp,dif:dTot,nota:cajaNote}); if(apiZ) setTimeout(()=>toast(apiZ.printed?t("cutPrinted",{k:"Z",p:apiZ.printer||""}):t("cutNotPrinted",{k:"Z",e:apiZ.error||""})),2600); // corte Z (v182: el del servidor, ya impreso): el mismo resumen, montado antes de cerrar el periodo
+      pushMov({tipo:"arqueo", cierre:true, contado:countedAll, tarjeta:cardC, esperado:T.cashExp, dif:dTot, nota:cajaNote, autoriza:auth?auth.user:null});
+      st.cierres=st.cierres||[]; st.cierres.unshift({fecha:new Date().toISOString(), periodo:st.periodo, contado:countedAll, tarjeta:cardC, esperado:T.cashExp, dif:dTot, fondoSig, deposito:deposit, ventas:T.bruto, pax:T.pax, por:user().nombre, autoriza:auth?auth.user:null, movs:c.movs});
       const finishClose=()=>{ const rq=JAPI.apiFirst()?apiReq:sendIncid("cierre"); if(rq) toastLater=t("reqSentToast",{id:rq}); st.fondoSig=fondoSig; st.periodo=null; st.sesion=null; st.caja=null; cajaCnt={}; cajaCard=""; cajaCards=[]; cajaShow=false; cajaNote=""; cajaFondo=null; save(); closeModal(); toast(t("cjClosedToast",{f:eur(fondoSig),d:eur(deposit)})+(toastLater?" · "+toastLater:"")); toastLater=null; render(); showTickets([{title:t("czTitle"), lines:zLines}]); };
       // v189 · con servidor, antes de salir del cierre: paso «Enviar ventas al SIR» (Developer), aún con la sesión abierta; «Terminar el cierre» sigue como siempre
       if(JAPI.apiFirst()){ save(); sirStep({periodId:null, token:null, onDone:finishClose, auto:true}); } else finishClose();
@@ -17063,6 +17063,24 @@ clRefresh = function(){
     if(k === "card"){ const i = r.querySelector("#cjcard"); if(i) i.value = v ? v.toFixed(2).replace(".", ",") : ""; }
     const d = r.querySelector(".cl-dif"); if(s == null){ d.textContent = "—"; d.className = "cl-dif"; } else dif(d, r2(v - s)); });
   sS = r2(sS); sC = r2(sC); box.querySelector("#cltS").textContent = eur(sS); box.querySelector("#cltC").textContent = eur(sC); dif(box.querySelector("#cltD"), r2(sC - sS)); };
+/* 21/11 · Cierre (2): los billetes y monedas que se cuentan son solo los de las ventas (el fondo se aparta y se cuenta en «Fondo de caja").
+   Efectivo: Sistema = esperado − fondo inicial; Contado = billetes y monedas, tal cual.
+   Fondo de caja: Sistema = fondo inicial; Contado = lo escrito; con su diferencia. El Total suma las dos filas (cuadra todo el cajón). */
+clRefresh = function(){
+  const box = document.querySelector(".cjsheet .cl-tab"); if(!box) return; let E = {}; try{ E = cxExpected(); }catch(e){}
+  let f0 = 0; try{ f0 = r2(+cajaTeorico().fondo || 0); }catch(e){}
+  const cash = r2(DENOMS.reduce((a, d) => a + d * (+cajaCnt[d] || 0), 0)), card = typeof dtfSum === "function" ? dtfSum() : 0;
+  const val = k => k === "cash" ? cash : k === "card" ? card : r2(parseFloat(String(clVals[k] ?? "").replace(",", ".")) || 0);
+  const sys = k => k === "cash" ? (E.cash == null ? null : r2(E.cash - f0)) : E[k];
+  const dif = (el, d) => { el.className = "cl-dif " + (Math.abs(d) < 0.005 ? "ok" : d > 0 ? "over" : "short"); el.textContent = Math.abs(d) < 0.005 ? t("cjOk") : d > 0 ? `+${eur(d)} ${t("cjOver")}` : `−${eur(-d)} ${t("cjShort")}`; };
+  let sS = 0, sC = 0;
+  box.querySelectorAll(".cl-scroll .cl-row").forEach(r => { const k = r.dataset.k, v = val(k), s = sys(k); sC += v; if(s != null) sS += s;
+    if(k === "cash"){ r.querySelector(".cl-cnt").textContent = eur(v); const ref = r.querySelector(".cx-ref"); if(ref) ref.textContent = s == null ? "—" : eur(s); }
+    if(k === "card"){ const i = r.querySelector("#cjcard"); if(i) i.value = v ? v.toFixed(2).replace(".", ",") : ""; }
+    const d = r.querySelector(".cl-dif"); if(s == null){ d.textContent = "—"; d.className = "cl-dif"; } else dif(d, r2(v - s)); });
+  const fr = box.querySelector(".cl-row.cl-fondo"); if(fr){ const fv = r2(Math.max(0, cajaFondo ?? 0)); sC += fv; sS += f0; const d = fr.querySelector(".cl-dif"); if(d) dif(d, r2(fv - f0)); }
+  sS = r2(sS); sC = r2(sC); box.querySelector("#cltS").textContent = eur(sS); box.querySelector("#cltC").textContent = eur(sC); dif(box.querySelector("#cltD"), r2(sC - sS)); };
+document.addEventListener("input", e => { if(e.target?.id === "clfondo") setTimeout(clRefresh, 0); }, true);
 
 /* v261 · Editar sala: una mesa no puede quedar encima de otra (decisión del 28/10). Rectángulos en % del plano. */
 function mesaRects(plan, except){ const r=plan.getBoundingClientRect();

@@ -257,6 +257,8 @@ async addLine(session, orderId, b) {
 
 ## Reglas no negociables
 
+- **Tablas del Manager (SQL Server)**: `japp-db/manager/manager-tpv-sqlserver-v1.sql` está CERRADA (21/11/2026). **No se edita, renombra, mueve ni borra ningún script del Manager sin autorización previa y explícita del dueño en el chat.** Los cambios van en una versión nueva (v2, v3…). Toda tabla que se envíe al Manager lleva `cod_restaurante_integracion` y `cod_tienda`. Ver `japp-db/CLAUDE.md`.
+
 1. **Totales siempre en el servidor** con `accountTotals()`. Lo que mande el equipo es una pista, nunca la verdad. (El JSON de ejemplo trae `totals: {}`.)
 2. **Dinero en `decimal.js`**, redondeo a céntimos mitad hacia arriba (`r2`). Nada de sumar `number` a pelo.
 3. **Precio según la zona**: `priceFor()`. El área con `price_list = 'terrace'` usa `price_terrace` si es > 0.

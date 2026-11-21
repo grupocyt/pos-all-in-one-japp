@@ -1,7 +1,8 @@
 # Japp · base de datos + API de tienda + TPV
 
 ```
-japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0044, consultas de control · 94 pruebas
+japp-db/          PostgreSQL 16: esquema, datos de arranque, migraciones 0001–0044, consultas de control · 96 pruebas
+                  + manager/: tablas del Manager en SQL Server (v1 CERRADA, 75 tablas; no se edita sin autorización previa)
 japp-api/         API de tienda /api/v2 (NestJS + Fastify + Drizzle) · 150 rutas (165 operaciones), todas programadas · 349 pruebas de dominio + 427 de integración
                   + agente de sincronización con Japp Manager (14 pruebas) y un Manager de pruebas (6)
 japp-tpv/         el TPV (PWA) 1.2.296 (con modo ?mock). La API lo sirve en http://localhost:8080/
@@ -11,6 +12,11 @@ japp-print-test/  la prueba de impresoras antigua (ahora está dentro de la API:
 Las tres carpetas van juntas, una al lado de la otra: la API usa `../japp-db` para crear y migrar la base y `../japp-tpv` para servir el TPV.
 
 **Pendiente de decidir:** ver `PENDIENTE-DE-DECIDIR.md`. **Informes en PDF:** todos en la carpeta `Public/`. **Inventario del sistema:** `Japp-TPV-inventario-360.pdf` (versión 1.2.274). **Reglas de cobro nuevas:** `Japp-reglas-de-cobro-1.2.268.pdf` (checklist). **Lo que falta:** `Japp-flujos-pendientes.pdf` (solo facturación: `Japp-pendientes-facturacion.pdf`). **Lo que hay que probar en JC01:** `Japp-plan-de-pruebas.pdf`.
+
+
+> **Script del Manager (SQL Server) · `japp-db/manager/manager-tpv-sqlserver-v1.sql`** — versión 1 cerrada el 21/11/2026.
+> Crea una tabla `tpv_<tabla>` por cada una de las 75 tablas de la tienda, todas con `cod_restaurante_integracion` y `cod_tienda`.
+> **No se edita, renombra, mueve ni borra sin autorización previa y explícita del dueño.** Los cambios van en una versión nueva (v2, v3…).
 
 ## Facturación: lo que queda a futuro y cómo funciona hoy (decidido el 04/11/2026)
 
