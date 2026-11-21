@@ -4591,7 +4591,7 @@ function cajaView(tab){
       ${cajaApi?(()=>{ const d=cajaApi.d||{}, f=v=>typeof v==="number"?eur(v):null; return `<div class="cj-block cj-apinote" role="alert"><b>${esc(cajaApi.msg||t("cjApiNote"))}</b><span>${[[t("cjExpected"),f(d.expectedCash)],[t("cjCountedS"),f(d.countedCash)],[t("cjDiff"),f(d.difference??dTot)],[t("cjThr"),f(d.threshold)]].filter(x=>x[1]).map(x=>`${x[0]}: <b>${x[1]}</b>`).join(" · ")}</span></div>`; })():""}
       ${true?`${cajaApi?`<label class="ttl" for="cjnote">${t("cjReasonReq")}</label>`:""}<textarea class="search cx-note" id="cjnote" maxlength="80" rows="3" placeholder="${t("cjNotePh")}"${cajaApi&&!cajaNote.trim()?` aria-invalid="true"`:""}>${esc(cajaNote)}</textarea>`:""}</div>`
     :`<button type="button" class="secondary" id="cjshow">${t("cjCompare")}</button><p class="note">${t("cjBlind")}</p>`;
-  const fondoSig=cajaFondo??fondoProp(T), deposit=r2(counted-fondoSig);
+  const fondoSig=Math.max(0,cajaFondo??0), deposit=r2(counted-fondoSig);
   const body={
     sum:`<div class="cj-hero"><div class="main"><small>${t("cjGross")}</small><b>${eur(T.bruto)}</b></div><div><small>${t("cjTx")}</small><b>${T.tickets}</b></div><div><small>${t("cjAvgTk")}</small><b>${T.tickets?eur(r2(T.bruto/T.tickets)):"—"}</b></div></div>
       <div class="cj-sub"><span>${t("mCash")} <b>${eur(T.cashSales)}</b></span><span>${t("mCard")} <b>${eur(T.card)}</b></span><span title="${esc(t("cjExpHow",{f:eur(T.fondo),v:eur(T.cashSales),r:eur(T.ret)}))}">${t("cjInDrawer")} <b>${eur(T.cashExp)}</b></span>${tabs.some(([k])=>k==="count")?`<button type="button" class="secondary" id="cjcutx">${fgIcon("receipt")} ${t("cxDoCut")}</button>`:""}</div>
@@ -4607,7 +4607,7 @@ function cajaView(tab){
         <table class="aj-t aj-mini"><tbody>${fxU.map(f=>`<tr class="nohover"><td class="first"><span class="ftype${isAbono(f)?" ab":""}">${f.type||"F2"}</span> ${esc(f.num)}<small class="aj-dim"> · ${hora(f.fecha)} · ${t("table",{n:esc(f.mesa??"")})}</small></td><td>${eur(f.total)}</td><td>${fxChip(f.fx)}${f.fxErr?`<small class="aj-dim"> ${esc(f.fxErr)}${f.fxTries?` · ${t("fxTries",{n:f.fxTries})}`:""}</small>`:""}</td></tr>`).join("")}</tbody></table>
         <button type="button" class="primary" id="cjfxretry">${aji("cloud-upload")}${t("cjFxRetry",{n:fxU.length})}</button></div>`:""}
       <div class="cj-2">${countForm}<div>${compare}
-      ${cajaShow?`<div class="cj-fondo"><label>${t("cjFondoSig")}<input class="search big" id="cjfs" inputmode="decimal" value="${String(fondoSig).replace(".",",")}"></label>
+      ${cajaShow?`<div class="cj-fondo"><label>${t("cjFondoSig")}<input class="search big" id="cjfs" inputmode="decimal" placeholder="0,00" value="${cajaFondo==null?"":String(fondoSig).replace(".",",")}"></label>
         <div class="cj-dep"><span>${t("cjDeposit")}</span><b>${eur(Math.max(0,deposit))}</b></div><p class="note cj-dephow">${t("cjDepHow",{c:eur(counted),f:eur(fondoSig),d:eur(Math.max(0,deposit)),h:eur(T.fondo),r:eur(T.ret||0),i:eur(T.ing||0),p:eur(fondoProp(T))})}</p>${deposit<0?`<p class="msg err">${t("cjFondoHigh")}</p>`:""}</div>
         <button type="button" class="primary danger2" id="cjclose" ${openN||deposit<0||fxU.length?"disabled":""}>${t("cjCloseGo")}</button>`:""}</div></div>`
   }[tabs.length?tab:"none"]||"";
@@ -4657,7 +4657,7 @@ function cajaView(tab){
   // cierre
   $("#cjfxretry")?.addEventListener("click",()=>{ const b=$("#cjfxretry"); b.disabled=true; b.textContent=t("fxSending");
     setTimeout(()=>{ const r=fxPump(true); toast(r.failed?t("cjFxStill",{n:r.failed}):t("cjFxAllSent",{n:r.sent})); cajaView("close"); },900); });
-  $("#cjclose")?.addEventListener("click",()=>{ if(fxUnsent().length){ toast(t("cjFxUnsent",{n:fxUnsent().length})); return; } if(needNote()){ $("#cjnote").focus(); toast(t("cjNeedNote")); return; }
+  $("#cjclose")?.addEventListener("click",()=>{ const fondoSig=Math.max(0,cajaFondo??0), deposit=r2(counted-fondoSig); if(fxUnsent().length){ toast(t("cjFxUnsent",{n:fxUnsent().length})); return; } if(needNote()){ $("#cjnote").focus(); toast(t("cjNeedNote")); return; }
     closeModal(); needManager(async auth=>{
       let apiZ=null, apiReq=null;
       if(JAPI.apiFirst()){ const r=await JAPI.closePeriod({countedCash:counted,countedCard:cardC,cards:dtfList(),nextFloat:fondoSig,deposit:Math.max(0,deposit),note:cajaNote.trim()||null}); if(r.ok===false){
@@ -14778,7 +14778,7 @@ function closeImgs(){ const F = st.cfg.formasPago || [], img = k => F.find(x => 
 { const cxRows0 = cxRows; let busy = false;
   cxRows = function(){ const R = cxRows0.apply(this, arguments); if(busy) return R; busy = true; let E = {}, P = {};
     try{ E = cxExpected(); P = cxTipsBy(); }catch(e){} finally{ busy = false; }
-    return R.filter(r => r.k === "cash" || E[r.k] == null || +E[r.k] || +P[r.k] || cxNum(r.k)); }; }
+    return R.filter(r => r.k === "cash" || +E[r.k] || +P[r.k] || cxNum(r.k)); }; }
 
 /* ===== 19/11 · Imágenes de forma de pago: siempre 220 × 56 y con su propio marco.
    Los botones y casillas que las llevan ya no ponen borde ni relleno: la imagen ocupa todo el botón (proporción 220:56).
@@ -17005,6 +17005,47 @@ new MutationObserver(() => { ajUserPh(); ajUcolOwn(); }).observe(document.body, 
 .cjsheet .cx-gate{display:none!important}
 /* 21/11 · Datáfonos: «Sistema» y «Propinas» uno al lado del otro */
 .dtf-card .dtf-ref{gap:8px!important}`; document.head.appendChild(css); }
+/* 21/11 · Cierre de periodo (arqueo): tampoco salen las formas de pago sin venta. Efectivo, siempre;
+   las demás solo si el sistema tiene venta o propinas con ella, o si ya se ha contado algo. */
+{ const clAll = clRows; let busy = false;
+  clRows = function(){ const R = clAll.apply(this, arguments); if(busy) return R; busy = true; let E = {}, P = {};
+    try{ E = cxExpected(); P = cxTipsBy(); }catch(e){} finally{ busy = false; }
+    const got = k => k === "card" ? (typeof dtfSum === "function" ? +dtfSum() : 0) : parseFloat(String(clVals[k] ?? "").replace(",", ".")) || 0;
+    return R.filter(r => r.k === "cash" || +E[r.k] || +P[r.k] || got(r.k)); }; }
+/* 21/11 · Cierre de periodo: no se puede cerrar sin un fondo para el siguiente día mayor que 0 */
+const clFondoOk = () => { const fs = document.getElementById("cjfs"); if(!fs) return true; return (parseFloat(String(fs.value || "").replace(/\./g, "").replace(",", ".")) || 0) > 0; };
+setInterval(() => { const go = document.getElementById("cjclose"); if(!go) return; const bad = !clFondoOk(); go.classList.toggle("fd-lock", bad); go.title = bad ? t("clNeedFondo") : ""; }, 300);
+document.addEventListener("click", e => { if(e.target.closest?.("#cjclose") && !clFondoOk()){ e.preventDefault(); e.stopImmediatePropagation(); try{ toast(t("clNeedFondo")); }catch(x){} document.getElementById("cjfs")?.focus(); } }, true);
+Object.assign(I18N.es, { clNeedFondo: "Escribe el fondo que se queda para el siguiente día (mayor que 0) para cerrar el periodo." });
+Object.assign(I18N.ca, { clNeedFondo: "Escriu el fons que es queda per al dia següent (més gran que 0) per tancar el període." });
+Object.assign(I18N.en, { clNeedFondo: "Enter the float left for the next day (more than 0) to close the period." });
+{ const css = document.createElement("style"); css.textContent = `.cjsheet #cjclose.fd-lock{opacity:.45;cursor:not-allowed;filter:grayscale(.3)}`; document.head.appendChild(css); }
+/* 21/11 · Cierre de periodo: una fila más, como una forma de pago, «Fondo de caja»: el efectivo que se queda en el cajón
+   (se cuenta, pero no es venta). Lo que se escribe ahí pasa solo a «Fondo que se queda para el siguiente día».
+   En «Sistema», el fondo con el que empezó el periodo (de referencia); no suma en el total ni tiene diferencia.
+   Fuera la línea «A retirar / depositar». */
+function clFondoRow(){
+  const box = document.querySelector(".cjsheet .cl-tab"); if(!box || box.querySelector("#clfondo")) return;
+  const tot = box.querySelector(".cl-row.cl-tot"); if(!tot) return;
+  let f0 = null; try{ f0 = cajaTeorico().fondo; }catch(e){}
+  const r = document.createElement("div"); r.className = "cl-row cl-fondo";
+  r.innerHTML = `<span>${esc(t("clFondoRow"))}</span><small class="cx-ref" title="${esc(t("clFondoRef"))}">${f0 == null ? "—" : eur(f0)}</small><input class="search" id="clfondo" inputmode="decimal" placeholder="0,00" value="${cajaFondo == null ? "" : String(cajaFondo).replace(".", ",")}"><b class="cl-dif"></b>`;
+  tot.before(r);
+  const i = r.querySelector("#clfondo"), fs = document.getElementById("cjfs");
+  if(fs){ fs.readOnly = true; fs.tabIndex = -1; fs.value = i.value; }
+  i.addEventListener("input", () => { const v = parseFloat(String(i.value).replace(/\./g, "").replace(",", ".")); cajaFondo = isFinite(v) && v > 0 ? r2(v) : null;
+    const f = document.getElementById("cjfs"); if(f) f.value = cajaFondo == null ? "" : String(cajaFondo).replace(".", ","); });
+  try{ cjVk(); }catch(e){} }
+{ const b0 = clBuild; clBuild = function(){ const out = b0.apply(this, arguments); clFondoRow(); return out; }; }
+setInterval(() => { if(document.querySelector(".cjsheet .cl-tab")) clFondoRow(); }, 400);
+Object.assign(I18N.es, { clFondoRow: "Fondo de caja", clFondoRef: "Fondo con el que empezó el periodo" });
+Object.assign(I18N.ca, { clFondoRow: "Fons de caixa", clFondoRef: "Fons amb què va començar el període" });
+Object.assign(I18N.en, { clFondoRow: "Cash float", clFondoRef: "Float the period started with" });
+{ const css = document.createElement("style"); css.textContent = `.cjsheet .cj-dep{display:none!important}
+.cjsheet .cl-row.cl-fondo>span{font-size:16px;font-weight:800}
+.cjsheet #cjfs[readonly]{background:var(--key-soft);pointer-events:none}`; document.head.appendChild(css); }
+/* 21/11 · Cierre: fuera el recuadro «Fondo que se queda para el siguiente día» (el fondo se escribe en la fila «Fondo de caja»; el campo sigue oculto para guardarlo) */
+{ const css = document.createElement("style"); css.textContent = `.cjsheet .cj-fondo{display:none!important}`; document.head.appendChild(css); }
 
 /* v261 · Editar sala: una mesa no puede quedar encima de otra (decisión del 28/10). Rectángulos en % del plano. */
 function mesaRects(plan, except){ const r=plan.getBoundingClientRect();
